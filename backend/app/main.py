@@ -8,12 +8,23 @@ from app.routers import weather, webhook
 from contextlib import asynccontextmanager
 from app.database import engine, Base
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from app.scheduler_tasks import check_rain_and_alert
+
+scheduler = AsyncIOScheduler()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        
+    scheduler.add_job(check_rain_and_alert, 'interval', minutes=5)
+    scheduler.start()
+    
     yield
+    
+    scheduler.shutdown()
 
 app = FastAPI(
     title="FonMaYang (RainNowcast) API",

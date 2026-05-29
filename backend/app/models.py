@@ -11,3 +11,4 @@ class UserLocation(Base):
     longitude = Column(Float, nullable=False)
     retention_type = Column(String, nullable=False) # 'ONCE', 'TWO_MONTHS', 'FOREVER'
     expires_at = Column(DateTime, nullable=True)
+    last_alerted_at = Column(DateTime, nullable=True)

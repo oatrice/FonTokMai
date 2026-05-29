@@ -27,6 +27,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #9 - Feature: Support multiple saved locations per user (e.g. Home, Work)
+- **GitHub:** [#9](https://gitlab.com/oatricedev/Luma/-/issues/9)
+- **Status:** 🟢 **Ready**
+
 ### Issue #8 - Infrastructure: Develop Cross-Platform Mobile App (Flutter/React Native)
 - **GitHub:** [#8](https://gitlab.com/oatricedev/Luma/-/issues/8)
 - **Status:** 🟢 **Ready**

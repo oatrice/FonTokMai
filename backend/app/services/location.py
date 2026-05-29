@@ -40,3 +40,22 @@ async def delete_location(session: AsyncSession, chat_id: int) -> bool:
         await session.commit()
         return True
     return False
+
+async def get_active_locations(session: AsyncSession) -> list[UserLocation]:
+    """Get all locations that are not expired."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    result = await session.execute(
+        select(UserLocation).where(
+            (UserLocation.expires_at == None) | (UserLocation.expires_at > now)
+        )
+    )
+    return list(result.scalars().all())
+
+async def update_last_alerted_at(session: AsyncSession, chat_id: int) -> bool:
+    """Update last_alerted_at to current UTC time."""
+    loc = await get_location(session, chat_id)
+    if loc:
+        loc.last_alerted_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        await session.commit()
+        return True
+    return False
