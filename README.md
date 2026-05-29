@@ -35,7 +35,11 @@ FonMaYang integrates with multiple weather sources (RainViewer, Rainbow API) to 
    ```bash
    pytest tests/
    ```
-4. Run manual API test script:
+4. Run the FastAPI development server:
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+5. Run manual API test script:
    ```bash
    python3 test_apis.py
    ```

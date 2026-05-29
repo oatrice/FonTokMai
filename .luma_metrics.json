@@ -30,9 +30,9 @@
       "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/2",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
-      "issue_status": null,
+      "issue_status": "✅ Complete",
       "estimate_points": 1,
-      "post_story_point": null,
+      "post_story_point": 2.0,
       "estimated_mandays": 0.5,
       "start_datetime": "2026-05-29T15:49:23",
       "actual_mandays": null,
@@ -43,7 +43,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-05-29T15:49:23.048417",
-      "updated_at": "2026-05-29T15:49:23.048531"
+      "updated_at": "2026-05-29T17:13:49.470977"
     }
   }
 }

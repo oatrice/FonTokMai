@@ -37,7 +37,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #2 - Implement FastAPI On-demand Routers for RainNowcast
 - **GitHub:** [#2](https://gitlab.com/oatricedev/Luma/-/issues/2)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.2.0)
 
 ### Issue #1 - Implement Weather Services MVP (Base, RainViewer, Rainbow) with TDD
 - **GitHub:** [#1](https://gitlab.com/oatricedev/Luma/-/issues/1)
