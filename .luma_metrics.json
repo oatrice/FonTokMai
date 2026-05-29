@@ -14,14 +14,14 @@
       "estimated_mandays": 0.5,
       "start_datetime": "2026-05-29T14:49:13",
       "actual_mandays": 0.0,
-      "due_date": null,
-      "actual_completion_date": null,
+      "due_date": "2026-06-05T23:59:59",
+      "actual_completion_date": "2026-05-29T15:05:56",
       "effort_level": "Low",
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-05-29T07:39:49.264Z",
-      "updated_at": "2026-05-29T14:58:39.069610"
+      "updated_at": "2026-05-29T15:05:56.314359"
     }
   }
 }
