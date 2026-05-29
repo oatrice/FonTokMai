@@ -1,0 +1,9 @@
+- Step 1: Open a terminal, navigate to the `backend` directory, and activate your virtual environment.
+- Step 2: Start the FastAPI local server by running `uvicorn app.main:app --reload`.
+- Step 3: Open your web browser and navigate to the interactive API documentation at `http://127.0.0.1:8000/docs`.
+- Step 4: Test the Health Check endpoint by expanding `GET /health`, clicking "Try it out", and clicking "Execute".
+- Expected Result: The server returns an HTTP 200 OK response with the JSON body `{"status": "ok"}`.
+- Step 5: Test the Weather Prediction endpoint by expanding `GET /api/v1/weather/predict`, clicking "Try it out", entering valid coordinates (e.g., `lat`: 17.1664, `lng`: 104.1486), and clicking "Execute".
+- Expected Result: The server returns an HTTP 200 OK response with a JSON payload containing a `predictions` array of weather data.
+- Step 6: Test the validation logic of the Weather Prediction endpoint by omitting either the `lat` or `lng` parameter and clicking "Execute".
+- Expected Result: The server returns an HTTP 422 Unprocessable Entity response detailing the missing query parameter.

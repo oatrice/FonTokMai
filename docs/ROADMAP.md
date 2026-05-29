@@ -27,6 +27,22 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #4 - Implement Background Task Scheduler for automated polling
+- **GitHub:** [#4](https://gitlab.com/oatricedev/Luma/-/issues/4)
+- **Status:** 🟢 **Ready**
+
+### Issue #3 - Integrate Notification Services (Line OA / Telegram)
+- **GitHub:** [#3](https://gitlab.com/oatricedev/Luma/-/issues/3)
+- **Status:** 🟢 **Ready**
+
+### Issue #2 - Implement FastAPI On-demand Routers for RainNowcast
+- **GitHub:** [#2](https://gitlab.com/oatricedev/Luma/-/issues/2)
+- **Status:** 🟢 **Ready**
+
+### Issue #1 - Implement Weather Services MVP (Base, RainViewer, Rainbow) with TDD
+- **GitHub:** [#1](https://gitlab.com/oatricedev/Luma/-/issues/1)
+- **Status:** 🟢 **Ready**
+
 
 ### Issue # - Implement Weather Services MVP (Base, RainViewer, Rainbow) with TDD
 - **State:** opened
