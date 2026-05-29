@@ -21,19 +21,22 @@ def test_telegram_webhook_with_location():
         with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value.status_code = 200
             
-            payload = {
-                "update_id": 12345,
-                "message": {
-                    "message_id": 1,
-                    "chat": {"id": 9999},
-                    "location": {
-                        "latitude": 17.1664,
-                        "longitude": 104.1486
+            with patch("app.routers.webhook.get_location", new_callable=AsyncMock) as mock_get_loc:
+                mock_get_loc.return_value = None
+                
+                payload = {
+                    "update_id": 12345,
+                    "message": {
+                        "message_id": 1,
+                        "chat": {"id": 9999},
+                        "location": {
+                            "latitude": 17.1664,
+                            "longitude": 104.1486
+                        }
                     }
                 }
-            }
-            
-            response = client.post("/api/v1/webhook/telegram", json=payload)
+                
+                response = client.post("/api/v1/webhook/telegram", json=payload)
             
             assert response.status_code == 200
             assert response.json() == {"status": "ok"}
