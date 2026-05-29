@@ -1,0 +1,114 @@
+{
+  "version": "1.0",
+  "project_key": "18",
+  "phase": "reviewing",
+  "active_issues": [
+    {
+      "number": 1,
+      "title": "Implement Weather Services MVP (Base, RainViewer, Rainbow) with TDD",
+      "html_url": "https://gitlab.com/oatricedev/Luma/-/issues/1",
+      "body": null,
+      "project_item_id": "GLAB_1",
+      "project_id": null,
+      "repository": "oatricedev/Luma"
+    }
+  ],
+  "active_branch": "feat/1-implement-weather-services-mvp",
+  "started_at": "2026-05-29T14:49:08.575668",
+  "checklist": {
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true,
+    "step_docs": true
+  },
+  "context": {
+    "pending_doc_updates": {
+      "pending": [],
+      "changed_files": [
+        "CHANGELOG.md",
+        "README.md",
+        "backend/test_apis.py",
+        "docs/ROADMAP.md",
+        "docs/features/1_issue-1_implement-weather-services-mvp-base-rainviewer-rainbow-b78ba7b6/implementation_plan.md",
+        "docs/features/1_issue-1_implement-weather-services-mvp-base-rainviewer-rainbow-b78ba7b6/manual_verification.md",
+        "docs/features/1_issue-1_implement-weather-services-mvp-base-rainviewer-rainbow-b78ba7b6/task.md",
+        "luma_metrics.json",
+        "luma_state.json"
+      ],
+      "meaningful_files": [
+        "luma_metrics.json",
+        "luma_state.json"
+      ],
+      "version_file": null,
+      "has_meaningful_changes": true
+    },
+    "target_planning_repos": [
+      {
+        "name": "FonMaYang",
+        "path": "/Users/oatrice/Software-projects/FonMaYang",
+        "repo": "oatricedev/FonMaYang",
+        "kanban_number": 1,
+        "kanban_id": "",
+        "status_workflow": {
+          "selectable_statuses": [
+            "Ready",
+            "In Progress",
+            "Todo"
+          ],
+          "selection_order": [
+            "In Progress",
+            "Ready",
+            "Todo"
+          ],
+          "active_statuses": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review"
+          ],
+          "active_sort_order": [
+            "In Progress",
+            "Ready",
+            "Todo",
+            "In Review",
+            "Backlog"
+          ],
+          "board_order": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review",
+            "Done",
+            "Closed"
+          ],
+          "done_statuses": [
+            "Done",
+            "Closed"
+          ],
+          "status_icons": {
+            "Backlog": "📥 ",
+            "Ready": "✅ ",
+            "Todo": "📝 ",
+            "In Progress": "🔥 ",
+            "In Review": "👀 ",
+            "Done": "✅ ",
+            "Closed": "✅ "
+          },
+          "action_status_map": {
+            "select_issue": "In Progress",
+            "create_pr": "In Review",
+            "pr_merged": "Done"
+          }
+        }
+      }
+    ],
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/1_issue-1_implement-weather-services-mvp-base-rainviewer-rainbow-b78ba7b6"
+  },
+  "checkpoint_data": {},
+  "last_headless_action": null,
+  "pr_url": null,
+  "pr_number": null,
+  "last_updated": "2026-05-29T14:57:02.667615"
+}

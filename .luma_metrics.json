@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "issues": {
+    "oatricedev/FonMaYang#1": {
+      "issue_key": "oatricedev/FonMaYang#1",
+      "issue_number": 1,
+      "issue_title": "Implement Weather Services MVP (Base, RainViewer, Rainbow) with TDD",
+      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/1",
+      "repository": "oatricedev/FonMaYang",
+      "project_name": "FonMaYang",
+      "issue_status": null,
+      "estimate_points": 1,
+      "post_story_point": null,
+      "estimated_mandays": 0.5,
+      "start_datetime": "2026-05-29T14:49:13",
+      "actual_mandays": null,
+      "due_date": null,
+      "actual_completion_date": null,
+      "effort_level": "Low",
+      "notes": null,
+      "gh_closed_at": null,
+      "gh_mandays": null,
+      "created_at": "2026-05-29T14:49:13.190296",
+      "updated_at": "2026-05-29T14:49:13.190702"
+    }
+  }
+}
