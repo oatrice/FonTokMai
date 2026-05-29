@@ -37,7 +37,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #6 - Feature: User Location Persistence with Expiry (Retention Policy)
 - **GitHub:** [#6](https://gitlab.com/oatricedev/Luma/-/issues/6)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.4.0)
 
 ### Issue #5 - Integrate Notification Services for Line OA
 - **GitHub:** [#5](https://gitlab.com/oatricedev/Luma/-/issues/5)

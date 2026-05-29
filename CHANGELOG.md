@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-05-30
+### Added
+- Implemented user location persistence with SQLite to support proactive alerts.
+- Added Telegram inline keyboards for users to save or delete their locations easily.
+- Added `/mylocation` command for users to check and manage their saved location and retention policy.
+
 ## [0.3.0] - 2026-05-29
 ### Added
 - Implemented Telegram webhook (`POST /api/v1/webhook/telegram`) for on-demand rain notifications.

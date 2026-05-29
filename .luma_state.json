@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 6,
@@ -16,25 +16,49 @@
   "active_branch": "feat/6-feature:-user-location-persist",
   "started_at": "2026-05-29T21:39:54.598755",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
+        "backend/app/database.py",
+        "backend/app/main.py",
+        "backend/app/models.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/services/location.py",
+        "backend/fonmayang.db",
+        "backend/requirements.txt",
+        "backend/tests/test_db.py",
+        "backend/tests/test_webhook.py",
         "docs/ROADMAP.md",
         "docs/architecture_decisions/001_next_steps_and_schedulers_tradeoffs.md",
         "docs/features/3_issue-3_integrate-notification-services-line-oa-telegram/ai_brain/implementation_plan.md",
         "docs/features/3_issue-3_integrate-notification-services-line-oa-telegram/ai_brain/task.md",
-        "luma/prompts/prompt_20260529_143950_07c40819.md",
+        "docs/features/4_issue-6_feature-user-location-persistence-expiry-retention-poli-5de13ba8/implementation_plan.md",
+        "docs/features/4_issue-6_feature-user-location-persistence-expiry-retention-poli-5de13ba8/manual_verification.md",
+        "docs/features/4_issue-6_feature-user-location-persistence-expiry-retention-poli-5de13ba8/task.md",
+        "docs/features/4_issue-6_feature-user-location-persistence-expiry-retention-poli-5de13ba8/walkthrough.md",
+        "luma/prompts/prompt_20260529_205727_cdbc8b38.md",
+        "luma/prompts/prompt_20260529_205731_67d2d77c.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/app/database.py",
+        "backend/app/main.py",
+        "backend/app/models.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/services/location.py",
+        "backend/fonmayang.db",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -109,5 +133,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-29T21:40:39.410609"
+  "last_updated": "2026-05-30T03:57:59.598422"
 }
