@@ -7,11 +7,12 @@ from app.services.rainbow import RainbowService
 from app.services.location import get_location, save_location, delete_location
 from app.database import async_sessionmaker, engine
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.services.telegram import send_telegram_message
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/v1/webhook",
+    prefix="/api/v1/telegram",
     tags=["webhook"]
 )
 
@@ -93,14 +94,7 @@ async def process_telegram_location(chat_id: int, lat: float, lng: float):
             }
             
         logger.info(f"Preparing to send message to chat_id={chat_id}: '{text}'")
-        async with httpx.AsyncClient() as client:
-            response = await client.post(TELEGRAM_API_URL, json={
-                "chat_id": chat_id,
-                "text": text,
-                "reply_markup": reply_markup
-            })
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+        await send_telegram_message(chat_id, text, reply_markup)
     except Exception as e:
         logger.error(f"Error processing telegram location: {e}")
         try:
@@ -179,14 +173,9 @@ async def handle_mylocation_command(chat_id: int):
             ]
         }
         
-    async with httpx.AsyncClient() as client:
-        await client.post(TELEGRAM_API_URL, json={
-            "chat_id": chat_id,
-            "text": text,
-            "reply_markup": reply_markup
-        })
+    await send_telegram_message(chat_id, text, reply_markup)
 
-@router.post("/telegram")
+@router.post("/webhook")
 async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     payload = await request.json()
     

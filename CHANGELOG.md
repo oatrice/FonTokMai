@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-05-30
+### Added
+- Implemented background task scheduler (`APScheduler`) integrated with FastAPI lifespan for proactive rain alerts.
+- Added database tracking for the last alerted timestamp to prevent notification spam (2-hour cooldown).
+- Created a background polling service (`check_rain_and_alert`) that verifies active locations every 5 minutes.
+
 ## [0.4.0] - 2026-05-30
 ### Added
 - Implemented user location persistence with SQLite to support proactive alerts.

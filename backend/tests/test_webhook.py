@@ -36,7 +36,7 @@ def test_telegram_webhook_with_location():
                     }
                 }
                 
-                response = client.post("/api/v1/webhook/telegram", json=payload)
+                response = client.post("/api/v1/telegram/webhook", json=payload)
             
             assert response.status_code == 200
             assert response.json() == {"status": "ok"}
@@ -61,7 +61,7 @@ def test_telegram_webhook_without_location():
             }
         }
         
-        response = client.post("/api/v1/webhook/telegram", json=payload)
+        response = client.post("/api/v1/telegram/webhook", json=payload)
         
         # Should return 200 to acknowledge telegram, but do nothing
         assert response.status_code == 200
@@ -83,7 +83,7 @@ def test_telegram_webhook_mylocation_cmd():
                     "text": "/mylocation"
                 }
             }
-            response = client.post("/api/v1/webhook/telegram", json=payload)
+            response = client.post("/api/v1/telegram/webhook", json=payload)
             assert response.status_code == 200
             
             # Check what was sent
@@ -109,7 +109,7 @@ def test_telegram_webhook_callback_query_2m():
                     "data": "loc_2m_13.75_100.50"
                 }
             }
-            response = client.post("/api/v1/webhook/telegram", json=payload)
+            response = client.post("/api/v1/telegram/webhook", json=payload)
             assert response.status_code == 200
             
             mock_save.assert_called_once()
