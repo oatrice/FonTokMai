@@ -18,7 +18,10 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
@@ -28,28 +31,24 @@
         "README.md",
         "VERSION",
         "backend/app/main.py",
-        "backend/app/routers/weather.py",
-        "backend/app/schemas/weather.py",
+        "backend/app/routers/webhook.py",
         "backend/requirements.txt",
-        "backend/tests/test_api_weather.py",
-        "docs/ROADMAP.md",
-        "docs/architecture_decisions/001_next_steps_and_schedulers_tradeoffs.md",
+        "backend/tests/test_webhook.py",
         "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/ai_brain/implementation_plan.md",
         "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/ai_brain/task.md",
         "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/ai_brain/walkthrough.md",
-        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/implementation_plan.md",
-        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/manual_verification.md",
-        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/task.md",
-        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/walkthrough.md",
-        "docs/spec.md",
-        "luma/prompts/prompt_20260529_102223_82e7dc50.md",
+        "docs/features/3_issue-3_integrate-notification-services-line-oa-telegram/implementation_plan.md",
+        "docs/features/3_issue-3_integrate-notification-services-line-oa-telegram/manual_verification.md",
+        "docs/features/3_issue-3_integrate-notification-services-line-oa-telegram/task.md",
+        "docs/features/3_issue-3_integrate-notification-services-line-oa-telegram/walkthrough.md",
+        "luma/prompts/prompt_20260529_122304_076052e3.md",
+        "luma/prompts/prompt_20260529_122322_ff6a0f13.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/app/main.py",
-        "backend/app/routers/weather.py",
-        "backend/app/schemas/weather.py",
+        "backend/app/routers/webhook.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -124,5 +123,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-29T17:44:37.272588"
+  "last_updated": "2026-05-29T19:23:48.517332"
 }
