@@ -4,17 +4,17 @@
   "phase": "reviewing",
   "active_issues": [
     {
-      "number": 1,
-      "title": "Implement Weather Services MVP (Base, RainViewer, Rainbow) with TDD",
-      "html_url": "https://gitlab.com/oatricedev/Luma/-/issues/1",
+      "number": 2,
+      "title": "Implement FastAPI On-demand Routers for RainNowcast",
+      "html_url": "https://gitlab.com/oatricedev/Luma/-/issues/2",
       "body": null,
-      "project_item_id": "GLAB_1",
+      "project_item_id": "GLAB_2",
       "project_id": null,
       "repository": "oatricedev/Luma"
     }
   ],
-  "active_branch": "feat/1-implement-weather-services-mvp",
-  "started_at": "2026-05-29T15:07:32.560128",
+  "active_branch": "feat/2-implement-fastapi-on-demand-ro",
+  "started_at": "2026-05-29T15:49:16.486837",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -30,17 +30,27 @@
         "CHANGELOG.md",
         "README.md",
         "VERSION",
-        "backend/test_apis.py",
+        "backend/app/main.py",
+        "backend/app/routers/weather.py",
+        "backend/app/schemas/weather.py",
+        "backend/requirements.txt",
+        "backend/tests/test_api_weather.py",
         "docs/ROADMAP.md",
-        "docs/features/1_issue-1_implement-weather-services-mvp-base-rainviewer-rainbow-b78ba7b6/implementation_plan.md",
-        "docs/features/1_issue-1_implement-weather-services-mvp-base-rainviewer-rainbow-b78ba7b6/manual_verification.md",
-        "docs/features/1_issue-1_implement-weather-services-mvp-base-rainviewer-rainbow-b78ba7b6/task.md",
-        "gitlab-ci.yml",
+        "docs/architecture_decisions/001_next_steps_and_schedulers_tradeoffs.md",
+        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/implementation_plan.md",
+        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/manual_verification.md",
+        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/task.md",
+        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/walkthrough.md",
+        "docs/spec.md",
+        "luma/prompts/prompt_20260529_101245_95630deb.md",
+        "luma/prompts/prompt_20260529_101249_6e9dc1d7.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "gitlab-ci.yml",
+        "backend/app/main.py",
+        "backend/app/routers/weather.py",
+        "backend/app/schemas/weather.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -109,11 +119,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/1_issue-1_implement-weather-services-mvp-base-rainviewer-rainbow-b78ba7b6"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-29T15:07:36.211754"
+  "last_updated": "2026-05-29T17:13:51.402400"
 }

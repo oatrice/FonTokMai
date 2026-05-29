@@ -11,6 +11,11 @@ FonMaYang integrates with multiple weather sources (RainViewer, Rainbow API) to 
 - **Data Quality Monitoring**: Actively monitors upstream radar data latency and pauses alerts if the source is outdated (> 30 mins).
 - **FastAPI Backend**: Asynchronous, highly concurrent backend structure.
 
+## Data Sources
+- **TMD Radar (Sakon Nakhon)**: [weather.tmd.go.th/sknLoop.php](https://weather.tmd.go.th/sknLoop.php)
+- **RainViewer API**: [api.rainviewer.com/public/weather-maps.json](https://api.rainviewer.com/public/weather-maps.json)
+- **Rainbow Weather API**: [api.rainbow.ai](https://api.rainbow.ai/)
+
 ## Getting Started
 
 ### Prerequisites
@@ -30,7 +35,11 @@ FonMaYang integrates with multiple weather sources (RainViewer, Rainbow API) to 
    ```bash
    pytest tests/
    ```
-4. Run manual API test script:
+4. Run the FastAPI development server:
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+5. Run manual API test script:
    ```bash
    python3 test_apis.py
    ```
