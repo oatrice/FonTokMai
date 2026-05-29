@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "preflight",
   "active_issues": [
     {
       "number": 1,
@@ -25,21 +25,15 @@
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
-        "README.md",
-        "backend/test_apis.py",
-        "docs/ROADMAP.md",
-        "docs/features/1_issue-1_implement-weather-services-mvp-base-rainviewer-rainbow-b78ba7b6/implementation_plan.md",
-        "docs/features/1_issue-1_implement-weather-services-mvp-base-rainviewer-rainbow-b78ba7b6/manual_verification.md",
-        "docs/features/1_issue-1_implement-weather-services-mvp-base-rainviewer-rainbow-b78ba7b6/task.md",
-        "luma_metrics.json",
-        "luma_state.json"
+        "README.md"
+      ],
+      "changed_files": [
+        "luma_metrics.json"
       ],
       "meaningful_files": [
-        "luma_metrics.json",
-        "luma_state.json"
+        "luma_metrics.json"
       ],
       "version_file": null,
       "has_meaningful_changes": true
@@ -112,5 +106,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-29T14:57:38.858739"
+  "last_updated": "2026-05-29T14:58:39.089576"
 }
