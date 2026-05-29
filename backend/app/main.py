@@ -1,6 +1,9 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
-from app.routers import weather
+from app.routers import weather, webhook
 
 app = FastAPI(
     title="FonMaYang (RainNowcast) API",
@@ -9,6 +12,7 @@ app = FastAPI(
 )
 
 app.include_router(weather.router)
+app.include_router(webhook.router)
 
 @app.get("/", include_in_schema=False)
 async def root():

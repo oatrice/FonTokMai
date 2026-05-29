@@ -4,17 +4,17 @@
   "phase": "reviewing",
   "active_issues": [
     {
-      "number": 2,
-      "title": "Implement FastAPI On-demand Routers for RainNowcast",
-      "html_url": "https://gitlab.com/oatricedev/Luma/-/issues/2",
+      "number": 3,
+      "title": "Integrate Notification Services (Line OA / Telegram)",
+      "html_url": "https://gitlab.com/oatricedev/Luma/-/issues/3",
       "body": null,
-      "project_item_id": "GLAB_2",
+      "project_item_id": "GLAB_3",
       "project_id": null,
       "repository": "oatricedev/Luma"
     }
   ],
-  "active_branch": "feat/2-implement-fastapi-on-demand-ro",
-  "started_at": "2026-05-29T15:49:16.486837",
+  "active_branch": "feat/3-integrate-notification-service",
+  "started_at": "2026-05-29T17:22:26.609502",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -31,26 +31,24 @@
         "README.md",
         "VERSION",
         "backend/app/main.py",
-        "backend/app/routers/weather.py",
-        "backend/app/schemas/weather.py",
+        "backend/app/routers/webhook.py",
         "backend/requirements.txt",
-        "backend/tests/test_api_weather.py",
-        "docs/ROADMAP.md",
-        "docs/architecture_decisions/001_next_steps_and_schedulers_tradeoffs.md",
-        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/implementation_plan.md",
-        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/manual_verification.md",
-        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/task.md",
-        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/walkthrough.md",
-        "docs/spec.md",
-        "luma/prompts/prompt_20260529_101245_95630deb.md",
-        "luma/prompts/prompt_20260529_101249_6e9dc1d7.md",
+        "backend/tests/test_webhook.py",
+        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/ai_brain/implementation_plan.md",
+        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/ai_brain/task.md",
+        "docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a/ai_brain/walkthrough.md",
+        "docs/features/3_issue-3_integrate-notification-services-line-oa-telegram/implementation_plan.md",
+        "docs/features/3_issue-3_integrate-notification-services-line-oa-telegram/manual_verification.md",
+        "docs/features/3_issue-3_integrate-notification-services-line-oa-telegram/task.md",
+        "docs/features/3_issue-3_integrate-notification-services-line-oa-telegram/walkthrough.md",
+        "luma/prompts/prompt_20260529_122304_076052e3.md",
+        "luma/prompts/prompt_20260529_122322_ff6a0f13.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/app/main.py",
-        "backend/app/routers/weather.py",
-        "backend/app/schemas/weather.py",
+        "backend/app/routers/webhook.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -119,11 +117,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/2_issue-2_implement-fastapi-demand-routers-rainnowcast-cb6d697a"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/3_issue-3_integrate-notification-services-line-oa-telegram"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-29T17:13:51.402400"
+  "last_updated": "2026-05-29T19:23:48.517332"
 }

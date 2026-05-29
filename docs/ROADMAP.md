@@ -33,7 +33,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #3 - Integrate Notification Services (Line OA / Telegram)
 - **GitHub:** [#3](https://gitlab.com/oatricedev/Luma/-/issues/3)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.3.0)
 
 ### Issue #2 - Implement FastAPI On-demand Routers for RainNowcast
 - **GitHub:** [#2](https://gitlab.com/oatricedev/Luma/-/issues/2)
