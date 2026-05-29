@@ -27,6 +27,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #10 - Infrastructure: Deploy FonMaYang MVP to Production
+- **GitHub:** [#10](https://gitlab.com/oatricedev/Luma/-/issues/10)
+- **Status:** 🟢 **Ready**
+
 ### Issue #9 - Feature: Support multiple saved locations per user (e.g. Home, Work)
 - **GitHub:** [#9](https://gitlab.com/oatricedev/Luma/-/issues/9)
 - **Status:** 🟢 **Ready**

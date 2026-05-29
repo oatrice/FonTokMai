@@ -12,10 +12,10 @@ from app.routers import weather, webhook
 from contextlib import asynccontextmanager
 from app.database import engine, Base
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.scheduler_tasks import check_rain_and_alert
+import os
 
-scheduler = AsyncIOScheduler()
+SCHEDULER_TYPE = os.getenv("SCHEDULER_TYPE", "apscheduler").lower()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,12 +23,16 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         
-    scheduler.add_job(check_rain_and_alert, 'interval', minutes=5, next_run_time=datetime.now(timezone.utc))
-    scheduler.start()
-    
-    yield
-    
-    scheduler.shutdown()
+    if SCHEDULER_TYPE == "apscheduler":
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(check_rain_and_alert, 'interval', minutes=5, next_run_time=datetime.now(timezone.utc))
+        scheduler.start()
+        
+        yield
+        scheduler.shutdown()
+    else:
+        yield
 
 app = FastAPI(
     title="FonMaYang (RainNowcast) API",
@@ -37,8 +41,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from app.routers import weather, webhook, scheduler
+
 app.include_router(weather.router)
 app.include_router(webhook.router)
+app.include_router(scheduler.router)
 
 
 @app.get("/", include_in_schema=False)

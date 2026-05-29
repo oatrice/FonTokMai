@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from app.database import AsyncSessionLocal
-from app.services.location import get_active_locations, update_last_alerted_at
+from app.dependencies import get_repo_context
 from app.services.rainbow import RainbowService
 from app.services.telegram import send_telegram_message
 
@@ -16,8 +15,8 @@ async def check_rain_and_alert():
     """
     logger.info("Starting proactive rain check...")
     
-    async with AsyncSessionLocal() as session:
-        locations = await get_active_locations(session)
+    async with get_repo_context() as repo:
+        locations = await repo.get_active_locations()
         
         if not locations:
             logger.info("No active locations to check.")
@@ -70,7 +69,7 @@ async def check_rain_and_alert():
                     await send_telegram_message(loc.chat_id, text)
                     
                     # Update DB
-                    await update_last_alerted_at(session, loc.chat_id)
+                    await repo.update_last_alerted(loc, now)
                     
             except Exception as e:
                 logger.error(f"Failed to check rain for chat_id {loc.chat_id}: {e}")

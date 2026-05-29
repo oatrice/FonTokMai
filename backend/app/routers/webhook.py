@@ -4,9 +4,7 @@ import os
 import logging
 from datetime import datetime
 from app.services.rainbow import RainbowService
-from app.services.location import get_location, save_location, delete_location
-from app.database import async_sessionmaker, engine
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.dependencies import get_repo_context
 from app.services.telegram import send_telegram_message
 
 logger = logging.getLogger(__name__)
@@ -21,8 +19,6 @@ TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessag
 TELEGRAM_ANSWER_CB_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answerCallbackQuery"
 TELEGRAM_EDIT_REPLY_MARKUP_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageReplyMarkup"
 
-# AsyncSessionLocal for manual session management in background tasks
-AsyncSessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False)
 
 async def process_telegram_location(chat_id: int, lat: float, lng: float):
     try:
@@ -60,8 +56,8 @@ async def process_telegram_location(chat_id: int, lat: float, lng: float):
             
         # Check existing location
         has_existing_loc = False
-        async with AsyncSessionLocal() as session:
-            existing_loc = await get_location(session, chat_id)
+        async with get_repo_context() as repo:
+            existing_loc = await repo.get_location(chat_id)
             if existing_loc:
                 has_existing_loc = True
                 
@@ -118,7 +114,7 @@ async def handle_callback_query(callback_query: dict):
         return
         
     answer_text = ""
-    async with AsyncSessionLocal() as session:
+    async with get_repo_context() as repo:
         if data.startswith("loc_2m_") or data.startswith("loc_inf_"):
             parts = data.split("_")
             if len(parts) >= 4:
@@ -126,15 +122,15 @@ async def handle_callback_query(callback_query: dict):
                     lat = float(parts[2])
                     lng = float(parts[3])
                     retention = "TWO_MONTHS" if data.startswith("loc_2m_") else "FOREVER"
-                    await save_location(session, chat_id, lat, lng, retention)
+                    await repo.save_location(chat_id, lat, lng, retention)
                     answer_text = "บันทึกข้อมูลพิกัดเรียบร้อยแล้ว"
                 except ValueError:
                     answer_text = "เกิดข้อผิดพลาดในการบันทึกพิกัด"
         elif data == "loc_del":
-            await delete_location(session, chat_id)
+            await repo.delete_location(chat_id)
             answer_text = "ลบข้อมูลพิกัดเดิมของคุณเรียบร้อยแล้ว"
         elif data == "loc_no":
-            await delete_location(session, chat_id)
+            await repo.delete_location(chat_id)
             answer_text = "ระบบรับทราบ จะไม่จดจำตำแหน่งของคุณ"
             
     async with httpx.AsyncClient() as client:
@@ -152,8 +148,8 @@ async def handle_callback_query(callback_query: dict):
             })
 
 async def handle_mylocation_command(chat_id: int):
-    async with AsyncSessionLocal() as session:
-        loc = await get_location(session, chat_id)
+    async with get_repo_context() as repo:
+        loc = await repo.get_location(chat_id)
         
     if not loc:
         text = "คุณยังไม่ได้บันทึกตำแหน่งใดๆ ไว้ในระบบ"

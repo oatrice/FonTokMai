@@ -1,15 +1,109 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "idle",
-  "active_issues": [],
-  "active_branch": null,
-  "started_at": null,
-  "checklist": {},
-  "context": {},
+  "phase": "coding",
+  "active_issues": [
+    {
+      "number": 10,
+      "title": "Infrastructure: Deploy FonMaYang MVP to Production",
+      "html_url": "https://gitlab.com/oatricedev/Luma/-/issues/10",
+      "body": null,
+      "project_item_id": "GLAB_10",
+      "project_id": null,
+      "repository": "oatricedev/Luma"
+    }
+  ],
+  "active_branch": "feat/10-infrastructure:-deploy-fonmaya",
+  "started_at": "2026-05-30T06:26:23.163907",
+  "checklist": {
+    "step_planning": true
+  },
+  "context": {
+    "pending_doc_updates": {
+      "pending": [
+        "CHANGELOG.md",
+        "README.md",
+        "VERSION"
+      ],
+      "changed_files": [
+        "backend/tests/test_repositories.py",
+        "docs/ROADMAP.md",
+        "luma/prompts/prompt_20260529_232620_44cebf4e.md",
+        "luma_state.json"
+      ],
+      "meaningful_files": [
+        "luma_state.json"
+      ],
+      "version_file": "VERSION",
+      "has_meaningful_changes": true
+    },
+    "target_planning_repos": [
+      {
+        "name": "FonMaYang",
+        "path": "/Users/oatrice/Software-projects/FonMaYang",
+        "repo": "oatricedev/FonMaYang",
+        "kanban_number": 1,
+        "kanban_id": "",
+        "status_workflow": {
+          "selectable_statuses": [
+            "Ready",
+            "In Progress",
+            "Todo"
+          ],
+          "selection_order": [
+            "In Progress",
+            "Ready",
+            "Todo"
+          ],
+          "active_statuses": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review"
+          ],
+          "active_sort_order": [
+            "In Progress",
+            "Ready",
+            "Todo",
+            "In Review",
+            "Backlog"
+          ],
+          "board_order": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review",
+            "Done",
+            "Closed"
+          ],
+          "done_statuses": [
+            "Done",
+            "Closed"
+          ],
+          "status_icons": {
+            "Backlog": "📥 ",
+            "Ready": "✅ ",
+            "Todo": "📝 ",
+            "In Progress": "🔥 ",
+            "In Review": "👀 ",
+            "Done": "✅ ",
+            "Closed": "✅ "
+          },
+          "action_status_map": {
+            "select_issue": "In Progress",
+            "create_pr": "In Review",
+            "pr_merged": "Done"
+          }
+        }
+      }
+    ],
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/6_issue-10_infrastructure-deploy-fonmayang-mvp-production-bb2a3351"
+  },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-30T05:28:08.012873"
+  "last_updated": "2026-05-30T06:27:01.302514"
 }

@@ -1,0 +1,11 @@
+- `[x]` 1. อัปเดต GitLab Issue #10 แจ้งเปลี่ยนแผนเป็น Adapter Pattern
+- `[/]` 2. (TDD) เขียน Test สำหรับ Location Repository Interface
+- `[ ]` 3. Implement `LocationRepository` (Base Class)
+- `[ ]` 4. Implement `SQLiteRepository` (ย้ายโค้ดเก่ามาใช้)
+- `[ ]` 5. Implement `FirestoreRepository`
+- `[ ]` 6. สร้าง `app/dependencies.py` เพื่อทำ Dependency Injection สลับ Repository ตาม ENV
+- `[ ]` 7. แก้ไข `routers/webhook.py` ให้เรียกใช้ Dependency แทน `AsyncSession`
+- `[ ]` 8. (TDD) เขียน Test สำหรับ Scheduler Endpoint
+- `[ ]` 9. เพิ่มเงื่อนไขเช็ค `SCHEDULER_TYPE` ใน `main.py`
+- `[ ]` 10. สร้าง `routers/scheduler.py` (Webhook Endpoint สำหรับ Cloud Scheduler)
+- `[ ]` 11. Refactor และตรวจสอบให้แน่ใจว่า Test ทั้งหมดผ่าน
