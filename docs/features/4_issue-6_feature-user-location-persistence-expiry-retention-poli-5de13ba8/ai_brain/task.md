@@ -1,8 +1,0 @@
-- `[x]` 1. เพิ่ม `apscheduler` ลงใน `requirements.txt`
-- `[x]` 2. เพิ่มคอลัมน์ `last_alerted_at` ใน `UserLocation` (models.py) และจัดการ DB Schema
-- `[x]` 3. สร้าง `services/telegram.py` และดึงโค้ดส่งข้อความมาจาก `webhook.py` (Refactoring)
-- `[x]` 4. เขียน Test (`tests/test_scheduler.py`) (TDD: RED)
-- `[x]` 5. สร้างและพัฒนา `scheduler_tasks.py` ให้เทสต์ผ่าน (TDD: GREEN)
-- `[x]` 6. เพิ่ม `get_active_locations` และ `update_last_alerted_at` ใน `services/location.py`
-- `[x]` 7. ผูก `APScheduler` เข้ากับ FastAPI Lifespan ใน `main.py`
-- `[x]` 8. สรุปผลงานและสร้าง `walkthrough.md`
