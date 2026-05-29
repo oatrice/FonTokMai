@@ -41,7 +41,6 @@ unit_tests:
     - cd backend
     - pip install -r requirements.txt
   script:
-    - cd backend
     - pytest tests/ -v
   <<: *telegram_notify
   rules:
