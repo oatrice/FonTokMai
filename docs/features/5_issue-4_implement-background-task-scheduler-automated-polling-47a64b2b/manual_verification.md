@@ -1,0 +1,5 @@
+- Step 1: Start the FastAPI server locally by running `uvicorn app.main:app --reload` from the `backend` directory.
+- Step 2: Open your Telegram app and interact with the bot. Send a location to register it, or use `/mylocation` to verify your existing location.
+- Step 3: Monitor the terminal logs where the FastAPI server is running. You should see log messages indicating that the APScheduler has started and is executing `check_rain_and_alert` every 5 minutes (e.g., "Starting proactive rain check...").
+- Step 4: To test the actual alert, you can temporarily mock the `RainbowService` in `scheduler_tasks.py` to always return an ETA of less than 60 minutes, or you can manually update the `UserLocation` record in `fonmayang.db` to a location where it is currently raining. Wait for the next 5-minute scheduler tick.
+- Expected Result: You should receive a proactive Telegram message from the bot warning you about the rain (e.g., "ฝนกำลังเคลื่อนมาทางทิศของคุณ จะตกหนักที่พิกัดของคุณในอีก X นาที"). Furthermore, if you wait for the next 5-minute tick without restarting the server, you should NOT receive a duplicate message (verifying the 2-hour cooldown logic).

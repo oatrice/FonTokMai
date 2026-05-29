@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 4,
@@ -16,7 +16,9 @@
   "active_branch": "feat/4-implement-background-task-sche",
   "started_at": "2026-05-30T04:18:15.700528",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -106,5 +108,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-30T04:18:23.173508"
+  "last_updated": "2026-05-30T04:49:58.149197"
 }

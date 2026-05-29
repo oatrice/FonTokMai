@@ -1,5 +1,9 @@
 from dotenv import load_dotenv
 load_dotenv()
+import logging
+from datetime import datetime, timezone
+
+logging.basicConfig(level=logging.INFO)
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
@@ -19,7 +23,7 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         
-    scheduler.add_job(check_rain_and_alert, 'interval', minutes=5)
+    scheduler.add_job(check_rain_and_alert, 'interval', minutes=5, next_run_time=datetime.now(timezone.utc))
     scheduler.start()
     
     yield

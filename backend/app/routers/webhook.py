@@ -12,7 +12,7 @@ from app.services.telegram import send_telegram_message
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/v1/webhook",
+    prefix="/api/v1/telegram",
     tags=["webhook"]
 )
 
@@ -175,7 +175,7 @@ async def handle_mylocation_command(chat_id: int):
         
     await send_telegram_message(chat_id, text, reply_markup)
 
-@router.post("/telegram")
+@router.post("/webhook")
 async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     payload = await request.json()
     
