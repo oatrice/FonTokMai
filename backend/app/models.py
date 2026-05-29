@@ -1,0 +1,13 @@
+from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime
+from app.database import Base
+
+class UserLocation(Base):
+    __tablename__ = "user_locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(BigInteger, unique=True, index=True, nullable=False)
+    platform = Column(String, default="telegram", nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    retention_type = Column(String, nullable=False) # 'ONCE', 'TWO_MONTHS', 'FOREVER'
+    expires_at = Column(DateTime, nullable=True)
