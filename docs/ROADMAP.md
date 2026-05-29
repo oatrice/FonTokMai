@@ -27,6 +27,22 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #8 - Infrastructure: Develop Cross-Platform Mobile App (Flutter/React Native)
+- **GitHub:** [#8](https://gitlab.com/oatricedev/Luma/-/issues/8)
+- **Status:** 🟢 **Ready**
+
+### Issue #7 - Feature: Broad Geofencing and District-Level Alert System
+- **GitHub:** [#7](https://gitlab.com/oatricedev/Luma/-/issues/7)
+- **Status:** 🟢 **Ready**
+
+### Issue #6 - Feature: User Location Persistence with Expiry (Retention Policy)
+- **GitHub:** [#6](https://gitlab.com/oatricedev/Luma/-/issues/6)
+- **Status:** 🟢 **Ready**
+
+### Issue #5 - Integrate Notification Services for Line OA
+- **GitHub:** [#5](https://gitlab.com/oatricedev/Luma/-/issues/5)
+- **Status:** 🟢 **Ready**
+
 ### Issue #4 - Implement Background Task Scheduler for automated polling
 - **GitHub:** [#4](https://gitlab.com/oatricedev/Luma/-/issues/4)
 - **Status:** 🟢 **Ready**
