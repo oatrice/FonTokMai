@@ -4,3 +4,7 @@ httpx
 pytest
 pytest-asyncio
 python-dotenv
+sqlalchemy
+aiosqlite
+greenlet
+
