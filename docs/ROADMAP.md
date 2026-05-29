@@ -49,7 +49,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #4 - Implement Background Task Scheduler for automated polling
 - **GitHub:** [#4](https://gitlab.com/oatricedev/Luma/-/issues/4)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.5.0)
 
 ### Issue #3 - Integrate Notification Services (Line OA / Telegram)
 - **GitHub:** [#3](https://gitlab.com/oatricedev/Luma/-/issues/3)
