@@ -25,3 +25,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Flutter Mobile App development.
 - [ ] Support for additional TMD radar stations beyond Sakon Nakhon.
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
+
+## Synced From GitHub
+
+### Issue # - Implement Weather Services MVP (Base, RainViewer, Rainbow) with TDD
+- **State:** opened
+- ✅ **Done** (0.1.0)
+
