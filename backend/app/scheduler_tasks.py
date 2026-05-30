@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from app.dependencies import get_repo_context
 from app.services.rainbow import RainbowService
-from app.services.telegram import send_telegram_message
+from app.services.telegram import send_telegram_message, get_radar_inline_keyboard, DEVELOPER_CHAT_IDS
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +63,13 @@ async def check_rain_and_alert():
                     else:
                         text = f"ฝนกำลังเคลื่อนมาทางทิศของคุณ จะตกหนักที่พิกัดของคุณในอีก {eta_minutes} นาที\n"
                         
-                    text += f"\n📡 เช็คเรดาร์ด้วยตาตัวเอง: https://zoom.earth/maps/radar/#view={loc.latitude},{loc.longitude},10z"
+                    is_dev = str(loc.chat_id) in DEVELOPER_CHAT_IDS
+                    reply_markup = get_radar_inline_keyboard(loc.latitude, loc.longitude, is_developer=is_dev)
                     
                     logger.info(f"Alerting chat_id {loc.chat_id}: ETA {eta_minutes} mins")
                     
                     # Call Telegram Service
-                    await send_telegram_message(loc.chat_id, text)
+                    await send_telegram_message(loc.chat_id, text, reply_markup=reply_markup)
                     
                     # Update DB
                     await repo.update_last_alerted(loc, now)

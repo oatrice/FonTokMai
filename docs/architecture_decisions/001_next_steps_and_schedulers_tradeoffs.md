@@ -60,6 +60,6 @@ Library ยอดนิยมสำหรับตั้งเวลาการ
 
 เพื่อให้สอดคล้องกับ Privacy-First และความสามารถในการขยายระบบ ได้มีการวางแผน (Issue Cards) เพิ่มเติมสำหรับ Phase ถัดไป:
 
-- **Issue #6 (User Location Persistence with Expiry):** สร้างระบบจัดเก็บพิกัดของผู้ใช้พร้อมกำหนดวันหมดอายุ (Retention Policy) เพื่อให้ Issue #4 (Scheduler) สามารถดึงพิกัดเหล่านั้นมาตรวจสอบฝนและแจ้งเตือนอัตโนมัติได้โดยที่ผู้ใช้ไม่ต้องส่งพิกัดมาใหม่ทุกครั้ง
+- **Issue #6 (User Location Persistence with Expiry):** (✅ Completed) สร้างระบบจัดเก็บพิกัดของผู้ใช้พร้อมกำหนดวันหมดอายุ (Retention Policy) เพื่อให้ Issue #4 (Scheduler - ✅ Completed) สามารถดึงพิกัดเหล่านั้นมาตรวจสอบฝนและแจ้งเตือนอัตโนมัติได้โดยที่ผู้ใช้ไม่ต้องส่งพิกัดมาใหม่ทุกครั้ง
 - **Issue #7 (Broad Geofencing and District-Level Alert System):** พัฒนาระบบ Coarse-to-Fine Trigger หว่านแจ้งเตือนระดับ "เขต" เมื่อมีฝนเข้า เพื่อประหยัดแบตเตอรี่และลดการเก็บข้อมูลพิกัดแบบเจาะจง
 - **Issue #8 (Develop Cross-Platform Mobile App):** เตรียมสร้างแอปพลิเคชันมือถือเฉพาะทาง (Flutter/React Native) เพื่อรองรับ Interactive Map (RainViewer), OS-level Push Notifications และ Native Location Permissions ซึ่งจะปลดล็อกข้อจำกัดของ Chatbot ในระยะยาว

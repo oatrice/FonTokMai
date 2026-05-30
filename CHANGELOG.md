@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.7.0] - 2026-05-30
+### Added
+- Expanded interactive radar options in Telegram by adding multiple data source links (Zoom Earth, Windy, TMD Radar) to proactive alerts and the `/radar` command.
+- Added a developer-specific feature to export and view raw rain prediction data (JSON) directly within Telegram via inline keyboards.
 
 ## [0.6.0] - 2026-05-30
 ### Added
