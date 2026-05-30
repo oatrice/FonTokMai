@@ -20,7 +20,8 @@
     "step_coding": true,
     "step_review": true,
     "step_docs": true,
-    "step_roadmap": true
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
@@ -126,5 +127,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-30T14:19:02.580733"
+  "last_updated": "2026-05-30T14:22:36.812172"
 }
