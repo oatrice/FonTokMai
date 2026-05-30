@@ -27,6 +27,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #17 - Update RainbowService to use official Rainbow Weather Nowcast API
+- **GitHub:** [#17](https://gitlab.com/oatricedev/Luma/-/issues/17)
+- **Status:** 🟢 **Ready**
+
 ### Issue #16 - Feature: Integrate external meteorological APIs (Open-Meteo, TMD) for enhanced data (Wind, Accurate Intensity)
 - **GitHub:** [#16](https://gitlab.com/oatricedev/Luma/-/issues/16)
 - **Status:** 🟢 **Ready**
