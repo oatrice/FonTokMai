@@ -171,6 +171,17 @@ async def handle_mylocation_command(chat_id: int):
         
     await send_telegram_message(chat_id, text, reply_markup)
 
+async def handle_radar_command(chat_id: int):
+    async with get_repo_context() as repo:
+        loc = await repo.get_location(chat_id)
+        
+    if not loc:
+        text = "คุณยังไม่ได้บันทึกตำแหน่งใดๆ ไว้ในระบบ กรุณาส่งพิกัด Location ของคุณให้บอทก่อนครับ 📍"
+    else:
+        text = f"📡 คุณสามารถเช็คเรดาร์ฝนด้วยตัวเองได้ที่นี่:\nhttps://zoom.earth/maps/radar/#view={loc.latitude},{loc.longitude},10z\n"
+        
+    await send_telegram_message(chat_id, text)
+
 @router.post("/webhook")
 async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     payload = await request.json()
@@ -195,6 +206,10 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
         text = message.get("text", "")
         if text.startswith("/mylocation") and chat_id:
             background_tasks.add_task(handle_mylocation_command, chat_id)
+            return {"status": "ok"}
+            
+        if text.startswith("/radar") and chat_id:
+            background_tasks.add_task(handle_radar_command, chat_id)
             return {"status": "ok"}
                 
     return {"status": "ignored"}

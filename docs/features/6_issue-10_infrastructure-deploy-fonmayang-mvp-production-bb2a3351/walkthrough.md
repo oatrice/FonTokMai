@@ -29,3 +29,11 @@ async def get_repo_context() -> AsyncGenerator[LocationRepository, None]:
 ## 3. ผลลัพธ์จากการทดสอบ (TDD)
 - ทำการลบไฟล์ `services/location.py` เดิมทิ้ง และแทนที่ด้วย Dependency Injection ใน `webhook.py` และ `scheduler_tasks.py` อย่างสมบูรณ์
 - ระบบ Test ทั้ง 17 ตัวผ่านทั้งหมด (ครอบคลุมทั้ง API, DB, Repository Interface, Scheduler และ Webhook)
+
+## 4. โครงสร้างพื้นฐานบน Firebase และอัปเดตระบบแจ้งเตือน (ล่าสุด)
+- ปรับแก้ `firebase.json` ให้ชี้ไปที่โฟลเดอร์ `backend/` แทนการแยกโปรเจกต์
+- สร้างไฟล์ `backend/main.py` ทำหน้าที่เป็น HTTPS Function ห่อหุ้ม FastAPI 
+- อัปเดต `backend/requirements.txt` ให้รองรับ `firebase-admin` และ `firebase-functions` เพื่อเตรียมพร้อมขึ้น Cloud
+- ปรับเปลี่ยนฟีเจอร์พยากรณ์ฝน (`RainbowService`) ให้รองรับการอ่าน API Key ผ่าน `.env` (ตัวแปร `RAINBOW_API_KEY`)
+- เพิ่มลิงก์ **Zoom Earth Radar** อัตโนมัติท้ายข้อความแจ้งเตือน เพื่อให้ผู้ใช้กดเข้าไปตรวจสอบเรดาร์เมฆฝนได้ทันที
+- สร้าง GitLab Issue #11 เพื่อเตรียมเปลี่ยน Placeholder API เป็นข้อมูลสภาพอากาศจริงจาก Tomorrow.io หรือ OpenWeatherMap ในอนาคต
