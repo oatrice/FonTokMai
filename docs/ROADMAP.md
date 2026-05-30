@@ -1,6 +1,6 @@
 # Roadmap
 
-This document outlines the strategic goals, planned features, and upcoming milestones for the FonMaYang project.
+This document outlines the strategic goals, planned features, and upcoming milestones for the FonTokMai project.
 
 ## Phase 1: MVP (Current)
 - [x] Pluggable architecture base (`BaseWeatherService`)
@@ -27,7 +27,15 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
-### Issue #10 - Infrastructure: Deploy FonMaYang MVP to Production
+### Issue #12 - Feature: Add multiple radar sources (TMD, etc.) to Telegram /radar command
+- **GitHub:** [#12](https://gitlab.com/oatricedev/Luma/-/issues/12)
+- **Status:** 🟢 **Ready**
+
+### Issue #11 - Feature: Integrate Real Weather API (Tomorrow.io / OpenWeatherMap)
+- **GitHub:** [#11](https://gitlab.com/oatricedev/Luma/-/issues/11)
+- **Status:** 🟢 **Ready**
+
+### Issue #10 - Infrastructure: Deploy FonTokMai MVP to Production
 - **GitHub:** [#10](https://gitlab.com/oatricedev/Luma/-/issues/10)
     - ✅ **Done** (0.6.0)
 

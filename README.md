@@ -1,9 +1,9 @@
-# FonMaYang 🌧️
+# FonTokMai 🌧️
 
 Privacy-first short-term rain forecasting (Nowcasting) system using Thai Meteorological Department (TMD) radar data.
 
 ## Overview
-FonMaYang integrates with multiple weather sources (RainViewer, Rainbow API) to predict incoming rain within the next 15-30 minutes. The system operates on a privacy-first principle: no continuous background location tracking. Users opt-in by sharing their current location via Line OA or Telegram, and the system evaluates the coarse location against the predicted rain vectors.
+FonTokMai integrates with multiple weather sources (RainViewer, Rainbow API) to predict incoming rain within the next 15-30 minutes. The system operates on a privacy-first principle: no continuous background location tracking. Users opt-in by sharing their current location via Line OA or Telegram, and the system evaluates the coarse location against the predicted rain vectors.
 
 ## Features
 - **Pluggable Architecture**: Easily switch between or combine weather providers (RainViewer, Rainbow, TMD Radar).

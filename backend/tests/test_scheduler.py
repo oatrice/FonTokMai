@@ -56,7 +56,23 @@ async def test_check_rain_and_alert_rain_incoming(
     # Assertions
     mock_repo.get_active_locations.assert_called_once()
     mock_rainbow_instance.predict_rain_by_location.assert_called_once_with(13.0, 100.0)
-    mock_send_msg.assert_called_once_with(123, "ฝนกำลังเคลื่อนมาทางทิศของคุณ จะตกหนักที่พิกัดของคุณในอีก 30 นาที\n\n📡 เช็คเรดาร์ด้วยตาตัวเอง: https://zoom.earth/maps/radar/#view=13.0,100.0,10z")
+    
+    mock_send_msg.assert_called_once()
+    call_args, call_kwargs = mock_send_msg.call_args
+    assert call_args[0] == 123
+    assert "ฝนกำลังเคลื่อนมาทางทิศของคุณ จะตกหนักที่พิกัดของคุณในอีก 30 นาที" in call_args[1]
+    
+    reply_markup = call_args[2] if len(call_args) > 2 else call_kwargs.get("reply_markup")
+    assert reply_markup is not None
+    kb = reply_markup["inline_keyboard"]
+    assert len(kb) == 3
+    assert kb[0][0]["text"] == "📡 Zoom Earth"
+    assert kb[0][0]["url"] == "https://zoom.earth/maps/radar/#view=13.0,100.0,10z"
+    assert kb[1][0]["text"] == "🌪️ Windy Radar"
+    assert kb[1][0]["url"] == "https://www.windy.com/-Weather-radar-radar?radar,13.0,100.0,10"
+    assert kb[2][0]["text"] == "🇹🇭 TMD Radar"
+    assert kb[2][0]["url"] == "https://weather.tmd.go.th/"
+
     mock_repo.update_last_alerted.assert_called_once()
 
 

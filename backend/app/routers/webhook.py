@@ -5,7 +5,8 @@ import logging
 from datetime import datetime
 from app.services.rainbow import RainbowService
 from app.dependencies import get_repo_context
-from app.services.telegram import send_telegram_message
+from app.services.telegram import send_telegram_message, get_radar_inline_keyboard, send_telegram_document, DEVELOPER_CHAT_IDS
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -133,14 +134,42 @@ async def handle_callback_query(callback_query: dict):
             await repo.delete_location(chat_id)
             answer_text = "ระบบรับทราบ จะไม่จดจำตำแหน่งของคุณ"
             
+    # Handle Developer Raw Data Request
+    if data.startswith("raw_"):
+        if str(chat_id) not in DEVELOPER_CHAT_IDS:
+            answer_text = "คุณไม่มีสิทธิ์เข้าถึงข้อมูลดิบ"
+        else:
+            parts = data.split("_")
+            if len(parts) >= 3:
+                try:
+                    lat = float(parts[1])
+                    lng = float(parts[2])
+                    
+                    # Fetch from Rainbow Service again
+                    rainbow = RainbowService()
+                    result = await rainbow.predict_rain_by_location(lat, lng)
+                    
+                    # Log to terminal
+                    logger.info(f"Raw API Data for {lat}, {lng}: {json.dumps(result)}")
+                    
+                    # Send document
+                    raw_bytes = json.dumps(result, indent=2).encode("utf-8")
+                    await send_telegram_document(chat_id, raw_bytes, f"raw_{lat}_{lng}.json")
+                    answer_text = "ส่งไฟล์ข้อมูลดิบเรียบร้อยแล้ว"
+                except Exception as e:
+                    logger.error(f"Error fetching raw data: {e}")
+                    answer_text = "เกิดข้อผิดพลาดในการดึงข้อมูลดิบ"
+            else:
+                answer_text = "รูปแบบข้อมูลดิบไม่ถูกต้อง"
+                
     async with httpx.AsyncClient() as client:
         # Answer Callback Query
         await client.post(TELEGRAM_ANSWER_CB_URL, json={
             "callback_query_id": query_id,
             "text": answer_text
         })
-        # Remove Inline Keyboard
-        if message_id:
+        # Remove Inline Keyboard (Only for location actions, skip for raw_data)
+        if message_id and not data.startswith("raw_"):
             await client.post(TELEGRAM_EDIT_REPLY_MARKUP_URL, json={
                 "chat_id": chat_id,
                 "message_id": message_id,
@@ -177,10 +206,12 @@ async def handle_radar_command(chat_id: int):
         
     if not loc:
         text = "คุณยังไม่ได้บันทึกตำแหน่งใดๆ ไว้ในระบบ กรุณาส่งพิกัด Location ของคุณให้บอทก่อนครับ 📍"
+        await send_telegram_message(chat_id, text)
     else:
-        text = f"📡 คุณสามารถเช็คเรดาร์ฝนด้วยตัวเองได้ที่นี่:\nhttps://zoom.earth/maps/radar/#view={loc.latitude},{loc.longitude},10z\n"
-        
-    await send_telegram_message(chat_id, text)
+        text = "📡 คุณสามารถเช็คเรดาร์ฝนด้วยตัวเองได้จากแหล่งข้อมูลเหล่านี้:"
+        is_dev = str(chat_id) in DEVELOPER_CHAT_IDS
+        reply_markup = get_radar_inline_keyboard(loc.latitude, loc.longitude, is_developer=is_dev)
+        await send_telegram_message(chat_id, text, reply_markup=reply_markup)
 
 @router.post("/webhook")
 async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):

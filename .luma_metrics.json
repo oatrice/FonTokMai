@@ -220,6 +220,28 @@
       "gh_mandays": null,
       "created_at": "2026-05-29T23:13:06.085Z",
       "updated_at": "2026-05-30T10:27:02.141583"
+    },
+    "oatricedev/FonMaYang#12": {
+      "issue_key": "oatricedev/FonMaYang#12",
+      "issue_number": 12,
+      "issue_title": "Feature: Add multiple radar sources (TMD, etc.) to Telegram /radar command",
+      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/12",
+      "repository": "oatricedev/FonMaYang",
+      "project_name": "FonMaYang",
+      "issue_status": null,
+      "estimate_points": 3,
+      "post_story_point": null,
+      "estimated_mandays": 1.5,
+      "start_datetime": "2026-05-30T13:14:49",
+      "actual_mandays": null,
+      "due_date": null,
+      "actual_completion_date": null,
+      "effort_level": "Medium",
+      "notes": null,
+      "gh_closed_at": null,
+      "gh_mandays": null,
+      "created_at": "2026-05-30T13:14:49.082177",
+      "updated_at": "2026-05-30T13:14:49.082437"
     }
   }
 }
