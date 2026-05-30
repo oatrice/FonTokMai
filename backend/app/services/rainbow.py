@@ -30,11 +30,14 @@ class RainbowService(BaseWeatherService):
             "map_layer": None
         }
 
-    async def predict_rain_by_location(self, lat: float, lng: float) -> dict:
+    async def predict_rain_by_location(self, lat: float, lng: float, endpoint_type: str = "global") -> dict:
         async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers) as client:
             try:
+                # Determine base API URL
+                base_url = "https://api.rainbow.ai/nowcast/v1/precip-global" if endpoint_type == "global" else "https://api.rainbow.ai/nowcast/v1/precip"
+                
                 # API expects longitude first, then latitude in the URL path
-                url = f"{self.API_URL}/{lng}/{lat}"
+                url = f"{base_url}/{lng}/{lat}"
                 response = await client.get(url)
                 response.raise_for_status()
                 data = response.json()
@@ -101,7 +104,8 @@ class RainbowService(BaseWeatherService):
                 return {
                     "predictions": predictions,
                     "intensity": intensity_text,
-                    "duration_minutes": duration_minutes
+                    "duration_minutes": duration_minutes,
+                    "endpoint": endpoint_type
                 }
             except httpx.HTTPError as e:
                 logger.error(f"Rainbow.ai API error: {e}")
@@ -111,5 +115,6 @@ class RainbowService(BaseWeatherService):
                 return {
                     "predictions": [{"time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), "rain": 0}],
                     "intensity": "ไม่มีฝน (No Rain)",
-                    "duration_minutes": 0
+                    "duration_minutes": 0,
+                    "endpoint": endpoint_type
                 }

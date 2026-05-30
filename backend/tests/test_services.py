@@ -96,6 +96,28 @@ async def test_rainbow_service_extended_data_light_rain():
         assert result["intensity"] == "เบา (Light)"
         assert result["duration_minutes"] == 20 # 14:00 to 14:20 is 20 mins
 
+@pytest.mark.asyncio
+async def test_rainbow_service_endpoint_type():
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "forecast": [],
+            "summary": {"intensity": "no_precipitation"}
+        }
+        mock_get.return_value = mock_response
+        service = RainbowService()
+        
+        # Test global (default)
+        result_global = await service.predict_rain_by_location(17.1664, 104.1486)
+        assert mock_get.call_args[0][0] == "https://api.rainbow.ai/nowcast/v1/precip-global/104.1486/17.1664"
+        assert result_global["endpoint"] == "global"
+        
+        # Test radar
+        result_radar = await service.predict_rain_by_location(17.1664, 104.1486, endpoint_type="radar")
+        assert mock_get.call_args[0][0] == "https://api.rainbow.ai/nowcast/v1/precip/104.1486/17.1664"
+        assert result_radar["endpoint"] == "radar"
+
 
 @pytest.mark.asyncio
 async def test_check_data_delay():

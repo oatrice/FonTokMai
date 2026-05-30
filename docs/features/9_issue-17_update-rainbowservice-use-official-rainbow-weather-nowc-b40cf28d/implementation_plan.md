@@ -30,3 +30,23 @@
 ## Verification Plan
 1. **Automated Tests:** แก้ไข Test ของ RainbowService ให้จำลองโครงสร้างใหม่ และรันด้วยคำสั่ง `pytest` จนกว่าจะผ่าน (Red -> Green -> Refactor)
 2. **Manual Verification:** หลังแก้โค้ดเสร็จ จะให้คุณใช้คำสั่ง `curl` จำลองยิง หรือ Deploy ขึ้น Cloud Run เพื่อทดสอบอีกครั้ง
+
+---
+
+# Feature: Telegram Endpoint Switcher
+
+การพัฒนานี้มีจุดประสงค์เพื่อให้ผู้ใช้สามารถเลือกเปรียบเทียบข้อมูลระหว่าง `precip-global` (ใช้ภาพดาวเทียม+เรดาร์ทั่วโลก) และ `precip` (ใช้เรดาร์ภาคพื้นดินเฉพาะพื้นที่) ได้โดยตรงผ่านปุ่มบนข้อความแชทบอท
+
+## Proposed Changes
+
+### 1. `backend/app/services/rainbow.py`
+เพิ่มพารามิเตอร์เพื่อรองรับการเลือก Endpoint แบบไดนามิก
+- **[MODIFY]** `predict_rain_by_location(self, lat: float, lng: float, endpoint_type: str = "global") -> dict`
+
+### 2. `backend/app/services/telegram.py`
+- **[MODIFY]** เพิ่มฟังก์ชันใหม่ `edit_telegram_message(chat_id: int, message_id: int, text: str, reply_markup: Optional[dict] = None) -> bool` สำหรับใช้แก้ไขข้อความเดิม
+
+### 3. `backend/app/routers/webhook.py`
+ปรับปรุงลอจิกของการรับ Location และการตอบกลับปุ่ม (Callback)
+- **[MODIFY]** `process_telegram_location(chat_id, lat, lng, endpoint_type="global", message_id_to_edit=None)`
+- **[MODIFY]** `handle_callback_query(callback_query: dict)` (ดักจับ `switch_radar_` และ `switch_global_`)

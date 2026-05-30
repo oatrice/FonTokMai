@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 from app.services.rainbow import RainbowService
 from app.dependencies import get_repo_context
-from app.services.telegram import send_telegram_message, get_radar_inline_keyboard, send_telegram_document, DEVELOPER_CHAT_IDS
+from app.services.telegram import send_telegram_message, edit_telegram_message, get_radar_inline_keyboard, send_telegram_document, DEVELOPER_CHAT_IDS
 import json
 
 logger = logging.getLogger(__name__)
@@ -21,11 +21,12 @@ TELEGRAM_ANSWER_CB_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answ
 TELEGRAM_EDIT_REPLY_MARKUP_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageReplyMarkup"
 
 
-async def process_telegram_location(chat_id: int, lat: float, lng: float):
+async def process_telegram_location(chat_id: int, lat: float, lng: float, endpoint_type: str = "global", message_id_to_edit: int = None):
     try:
         rainbow = RainbowService()
-        result = await rainbow.predict_rain_by_location(lat, lng)
+        result = await rainbow.predict_rain_by_location(lat, lng, endpoint_type=endpoint_type)
         predictions = result.get("predictions", [])
+        actual_endpoint = result.get("endpoint", endpoint_type)
         
         # Simple ETA logic
         eta_minutes = None
@@ -47,19 +48,20 @@ async def process_telegram_location(chat_id: int, lat: float, lng: float):
                         eta_minutes = 0
                     break
         
+        endpoint_label = "Rainbow Global" if actual_endpoint == "global" else "Rainbow Local Radar"
         if eta_minutes is not None:
             intensity_str = result.get("intensity", "ไม่ทราบ")
             duration_min = result.get("duration_minutes", 0)
             
             if eta_minutes == 0:
-                text = "🌧️ ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้\n"
+                text = f"🌧️ ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
             else:
-                text = f"🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก {eta_minutes} นาที\n"
+                text = f"🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก {eta_minutes} นาที (ตรวจสอบด้วย: {endpoint_label})\n"
                 
             text += f"💧 ความรุนแรง: {intensity_str}\n"
             text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {duration_min} นาที\n"
         else:
-            text = "ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้\n"
+            text = f"ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
             
         # Check existing location
         has_existing_loc = False
@@ -73,31 +75,37 @@ async def process_telegram_location(chat_id: int, lat: float, lng: float):
         r_lat = round(lat, 4)
         r_lng = round(lng, 4)
         
+        keyboard = []
+        
         if has_existing_loc:
             text += "(คุณมีพิกัดเดิมบันทึกไว้อยู่แล้ว ต้องการอัปเดตเป็นพิกัดนี้ หรือลบของเดิมทิ้งหรือไม่?)"
-            reply_markup = {
-                "inline_keyboard": [
-                    [
-                        {"text": "🔄 อัปเดต (จำ 2 เดือน)", "callback_data": f"loc_2m_{r_lat}_{r_lng}"},
-                        {"text": "🔄 อัปเดต (จำตลอดไป)", "callback_data": f"loc_inf_{r_lat}_{r_lng}"}
-                    ],
-                    [{"text": "🗑️ ลบพิกัดเดิม", "callback_data": "loc_del"}]
-                ]
-            }
+            keyboard.append([
+                {"text": "🔄 อัปเดต (จำ 2 เดือน)", "callback_data": f"loc_2m_{r_lat}_{r_lng}"},
+                {"text": "🔄 อัปเดต (จำตลอดไป)", "callback_data": f"loc_inf_{r_lat}_{r_lng}"}
+            ])
+            keyboard.append([{"text": "🗑️ ลบพิกัดเดิม", "callback_data": "loc_del"}])
         else:
             text += "(คุณต้องการให้ระบบจดจำตำแหน่งนี้สำหรับการแจ้งเตือนอัตโนมัติไหม?)"
-            reply_markup = {
-                "inline_keyboard": [
-                    [
-                        {"text": "⏳ จำ 2 เดือน", "callback_data": f"loc_2m_{r_lat}_{r_lng}"},
-                        {"text": "♾️ จำตลอดไป", "callback_data": f"loc_inf_{r_lat}_{r_lng}"}
-                    ],
-                    [{"text": "❌ ไม่เป็นไร", "callback_data": "loc_no"}]
-                ]
-            }
+            keyboard.append([
+                {"text": "⏳ จำ 2 เดือน", "callback_data": f"loc_2m_{r_lat}_{r_lng}"},
+                {"text": "♾️ จำตลอดไป", "callback_data": f"loc_inf_{r_lat}_{r_lng}"}
+            ])
+            keyboard.append([{"text": "❌ ไม่เป็นไร", "callback_data": "loc_no"}])
+            
+        # Add Endpoint Switcher Buttons
+        if actual_endpoint == "global":
+            keyboard.append([{"text": "🔄 สลับไปใช้ Local Radar", "callback_data": f"switch_radar_{r_lat}_{r_lng}"}])
+        else:
+            keyboard.append([{"text": "🔄 สลับไปใช้ Global", "callback_data": f"switch_global_{r_lat}_{r_lng}"}])
+            
+        reply_markup = {"inline_keyboard": keyboard}
             
         logger.info(f"Preparing to send message to chat_id={chat_id}: '{text}'")
-        await send_telegram_message(chat_id, text, reply_markup)
+        
+        if message_id_to_edit:
+            await edit_telegram_message(chat_id, message_id_to_edit, text, reply_markup)
+        else:
+            await send_telegram_message(chat_id, text, reply_markup)
     except Exception as e:
         logger.error(f"Error processing telegram location: {e}")
         try:
@@ -168,14 +176,31 @@ async def handle_callback_query(callback_query: dict):
             else:
                 answer_text = "รูปแบบข้อมูลดิบไม่ถูกต้อง"
                 
+    # Handle Endpoint Switch
+    if data.startswith("switch_radar_") or data.startswith("switch_global_"):
+        parts = data.split("_")
+        if len(parts) >= 4:
+            try:
+                lat = float(parts[2])
+                lng = float(parts[3])
+                endpoint_type = "radar" if data.startswith("switch_radar_") else "global"
+                
+                answer_text = "กำลังดึงข้อมูลใหม่..."
+                
+                # Await the process directly since we are already in a background task
+                await process_telegram_location(chat_id, lat, lng, endpoint_type=endpoint_type, message_id_to_edit=message_id)
+            except Exception as e:
+                logger.error(f"Error handling switch endpoint: {e}")
+                answer_text = "เกิดข้อผิดพลาดในการสลับแหล่งข้อมูล"
+
     async with httpx.AsyncClient() as client:
         # Answer Callback Query
         await client.post(TELEGRAM_ANSWER_CB_URL, json={
             "callback_query_id": query_id,
             "text": answer_text
         })
-        # Remove Inline Keyboard (Only for location actions, skip for raw_data)
-        if message_id and not data.startswith("raw_"):
+        # Remove Inline Keyboard (Only for location actions, skip for raw_data and switch)
+        if message_id and not (data.startswith("raw_") or data.startswith("switch_")):
             await client.post(TELEGRAM_EDIT_REPLY_MARKUP_URL, json={
                 "chat_id": chat_id,
                 "message_id": message_id,
