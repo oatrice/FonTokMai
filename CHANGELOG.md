@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-05-30
+### Added
+- Implemented the Repository pattern (`sqlite`, `firestore`) and scheduler abstraction to support flexible backend environments.
+- Added containerization support (`Dockerfile`) for deploying the FastAPI backend natively to Google Cloud Run.
+- Enhanced Telegram webhook functionality with new user commands and interactive responses.
+- Appended real-time radar tracking links (Zoom Earth) to proactive rain alert messages.
+- Added comprehensive agent skills and infrastructure configuration documentation.
+
+### Changed
+- Migrated Firebase Cloud Functions logic into the `backend/` directory, providing a robust wrapper for running FastAPI within Google Cloud serverless environments.
+
 ## [0.5.0] - 2026-05-30
 ### Added
 - Implemented background task scheduler (`APScheduler`) integrated with FastAPI lifespan for proactive rain alerts.

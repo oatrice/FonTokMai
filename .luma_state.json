@@ -18,16 +18,18 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
         "agents/skills/firebase-ai-logic-basics/SKILL.md",
         "agents/skills/firebase-ai-logic-basics/references/flutter_setup.md",
         "agents/skills/firebase-ai-logic-basics/references/ios_setup.md",
@@ -138,6 +140,8 @@
         "firestore.indexes.json",
         "firestore.rules",
         "gitignore",
+        "luma/prompts/prompt_20260530_030027_756cd469.md",
+        "luma/prompts/prompt_20260530_030040_7475df2f.md",
         "luma_metrics.json",
         "luma_state.json",
         "skills-lock.json"
@@ -238,5 +242,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-30T09:55:45.975890"
+  "last_updated": "2026-05-30T10:01:07.379425"
 }
