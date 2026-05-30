@@ -33,7 +33,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #15 - Infrastructure: CI/CD Auto-deploy to Cloud Run and Webhook Management
 - **GitHub:** [#15](https://gitlab.com/oatricedev/Luma/-/issues/15)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.8.0)
 
 ### Issue #14 - Feature Research: Rain Prediction along Driving Route (Route vs Live Tracking)
 - **GitHub:** [#14](https://gitlab.com/oatricedev/Luma/-/issues/14)
@@ -41,7 +41,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #13 - Feature: Enhance Rain Alert with Extended Meteorological Data (Intensity, Duration, Wind)
 - **GitHub:** [#13](https://gitlab.com/oatricedev/Luma/-/issues/13)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.8.0)
 
 ### Issue #12 - Feature: Add multiple radar sources (TMD, etc.) to Telegram /radar command
 - **GitHub:** [#12](https://gitlab.com/oatricedev/Luma/-/issues/12)
