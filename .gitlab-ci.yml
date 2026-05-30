@@ -1,5 +1,6 @@
 stages:
   - test
+  - deploy
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -45,4 +46,24 @@ unit_tests:
   <<: *telegram_notify
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+deploy_cloud_run:
+  stage: deploy
+  image: google/cloud-sdk:alpine
+  script:
+    - echo "Deploying to Google Cloud Run..."
+    # Note: Requires GCP_PROJECT_ID and GCP_SA_KEY (Service Account JSON string) set in GitLab CI/CD Variables
+    - echo $GCP_SA_KEY > /tmp/gcp-sa-key.json
+    - gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json
+    - gcloud config set project $GCP_PROJECT_ID
+    # Deploy to Cloud Run
+    - cd backend
+    - gcloud run deploy fontokmai-api --source . --region us-central1 --allow-unauthenticated --set-env-vars TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN,RAINBOW_API_KEY=$RAINBOW_API_KEY,ENVIRONMENT=production
+    # Update Telegram Webhook
+    - CLOUD_RUN_URL=$(gcloud run services describe fontokmai-api --platform managed --region us-central1 --format 'value(status.url)')
+    - echo "Updating Webhook to $CLOUD_RUN_URL/api/v1/telegram/webhook"
+    - curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" -d url="${CLOUD_RUN_URL}/api/v1/telegram/webhook"
+  <<: *telegram_notify
+  rules:
     - if: $CI_COMMIT_BRANCH == "main"

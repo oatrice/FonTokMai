@@ -44,10 +44,61 @@ class RainbowService(BaseWeatherService):
                 response = await client.get(self.API_URL, params=params)
                 response.raise_for_status()
                 data = response.json()
-                return {"predictions": data.get("predictions", [])}
+                predictions = data.get("predictions", [])
+                
+                # Calculate intensity and duration
+                intensity_text = "ไม่มีฝน (No Rain)"
+                duration_minutes = 0
+                
+                if predictions:
+                    max_rain = 0
+                    rain_start = None
+                    rain_end = None
+                    
+                    for pred in predictions:
+                        r = pred.get("rain", 0)
+                        if r > 0:
+                            max_rain = max(max_rain, r)
+                            try:
+                                t = datetime.fromisoformat(pred.get("time", "").replace("Z", "+00:00"))
+                                if not rain_start:
+                                    rain_start = t
+                                rain_end = t
+                            except Exception:
+                                pass
+                                
+                    if max_rain > 0:
+                        if max_rain < 2.5:
+                            intensity_text = "เบา (Light)"
+                        elif max_rain <= 10.0:
+                            intensity_text = "ปานกลาง (Moderate)"
+                        else:
+                            intensity_text = "หนัก (Heavy)"
+                            
+                        if rain_start and rain_end:
+                            # If it's a single interval, duration might be 0, but usually intervals are e.g. 10 mins apart
+                            # We can assume an interval block of 10 mins if start == end
+                            diff = int((rain_end - rain_start).total_seconds() / 60)
+                            duration_minutes = diff if diff > 0 else 10
+                            
+                            # If we want 14:10 to 14:40 to be 30 mins, wait,
+                            # 14:10, 14:20, 14:30. diff = 20 mins.
+                            # But 3 intervals = 30 mins.
+                            # So duration_minutes = diff + 10
+                            duration_minutes += 10
+                
+                return {
+                    "predictions": predictions,
+                    "intensity": intensity_text,
+                    "duration_minutes": duration_minutes
+                }
             except httpx.HTTPError as e:
                 logger.error(f"Rainbow.ai API error: {e}")
                 if hasattr(e, 'response') and e.response is not None:
                     logger.error(f"Response status: {e.response.status_code}, content: {e.response.text}")
                 # Return empty predictions on failure for MVP safety
-                return {"predictions": [{"time": "2026-05-29T14:00:00Z", "rain": 0}]}
+                return {
+                    "predictions": [{"time": "2026-05-29T14:00:00Z", "rain": 0}],
+                    "intensity": "ไม่มีฝน (No Rain)",
+                    "duration_minutes": 0
+                }

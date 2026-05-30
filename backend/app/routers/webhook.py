@@ -48,10 +48,16 @@ async def process_telegram_location(chat_id: int, lat: float, lng: float):
                     break
         
         if eta_minutes is not None:
+            intensity_str = result.get("intensity", "ไม่ทราบ")
+            duration_min = result.get("duration_minutes", 0)
+            
             if eta_minutes == 0:
-                text = "ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้\n"
+                text = "🌧️ ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้\n"
             else:
-                text = f"ฝนกำลังเคลื่อนมาทางทิศของคุณ จะตกหนักที่พิกัดของคุณในอีก {eta_minutes} นาที\n"
+                text = f"🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก {eta_minutes} นาที\n"
+                
+            text += f"💧 ความรุนแรง: {intensity_str}\n"
+            text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {duration_min} นาที\n"
         else:
             text = "ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้\n"
             

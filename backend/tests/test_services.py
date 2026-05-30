@@ -46,6 +46,47 @@ async def test_rainbow_service_predict_rain_by_location():
         assert len(result["predictions"]) == 1
 
 @pytest.mark.asyncio
+async def test_rainbow_service_extended_data_heavy_rain():
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "predictions": [
+                {"time": "2026-05-29T14:00:00Z", "rain": 0},
+                {"time": "2026-05-29T14:10:00Z", "rain": 2.0},
+                {"time": "2026-05-29T14:20:00Z", "rain": 12.5},
+                {"time": "2026-05-29T14:30:00Z", "rain": 5.0},
+                {"time": "2026-05-29T14:40:00Z", "rain": 0}
+            ]
+        }
+        mock_get.return_value = mock_response
+        service = RainbowService()
+        result = await service.predict_rain_by_location(17.1664, 104.1486)
+        
+        assert result["intensity"] == "หนัก (Heavy)"
+        assert result["duration_minutes"] == 30 # 14:10 to 14:40 is 30 mins, or 3 intervals of 10m
+
+@pytest.mark.asyncio
+async def test_rainbow_service_extended_data_light_rain():
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "predictions": [
+                {"time": "2026-05-29T14:00:00Z", "rain": 1.5},
+                {"time": "2026-05-29T14:10:00Z", "rain": 2.0},
+                {"time": "2026-05-29T14:20:00Z", "rain": 0}
+            ]
+        }
+        mock_get.return_value = mock_response
+        service = RainbowService()
+        result = await service.predict_rain_by_location(17.1664, 104.1486)
+        
+        assert result["intensity"] == "เบา (Light)"
+        assert result["duration_minutes"] == 20 # 14:00 to 14:20 is 20 mins
+
+
+@pytest.mark.asyncio
 async def test_check_data_delay():
     service = RainViewerService()
     # Override current time to be far ahead of the data timestamp

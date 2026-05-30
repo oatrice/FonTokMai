@@ -58,10 +58,16 @@ async def check_rain_and_alert():
                 
                 # We only alert proactively if rain is coming within 60 mins
                 if eta_minutes is not None and eta_minutes <= 60:
+                    intensity_str = result.get("intensity", "ไม่ทราบ")
+                    duration_min = result.get("duration_minutes", 0)
+                    
                     if eta_minutes == 0:
-                        text = "ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้\n"
+                        text = "🌧️ ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้\n"
                     else:
-                        text = f"ฝนกำลังเคลื่อนมาทางทิศของคุณ จะตกหนักที่พิกัดของคุณในอีก {eta_minutes} นาที\n"
+                        text = f"🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก {eta_minutes} นาที\n"
+                        
+                    text += f"💧 ความรุนแรง: {intensity_str}\n"
+                    text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {duration_min} นาที\n"
                         
                     is_dev = str(loc.chat_id) in DEVELOPER_CHAT_IDS
                     reply_markup = get_radar_inline_keyboard(loc.latitude, loc.longitude, is_developer=is_dev)
