@@ -23,7 +23,7 @@
     }
   ],
   "active_branch": "feat/15-13-infrastructure:-ci/cd-auto-dep",
-  "started_at": "2026-05-30T15:20:13.947672",
+  "started_at": "2026-05-30T16:20:55.204189",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -51,8 +51,6 @@
         "docs/features/8_issue-15-13_infrastructure-ci-cd-auto-deploy-cloud-run-webhook-36f5229b/task.md",
         "docs/features/8_issue-15-13_infrastructure-ci-cd-auto-deploy-cloud-run-webhook-36f5229b/walkthrough.md",
         "gitlab-ci.yml",
-        "luma/prompts/prompt_20260530_090945_626b4352.md",
-        "luma/prompts/prompt_20260530_090948_a885554e.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -135,5 +133,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-30T16:10:21.091795"
+  "last_updated": "2026-05-30T16:20:59.158883"
 }
