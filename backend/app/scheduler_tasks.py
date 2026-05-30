@@ -62,6 +62,8 @@ async def check_rain_and_alert():
                         text = "ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้\n"
                     else:
                         text = f"ฝนกำลังเคลื่อนมาทางทิศของคุณ จะตกหนักที่พิกัดของคุณในอีก {eta_minutes} นาที\n"
+                        
+                    text += f"\n📡 เช็คเรดาร์ด้วยตาตัวเอง: https://zoom.earth/maps/radar/#view={loc.latitude},{loc.longitude},10z"
                     
                     logger.info(f"Alerting chat_id {loc.chat_id}: ETA {eta_minutes} mins")
                     

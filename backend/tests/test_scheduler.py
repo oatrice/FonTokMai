@@ -56,7 +56,7 @@ async def test_check_rain_and_alert_rain_incoming(
     # Assertions
     mock_repo.get_active_locations.assert_called_once()
     mock_rainbow_instance.predict_rain_by_location.assert_called_once_with(13.0, 100.0)
-    mock_send_msg.assert_called_once_with(123, "ฝนกำลังเคลื่อนมาทางทิศของคุณ จะตกหนักที่พิกัดของคุณในอีก 30 นาที\n")
+    mock_send_msg.assert_called_once_with(123, "ฝนกำลังเคลื่อนมาทางทิศของคุณ จะตกหนักที่พิกัดของคุณในอีก 30 นาที\n\n📡 เช็คเรดาร์ด้วยตาตัวเอง: https://zoom.earth/maps/radar/#view=13.0,100.0,10z")
     mock_repo.update_last_alerted.assert_called_once()
 
 
