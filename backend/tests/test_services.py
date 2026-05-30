@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime, timezone
+from unittest.mock import patch, AsyncMock, MagicMock
 from app.services.weather_base import BaseWeatherService
 from app.services.rainviewer import RainViewerService
 from app.services.rainbow import RainbowService
@@ -12,19 +13,37 @@ async def test_base_weather_service_abstract():
 
 @pytest.mark.asyncio
 async def test_rainviewer_service_get_current_radar_metadata():
-    service = RainViewerService()
-    metadata = await service.get_current_radar_metadata()
-    assert "timestamp" in metadata
-    assert "map_layer" in metadata
-    assert isinstance(metadata["timestamp"], int)
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "host": "https://tilecache.rainviewer.com",
+            "radar": {
+                "past": [{"time": 1700000000, "path": "/v2/radar/1700000000"}]
+            }
+        }
+        mock_get.return_value = mock_response
+        service = RainViewerService()
+        metadata = await service.get_current_radar_metadata()
+        assert "timestamp" in metadata
+        assert "map_layer" in metadata
+        assert metadata["timestamp"] == 1700000000
+        assert metadata["map_layer"] == "https://tilecache.rainviewer.com/v2/radar/1700000000/256/{z}/{x}/{y}/2/1_1.png"
 
 @pytest.mark.asyncio
 async def test_rainbow_service_predict_rain_by_location():
-    service = RainbowService()
-    # Mocking or integration test with an actual lat, lng (e.g., Sakon Nakhon)
-    result = await service.predict_rain_by_location(17.1664, 104.1486)
-    assert "predictions" in result
-    assert isinstance(result["predictions"], list)
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "predictions": [{"time": "2026-05-29T14:00:00Z", "rain": 12.5}]
+        }
+        mock_get.return_value = mock_response
+        service = RainbowService()
+        result = await service.predict_rain_by_location(17.1664, 104.1486)
+        assert "predictions" in result
+        assert isinstance(result["predictions"], list)
+        assert len(result["predictions"]) == 1
 
 @pytest.mark.asyncio
 async def test_check_data_delay():
