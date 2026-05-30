@@ -60,7 +60,7 @@ async def test_check_rain_and_alert_rain_incoming(
     mock_send_msg.assert_called_once()
     call_args, call_kwargs = mock_send_msg.call_args
     assert call_args[0] == 123
-    assert "ฝนกำลังเคลื่อนมาทางทิศของคุณ จะตกหนักที่พิกัดของคุณในอีก 30 นาที" in call_args[1]
+    assert "🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก 30 นาที" in call_args[1]
     
     reply_markup = call_args[2] if len(call_args) > 2 else call_kwargs.get("reply_markup")
     assert reply_markup is not None
