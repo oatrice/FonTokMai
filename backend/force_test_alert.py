@@ -10,8 +10,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.scheduler_tasks import check_rain_and_alert
 from app.services.rainbow import RainbowService
-from app.database import AsyncSessionLocal
-from app.services.location import get_active_locations
+from app.dependencies import get_repo_context
 
 async def mock_predict(*args, **kwargs):
     """ฟังก์ชันจำลอง (Mock) เพื่อหลอกว่าฝนจะตกในอีก 15 นาที"""
@@ -26,15 +25,14 @@ async def mock_predict(*args, **kwargs):
 
 async def main():
     # 1. เคลียร์ข้อมูล last_alerted_at เพื่อให้แน่ใจว่าจะไม่ติด Cooldown 2 ชั่วโมง
-    async with AsyncSessionLocal() as session:
-        locations = await get_active_locations(session)
+    async with get_repo_context() as repo:
+        locations = await repo.get_active_locations()
         if not locations:
             print("❌ ไม่พบพิกัดในระบบ กรุณาส่ง Location ให้บอทใน Telegram ก่อนครับ")
             return
             
         for loc in locations:
-            loc.last_alerted_at = None
-        await session.commit()
+            await repo.update_last_alerted(loc, datetime.min.replace(tzinfo=timezone.utc))
         print(f"✅ ล้างสถานะ Cooldown ให้กับ {len(locations)} ผู้ใช้งานเรียบร้อยแล้ว")
 
     # 2. ทำการ Monkey-patch (สับเปลี่ยน) ฟังก์ชันเช็คฝนจริง ด้วยฟังก์ชันจำลอง

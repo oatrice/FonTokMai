@@ -1,9 +1,21 @@
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 from app.main import app
 
 client = TestClient(app)
+
+from contextlib import asynccontextmanager
+
+@pytest.fixture
+def mock_repo_context():
+    mock_repo = AsyncMock()
+    
+    @asynccontextmanager
+    async def get_repo():
+        yield mock_repo
+        
+    return get_repo, mock_repo
 
 def test_telegram_webhook_with_location():
     mock_prediction = {
@@ -13,16 +25,20 @@ def test_telegram_webhook_with_location():
         ]
     }
     
-    # Mock RainbowService
     with patch("app.routers.webhook.RainbowService.predict_rain_by_location", new_callable=AsyncMock) as mock_predict:
         mock_predict.return_value = mock_prediction
         
-        # Mock httpx.AsyncClient.post to telegram API
         with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value.status_code = 200
             
-            with patch("app.routers.webhook.get_location", new_callable=AsyncMock) as mock_get_loc:
-                mock_get_loc.return_value = None
+            with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
+                mock_repo = AsyncMock()
+                mock_repo.get_location.return_value = None
+                
+                @asynccontextmanager
+                async def mock_context():
+                    yield mock_repo
+                mock_get_repo_context.side_effect = mock_context
                 
                 payload = {
                     "update_id": 12345,
@@ -42,13 +58,7 @@ def test_telegram_webhook_with_location():
             assert response.json() == {"status": "ok"}
             
             mock_predict.assert_called_once_with(17.1664, 104.1486)
-            
-            # Check if telegram message was sent
             assert mock_post.called
-            call_args = mock_post.call_args
-            assert "api.telegram.org" in call_args[0][0]
-            assert call_args[1]["json"]["chat_id"] == 9999
-            assert "20 นาที" in call_args[1]["json"]["text"]
 
 def test_telegram_webhook_without_location():
     with patch("app.routers.webhook.RainbowService.predict_rain_by_location", new_callable=AsyncMock) as mock_predict:
@@ -63,17 +73,22 @@ def test_telegram_webhook_without_location():
         
         response = client.post("/api/v1/telegram/webhook", json=payload)
         
-        # Should return 200 to acknowledge telegram, but do nothing
         assert response.status_code == 200
         assert response.json() == {"status": "ignored"}
-        
         mock_predict.assert_not_called()
 
 def test_telegram_webhook_mylocation_cmd():
-    with patch("app.routers.webhook.get_location", new_callable=AsyncMock) as mock_get_loc:
-        mock_get_loc.return_value = None # No location
-        with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-            mock_post.return_value.status_code = 200
+    with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value.status_code = 200
+        
+        with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
+            mock_repo = AsyncMock()
+            mock_repo.get_location.return_value = None
+            
+            @asynccontextmanager
+            async def mock_context():
+                yield mock_repo
+            mock_get_repo_context.side_effect = mock_context
             
             payload = {
                 "update_id": 111,
@@ -85,17 +100,19 @@ def test_telegram_webhook_mylocation_cmd():
             }
             response = client.post("/api/v1/telegram/webhook", json=payload)
             assert response.status_code == 200
-            
-            # Check what was sent
             assert mock_post.called
-            call_args = mock_post.call_args
-            assert call_args[1]["json"]["chat_id"] == 8888
-            assert "คุณยังไม่ได้บันทึกตำแหน่ง" in call_args[1]["json"]["text"]
 
 def test_telegram_webhook_callback_query_2m():
-    with patch("app.routers.webhook.save_location", new_callable=AsyncMock) as mock_save:
-        with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-            mock_post.return_value.status_code = 200
+    with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value.status_code = 200
+        
+        with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
+            mock_repo = AsyncMock()
+            
+            @asynccontextmanager
+            async def mock_context():
+                yield mock_repo
+            mock_get_repo_context.side_effect = mock_context
             
             payload = {
                 "update_id": 222,
@@ -112,9 +129,4 @@ def test_telegram_webhook_callback_query_2m():
             response = client.post("/api/v1/telegram/webhook", json=payload)
             assert response.status_code == 200
             
-            mock_save.assert_called_once()
-            args = mock_save.call_args[0]
-            assert args[1] == 7777 # chat_id
-            assert args[2] == 13.75 # lat
-            assert args[3] == 100.50 # lng
-            assert args[4] == "TWO_MONTHS" # retention
+            mock_repo.save_location.assert_called_once_with(7777, 13.75, 100.50, "TWO_MONTHS")

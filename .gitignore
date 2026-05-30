@@ -59,3 +59,4 @@ htmlcov/
 # .python-version
 backend/fonmayang.db
 fonmayang.db
+firebase-debug.log

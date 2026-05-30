@@ -7,10 +7,11 @@ FonMaYang integrates with multiple weather sources (RainViewer, Rainbow API) to 
 
 ## Features
 - **Pluggable Architecture**: Easily switch between or combine weather providers (RainViewer, Rainbow, TMD Radar).
+- **Flexible Infrastructure**: Implemented Repository pattern for seamless switching between local SQLite and production Firestore databases.
 - **Privacy-First Notifications**: On-demand location sharing via Line/Telegram without background tracking.
 - **Data Quality Monitoring**: Actively monitors upstream radar data latency and pauses alerts if the source is outdated (> 30 mins).
-- **FastAPI Backend**: Asynchronous, highly concurrent backend structure.
-- **Proactive Task Scheduler**: Built-in APScheduler to proactively poll rain data for active users and send automated alerts with cooldown protection.
+- **FastAPI Backend**: Asynchronous, highly concurrent backend structure, containerized via Docker for easy deployment to Google Cloud Run or Firebase.
+- **Proactive Task Scheduler**: Built-in task scheduling (via APScheduler or external Cloud Scheduler) to proactively poll rain data for active users and send automated alerts with interactive radar links.
 
 ## Data Sources
 - **TMD Radar (Sakon Nakhon)**: [weather.tmd.go.th/sknLoop.php](https://weather.tmd.go.th/sknLoop.php)
@@ -22,6 +23,7 @@ FonMaYang integrates with multiple weather sources (RainViewer, Rainbow API) to 
 ### Prerequisites
 - Python 3.9+
 - Redis (For caching)
+- Docker (Optional, for containerized deployment)
 
 ### Installation
 1. Clone the repository

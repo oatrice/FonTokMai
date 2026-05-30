@@ -1,6 +1,10 @@
+import os
+import logging
 import httpx
 from datetime import datetime, timezone
 from .weather_base import BaseWeatherService
+
+logger = logging.getLogger(__name__)
 
 class RainbowService(BaseWeatherService):
     # Example API endpoint for Rainbow Weather (You would replace with actual endpoint)
@@ -12,6 +16,10 @@ class RainbowService(BaseWeatherService):
             "User-Agent": "FonMaYang-Weather-App/1.0",
             "Accept": "application/json"
         }
+        api_key = os.getenv("RAINBOW_API_KEY")
+        if api_key:
+            self.headers["Ocp-Apim-Subscription-Key"] = api_key
+            
         self.timeout = httpx.Timeout(10.0)
 
     async def get_current_radar_metadata(self) -> dict:
@@ -37,6 +45,9 @@ class RainbowService(BaseWeatherService):
                 response.raise_for_status()
                 data = response.json()
                 return {"predictions": data.get("predictions", [])}
-            except httpx.HTTPError:
+            except httpx.HTTPError as e:
+                logger.error(f"Rainbow.ai API error: {e}")
+                if hasattr(e, 'response') and e.response is not None:
+                    logger.error(f"Response status: {e.response.status_code}, content: {e.response.text}")
                 # Return empty predictions on failure for MVP safety
                 return {"predictions": [{"time": "2026-05-29T14:00:00Z", "rain": 0}]}
