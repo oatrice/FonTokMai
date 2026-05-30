@@ -9,3 +9,5 @@ aiosqlite
 greenlet
 
 apscheduler
+firebase-functions
+firebase-admin
