@@ -59,7 +59,7 @@ deploy_cloud_run:
     - gcloud config set project $GCP_PROJECT_ID
     # Deploy to Cloud Run
     - cd backend
-    - gcloud run deploy fontokmai-api --source . --region us-central1 --allow-unauthenticated --set-env-vars TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN,RAINBOW_API_KEY=$RAINBOW_API_KEY,ENVIRONMENT=production
+    - gcloud run deploy fontokmai-api --source . --region us-central1 --allow-unauthenticated --set-env-vars TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN,RAINBOW_API_KEY=$RAINBOW_API_KEY,DEVELOPER_CHAT_IDS=$DEVELOPER_CHAT_IDS,ENVIRONMENT=production
     # Update Telegram Webhook
     - CLOUD_RUN_URL=$(gcloud run services describe fontokmai-api --platform managed --region us-central1 --format 'value(status.url)')
     - echo "Updating Webhook to $CLOUD_RUN_URL/api/v1/telegram/webhook"
