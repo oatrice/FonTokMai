@@ -41,9 +41,9 @@ FonMaYang integrates with multiple weather sources (RainViewer, Rainbow API) to 
    ```
 5. Run the FastAPI development server:
    ```bash
-   uvicorn app.main:app --reload --port 8000
+   uvicorn app.main:app --reload --port 8080
    ```
-   *For local Telegram webhook testing, use [localtunnel](https://github.com/localtunnel/localtunnel) to expose port 8000. See `docs/development_guide.md` for details on the Two Bots Strategy.*
+   *For local Telegram webhook testing, use [localtunnel](https://github.com/localtunnel/localtunnel) to expose port 8080. See `docs/development_guide.md` for details on the Two Bots Strategy.*
 
 ### Deployment (GitLab CI -> Google Cloud Run)
 Deployment is handled automatically by GitLab CI. Pushing to the `main` branch triggers a build and deploy process using the `Dockerfile` in the `backend/` directory, updating the Telegram Webhook automatically to the new Cloud Run URL.

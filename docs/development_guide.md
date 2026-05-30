@@ -25,14 +25,13 @@
 
 2. **รัน FastAPI Server**
    ```bash
-   cd backend
-   uvicorn main:app --reload --port 8000
+   uvicorn main:app --reload --port 8080
    ```
 
 3. **เปิด LocalTunnel**
    เพื่อให้ Telegram ส่ง Webhook เข้ามาที่ Localhost ได้ เราจะใช้ `localtunnel` (ข้อดีคือสามารถใช้ `--subdomain` ได้หลาย endpoint ฟรีๆ)
    ```bash
-   npx localtunnel --port 8000 --subdomain fontokmaidev
+   npx localtunnel --port 8080 --subdomain fontokmaidev
    ```
    *ระบบจะสร้าง URL ให้ เช่น `https://fontokmaidev.loca.lt`*
 
