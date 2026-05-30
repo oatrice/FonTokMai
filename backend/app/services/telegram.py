@@ -11,7 +11,30 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "mock_token")
 DEVELOPER_CHAT_IDS = os.getenv("DEVELOPER_CHAT_IDS", "").split(",")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 TELEGRAM_SEND_DOC_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendDocument"
+TELEGRAM_EDIT_MESSAGE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
 
+async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
+    """
+    Edits a previously sent message in a specific Telegram chat_id.
+    """
+    payload = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "text": text
+    }
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
+        
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(TELEGRAM_EDIT_MESSAGE_URL, json=payload)
+            if response.status_code != 200:
+                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+                return False
+            return True
+    except Exception as e:
+        logger.error(f"Failed to edit telegram message {message_id} in {chat_id}: {e}")
+        return False
 async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
     """
     Sends a message to a specific Telegram chat_id.

@@ -57,7 +57,7 @@ def test_telegram_webhook_with_location():
             assert response.status_code == 200
             assert response.json() == {"status": "ok"}
             
-            mock_predict.assert_called_once_with(17.1664, 104.1486)
+            mock_predict.assert_called_once_with(17.1664, 104.1486, endpoint_type='global')
             assert mock_post.called
 
 def test_telegram_webhook_without_location():

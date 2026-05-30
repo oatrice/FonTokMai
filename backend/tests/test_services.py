@@ -36,7 +36,15 @@ async def test_rainbow_service_predict_rain_by_location():
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "predictions": [{"time": "2026-05-29T14:00:00Z", "rain": 12.5}]
+            "forecast": [
+                {
+                    "timestampBegin": 1780063200, # 2026-05-29T14:00:00Z
+                    "timestampEnd": 1780063800,   # 10 minutes later
+                    "precipRate": 12.5,
+                    "precipType": "rain"
+                }
+            ],
+            "summary": {"intensity": "heavy"}
         }
         mock_get.return_value = mock_response
         service = RainbowService()
@@ -44,6 +52,7 @@ async def test_rainbow_service_predict_rain_by_location():
         assert "predictions" in result
         assert isinstance(result["predictions"], list)
         assert len(result["predictions"]) == 1
+        assert result["predictions"][0]["rain"] == 12.5
 
 @pytest.mark.asyncio
 async def test_rainbow_service_extended_data_heavy_rain():
@@ -51,20 +60,21 @@ async def test_rainbow_service_extended_data_heavy_rain():
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "predictions": [
-                {"time": "2026-05-29T14:00:00Z", "rain": 0},
-                {"time": "2026-05-29T14:10:00Z", "rain": 2.0},
-                {"time": "2026-05-29T14:20:00Z", "rain": 12.5},
-                {"time": "2026-05-29T14:30:00Z", "rain": 5.0},
-                {"time": "2026-05-29T14:40:00Z", "rain": 0}
-            ]
+            "forecast": [
+                {"timestampBegin": 1780063200, "timestampEnd": 1780063800, "precipRate": 0},
+                {"timestampBegin": 1780063800, "timestampEnd": 1780064400, "precipRate": 2.0},
+                {"timestampBegin": 1780064400, "timestampEnd": 1780065000, "precipRate": 12.5},
+                {"timestampBegin": 1780065000, "timestampEnd": 1780065600, "precipRate": 5.0},
+                {"timestampBegin": 1780065600, "timestampEnd": 1780066200, "precipRate": 0}
+            ],
+            "summary": {"intensity": "heavy"}
         }
         mock_get.return_value = mock_response
         service = RainbowService()
         result = await service.predict_rain_by_location(17.1664, 104.1486)
         
         assert result["intensity"] == "หนัก (Heavy)"
-        assert result["duration_minutes"] == 30 # 14:10 to 14:40 is 30 mins, or 3 intervals of 10m
+        assert result["duration_minutes"] == 30 # 14:10 to 14:40 is 30 mins
 
 @pytest.mark.asyncio
 async def test_rainbow_service_extended_data_light_rain():
@@ -72,11 +82,12 @@ async def test_rainbow_service_extended_data_light_rain():
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "predictions": [
-                {"time": "2026-05-29T14:00:00Z", "rain": 1.5},
-                {"time": "2026-05-29T14:10:00Z", "rain": 2.0},
-                {"time": "2026-05-29T14:20:00Z", "rain": 0}
-            ]
+            "forecast": [
+                {"timestampBegin": 1780063200, "timestampEnd": 1780063800, "precipRate": 1.5},
+                {"timestampBegin": 1780063800, "timestampEnd": 1780064400, "precipRate": 2.0},
+                {"timestampBegin": 1780064400, "timestampEnd": 1780065000, "precipRate": 0}
+            ],
+            "summary": {"intensity": "light"}
         }
         mock_get.return_value = mock_response
         service = RainbowService()
@@ -84,6 +95,28 @@ async def test_rainbow_service_extended_data_light_rain():
         
         assert result["intensity"] == "เบา (Light)"
         assert result["duration_minutes"] == 20 # 14:00 to 14:20 is 20 mins
+
+@pytest.mark.asyncio
+async def test_rainbow_service_endpoint_type():
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "forecast": [],
+            "summary": {"intensity": "no_precipitation"}
+        }
+        mock_get.return_value = mock_response
+        service = RainbowService()
+        
+        # Test global (default)
+        result_global = await service.predict_rain_by_location(17.1664, 104.1486)
+        assert mock_get.call_args[0][0] == "https://api.rainbow.ai/nowcast/v1/precip-global/104.1486/17.1664"
+        assert result_global["endpoint"] == "global"
+        
+        # Test radar
+        result_radar = await service.predict_rain_by_location(17.1664, 104.1486, endpoint_type="radar")
+        assert mock_get.call_args[0][0] == "https://api.rainbow.ai/nowcast/v1/precip/104.1486/17.1664"
+        assert result_radar["endpoint"] == "radar"
 
 
 @pytest.mark.asyncio
