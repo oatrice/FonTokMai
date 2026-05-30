@@ -47,11 +47,11 @@ class RainbowService(BaseWeatherService):
                 predictions = data.get("predictions", [])
                 
                 # Calculate intensity and duration
-                intensity_text = "ไม่มีฝน (No Rain)"
-                duration_minutes = 0
+                intensity_text: str = "ไม่มีฝน (No Rain)"
+                duration_minutes: int = 0
                 
                 if predictions:
-                    max_rain = 0
+                    max_rain: float = 0.0
                     rain_start = None
                     rain_end = None
                     
@@ -76,16 +76,8 @@ class RainbowService(BaseWeatherService):
                             intensity_text = "หนัก (Heavy)"
                             
                         if rain_start and rain_end:
-                            # If it's a single interval, duration might be 0, but usually intervals are e.g. 10 mins apart
-                            # We can assume an interval block of 10 mins if start == end
                             diff = int((rain_end - rain_start).total_seconds() / 60)
-                            duration_minutes = diff if diff > 0 else 10
-                            
-                            # If we want 14:10 to 14:40 to be 30 mins, wait,
-                            # 14:10, 14:20, 14:30. diff = 20 mins.
-                            # But 3 intervals = 30 mins.
-                            # So duration_minutes = diff + 10
-                            duration_minutes += 10
+                            duration_minutes = diff + 10
                 
                 return {
                     "predictions": predictions,
