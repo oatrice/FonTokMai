@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+    match /databases/{database}/documents {
+
+        // Users can only access their own data
+        match /users/{userId}/{document=**} {
+            allow read, write: if request.auth != null && request.auth.uid == userId ;
+        }
+
+        // Master Data (Read-only for everyone, or at least authenticated users)
+        match /master_weeks/{weekId} {
+            allow read: if true; // Public for Guest Mode
+            // allow read: if request.auth != null                                      ; // Authenticated
+        }
+
+        // DEPRECATED? (Using subcollection users/{uid}/weekly_practices instead?)
+        match /user_progress/{userId} {
+            allow read, write: if request.auth != null && request.auth.uid == userId   ;
+        }
+    }
+}
