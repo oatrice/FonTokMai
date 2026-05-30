@@ -29,7 +29,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ## Synced From GitHub
 ### Issue #12 - Feature: Add multiple radar sources (TMD, etc.) to Telegram /radar command
 - **GitHub:** [#12](https://gitlab.com/oatricedev/Luma/-/issues/12)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.7.0)
 
 ### Issue #11 - Feature: Integrate Real Weather API (Tomorrow.io / OpenWeatherMap)
 - **GitHub:** [#11](https://gitlab.com/oatricedev/Luma/-/issues/11)

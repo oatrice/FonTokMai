@@ -18,24 +18,41 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/telegram.py",
         "backend/tests/test_scheduler.py",
         "backend/tests/test_webhook.py",
         "docs/ROADMAP.md",
         "docs/architecture_decisions/001_next_steps_and_schedulers_tradeoffs.md",
-        "luma/prompts/prompt_20260530_061242_95f86d5f.md",
+        "docs/features/6_issue-10_infrastructure-deploy-fonmayang-mvp-production-bb2a3351/ai_brain/implementation_plan.md",
+        "docs/features/6_issue-10_infrastructure-deploy-fonmayang-mvp-production-bb2a3351/ai_brain/task.md",
+        "docs/features/6_issue-10_infrastructure-deploy-fonmayang-mvp-production-bb2a3351/ai_brain/walkthrough.md",
+        "docs/features/7_issue-12_feature-add-multiple-radar-sources-tmd-etc-telegram-33a25a9b/implementation_plan.md",
+        "docs/features/7_issue-12_feature-add-multiple-radar-sources-tmd-etc-telegram-33a25a9b/manual_verification.md",
+        "docs/features/7_issue-12_feature-add-multiple-radar-sources-tmd-etc-telegram-33a25a9b/task.md",
+        "docs/features/7_issue-12_feature-add-multiple-radar-sources-tmd-etc-telegram-33a25a9b/walkthrough.md",
+        "luma/prompts/prompt_20260530_071843_b4b7deb9.md",
+        "luma/prompts/prompt_20260530_071846_e24fd603.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/telegram.py",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -109,5 +126,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-30T13:15:06.482478"
+  "last_updated": "2026-05-30T14:19:02.580733"
 }
