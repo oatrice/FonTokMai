@@ -13,7 +13,7 @@
       "repository": "oatricedev/Luma"
     }
   ],
-  "active_branch": "feat/12-feature:-add-multiple-radar-so",
+  "active_branch": "feat/12-feature-add-multiple-radar-so",
   "started_at": "2026-05-30T13:12:46.059119",
   "checklist": {
     "step_planning": true,
@@ -127,5 +127,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-30T14:22:36.812172"
+  "last_updated": "2026-05-30T14:22:42.397537"
 }
