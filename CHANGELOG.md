@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.8.0] - 2026-05-30
+### Added
+- Implemented GitLab CI/CD pipeline for automated deployment to Google Cloud Run and dynamic Telegram Webhook management.
+- Enhanced meteorological alerts to include real-time rain intensity and estimated duration calculations.
+- Created documentation for the "Two Bots Strategy" to separate local development and production environments.
+
+### Fixed
+- Resolved a logic error in rain duration calculation for single-interval predictions.
+
+### Security
+- Updated Cloud Run deployment pipeline to use Base64 encoded Service Account credentials for enhanced security.
+
 ## [0.7.0] - 2026-05-30
 ### Added
 - Expanded interactive radar options in Telegram by adding multiple data source links (Zoom Earth, Windy, TMD Radar) to proactive alerts and the `/radar` command.

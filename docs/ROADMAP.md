@@ -27,6 +27,22 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #16 - Feature: Integrate external meteorological APIs (Open-Meteo, TMD) for enhanced data (Wind, Accurate Intensity)
+- **GitHub:** [#16](https://gitlab.com/oatricedev/Luma/-/issues/16)
+- **Status:** 🟢 **Ready**
+
+### Issue #15 - Infrastructure: CI/CD Auto-deploy to Cloud Run and Webhook Management
+- **GitHub:** [#15](https://gitlab.com/oatricedev/Luma/-/issues/15)
+    - ✅ **Done** (0.8.0)
+
+### Issue #14 - Feature Research: Rain Prediction along Driving Route (Route vs Live Tracking)
+- **GitHub:** [#14](https://gitlab.com/oatricedev/Luma/-/issues/14)
+- **Status:** 🟢 **Ready**
+
+### Issue #13 - Feature: Enhance Rain Alert with Extended Meteorological Data (Intensity, Duration, Wind)
+- **GitHub:** [#13](https://gitlab.com/oatricedev/Luma/-/issues/13)
+    - ✅ **Done** (0.8.0)
+
 ### Issue #12 - Feature: Add multiple radar sources (TMD, etc.) to Telegram /radar command
 - **GitHub:** [#12](https://gitlab.com/oatricedev/Luma/-/issues/12)
     - ✅ **Done** (0.7.0)

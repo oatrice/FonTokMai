@@ -1,20 +1,29 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
-      "number": 12,
-      "title": "Feature: Add multiple radar sources (TMD, etc.) to Telegram /radar command",
-      "html_url": "https://gitlab.com/oatricedev/Luma/-/issues/12",
+      "number": 15,
+      "title": "Infrastructure: CI/CD Auto-deploy to Cloud Run and Webhook Management",
+      "html_url": "https://gitlab.com/oatricedev/Luma/-/issues/15",
       "body": null,
-      "project_item_id": "GLAB_12",
+      "project_item_id": "GLAB_15",
+      "project_id": null,
+      "repository": "oatricedev/Luma"
+    },
+    {
+      "number": 13,
+      "title": "Feature: Enhance Rain Alert with Extended Meteorological Data (Intensity, Duration, Wind)",
+      "html_url": "https://gitlab.com/oatricedev/Luma/-/issues/13",
+      "body": null,
+      "project_item_id": "GLAB_13",
       "project_id": null,
       "repository": "oatricedev/Luma"
     }
   ],
-  "active_branch": "feat/12-feature-add-multiple-radar-so",
-  "started_at": "2026-05-30T13:12:46.059119",
+  "active_branch": "feat/15-13-infrastructure--cicd-auto-dep",
+  "started_at": "2026-05-30T16:22:21.329524",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -32,27 +41,24 @@
         "VERSION",
         "backend/app/routers/webhook.py",
         "backend/app/scheduler_tasks.py",
-        "backend/app/services/telegram.py",
-        "backend/tests/test_scheduler.py",
-        "backend/tests/test_webhook.py",
+        "backend/app/services/rainbow.py",
+        "backend/tests/test_services.py",
         "docs/ROADMAP.md",
-        "docs/architecture_decisions/001_next_steps_and_schedulers_tradeoffs.md",
-        "docs/features/6_issue-10_infrastructure-deploy-fonmayang-mvp-production-bb2a3351/ai_brain/implementation_plan.md",
-        "docs/features/6_issue-10_infrastructure-deploy-fonmayang-mvp-production-bb2a3351/ai_brain/task.md",
-        "docs/features/6_issue-10_infrastructure-deploy-fonmayang-mvp-production-bb2a3351/ai_brain/walkthrough.md",
-        "docs/features/7_issue-12_feature-add-multiple-radar-sources-tmd-etc-telegram-33a25a9b/implementation_plan.md",
-        "docs/features/7_issue-12_feature-add-multiple-radar-sources-tmd-etc-telegram-33a25a9b/manual_verification.md",
-        "docs/features/7_issue-12_feature-add-multiple-radar-sources-tmd-etc-telegram-33a25a9b/task.md",
-        "docs/features/7_issue-12_feature-add-multiple-radar-sources-tmd-etc-telegram-33a25a9b/walkthrough.md",
-        "luma/prompts/prompt_20260530_071843_b4b7deb9.md",
-        "luma/prompts/prompt_20260530_071846_e24fd603.md",
+        "docs/development_guide.md",
+        "docs/features/8_issue-15-13_infrastructure-ci-cd-auto-deploy-cloud-run-webhook-36f5229b/code_review.md",
+        "docs/features/8_issue-15-13_infrastructure-ci-cd-auto-deploy-cloud-run-webhook-36f5229b/implementation_plan.md",
+        "docs/features/8_issue-15-13_infrastructure-ci-cd-auto-deploy-cloud-run-webhook-36f5229b/manual_verification.md",
+        "docs/features/8_issue-15-13_infrastructure-ci-cd-auto-deploy-cloud-run-webhook-36f5229b/task.md",
+        "docs/features/8_issue-15-13_infrastructure-ci-cd-auto-deploy-cloud-run-webhook-36f5229b/walkthrough.md",
+        "gitlab-ci.yml",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/app/routers/webhook.py",
         "backend/app/scheduler_tasks.py",
-        "backend/app/services/telegram.py",
+        "backend/app/services/rainbow.py",
+        "gitlab-ci.yml",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -121,11 +127,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/7_issue-12_feature-add-multiple-radar-sources-tmd-etc-telegram-33a25a9b"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/8_issue-15-13_infrastructure-ci-cd-auto-deploy-cloud-run-webhook-36f5229b"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/8",
   "pr_number": null,
-  "last_updated": "2026-05-30T14:22:42.397537"
+  "last_updated": "2026-05-30T16:34:22.492397"
 }
