@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 15,
@@ -131,7 +131,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/8",
   "pr_number": null,
-  "last_updated": "2026-05-30T16:22:26.097618"
+  "last_updated": "2026-05-30T16:34:22.492397"
 }
