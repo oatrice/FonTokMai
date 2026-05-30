@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 10,
@@ -140,8 +140,6 @@
         "firestore.indexes.json",
         "firestore.rules",
         "gitignore",
-        "luma/prompts/prompt_20260530_030027_756cd469.md",
-        "luma/prompts/prompt_20260530_030040_7475df2f.md",
         "luma_metrics.json",
         "luma_state.json",
         "skills-lock.json"
@@ -240,7 +238,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/6",
   "pr_number": null,
-  "last_updated": "2026-05-30T10:04:44.812055"
+  "last_updated": "2026-05-30T10:27:02.159338"
 }
