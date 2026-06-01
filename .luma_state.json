@@ -1,49 +1,36 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 17,
-      "title": "Update RainbowService to use official Rainbow Weather Nowcast API",
-      "html_url": "https://gitlab.com/oatricedev/Luma/-/issues/17",
+      "number": 25,
+      "title": "Refactor: Replace APScheduler with external cron service and webhook endpoint",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/25",
       "body": null,
-      "project_item_id": "GLAB_17",
+      "project_item_id": "GLAB_25",
       "project_id": null,
-      "repository": "oatricedev/Luma"
+      "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/17-update-rainbowservice-to-use-o",
-  "started_at": "2026-05-30T21:27:28.940426",
+  "active_branch": "feat/25-refactor:-replace-apscheduler-",
+  "started_at": "2026-06-01T19:52:14.211824",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
       "pending": [
-        "README.md"
+        "CHANGELOG.md",
+        "README.md",
+        "VERSION"
       ],
       "changed_files": [
-        "CHANGELOG.md",
-        "VERSION",
-        "backend/app/services/rainbow.py",
-        "backend/tests/test_services.py",
         "docs/ROADMAP.md",
-        "docs/features/9_issue-17_update-rainbowservice-use-official-rainbow-weather-nowc-b40cf28d/implementation_plan.md",
-        "docs/features/9_issue-17_update-rainbowservice-use-official-rainbow-weather-nowc-b40cf28d/manual_verification.md",
-        "docs/features/9_issue-17_update-rainbowservice-use-official-rainbow-weather-nowc-b40cf28d/task.md",
-        "docs/features/9_issue-17_update-rainbowservice-use-official-rainbow-weather-nowc-b40cf28d/walkthrough.md",
-        "luma_metrics.json",
+        "luma/prompts/prompt_20260601_125211_860744bb.md",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/services/rainbow.py",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -111,11 +98,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/9_issue-17_update-rainbowservice-use-official-rainbow-weather-nowc-b40cf28d"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/9",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-05-30T21:52:09.786758"
+  "last_updated": "2026-06-01T19:53:14.715120"
 }
