@@ -29,7 +29,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ## Synced From GitHub
 ### Issue #25 - Refactor: Replace APScheduler with external cron service and webhook endpoint
 - **GitHub:** [#25](https://gitlab.com/oatricedev/FonMaYang/-/issues/25)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.10.0)
 
 ### Issue #24 - Enhancement: Format rain duration from minutes to hours and minutes
 - **GitHub:** [#24](https://gitlab.com/oatricedev/FonMaYang/-/issues/24)

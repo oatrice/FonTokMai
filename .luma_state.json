@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 25,
@@ -16,21 +16,40 @@
   "active_branch": "feat/25-refactor:-replace-apscheduler-",
   "started_at": "2026-06-01T19:52:14.211824",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
+        "backend/app/main.py",
+        "backend/app/routers/scheduler.py",
+        "backend/requirements.txt",
+        "backend/tests/test_scheduler.py",
         "docs/ROADMAP.md",
-        "luma/prompts/prompt_20260601_125211_860744bb.md",
+        "docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95/implementation_plan.md",
+        "docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95/manual_verification.md",
+        "docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95/task.md",
+        "docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95/walkthrough.md",
+        "gitlab-ci.yml",
+        "luma/prompts/prompt_20260601_130922_c43ff11a.md",
+        "luma/prompts/prompt_20260601_130927_29e789d3.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/app/main.py",
+        "backend/app/routers/scheduler.py",
+        "gitlab-ci.yml",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -104,5 +123,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-01T19:53:14.715120"
+  "last_updated": "2026-06-01T20:09:50.924465"
 }
