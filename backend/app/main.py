@@ -15,24 +15,13 @@ from app.database import engine, Base
 from app.scheduler_tasks import check_rain_and_alert
 import os
 
-SCHEDULER_TYPE = os.getenv("SCHEDULER_TYPE", "apscheduler").lower()
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         
-    if SCHEDULER_TYPE == "apscheduler":
-        from apscheduler.schedulers.asyncio import AsyncIOScheduler
-        scheduler = AsyncIOScheduler()
-        scheduler.add_job(check_rain_and_alert, 'interval', minutes=5, next_run_time=datetime.now(timezone.utc))
-        scheduler.start()
-        
-        yield
-        scheduler.shutdown()
-    else:
-        yield
+    yield
 
 app = FastAPI(
     title="FonMaYang (RainNowcast) API",

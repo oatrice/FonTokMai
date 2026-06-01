@@ -157,3 +157,44 @@ async def test_check_rain_and_alert_no_rain(
     # Should NOT send message because no rain
     mock_send_msg.assert_not_called()
     mock_repo.update_last_alerted.assert_not_called()
+
+# --- Endpoint Tests ---
+import os
+from fastapi.testclient import TestClient
+
+try:
+    from app.main import app
+    client = TestClient(app)
+except ImportError:
+    client = None
+
+def test_trigger_rain_check_endpoint_success():
+    if not client:
+        pytest.fail("FastAPI app is not implemented yet")
+        
+    secret = os.getenv("CRON_SECRET", "default_secret_for_local_testing")
+    with patch("app.routers.scheduler.check_rain_and_alert", new_callable=AsyncMock) as mock_check:
+        with TestClient(app) as test_client:
+            response = test_client.post("/api/v1/cron/check-rain", headers={"X-Cron-Secret": secret})
+        
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"
+        mock_check.assert_called_once()
+
+def test_trigger_rain_check_endpoint_unauthorized():
+    if not client:
+        pytest.fail("FastAPI app is not implemented yet")
+        
+    with TestClient(app) as test_client:
+        response = test_client.post("/api/v1/cron/check-rain", headers={"X-Cron-Secret": "wrong_secret"})
+    
+    assert response.status_code == 401
+
+def test_trigger_rain_check_endpoint_missing_header():
+    if not client:
+        pytest.fail("FastAPI app is not implemented yet")
+        
+    with TestClient(app) as test_client:
+        response = test_client.post("/api/v1/cron/check-rain")
+    
+    assert response.status_code == 401

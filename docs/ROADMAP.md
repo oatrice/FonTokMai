@@ -27,6 +27,34 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #25 - Refactor: Replace APScheduler with external cron service and webhook endpoint
+- **GitHub:** [#25](https://gitlab.com/oatricedev/FonMaYang/-/issues/25)
+    - ✅ **Done** (0.10.0)
+
+### Issue #24 - Enhancement: Format rain duration from minutes to hours and minutes
+- **GitHub:** [#24](https://gitlab.com/oatricedev/FonMaYang/-/issues/24)
+- **Status:** 🟢 **Ready**
+
+### Issue #23 - Feature/UX: Reconcile discrepancies between Global and Local Radar rain predictions
+- **GitHub:** [#23](https://gitlab.com/oatricedev/FonMaYang/-/issues/23)
+- **Status:** 🟢 **Ready**
+
+### Issue #22 - Bug: Telegram answerCallbackQuery fails with 400 Bad Request during cold starts
+- **GitHub:** [#22](https://gitlab.com/oatricedev/FonMaYang/-/issues/22)
+- **Status:** 🟢 **Ready**
+
+### Issue #21 - Bug: Active alert locations are lost during Cloud Run cold start (State Loss)
+- **GitHub:** [#21](https://gitlab.com/oatricedev/FonMaYang/-/issues/21)
+- **Status:** 🟢 **Ready**
+
+### Issue #20 - Feature: Detailed Chat Alert (Start/End Time, Duration, Cloud Distance)
+- **GitHub:** [#20](https://gitlab.com/oatricedev/FonMaYang/-/issues/20)
+- **Status:** 🟢 **Ready**
+
+### Issue #19 - Feature: Developer Mock Mode for Background Scheduler
+- **GitHub:** [#19](https://gitlab.com/oatricedev/FonMaYang/-/issues/19)
+- **Status:** 🟢 **Ready**
+
 ### Issue #18 - Dummy for test
 - **GitHub:** [#18](https://gitlab.com/oatricedev/Luma/-/issues/18)
 - **Status:** 🟢 **Ready**

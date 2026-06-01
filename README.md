@@ -9,7 +9,7 @@ FonMaYang integrates with multiple weather sources (RainViewer, Rainbow API) to 
 - **Pluggable Architecture**: Easily switch between or combine weather providers (RainViewer, Rainbow, TMD Radar).
 - **Privacy-First Notifications**: On-demand location sharing via Telegram without background tracking.
 - **Extended Meteorological Data**: Real-time evaluation of rain intensity and estimated duration.
-- **Proactive Alerts & Scheduling**: Background task scheduler to continuously monitor rain vectors and alert users proactively before rain hits.
+- **Proactive Alerts & Scheduling**: Webhook endpoint designed for external cron services to continuously monitor rain vectors and alert users proactively before rain hits.
 - **Interactive Radar**: Telegram `/radar` command providing multi-source visual tracking (Zoom Earth, Windy, TMD).
 - **FastAPI Backend**: Asynchronous, highly concurrent backend structure.
 - **Cloud Run Native**: Fully containerized and automated deployment to Google Cloud Run via GitLab CI/CD pipelines.
@@ -34,7 +34,7 @@ FonMaYang integrates with multiple weather sources (RainViewer, Rainbow API) to 
    source .venv/bin/activate
    pip install -r requirements.txt
    ```
-3. Set up your `.env` file with your `TELEGRAM_BOT_TOKEN`, `RAINBOW_API_KEY`, etc.
+3. Set up your `.env` file with your `TELEGRAM_BOT_TOKEN`, `RAINBOW_API_KEY`, `CRON_SECRET`, etc.
 4. Run unit tests:
    ```bash
    pytest tests/

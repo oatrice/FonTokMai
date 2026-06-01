@@ -6,13 +6,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/v1/internal",
+    prefix="/api/v1/cron",
     tags=["scheduler"]
 )
 
 CRON_SECRET = os.getenv("CRON_SECRET", "default_secret_for_local_testing")
 
-@router.post("/trigger-rain-check")
+@router.post("/check-rain")
 async def trigger_rain_check(background_tasks: BackgroundTasks, x_cron_secret: str = Header(None)):
     """
     Endpoint for external schedulers (like Google Cloud Scheduler) to trigger the rain check.
