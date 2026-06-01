@@ -13,7 +13,7 @@
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/25-refactor:-replace-apscheduler-",
+  "active_branch": "feat/25-refactor-replace-apscheduler-",
   "started_at": "2026-06-01T19:52:14.211824",
   "checklist": {
     "step_planning": true,
@@ -123,5 +123,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-01T20:09:50.924465"
+  "last_updated": "2026-06-01T20:13:33.737622"
 }
