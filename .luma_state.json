@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 9,
@@ -51,6 +51,7 @@
         "backend/tests/test_firestore.py",
         "backend/tests/test_scheduler.py",
         "backend/tests/test_webhook.py",
+        "docs/ROADMAP.md",
         "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/ai_brain/implementation_plan.md",
         "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/ai_brain/task.md",
         "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/ai_brain/walkthrough.md",
@@ -62,8 +63,6 @@
         "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/task2.md",
         "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/walkthrough.md",
         "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/walkthrough2.md",
-        "luma/prompts/prompt_20260602_053205_22f924af.md",
-        "luma/prompts/prompt_20260602_053208_e05bb573.md",
         "luma_metrics.json",
         "luma_state.json",
         "test_mylocation.py"
@@ -149,7 +148,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/12",
   "pr_number": null,
-  "last_updated": "2026-06-02T12:34:44.617779"
+  "last_updated": "2026-06-02T12:39:31.591640"
 }
