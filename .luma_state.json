@@ -13,7 +13,7 @@
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/21-bug:-active-alert-locations-ar",
+  "active_branch": "feat/21-bug-active-alert-locations-ar",
   "started_at": "2026-06-02T09:55:48.094220",
   "checklist": {
     "step_planning": true,
@@ -122,5 +122,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-02T10:35:47.001535"
+  "last_updated": "2026-06-02T10:37:36.194237"
 }
