@@ -38,6 +38,7 @@ async def test_check_rain_and_alert_rain_incoming(
         last_alerted_at=None
     )
     mock_repo.get_active_locations.return_value = [loc1]
+    mock_repo.get_mock_state.return_value = None
 
     # Mock RainbowService
     mock_rainbow_instance = mock_rainbow_cls.return_value
@@ -56,7 +57,7 @@ async def test_check_rain_and_alert_rain_incoming(
 
     # Assertions
     mock_repo.get_active_locations.assert_called_once()
-    mock_rainbow_instance.predict_rain_by_location.assert_called_once_with(13.0, 100.0)
+    mock_rainbow_instance.predict_rain_by_location.assert_called_once_with(13.0, 100.0, mock_state=None)
     
     mock_send_msg.assert_called_once()
     call_args, call_kwargs = mock_send_msg.call_args

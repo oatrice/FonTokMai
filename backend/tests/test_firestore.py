@@ -167,6 +167,10 @@ async def test_delete_location(firestore_repo):
     chat_id = 2222
     mock_doc_ref = MagicMock()
     firestore_repo.mock_collection.document.return_value = mock_doc_ref
+    
+    mock_doc = MagicMock()
+    mock_doc.exists = True
+    mock_doc_ref.get = AsyncMock(return_value=mock_doc)
     mock_doc_ref.delete = AsyncMock()
     
     res = await firestore_repo.delete_location(chat_id, "Home")

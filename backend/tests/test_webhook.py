@@ -34,6 +34,7 @@ def test_telegram_webhook_with_location():
             with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
                 mock_repo = AsyncMock()
                 mock_repo.get_location.return_value = None
+                mock_repo.get_mock_state.return_value = None
                 
                 @asynccontextmanager
                 async def mock_context():
@@ -57,7 +58,7 @@ def test_telegram_webhook_with_location():
             assert response.status_code == 200
             assert response.json() == {"status": "ok"}
             
-            mock_predict.assert_called_once_with(17.1664, 104.1486, endpoint_type='global')
+            mock_predict.assert_called_once_with(17.1664, 104.1486, endpoint_type='global', mock_state=None)
             assert mock_post.called
 
 def test_telegram_webhook_without_location():
