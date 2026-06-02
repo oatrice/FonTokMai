@@ -18,23 +18,36 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
+        "backend/app/repositories/firestore.py",
+        "backend/requirements.txt",
+        "backend/tests/test_firestore.py",
         "docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95/ai_brain/implementation_plan.md",
         "docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95/ai_brain/task.md",
-        "luma/prompts/prompt_20260602_025545_3aa2f32a.md",
+        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/implementation_plan.md",
+        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/manual_verification.md",
+        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/task.md",
+        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/walkthrough.md",
+        "gitlab-ci.yml",
+        "luma/prompts/prompt_20260602_033519_6929e9c3.md",
+        "luma/prompts/prompt_20260602_033522_17c580ec.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/app/repositories/firestore.py",
+        "gitlab-ci.yml",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -109,5 +122,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-02T10:17:09.303790"
+  "last_updated": "2026-06-02T10:35:47.001535"
 }

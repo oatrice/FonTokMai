@@ -45,7 +45,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #21 - Bug: Active alert locations are lost during Cloud Run cold start (State Loss)
 - **GitHub:** [#21](https://gitlab.com/oatricedev/FonMaYang/-/issues/21)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.11.0)
 
 ### Issue #20 - Feature: Detailed Chat Alert (Start/End Time, Duration, Cloud Distance)
 - **GitHub:** [#20](https://gitlab.com/oatricedev/FonMaYang/-/issues/20)
