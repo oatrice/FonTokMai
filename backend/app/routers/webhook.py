@@ -78,17 +78,32 @@ async def process_telegram_location(chat_id: int, lat: float, lng: float, endpoi
         keyboard = []
         
         if has_existing_loc:
-            text += "(คุณมีพิกัดเดิมบันทึกไว้อยู่แล้ว ต้องการอัปเดตเป็นพิกัดนี้ หรือลบของเดิมทิ้งหรือไม่?)"
+            text += "(คุณมีพิกัดเดิมบันทึกไว้อยู่แล้ว ต้องการบันทึกพิกัดนี้เป็นอะไร หรือลบของเดิมทิ้ง?)"
             keyboard.append([
-                {"text": "🔄 อัปเดต (จำ 2 เดือน)", "callback_data": f"loc_2m_{r_lat}_{r_lng}"},
-                {"text": "🔄 อัปเดต (จำตลอดไป)", "callback_data": f"loc_inf_{r_lat}_{r_lng}"}
+                {"text": "🏠 บ้าน (2 ด.)", "callback_data": f"loc_save_Home_2m_{r_lat}_{r_lng}"},
+                {"text": "🏠 บ้าน (ตป.)", "callback_data": f"loc_save_Home_inf_{r_lat}_{r_lng}"}
             ])
-            keyboard.append([{"text": "🗑️ ลบพิกัดเดิม", "callback_data": "loc_del"}])
+            keyboard.append([
+                {"text": "💼 ที่ทำงาน (2 ด.)", "callback_data": f"loc_save_Work_2m_{r_lat}_{r_lng}"},
+                {"text": "💼 ที่ทำงาน (ตป.)", "callback_data": f"loc_save_Work_inf_{r_lat}_{r_lng}"}
+            ])
+            keyboard.append([
+                {"text": "📍 ทั่วไป (2 ด.)", "callback_data": f"loc_save_Default_2m_{r_lat}_{r_lng}"},
+                {"text": "📍 ทั่วไป (ตป.)", "callback_data": f"loc_save_Default_inf_{r_lat}_{r_lng}"}
+            ])
         else:
             text += "(คุณต้องการให้ระบบจดจำตำแหน่งนี้สำหรับการแจ้งเตือนอัตโนมัติไหม?)"
             keyboard.append([
-                {"text": "⏳ จำ 2 เดือน", "callback_data": f"loc_2m_{r_lat}_{r_lng}"},
-                {"text": "♾️ จำตลอดไป", "callback_data": f"loc_inf_{r_lat}_{r_lng}"}
+                {"text": "🏠 บ้าน (2 ด.)", "callback_data": f"loc_save_Home_2m_{r_lat}_{r_lng}"},
+                {"text": "🏠 บ้าน (ตป.)", "callback_data": f"loc_save_Home_inf_{r_lat}_{r_lng}"}
+            ])
+            keyboard.append([
+                {"text": "💼 ที่ทำงาน (2 ด.)", "callback_data": f"loc_save_Work_2m_{r_lat}_{r_lng}"},
+                {"text": "💼 ที่ทำงาน (ตป.)", "callback_data": f"loc_save_Work_inf_{r_lat}_{r_lng}"}
+            ])
+            keyboard.append([
+                {"text": "📍 ทั่วไป (2 ด.)", "callback_data": f"loc_save_Default_2m_{r_lat}_{r_lng}"},
+                {"text": "📍 ทั่วไป (ตป.)", "callback_data": f"loc_save_Default_inf_{r_lat}_{r_lng}"}
             ])
             keyboard.append([{"text": "❌ ไม่เป็นไร", "callback_data": "loc_no"}])
             
@@ -130,23 +145,31 @@ async def handle_callback_query(callback_query: dict):
         
     answer_text = ""
     async with get_repo_context() as repo:
-        if data.startswith("loc_2m_") or data.startswith("loc_inf_"):
+        if data.startswith("loc_save_"):
             parts = data.split("_")
-            if len(parts) >= 4:
+            # Format: loc_save_<name>_<retention>_<lat>_<lng>
+            # Example: loc_save_Home_2m_13.1_100.1
+            if len(parts) >= 6:
                 try:
-                    lat = float(parts[2])
-                    lng = float(parts[3])
-                    retention = "TWO_MONTHS" if data.startswith("loc_2m_") else "FOREVER"
-                    await repo.save_location(chat_id, lat, lng, retention)
-                    answer_text = "บันทึกข้อมูลพิกัดเรียบร้อยแล้ว"
+                    name = parts[2].lower() # e.g. "home", "work", "default"
+                    retention_str = parts[3]
+                    lat = float(parts[4])
+                    lng = float(parts[5])
+                    retention = "TWO_MONTHS" if retention_str == "2m" else "FOREVER"
+                    await repo.save_location(chat_id, lat, lng, retention, name)
+                    answer_text = f"บันทึกข้อมูลพิกัด {name} เรียบร้อยแล้ว"
                 except ValueError:
                     answer_text = "เกิดข้อผิดพลาดในการบันทึกพิกัด"
-        elif data == "loc_del":
-            await repo.delete_location(chat_id)
-            answer_text = "ลบข้อมูลพิกัดเดิมของคุณเรียบร้อยแล้ว"
+        elif data.startswith("loc_del_"):
+            parts = data.split("_")
+            if len(parts) >= 3:
+                name = parts[2].lower()
+                await repo.delete_location(chat_id, name)
+                answer_text = f"ลบข้อมูลพิกัด {name} เรียบร้อยแล้ว"
         elif data == "loc_no":
-            await repo.delete_location(chat_id)
-            answer_text = "ระบบรับทราบ จะไม่จดจำตำแหน่งของคุณ"
+            # For simplicity, if they click no, we don't do anything specific. 
+            # If they had locations, we don't delete all of them.
+            answer_text = "ระบบรับทราบ จะไม่จดจำตำแหน่งใหม่"
             
     # Handle Developer Raw Data Request
     if data.startswith("raw_"):
@@ -209,24 +232,34 @@ async def handle_callback_query(callback_query: dict):
 
 async def handle_mylocation_command(chat_id: int):
     async with get_repo_context() as repo:
-        loc = await repo.get_location(chat_id)
+        locs = await repo.get_user_locations(chat_id)
         
-    if not loc:
+    if not locs:
         text = "คุณยังไม่ได้บันทึกตำแหน่งใดๆ ไว้ในระบบ"
         reply_markup = None
     else:
-        expires = "ไม่มีกำหนด (จำตลอดไป)"
-        if loc.expires_at:
-            expires = loc.expires_at.strftime("%Y-%m-%d %H:%M:%S UTC")
-        
-        text = f"📍 พิกัดปัจจุบันของคุณ: {loc.latitude}, {loc.longitude}\n"
-        text += f"⏳ วันหมดอายุ: {expires}\n\n"
-        text += "หากต้องการเปลี่ยนแปลงพิกัด ให้ส่ง Location ใหม่อีกครั้ง หรือกดปุ่มด้านล่างเพื่อลบข้อมูลนี้"
+        text = "📍 พิกัดที่บันทึกไว้ของคุณ:\n\n"
+        keyboard = []
+        for loc in locs:
+            expires = "จำตลอดไป"
+            if loc.expires_at:
+                expires = loc.expires_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+            
+            icon = "📍"
+            if loc.name.lower() == "home":
+                icon = "🏠"
+            elif loc.name.lower() == "work":
+                icon = "💼"
+                
+            text += f"{icon} {loc.name.capitalize()}: {loc.latitude}, {loc.longitude}\n"
+            text += f"⏳ วันหมดอายุ: {expires}\n\n"
+            
+            keyboard.append([{"text": f"🗑️ ลบ {loc.name.capitalize()}", "callback_data": f"loc_del_{loc.name.lower()}"}])
+            
+        text += "หากต้องการเปลี่ยนแปลงพิกัด ให้ส่ง Location ใหม่อีกครั้ง หรือกดปุ่มด้านล่างเพื่อลบข้อมูล"
         
         reply_markup = {
-            "inline_keyboard": [
-                [{"text": "🗑️ ลบพิกัดเดิม", "callback_data": "loc_del"}]
-            ]
+            "inline_keyboard": keyboard
         }
         
     await send_telegram_message(chat_id, text, reply_markup)

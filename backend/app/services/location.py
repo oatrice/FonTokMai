@@ -3,12 +3,17 @@ from sqlalchemy.future import select
 from app.models import UserLocation
 from datetime import datetime, timedelta, timezone
 
-async def get_location(session: AsyncSession, chat_id: int) -> UserLocation:
-    result = await session.execute(select(UserLocation).where(UserLocation.chat_id == chat_id))
+async def get_location(session: AsyncSession, chat_id: int, name: str = "default") -> UserLocation:
+    result = await session.execute(
+        select(UserLocation).where(
+            UserLocation.chat_id == chat_id,
+            UserLocation.name == name
+        )
+    )
     return result.scalars().first()
 
-async def save_location(session: AsyncSession, chat_id: int, lat: float, lng: float, retention_type: str) -> UserLocation:
-    loc = await get_location(session, chat_id)
+async def save_location(session: AsyncSession, chat_id: int, lat: float, lng: float, retention_type: str, name: str = "default") -> UserLocation:
+    loc = await get_location(session, chat_id, name)
     
     expires_at = None
     if retention_type == "TWO_MONTHS":
@@ -22,6 +27,7 @@ async def save_location(session: AsyncSession, chat_id: int, lat: float, lng: fl
     else:
         loc = UserLocation(
             chat_id=chat_id,
+            name=name,
             latitude=lat,
             longitude=lng,
             retention_type=retention_type,
@@ -33,8 +39,8 @@ async def save_location(session: AsyncSession, chat_id: int, lat: float, lng: fl
     await session.refresh(loc)
     return loc
 
-async def delete_location(session: AsyncSession, chat_id: int) -> bool:
-    loc = await get_location(session, chat_id)
+async def delete_location(session: AsyncSession, chat_id: int, name: str = "default") -> bool:
+    loc = await get_location(session, chat_id, name)
     if loc:
         await session.delete(loc)
         await session.commit()

@@ -1,53 +1,36 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 21,
-      "title": "Bug: Active alert locations are lost during Cloud Run cold start (State Loss)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/21",
+      "number": 9,
+      "title": "Feature: Support multiple saved locations per user (e.g. Home, Work)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/9",
       "body": null,
-      "project_item_id": "GLAB_21",
+      "project_item_id": "GLAB_9",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/21-bug-active-alert-locations-ar",
-  "started_at": "2026-06-02T09:55:48.094220",
+  "active_branch": "feat/9-feature:-support-multiple-save",
+  "started_at": "2026-06-02T10:42:59.734002",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
       "pending": [
-        "README.md"
+        "CHANGELOG.md",
+        "README.md",
+        "VERSION"
       ],
       "changed_files": [
-        "CHANGELOG.md",
-        "VERSION",
-        "backend/app/repositories/firestore.py",
-        "backend/requirements.txt",
-        "backend/tests/test_firestore.py",
-        "docs/ROADMAP.md",
-        "docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95/ai_brain/implementation_plan.md",
-        "docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95/ai_brain/task.md",
-        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/implementation_plan.md",
-        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/manual_verification.md",
-        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/task.md",
-        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/walkthrough.md",
-        "gitlab-ci.yml",
+        "luma/prompts/prompt_20260602_034251_3e8c8df2.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/repositories/firestore.py",
-        "gitlab-ci.yml",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -116,11 +99,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/12_issue-9_feature-support-multiple-saved-locations-per-user-e-03e3e571"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/11",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-02T10:39:33.957703"
+  "last_updated": "2026-06-02T10:43:32.573963"
 }

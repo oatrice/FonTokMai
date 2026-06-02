@@ -61,10 +61,12 @@ async def check_rain_and_alert():
                     intensity_str = result.get("intensity", "ไม่ทราบ")
                     duration_min = result.get("duration_minutes", 0)
                     
+                    loc_name_str = f" '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else " "
+                    
                     if eta_minutes == 0:
-                        text = "🌧️ ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้\n"
+                        text = f"🌧️ ฝนกำลังตกอยู่ที่พิกัด{loc_name_str}ของคุณ ณ ขณะนี้\n"
                     else:
-                        text = f"🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก {eta_minutes} นาที\n"
+                        text = f"🌧️ ฝนกำลังเคลื่อนมาทางพิกัด{loc_name_str}ของคุณ จะเริ่มตกในอีก {eta_minutes} นาที\n"
                         
                     text += f"💧 ความรุนแรง: {intensity_str}\n"
                     text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {duration_min} นาที\n"

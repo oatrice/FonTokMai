@@ -10,12 +10,23 @@ class SQLiteLocationRepository(LocationRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_location(self, chat_id: int) -> Optional[UserLocation]:
-        result = await self.session.execute(select(UserLocation).where(UserLocation.chat_id == chat_id))
+    async def get_location(self, chat_id: int, name: str = "default") -> Optional[UserLocation]:
+        result = await self.session.execute(
+            select(UserLocation).where(
+                UserLocation.chat_id == chat_id,
+                UserLocation.name == name
+            )
+        )
         return result.scalars().first()
 
-    async def save_location(self, chat_id: int, lat: float, lng: float, retention_type: str) -> UserLocation:
-        loc = await self.get_location(chat_id)
+    async def get_user_locations(self, chat_id: int) -> List[UserLocation]:
+        result = await self.session.execute(
+            select(UserLocation).where(UserLocation.chat_id == chat_id)
+        )
+        return list(result.scalars().all())
+
+    async def save_location(self, chat_id: int, lat: float, lng: float, retention_type: str, name: str = "default") -> UserLocation:
+        loc = await self.get_location(chat_id, name)
         
         expires_at = None
         if retention_type == "TWO_MONTHS":
@@ -29,6 +40,7 @@ class SQLiteLocationRepository(LocationRepository):
         else:
             loc = UserLocation(
                 chat_id=chat_id,
+                name=name,
                 latitude=lat,
                 longitude=lng,
                 retention_type=retention_type,
@@ -54,8 +66,8 @@ class SQLiteLocationRepository(LocationRepository):
         await self.session.commit()
         return location
 
-    async def delete_location(self, chat_id: int) -> bool:
-        loc = await self.get_location(chat_id)
+    async def delete_location(self, chat_id: int, name: str = "default") -> bool:
+        loc = await self.get_location(chat_id, name)
         if loc:
             await self.session.delete(loc)
             await self.session.commit()

@@ -5,11 +5,15 @@ from app.models import UserLocation
 
 class LocationRepository(ABC):
     @abstractmethod
-    async def get_location(self, chat_id: int) -> Optional[UserLocation]:
+    async def get_location(self, chat_id: int, name: str = "default") -> Optional[UserLocation]:
         pass
 
     @abstractmethod
-    async def save_location(self, chat_id: int, lat: float, lng: float, retention_type: str) -> UserLocation:
+    async def get_user_locations(self, chat_id: int) -> list[UserLocation]:
+        pass
+
+    @abstractmethod
+    async def save_location(self, chat_id: int, lat: float, lng: float, retention_type: str, name: str = "default") -> UserLocation:
         pass
 
     @abstractmethod
@@ -21,5 +25,5 @@ class LocationRepository(ABC):
         pass
 
     @abstractmethod
-    async def delete_location(self, chat_id: int) -> bool:
+    async def delete_location(self, chat_id: int, name: str = "default") -> bool:
         pass
