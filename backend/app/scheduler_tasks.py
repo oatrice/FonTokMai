@@ -6,8 +6,10 @@ from app.services.telegram import send_telegram_message, get_radar_inline_keyboa
 
 logger = logging.getLogger(__name__)
 
+import os
+
 # Minimum cooldown between alerts in minutes
-ALERT_COOLDOWN_MINUTES = 120
+ALERT_COOLDOWN_MINUTES = int(os.getenv("ALERT_COOLDOWN_MINUTES", "120"))
 
 async def check_rain_and_alert():
     """
