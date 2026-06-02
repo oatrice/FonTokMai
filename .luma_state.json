@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 9,
@@ -16,7 +16,9 @@
   "active_branch": "feat/9-feature:-support-multiple-save",
   "started_at": "2026-06-02T10:42:59.734002",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -105,5 +107,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-02T10:43:32.573963"
+  "last_updated": "2026-06-02T11:51:13.840821"
 }

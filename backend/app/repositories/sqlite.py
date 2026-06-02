@@ -11,11 +11,15 @@ class SQLiteLocationRepository(LocationRepository):
         self.session = session
 
     async def get_location(self, chat_id: int, name: str = "default") -> Optional[UserLocation]:
+        from sqlalchemy import or_
+        conditions = [UserLocation.chat_id == chat_id]
+        if name == "default":
+            conditions.append(or_(UserLocation.name == name, UserLocation.name.is_(None)))
+        else:
+            conditions.append(UserLocation.name == name)
+            
         result = await self.session.execute(
-            select(UserLocation).where(
-                UserLocation.chat_id == chat_id,
-                UserLocation.name == name
-            )
+            select(UserLocation).where(*conditions)
         )
         return result.scalars().first()
 

@@ -18,6 +18,11 @@ class FirestoreLocationRepository(LocationRepository):
     async def get_location(self, chat_id: int, name: str = "default") -> Optional[UserLocation]:
         doc_ref = self.collection.document(f"{chat_id}_{name}")
         doc = await doc_ref.get()
+        if not doc.exists and name == "default":
+            # Check legacy document ID format
+            doc_ref = self.collection.document(str(chat_id))
+            doc = await doc_ref.get()
+            
         if doc.exists:
             data = doc.to_dict()
             return self._dict_to_model(data)
@@ -76,8 +81,18 @@ class FirestoreLocationRepository(LocationRepository):
 
     async def delete_location(self, chat_id: int, name: str = "default") -> bool:
         doc_ref = self.collection.document(f"{chat_id}_{name}")
+        doc = await doc_ref.get()
+        if not doc.exists and name == "default":
+            # Check legacy document ID format
+            doc_ref = self.collection.document(str(chat_id))
+            
         await doc_ref.delete()
         return True
 
     def _dict_to_model(self, data: dict) -> UserLocation:
+        from datetime import timezone
+        for field in ["expires_at", "last_alerted_at"]:
+            val = data.get(field)
+            if val and getattr(val, "tzinfo", None):
+                data[field] = val.astimezone(timezone.utc).replace(tzinfo=None)
         return UserLocation(**data)

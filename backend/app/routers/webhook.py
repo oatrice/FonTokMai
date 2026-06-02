@@ -245,16 +245,18 @@ async def handle_mylocation_command(chat_id: int):
             if loc.expires_at:
                 expires = loc.expires_at.strftime("%Y-%m-%d %H:%M:%S UTC")
             
+            loc_name = loc.name if loc.name else "default"
+            
             icon = "📍"
-            if loc.name.lower() == "home":
+            if loc_name.lower() == "home":
                 icon = "🏠"
-            elif loc.name.lower() == "work":
+            elif loc_name.lower() == "work":
                 icon = "💼"
                 
-            text += f"{icon} {loc.name.capitalize()}: {loc.latitude}, {loc.longitude}\n"
+            text += f"{icon} {loc_name.capitalize()}: {loc.latitude}, {loc.longitude}\n"
             text += f"⏳ วันหมดอายุ: {expires}\n\n"
             
-            keyboard.append([{"text": f"🗑️ ลบ {loc.name.capitalize()}", "callback_data": f"loc_del_{loc.name.lower()}"}])
+            keyboard.append([{"text": f"🗑️ ลบ {loc_name.capitalize()}", "callback_data": f"loc_del_{loc_name.lower()}"}])
             
         text += "หากต้องการเปลี่ยนแปลงพิกัด ให้ส่ง Location ใหม่อีกครั้ง หรือกดปุ่มด้านล่างเพื่อลบข้อมูล"
         
