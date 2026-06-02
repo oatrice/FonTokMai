@@ -24,22 +24,51 @@ class FirestoreLocationRepository(LocationRepository):
         return None
 
     async def save_location(self, chat_id: int, lat: float, lng: float, retention_type: str) -> UserLocation:
-        # Same expiry logic as sqlite, but stored in Firestore
         expires_at = None
         if retention_type == "TWO_MONTHS":
             # Just keep it as UTC timestamp or python datetime
             # We'll calculate it from current time + 60 days
-            pass # TODO: expiry logic
+            from datetime import timedelta
+            expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=60)
             
-        return UserLocation(chat_id=chat_id, latitude=lat, longitude=lng, retention_type=retention_type)
+        data = {
+            "chat_id": chat_id,
+            "latitude": lat,
+            "longitude": lng,
+            "retention_type": retention_type,
+            "expires_at": expires_at
+        }
+        
+        doc_ref = self.collection.document(str(chat_id))
+        await doc_ref.set(data)
+        
+        return self._dict_to_model(data)
 
     async def get_active_locations(self) -> List[UserLocation]:
-        return []
+        # Firestore cannot do an OR query efficiently for "expires_at == null OR expires_at > now".
+        # We can fetch all and filter in python, or use a complex index.
+        # Since the bot might not have millions of locations, fetching all and filtering in-memory is acceptable.
+        locations = []
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        
+        async for doc in self.collection.stream():
+            data = doc.to_dict()
+            loc = self._dict_to_model(data)
+            if loc.expires_at is None or loc.expires_at > now:
+                locations.append(loc)
+                
+        return locations
 
     async def update_last_alerted(self, location: UserLocation, alerted_time: datetime) -> UserLocation:
+        alerted_time_native = alerted_time.replace(tzinfo=None)
+        doc_ref = self.collection.document(str(location.chat_id))
+        await doc_ref.update({"last_alerted_at": alerted_time_native})
+        location.last_alerted_at = alerted_time_native
         return location
 
     async def delete_location(self, chat_id: int) -> bool:
+        doc_ref = self.collection.document(str(chat_id))
+        await doc_ref.delete()
         return True
 
     def _dict_to_model(self, data: dict) -> UserLocation:
