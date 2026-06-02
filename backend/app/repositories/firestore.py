@@ -96,3 +96,18 @@ class FirestoreLocationRepository(LocationRepository):
             if val and getattr(val, "tzinfo", None):
                 data[field] = val.astimezone(timezone.utc).replace(tzinfo=None)
         return UserLocation(**data)
+
+    async def get_mock_state(self, chat_id: int) -> Optional[str]:
+        doc_ref = self.db.collection('dev_mocks').document(str(chat_id))
+        doc = await doc_ref.get()
+        if doc.exists:
+            data = doc.to_dict()
+            return data.get("state")
+        return None
+
+    async def set_mock_state(self, chat_id: int, state: Optional[str]) -> None:
+        doc_ref = self.db.collection('dev_mocks').document(str(chat_id))
+        if state is None:
+            await doc_ref.delete()
+        else:
+            await doc_ref.set({"state": state})

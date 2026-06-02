@@ -27,3 +27,13 @@ class LocationRepository(ABC):
     @abstractmethod
     async def delete_location(self, chat_id: int, name: str = "default") -> bool:
         pass
+
+    @abstractmethod
+    async def get_mock_state(self, chat_id: int) -> Optional[str]:
+        """Get the developer mock state for a chat_id. Returns 'rain', 'clear', or None."""
+        pass
+
+    @abstractmethod
+    async def set_mock_state(self, chat_id: int, state: Optional[str]) -> None:
+        """Set the developer mock state for a chat_id. Set to None to disable mock."""
+        pass

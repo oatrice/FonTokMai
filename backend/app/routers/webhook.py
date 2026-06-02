@@ -23,8 +23,12 @@ TELEGRAM_EDIT_REPLY_MARKUP_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOK
 
 async def process_telegram_location(chat_id: int, lat: float, lng: float, endpoint_type: str = "global", message_id_to_edit: int = None):
     try:
+        mock_state = None
+        async with get_repo_context() as repo:
+            mock_state = await repo.get_mock_state(chat_id)
+            
         rainbow = RainbowService()
-        result = await rainbow.predict_rain_by_location(lat, lng, endpoint_type=endpoint_type)
+        result = await rainbow.predict_rain_by_location(lat, lng, endpoint_type=endpoint_type, mock_state=mock_state)
         predictions = result.get("predictions", [])
         actual_endpoint = result.get("endpoint", endpoint_type)
         
@@ -279,6 +283,21 @@ async def handle_radar_command(chat_id: int):
         reply_markup = get_radar_inline_keyboard(loc.latitude, loc.longitude, is_developer=is_dev)
         await send_telegram_message(chat_id, text, reply_markup=reply_markup)
 
+async def handle_devmock_command(chat_id: int, command: str):
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        return
+        
+    async with get_repo_context() as repo:
+        if command == "/devmock rain":
+            await repo.set_mock_state(chat_id, "rain")
+            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌧️ ฝนตกหนัก")
+        elif command == "/devmock clear":
+            await repo.set_mock_state(chat_id, "clear")
+            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: ☀️ ท้องฟ้าแจ่มใส")
+        elif command == "/devmock off":
+            await repo.set_mock_state(chat_id, None)
+            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] ปิดใช้งานโหมดจำลองเรียบร้อยแล้ว")
+
 @router.post("/webhook")
 async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     payload = await request.json()
@@ -307,6 +326,10 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
             
         if text.startswith("/radar") and chat_id:
             background_tasks.add_task(handle_radar_command, chat_id)
+            return {"status": "ok"}
+            
+        if text.startswith("/devmock") and chat_id:
+            background_tasks.add_task(handle_devmock_command, chat_id, text.strip())
             return {"status": "ok"}
                 
     return {"status": "ignored"}

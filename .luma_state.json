@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "coding",
   "active_issues": [
     {
       "number": 9,
@@ -11,10 +11,19 @@
       "project_item_id": "GLAB_9",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 19,
+      "title": "Feature: Developer Mock Mode for Background Scheduler",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/19",
+      "body": null,
+      "project_item_id": "GLAB_19",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
     }
   ],
   "active_branch": "feat/9-feature:-support-multiple-save",
-  "started_at": "2026-06-02T10:42:59.734002",
+  "started_at": "2026-06-02T11:54:49.486723",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -28,11 +37,35 @@
         "VERSION"
       ],
       "changed_files": [
-        "luma/prompts/prompt_20260602_034251_3e8c8df2.md",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/location.py",
+        "backend/tests/test_firestore.py",
+        "backend/tests/test_scheduler.py",
+        "backend/tests/test_webhook.py",
+        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/ai_brain/implementation_plan.md",
+        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/ai_brain/task.md",
+        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/ai_brain/walkthrough.md",
+        "docs/features/12_issue-9_feature-support-multiple-saved-locations-per-user-e-03e3e571/implementation_plan.md",
+        "docs/features/12_issue-9_feature-support-multiple-saved-locations-per-user-e-03e3e571/manual_verification.md",
+        "docs/features/12_issue-9_feature-support-multiple-saved-locations-per-user-e-03e3e571/task.md",
+        "docs/features/12_issue-9_feature-support-multiple-saved-locations-per-user-e-03e3e571/walkthrough.md",
         "luma_metrics.json",
-        "luma_state.json"
+        "luma_state.json",
+        "test_mylocation.py"
       ],
       "meaningful_files": [
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/location.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -101,11 +134,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/12_issue-9_feature-support-multiple-saved-locations-per-user-e-03e3e571"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/13_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-02T11:51:13.840821"
+  "last_updated": "2026-06-02T11:54:49.486874"
 }

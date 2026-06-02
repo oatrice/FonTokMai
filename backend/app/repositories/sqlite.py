@@ -77,3 +77,30 @@ class SQLiteLocationRepository(LocationRepository):
             await self.session.commit()
             return True
         return False
+
+    async def get_mock_state(self, chat_id: int) -> Optional[str]:
+        from app.models import DeveloperMock
+        result = await self.session.execute(
+            select(DeveloperMock).where(DeveloperMock.chat_id == chat_id)
+        )
+        mock = result.scalars().first()
+        return mock.state if mock else None
+
+    async def set_mock_state(self, chat_id: int, state: Optional[str]) -> None:
+        from app.models import DeveloperMock
+        result = await self.session.execute(
+            select(DeveloperMock).where(DeveloperMock.chat_id == chat_id)
+        )
+        mock = result.scalars().first()
+        
+        if state is None:
+            if mock:
+                await self.session.delete(mock)
+        else:
+            if mock:
+                mock.state = state
+            else:
+                mock = DeveloperMock(chat_id=chat_id, state=state)
+                self.session.add(mock)
+                
+        await self.session.commit()

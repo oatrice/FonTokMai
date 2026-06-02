@@ -34,7 +34,8 @@ async def check_rain_and_alert():
                     continue
             
             try:
-                result = await rainbow_svc.predict_rain_by_location(loc.latitude, loc.longitude)
+                mock_state = await repo.get_mock_state(loc.chat_id)
+                result = await rainbow_svc.predict_rain_by_location(loc.latitude, loc.longitude, mock_state=mock_state)
                 predictions = result.get("predictions", [])
                 
                 eta_minutes = None
