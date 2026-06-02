@@ -1,15 +1,113 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "idle",
-  "active_issues": [],
-  "active_branch": null,
-  "started_at": null,
-  "checklist": {},
-  "context": {},
+  "phase": "reviewing",
+  "active_issues": [
+    {
+      "number": 21,
+      "title": "Bug: Active alert locations are lost during Cloud Run cold start (State Loss)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/21",
+      "body": null,
+      "project_item_id": "GLAB_21",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    }
+  ],
+  "active_branch": "feat/21-bug:-active-alert-locations-ar",
+  "started_at": "2026-06-02T09:55:48.094220",
+  "checklist": {
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
+  },
+  "context": {
+    "pending_doc_updates": {
+      "pending": [
+        "CHANGELOG.md",
+        "README.md",
+        "VERSION"
+      ],
+      "changed_files": [
+        "docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95/ai_brain/implementation_plan.md",
+        "docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95/ai_brain/task.md",
+        "luma/prompts/prompt_20260602_025545_3aa2f32a.md",
+        "luma_metrics.json",
+        "luma_state.json"
+      ],
+      "meaningful_files": [
+        "luma_metrics.json",
+        "luma_state.json"
+      ],
+      "version_file": "VERSION",
+      "has_meaningful_changes": true
+    },
+    "target_planning_repos": [
+      {
+        "name": "FonMaYang",
+        "path": "/Users/oatrice/Software-projects/FonMaYang",
+        "repo": "oatricedev/FonMaYang",
+        "kanban_number": 1,
+        "kanban_id": "",
+        "status_workflow": {
+          "selectable_statuses": [
+            "Ready",
+            "In Progress",
+            "Todo"
+          ],
+          "selection_order": [
+            "In Progress",
+            "Ready",
+            "Todo"
+          ],
+          "active_statuses": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review"
+          ],
+          "active_sort_order": [
+            "In Progress",
+            "Ready",
+            "Todo",
+            "In Review",
+            "Backlog"
+          ],
+          "board_order": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review",
+            "Done",
+            "Closed"
+          ],
+          "done_statuses": [
+            "Done",
+            "Closed"
+          ],
+          "status_icons": {
+            "Backlog": "📥 ",
+            "Ready": "✅ ",
+            "Todo": "📝 ",
+            "In Progress": "🔥 ",
+            "In Review": "👀 ",
+            "Done": "✅ ",
+            "Closed": "✅ "
+          },
+          "action_status_map": {
+            "select_issue": "In Progress",
+            "create_pr": "In Review",
+            "pr_merged": "Done"
+          }
+        }
+      }
+    ],
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204"
+  },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-01T20:42:41.648017"
+  "last_updated": "2026-06-02T10:17:09.303790"
 }
