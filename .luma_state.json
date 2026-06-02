@@ -1,20 +1,29 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
-      "number": 21,
-      "title": "Bug: Active alert locations are lost during Cloud Run cold start (State Loss)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/21",
+      "number": 9,
+      "title": "Feature: Support multiple saved locations per user (e.g. Home, Work)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/9",
       "body": null,
-      "project_item_id": "GLAB_21",
+      "project_item_id": "GLAB_9",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 19,
+      "title": "Feature: Developer Mock Mode for Background Scheduler",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/19",
+      "body": null,
+      "project_item_id": "GLAB_19",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/21-bug-active-alert-locations-ar",
-  "started_at": "2026-06-02T09:55:48.094220",
+  "active_branch": "feat/9-feature-support-multiple-save",
+  "started_at": "2026-06-02T11:54:49.486723",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -30,24 +39,43 @@
         "CHANGELOG.md",
         "README.md",
         "VERSION",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
         "backend/app/repositories/firestore.py",
-        "backend/requirements.txt",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/location.py",
+        "backend/app/services/rainbow.py",
+        "backend/tests/test_devmock.py",
         "backend/tests/test_firestore.py",
-        "docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95/ai_brain/implementation_plan.md",
-        "docs/features/10_issue-25_refactor-replace-apscheduler-external-cron-service-webh-f0405a95/ai_brain/task.md",
-        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/implementation_plan.md",
-        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/manual_verification.md",
-        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/task.md",
-        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/walkthrough.md",
-        "gitlab-ci.yml",
-        "luma/prompts/prompt_20260602_033519_6929e9c3.md",
-        "luma/prompts/prompt_20260602_033522_17c580ec.md",
+        "backend/tests/test_scheduler.py",
+        "backend/tests/test_webhook.py",
+        "docs/ROADMAP.md",
+        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/ai_brain/implementation_plan.md",
+        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/ai_brain/task.md",
+        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/ai_brain/walkthrough.md",
+        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/implementation_plan.md",
+        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/implementation_plan2.md",
+        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/manual_verification.md",
+        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/manual_verification2.md",
+        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/task.md",
+        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/task2.md",
+        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/walkthrough.md",
+        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/walkthrough2.md",
         "luma_metrics.json",
-        "luma_state.json"
+        "luma_state.json",
+        "test_mylocation.py"
       ],
       "meaningful_files": [
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
         "backend/app/repositories/firestore.py",
-        "gitlab-ci.yml",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/location.py",
+        "backend/app/services/rainbow.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -116,11 +144,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/13_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/12",
   "pr_number": null,
-  "last_updated": "2026-06-02T10:37:36.194237"
+  "last_updated": "2026-06-02T12:39:31.591640"
 }

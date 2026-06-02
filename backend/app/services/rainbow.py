@@ -1,6 +1,7 @@
 import os
 import logging
 import httpx
+from typing import Optional
 from datetime import datetime, timezone
 from .weather_base import BaseWeatherService
 
@@ -30,7 +31,22 @@ class RainbowService(BaseWeatherService):
             "map_layer": None
         }
 
-    async def predict_rain_by_location(self, lat: float, lng: float, endpoint_type: str = "global") -> dict:
+    async def predict_rain_by_location(self, lat: float, lng: float, endpoint_type: str = "global", mock_state: Optional[str] = None) -> dict:
+        if mock_state == "rain":
+            return {
+                "predictions": [{"time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), "rain": 15.0}],
+                "intensity": "หนัก (Heavy)",
+                "duration_minutes": 60,
+                "endpoint": endpoint_type
+            }
+        elif mock_state == "clear":
+            return {
+                "predictions": [{"time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), "rain": 0.0}],
+                "intensity": "ไม่มีฝน (No Rain)",
+                "duration_minutes": 0,
+                "endpoint": endpoint_type
+            }
+
         async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers) as client:
             try:
                 # Determine base API URL

@@ -39,6 +39,7 @@ async def test_get_location_found(firestore_repo):
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     mock_doc.to_dict.return_value = {
         "chat_id": chat_id,
+        "name": "Home",
         "latitude": 10.0,
         "longitude": 20.0,
         "retention_type": "TWO_MONTHS",
@@ -47,9 +48,10 @@ async def test_get_location_found(firestore_repo):
     
     mock_doc_ref.get = AsyncMock(return_value=mock_doc)
     
-    loc = await firestore_repo.get_location(chat_id)
+    loc = await firestore_repo.get_location(chat_id, "Home")
     assert loc is not None
     assert loc.chat_id == chat_id
+    assert loc.name == "Home"
     assert loc.latitude == 10.0
     assert loc.expires_at == now
 
@@ -63,7 +65,7 @@ async def test_get_location_not_found(firestore_repo):
     mock_doc.exists = False
     mock_doc_ref.get = AsyncMock(return_value=mock_doc)
     
-    loc = await firestore_repo.get_location(chat_id)
+    loc = await firestore_repo.get_location(chat_id, "Home")
     assert loc is None
 
 @pytest.mark.asyncio
@@ -76,9 +78,10 @@ async def test_save_location_two_months(firestore_repo):
     firestore_repo.mock_collection.document.return_value = mock_doc_ref
     mock_doc_ref.set = AsyncMock()
     
-    loc = await firestore_repo.save_location(chat_id, lat, lng, "TWO_MONTHS")
+    loc = await firestore_repo.save_location(chat_id, lat, lng, "TWO_MONTHS", "Work")
     
     assert loc.chat_id == chat_id
+    assert loc.name == "Work"
     assert loc.latitude == lat
     assert loc.retention_type == "TWO_MONTHS"
     assert loc.expires_at is not None
@@ -101,7 +104,7 @@ async def test_save_location_forever(firestore_repo):
     firestore_repo.mock_collection.document.return_value = mock_doc_ref
     mock_doc_ref.set = AsyncMock()
     
-    loc = await firestore_repo.save_location(chat_id, 10.0, 20.0, "FOREVER")
+    loc = await firestore_repo.save_location(chat_id, 10.0, 20.0, "FOREVER", "Home")
     
     assert loc.expires_at is None
     
@@ -164,8 +167,36 @@ async def test_delete_location(firestore_repo):
     chat_id = 2222
     mock_doc_ref = MagicMock()
     firestore_repo.mock_collection.document.return_value = mock_doc_ref
+    
+    mock_doc = MagicMock()
+    mock_doc.exists = True
+    mock_doc_ref.get = AsyncMock(return_value=mock_doc)
     mock_doc_ref.delete = AsyncMock()
     
-    res = await firestore_repo.delete_location(chat_id)
+    res = await firestore_repo.delete_location(chat_id, "Home")
     assert res is True
     mock_doc_ref.delete.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_get_user_locations(firestore_repo):
+    chat_id = 5555
+    mock_query = MagicMock()
+    firestore_repo.mock_collection.where.return_value = mock_query
+    
+    mock_doc1 = MagicMock()
+    mock_doc1.to_dict.return_value = {"chat_id": chat_id, "name": "Home", "latitude": 10.0, "longitude": 20.0}
+    
+    mock_doc2 = MagicMock()
+    mock_doc2.to_dict.return_value = {"chat_id": chat_id, "name": "Work", "latitude": 30.0, "longitude": 40.0}
+    
+    async def mock_stream():
+        yield mock_doc1
+        yield mock_doc2
+        
+    mock_query.stream = mock_stream
+    
+    locs = await firestore_repo.get_user_locations(chat_id)
+    assert len(locs) == 2
+    assert locs[0].name == "Home"
+    assert locs[1].name == "Work"
+    firestore_repo.mock_collection.where.assert_called_once_with("chat_id", "==", chat_id)

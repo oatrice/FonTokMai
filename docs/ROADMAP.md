@@ -53,7 +53,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #19 - Feature: Developer Mock Mode for Background Scheduler
 - **GitHub:** [#19](https://gitlab.com/oatricedev/FonMaYang/-/issues/19)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.12.0)
 
 ### Issue #18 - Dummy for test
 - **GitHub:** [#18](https://gitlab.com/oatricedev/Luma/-/issues/18)
@@ -93,7 +93,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #9 - Feature: Support multiple saved locations per user (e.g. Home, Work)
 - **GitHub:** [#9](https://gitlab.com/oatricedev/Luma/-/issues/9)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.12.0)
 
 ### Issue #8 - Infrastructure: Develop Cross-Platform Mobile App (Flutter/React Native)
 - **GitHub:** [#8](https://gitlab.com/oatricedev/Luma/-/issues/8)

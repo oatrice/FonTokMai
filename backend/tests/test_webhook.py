@@ -34,6 +34,7 @@ def test_telegram_webhook_with_location():
             with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
                 mock_repo = AsyncMock()
                 mock_repo.get_location.return_value = None
+                mock_repo.get_mock_state.return_value = None
                 
                 @asynccontextmanager
                 async def mock_context():
@@ -57,7 +58,7 @@ def test_telegram_webhook_with_location():
             assert response.status_code == 200
             assert response.json() == {"status": "ok"}
             
-            mock_predict.assert_called_once_with(17.1664, 104.1486, endpoint_type='global')
+            mock_predict.assert_called_once_with(17.1664, 104.1486, endpoint_type='global', mock_state=None)
             assert mock_post.called
 
 def test_telegram_webhook_without_location():
@@ -83,7 +84,7 @@ def test_telegram_webhook_mylocation_cmd():
         
         with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
             mock_repo = AsyncMock()
-            mock_repo.get_location.return_value = None
+            mock_repo.get_user_locations.return_value = []
             
             @asynccontextmanager
             async def mock_context():
@@ -123,13 +124,13 @@ def test_telegram_webhook_callback_query_2m():
                         "message_id": 5,
                         "chat": {"id": 7777}
                     },
-                    "data": "loc_2m_13.75_100.50"
+                    "data": "loc_save_home_2m_13.75_100.50"
                 }
             }
             response = client.post("/api/v1/telegram/webhook", json=payload)
             assert response.status_code == 200
             
-            mock_repo.save_location.assert_called_once_with(7777, 13.75, 100.50, "TWO_MONTHS")
+            mock_repo.save_location.assert_called_once_with(7777, 13.75, 100.50, "TWO_MONTHS", "home")
 
 def test_telegram_webhook_radar_cmd_with_loc():
     with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:

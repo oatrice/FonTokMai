@@ -6,8 +6,10 @@ from app.services.telegram import send_telegram_message, get_radar_inline_keyboa
 
 logger = logging.getLogger(__name__)
 
+import os
+
 # Minimum cooldown between alerts in minutes
-ALERT_COOLDOWN_MINUTES = 120
+ALERT_COOLDOWN_MINUTES = int(os.getenv("ALERT_COOLDOWN_MINUTES", "120"))
 
 async def check_rain_and_alert():
     """
@@ -34,7 +36,8 @@ async def check_rain_and_alert():
                     continue
             
             try:
-                result = await rainbow_svc.predict_rain_by_location(loc.latitude, loc.longitude)
+                mock_state = await repo.get_mock_state(loc.chat_id)
+                result = await rainbow_svc.predict_rain_by_location(loc.latitude, loc.longitude, mock_state=mock_state)
                 predictions = result.get("predictions", [])
                 
                 eta_minutes = None
@@ -61,10 +64,12 @@ async def check_rain_and_alert():
                     intensity_str = result.get("intensity", "ไม่ทราบ")
                     duration_min = result.get("duration_minutes", 0)
                     
+                    loc_name_str = f" '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else " "
+                    
                     if eta_minutes == 0:
-                        text = "🌧️ ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้\n"
+                        text = f"🌧️ ฝนกำลังตกอยู่ที่พิกัด{loc_name_str}ของคุณ ณ ขณะนี้\n"
                     else:
-                        text = f"🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก {eta_minutes} นาที\n"
+                        text = f"🌧️ ฝนกำลังเคลื่อนมาทางพิกัด{loc_name_str}ของคุณ จะเริ่มตกในอีก {eta_minutes} นาที\n"
                         
                     text += f"💧 ความรุนแรง: {intensity_str}\n"
                     text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {duration_min} นาที\n"
