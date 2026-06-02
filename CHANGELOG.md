@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-06-02
+### Added
+- Supported saving multiple locations per user (e.g., Home, Work, Default).
+- Implemented a Developer Mock Mode (`/devmock`) for simulating weather states during scheduler testing.
+- Added configurable alert cooldown via environment variables (`ALERT_COOLDOWN_MINUTES`).
+
+### Changed
+- Refactored location handling to ensure backward compatibility with legacy single-location data formats.
+
 ## [0.11.0] - 2026-06-02
 ### Changed
 - Migrated active alert locations storage from in-memory SQLite to Google Cloud Firestore to prevent data loss during Cloud Run cold starts.
