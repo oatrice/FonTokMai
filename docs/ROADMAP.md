@@ -27,6 +27,30 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #31 - Feature: Wind Vector Nowcasting — Calculate Storm Cell Movement Trajectory Before Alerting
+- **GitHub:** [#31](https://gitlab.com/oatricedev/FonMaYang/-/issues/31)
+- **Status:** 🟢 **Ready**
+
+### Issue #30 - Improvement: Tighten Geofence Radius to 5-10 km to Isolate Local Weather from Cross-border Events
+- **GitHub:** [#30](https://gitlab.com/oatricedev/FonMaYang/-/issues/30)
+- **Status:** 🟢 **Ready**
+
+### Issue #29 - Improvement: Raise Rain Alert Threshold to Filter Noise and False Buffers
+- **GitHub:** [#29](https://gitlab.com/oatricedev/FonMaYang/-/issues/29)
+- **Status:** 🟢 **Ready**
+
+### Issue #28 - Feature: Switch to RainViewer Radar API for Real-time Local dBZ Reflectivity
+- **GitHub:** [#28](https://gitlab.com/oatricedev/FonMaYang/-/issues/28)
+- **Status:** 🟢 **Ready**
+
+### Issue #27 - Bug: False Positive Rain Alert caused by Coarse Global Forecast Model (Cross-border Storm Bleed)
+- **GitHub:** [#27](https://gitlab.com/oatricedev/FonMaYang/-/issues/27)
+- **Status:** 🟢 **Ready**
+
+### Issue #26 - Feature: Smart Cooldown (Escalation Alert) for Background Scheduler
+- **GitHub:** [#26](https://gitlab.com/oatricedev/FonMaYang/-/issues/26)
+- **Status:** 🟢 **Ready**
+
 ### Issue #25 - Refactor: Replace APScheduler with external cron service and webhook endpoint
 - **GitHub:** [#25](https://gitlab.com/oatricedev/FonMaYang/-/issues/25)
     - ✅ **Done** (0.10.0)

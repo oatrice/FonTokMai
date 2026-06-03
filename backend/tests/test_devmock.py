@@ -155,17 +155,20 @@ async def test_scheduler_mock_state_injection():
         mock_repo.get_mock_state.return_value = "rain"
         mock_ctx.return_value.__aenter__.return_value = mock_repo
         
-        with patch("app.scheduler_tasks.RainbowService") as mock_rainbow_cls:
+        with patch("app.scheduler_tasks.WeatherManager") as mock_wm_cls:
             mock_svc = AsyncMock()
-            mock_rainbow_cls.return_value = mock_svc
-            mock_svc.predict_rain_by_location.return_value = {
+            mock_wm_cls.return_value = mock_svc
+            mock_svc.predict_rain.return_value = {
                 "intensity": "หนัก (Heavy)",
                 "duration_minutes": 60,
-                "predictions": [{"time": "2026-06-02T12:00:00Z", "rain": 15.0}]
+                "predictions": [{"time": "2026-06-02T12:00:00Z", "rain": 15.0}],
+                "max_rain": 15.0,
+                "wind_speed_kmh": 20.0,
+                "endpoint": "tomorrow"
             }
             
             with patch("app.scheduler_tasks.send_telegram_message") as mock_send:
                 await check_rain_and_alert()
-                # Should pass mock_state="rain" to predict_rain_by_location
-                mock_svc.predict_rain_by_location.assert_called_with(10.0, 20.0, mock_state="rain")
+                # Should pass mock_state="rain" to predict_rain
+                mock_svc.predict_rain.assert_called_with(10.0, 20.0, mock_state="rain")
                 mock_send.assert_called()
