@@ -115,7 +115,10 @@ async def check_rain_and_alert():
                     if duration_min >= 60:
                         hrs = duration_min // 60
                         mins = duration_min % 60
-                        duration_text = f"ตกต่อเนื่อง {hrs} ชม. {mins} นาที"
+                        if mins > 0:
+                            duration_text = f"ตกต่อเนื่อง {hrs} ชม. {mins} นาที"
+                        else:
+                            duration_text = f"ตกต่อเนื่อง {hrs} ชม."
                         
                     if duration_min > 0:
                         text += f"🛑 คาดว่าจะหยุดเวลา: {end_time_str} ({duration_text})\n\n"

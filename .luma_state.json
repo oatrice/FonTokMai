@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 11,
@@ -52,7 +52,9 @@
   "active_branch": "feat/11-29-13-feature-integrate-real-weather",
   "started_at": "2026-06-03T16:41:39.132501",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -145,5 +147,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-03T16:51:11.093174"
+  "last_updated": "2026-06-03T17:01:41.231111"
 }

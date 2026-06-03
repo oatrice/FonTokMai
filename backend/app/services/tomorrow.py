@@ -21,10 +21,15 @@ class TomorrowService(BaseWeatherService):
         }
 
     async def predict_rain_by_location(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
+        if not self.api_key or "INVALID" in self.api_key.upper():
+            logger.error("TOMORROW_API_KEY is not set or marked invalid.")
+            raise ValueError("TOMORROW_API_KEY is missing or invalid")
+
         if mock_state == "rain":
             return {
                 "predictions": [{"time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), "rain": 15.0}],
                 "intensity": "หนัก (Heavy)",
+                "max_rain": 15.0,
                 "duration_minutes": 60,
                 "wind_speed_kmh": 20.0,
                 "endpoint": "tomorrow"
@@ -33,14 +38,11 @@ class TomorrowService(BaseWeatherService):
             return {
                 "predictions": [{"time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), "rain": 0.0}],
                 "intensity": "ไม่มีฝน (No Rain)",
+                "max_rain": 0.0,
                 "duration_minutes": 0,
                 "wind_speed_kmh": 5.0,
                 "endpoint": "tomorrow"
             }
-
-        if not self.api_key:
-            logger.error("TOMORROW_API_KEY is not set.")
-            raise ValueError("TOMORROW_API_KEY is missing")
 
         params = {
             "location": f"{lat},{lng}",

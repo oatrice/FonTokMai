@@ -36,6 +36,7 @@ class RainbowService(BaseWeatherService):
             return {
                 "predictions": [{"time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), "rain": 15.0}],
                 "intensity": "หนัก (Heavy)",
+                "max_rain": 15.0,
                 "duration_minutes": 60,
                 "endpoint": endpoint_type
             }
@@ -43,6 +44,7 @@ class RainbowService(BaseWeatherService):
             return {
                 "predictions": [{"time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), "rain": 0.0}],
                 "intensity": "ไม่มีฝน (No Rain)",
+                "max_rain": 0.0,
                 "duration_minutes": 0,
                 "endpoint": endpoint_type
             }
@@ -120,6 +122,7 @@ class RainbowService(BaseWeatherService):
                 return {
                     "predictions": predictions,
                     "intensity": intensity_text,
+                    "max_rain": max_rain if forecast else 0.0,
                     "duration_minutes": duration_minutes,
                     "endpoint": endpoint_type
                 }
@@ -131,6 +134,7 @@ class RainbowService(BaseWeatherService):
                 return {
                     "predictions": [{"time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), "rain": 0}],
                     "intensity": "ไม่มีฝน (No Rain)",
+                    "max_rain": 0.0,
                     "duration_minutes": 0,
                     "endpoint": endpoint_type
                 }

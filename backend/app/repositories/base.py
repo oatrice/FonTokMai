@@ -21,7 +21,7 @@ class LocationRepository(ABC):
         pass
 
     @abstractmethod
-    async def update_last_alerted(self, location: UserLocation, alerted_time: datetime) -> UserLocation:
+    async def update_last_alerted(self, location: UserLocation, alerted_time: Optional[datetime]) -> UserLocation:
         pass
 
     @abstractmethod
