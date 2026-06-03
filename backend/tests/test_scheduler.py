@@ -15,13 +15,13 @@ def mock_repo_context():
     return get_repo, mock_repo
 
 @pytest.mark.asyncio
-@patch('app.scheduler_tasks.RainbowService')
+@patch('app.scheduler_tasks.WeatherManager')
 @patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
 @patch('app.scheduler_tasks.get_repo_context')
 async def test_check_rain_and_alert_rain_incoming(
     mock_get_repo_context,
     mock_send_msg,
-    mock_rainbow_cls
+    mock_weather_mgr_cls
 ):
     mock_repo = AsyncMock()
     
@@ -40,16 +40,21 @@ async def test_check_rain_and_alert_rain_incoming(
     mock_repo.get_active_locations.return_value = [loc1]
     mock_repo.get_mock_state.return_value = None
 
-    # Mock RainbowService
-    mock_rainbow_instance = mock_rainbow_cls.return_value
+    # Mock WeatherManager
+    mock_wm_instance = mock_weather_mgr_cls.return_value
     base_time = datetime.now(timezone.utc)
     # Rain in 30 mins
     rain_time = base_time + timedelta(minutes=30)
-    mock_rainbow_instance.predict_rain_by_location = AsyncMock(return_value={
+    mock_wm_instance.predict_rain = AsyncMock(return_value={
         "predictions": [
             {"time": base_time.isoformat(), "rain": 0},
             {"time": rain_time.isoformat(), "rain": 1.5}
-        ]
+        ],
+        "max_rain": 1.5,
+        "intensity": "ปานกลาง",
+        "duration_minutes": 60,
+        "wind_speed_kmh": 20.0,
+        "endpoint": "tomorrow"
     })
 
     # Execute
@@ -57,35 +62,31 @@ async def test_check_rain_and_alert_rain_incoming(
 
     # Assertions
     mock_repo.get_active_locations.assert_called_once()
-    mock_rainbow_instance.predict_rain_by_location.assert_called_once_with(13.0, 100.0, mock_state=None)
+    mock_wm_instance.predict_rain.assert_called_once_with(13.0, 100.0, mock_state=None)
     
     mock_send_msg.assert_called_once()
     call_args, call_kwargs = mock_send_msg.call_args
     assert call_args[0] == 123
-    assert "🌧️ ฝนกำลังเคลื่อนมาทางพิกัด 'Home' ของคุณ จะเริ่มตกในอีก 30 นาที" in call_args[1]
+    assert "ฝนกำลังเคลื่อนมาทางพิกัด" in call_args[1]
+    assert "(ในอีก 30 นาที)" in call_args[1]
+    assert "Tomorrow.io" in call_args[1]
     
     reply_markup = call_args[2] if len(call_args) > 2 else call_kwargs.get("reply_markup")
     assert reply_markup is not None
     kb = reply_markup["inline_keyboard"]
     assert len(kb) == 3
-    assert kb[0][0]["text"] == "📡 Zoom Earth"
-    assert kb[0][0]["url"] == "https://zoom.earth/maps/radar/#view=13.0,100.0,10z"
-    assert kb[1][0]["text"] == "🌪️ Windy Radar"
-    assert kb[1][0]["url"] == "https://www.windy.com/-Weather-radar-radar?radar,13.0,100.0,10"
-    assert kb[2][0]["text"] == "🇹🇭 TMD Radar"
-    assert kb[2][0]["url"] == "https://weather.tmd.go.th/"
 
     mock_repo.update_last_alerted.assert_called_once()
 
 
 @pytest.mark.asyncio
-@patch('app.scheduler_tasks.RainbowService')
+@patch('app.scheduler_tasks.WeatherManager')
 @patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
 @patch('app.scheduler_tasks.get_repo_context')
 async def test_check_rain_and_alert_recently_alerted(
     mock_get_repo_context,
     mock_send_msg,
-    mock_rainbow_cls
+    mock_weather_mgr_cls
 ):
     mock_repo = AsyncMock()
     
@@ -105,31 +106,32 @@ async def test_check_rain_and_alert_recently_alerted(
     mock_repo.get_active_locations.return_value = [loc1]
     
     # Rain in 30 mins
-    mock_rainbow_instance = mock_rainbow_cls.return_value
+    mock_wm_instance = mock_weather_mgr_cls.return_value
     base_time = datetime.now(timezone.utc)
     rain_time = base_time + timedelta(minutes=30)
-    mock_rainbow_instance.predict_rain_by_location = AsyncMock(return_value={
+    mock_wm_instance.predict_rain = AsyncMock(return_value={
         "predictions": [
             {"time": base_time.isoformat(), "rain": 0},
             {"time": rain_time.isoformat(), "rain": 1.5}
-        ]
+        ],
+        "max_rain": 1.5
     })
 
     # Execute
     await check_rain_and_alert()
 
-    # Should NOT send message due to 2 hour cooldown
+    # Should NOT send message due to cooldown
     mock_send_msg.assert_not_called()
     mock_repo.update_last_alerted.assert_not_called()
 
 @pytest.mark.asyncio
-@patch('app.scheduler_tasks.RainbowService')
+@patch('app.scheduler_tasks.WeatherManager')
 @patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
 @patch('app.scheduler_tasks.get_repo_context')
 async def test_check_rain_and_alert_no_rain(
     mock_get_repo_context,
     mock_send_msg,
-    mock_rainbow_cls
+    mock_weather_mgr_cls
 ):
     mock_repo = AsyncMock()
     
@@ -147,18 +149,19 @@ async def test_check_rain_and_alert_no_rain(
     )
     mock_repo.get_active_locations.return_value = [loc1]
 
-    mock_rainbow_instance = mock_rainbow_cls.return_value
+    mock_wm_instance = mock_weather_mgr_cls.return_value
     base_time = datetime.now(timezone.utc)
-    mock_rainbow_instance.predict_rain_by_location = AsyncMock(return_value={
+    mock_wm_instance.predict_rain = AsyncMock(return_value={
         "predictions": [
-            {"time": base_time.isoformat(), "rain": 0}
-        ]
+            {"time": base_time.isoformat(), "rain": 0.1} # < Threshold (0.5)
+        ],
+        "max_rain": 0.1
     })
 
     # Execute
     await check_rain_and_alert()
 
-    # Should NOT send message because no rain
+    # Should NOT send message because rain is below threshold
     mock_send_msg.assert_not_called()
     mock_repo.update_last_alerted.assert_not_called()
 

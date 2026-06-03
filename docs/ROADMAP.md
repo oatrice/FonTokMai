@@ -27,13 +27,37 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #31 - Feature: Wind Vector Nowcasting — Calculate Storm Cell Movement Trajectory Before Alerting
+- **GitHub:** [#31](https://gitlab.com/oatricedev/FonMaYang/-/issues/31)
+- **Status:** 🟢 **Ready**
+
+### Issue #30 - Improvement: Tighten Geofence Radius to 5-10 km to Isolate Local Weather from Cross-border Events
+- **GitHub:** [#30](https://gitlab.com/oatricedev/FonMaYang/-/issues/30)
+- **Status:** 🟢 **Ready**
+
+### Issue #29 - Improvement: Raise Rain Alert Threshold to Filter Noise and False Buffers
+- **GitHub:** [#29](https://gitlab.com/oatricedev/FonMaYang/-/issues/29)
+    - ✅ **Done** (0.13.0)
+
+### Issue #28 - Feature: Switch to RainViewer Radar API for Real-time Local dBZ Reflectivity
+- **GitHub:** [#28](https://gitlab.com/oatricedev/FonMaYang/-/issues/28)
+- **Status:** 🟢 **Ready**
+
+### Issue #27 - Bug: False Positive Rain Alert caused by Coarse Global Forecast Model (Cross-border Storm Bleed)
+- **GitHub:** [#27](https://gitlab.com/oatricedev/FonMaYang/-/issues/27)
+- **Status:** 🟢 **Ready**
+
+### Issue #26 - Feature: Smart Cooldown (Escalation Alert) for Background Scheduler
+- **GitHub:** [#26](https://gitlab.com/oatricedev/FonMaYang/-/issues/26)
+- **Status:** 🟢 **Ready**
+
 ### Issue #25 - Refactor: Replace APScheduler with external cron service and webhook endpoint
 - **GitHub:** [#25](https://gitlab.com/oatricedev/FonMaYang/-/issues/25)
     - ✅ **Done** (0.10.0)
 
 ### Issue #24 - Enhancement: Format rain duration from minutes to hours and minutes
 - **GitHub:** [#24](https://gitlab.com/oatricedev/FonMaYang/-/issues/24)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.13.0)
 
 ### Issue #23 - Feature/UX: Reconcile discrepancies between Global and Local Radar rain predictions
 - **GitHub:** [#23](https://gitlab.com/oatricedev/FonMaYang/-/issues/23)
@@ -49,7 +73,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #20 - Feature: Detailed Chat Alert (Start/End Time, Duration, Cloud Distance)
 - **GitHub:** [#20](https://gitlab.com/oatricedev/FonMaYang/-/issues/20)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.13.0)
 
 ### Issue #19 - Feature: Developer Mock Mode for Background Scheduler
 - **GitHub:** [#19](https://gitlab.com/oatricedev/FonMaYang/-/issues/19)
@@ -77,7 +101,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #13 - Feature: Enhance Rain Alert with Extended Meteorological Data (Intensity, Duration, Wind)
 - **GitHub:** [#13](https://gitlab.com/oatricedev/Luma/-/issues/13)
-    - ✅ **Done** (0.8.0)
+    - ✅ **Done** (0.13.0)
 
 ### Issue #12 - Feature: Add multiple radar sources (TMD, etc.) to Telegram /radar command
 - **GitHub:** [#12](https://gitlab.com/oatricedev/Luma/-/issues/12)
@@ -85,7 +109,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #11 - Feature: Integrate Real Weather API (Tomorrow.io / OpenWeatherMap)
 - **GitHub:** [#11](https://gitlab.com/oatricedev/Luma/-/issues/11)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.13.0)
 
 ### Issue #10 - Infrastructure: Deploy FonTokMai MVP to Production
 - **GitHub:** [#10](https://gitlab.com/oatricedev/Luma/-/issues/10)

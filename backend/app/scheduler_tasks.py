@@ -1,15 +1,19 @@
+import os
 import logging
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from app.dependencies import get_repo_context
-from app.services.rainbow import RainbowService
+from app.services.weather_manager import WeatherManager
 from app.services.telegram import send_telegram_message, get_radar_inline_keyboard, DEVELOPER_CHAT_IDS
 
 logger = logging.getLogger(__name__)
 
-import os
-
 # Minimum cooldown between alerts in minutes
 ALERT_COOLDOWN_MINUTES = int(os.getenv("ALERT_COOLDOWN_MINUTES", "120"))
+RAIN_TRIGGER_THRESHOLD_MM = float(os.getenv("RAIN_TRIGGER_THRESHOLD_MM", "0.5"))
+
+# Use Thailand timezone for display
+BKK_TZ = ZoneInfo("Asia/Bangkok")
 
 async def check_rain_and_alert():
     """
@@ -24,7 +28,7 @@ async def check_rain_and_alert():
             logger.info("No active locations to check.")
             return
 
-        rainbow_svc = RainbowService()
+        weather_manager = WeatherManager()
         now = datetime.now(timezone.utc).replace(tzinfo=None)
 
         for loc in locations:
@@ -37,22 +41,32 @@ async def check_rain_and_alert():
             
             try:
                 mock_state = await repo.get_mock_state(loc.chat_id)
-                result = await rainbow_svc.predict_rain_by_location(loc.latitude, loc.longitude, mock_state=mock_state)
+                result = await weather_manager.predict_rain(loc.latitude, loc.longitude, mock_state=mock_state)
+                
+                # Filter by Threshold
+                max_rain = result.get("max_rain", 0.0)
+                if max_rain < RAIN_TRIGGER_THRESHOLD_MM:
+                    logger.debug(f"Skipping alert for {loc.chat_id}: Max rain {max_rain} mm/hr < threshold {RAIN_TRIGGER_THRESHOLD_MM}")
+                    continue
+                
                 predictions = result.get("predictions", [])
                 
                 eta_minutes = None
+                rain_start_dt = None
+                
                 if predictions:
                     try:
-                        base_time = datetime.fromisoformat(predictions[0].get("time", "").replace("Z", "+00:00")).replace(tzinfo=None)
+                        base_time = datetime.fromisoformat(predictions[0].get("time", "").replace("Z", "+00:00"))
                     except Exception:
                         base_time = None
                         
                     for pred in predictions:
-                        if pred.get("rain", 0) > 0:
+                        if pred.get("rain", 0) >= RAIN_TRIGGER_THRESHOLD_MM:
                             if base_time:
                                 try:
-                                    pred_time = datetime.fromisoformat(pred.get("time", "").replace("Z", "+00:00")).replace(tzinfo=None)
+                                    pred_time = datetime.fromisoformat(pred.get("time", "").replace("Z", "+00:00"))
                                     eta_minutes = int((pred_time - base_time).total_seconds() / 60)
+                                    rain_start_dt = pred_time
                                 except Exception:
                                     eta_minutes = 0
                             else:
@@ -63,16 +77,63 @@ async def check_rain_and_alert():
                 if eta_minutes is not None and eta_minutes <= 60:
                     intensity_str = result.get("intensity", "ไม่ทราบ")
                     duration_min = result.get("duration_minutes", 0)
+                    wind_speed_kmh = result.get("wind_speed_kmh", 0.0)
+                    endpoint_source = result.get("endpoint", "unknown")
+                    
+                    # Convert endpoints to human-readable format
+                    source_name = endpoint_source
+                    if endpoint_source == "tomorrow":
+                        source_name = "Tomorrow.io"
+                    elif endpoint_source == "rainbow-local":
+                        source_name = "Rainbow (Local)"
+                    elif endpoint_source == "rainbow-global":
+                        source_name = "Rainbow (Global)"
                     
                     loc_name_str = f" '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else " "
+                    
+                    # Formatting Times
+                    if not rain_start_dt:
+                        rain_start_dt = datetime.now(timezone.utc) + timedelta(minutes=eta_minutes)
+                        
+                    rain_end_dt = rain_start_dt + timedelta(minutes=duration_min)
+                    
+                    start_time_str = rain_start_dt.astimezone(BKK_TZ).strftime("%H:%M น.")
+                    end_time_str = rain_end_dt.astimezone(BKK_TZ).strftime("%H:%M น.")
+                    
+                    # Calculate Distance
+                    # distance = (time in hours) * speed
+                    distance_km = (eta_minutes / 60.0) * wind_speed_kmh
                     
                     if eta_minutes == 0:
                         text = f"🌧️ ฝนกำลังตกอยู่ที่พิกัด{loc_name_str}ของคุณ ณ ขณะนี้\n"
                     else:
-                        text = f"🌧️ ฝนกำลังเคลื่อนมาทางพิกัด{loc_name_str}ของคุณ จะเริ่มตกในอีก {eta_minutes} นาที\n"
+                        text = f"🌧️ ฝนกำลังเคลื่อนมาทางพิกัด{loc_name_str}ของคุณ\n"
+                        text += f"⏰ จะเริ่มตกเวลา: {start_time_str} (ในอีก {eta_minutes} นาที)\n"
+                    
+                    # Duration/End time
+                    duration_text = f"ตกต่อเนื่อง {duration_min} นาที"
+                    if duration_min >= 60:
+                        hrs = duration_min // 60
+                        mins = duration_min % 60
+                        if mins > 0:
+                            duration_text = f"ตกต่อเนื่อง {hrs} ชม. {mins} นาที"
+                        else:
+                            duration_text = f"ตกต่อเนื่อง {hrs} ชม."
                         
-                    text += f"💧 ความรุนแรง: {intensity_str}\n"
-                    text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {duration_min} นาที\n"
+                    if duration_min > 0:
+                        text += f"🛑 คาดว่าจะหยุดเวลา: {end_time_str} ({duration_text})\n\n"
+                    else:
+                        text += "\n"
+                        
+                    text += f"💧 ความรุนแรง: {intensity_str} ({max_rain:.1f} mm/hr)\n"
+                    
+                    if wind_speed_kmh > 0:
+                        text += f"🌬️ สภาพลม: {wind_speed_kmh:.1f} km/h\n"
+                        
+                    if eta_minutes > 0 and wind_speed_kmh > 0:
+                        text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\n"
+                        
+                    text += f"📡 แหล่งข้อมูล: {source_name}\n"
                         
                     is_dev = str(loc.chat_id) in DEVELOPER_CHAT_IDS
                     reply_markup = get_radar_inline_keyboard(loc.latitude, loc.longitude, is_developer=is_dev)

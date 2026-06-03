@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-06-03
+### Added
+- Integrated Tomorrow.io weather service as the primary data source for hyper-local rain forecasting.
+- Implemented a robust fallback mechanism that automatically switches to Rainbow.ai (Local/Global) if the primary service fails.
+- Added a threshold filter to suppress false positive rain alerts for very light rain (e.g., < 0.5 mm/hr).
+- Enhanced Telegram alert messages to include precise start/end times, rain duration, and estimated cloud distance.
+
+### Changed
+- Improved weather service architecture to support multiple interchangeable API engines seamlessly.
+- Refactored repository interfaces to increase flexibility and maintainability.
+
 ## [0.12.0] - 2026-06-02
 ### Added
 - Supported saving multiple locations per user (e.g., Home, Work, Default).

@@ -4,26 +4,53 @@
   "phase": "pr_pending",
   "active_issues": [
     {
-      "number": 9,
-      "title": "Feature: Support multiple saved locations per user (e.g. Home, Work)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/9",
+      "number": 11,
+      "title": "Feature: Integrate Real Weather API (Tomorrow.io / OpenWeatherMap)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/11",
       "body": null,
-      "project_item_id": "GLAB_9",
+      "project_item_id": "GLAB_11",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 19,
-      "title": "Feature: Developer Mock Mode for Background Scheduler",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/19",
+      "number": 29,
+      "title": "Improvement: Raise Rain Alert Threshold to Filter Noise and False Buffers",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/29",
       "body": null,
-      "project_item_id": "GLAB_19",
+      "project_item_id": "GLAB_29",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 13,
+      "title": "Feature: Enhance Rain Alert with Extended Meteorological Data (Intensity, Duration, Wind)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/13",
+      "body": null,
+      "project_item_id": "GLAB_13",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 20,
+      "title": "Feature: Detailed Chat Alert (Start/End Time, Duration, Cloud Distance)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/20",
+      "body": null,
+      "project_item_id": "GLAB_20",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 24,
+      "title": "Enhancement: Format rain duration from minutes to hours and minutes",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/24",
+      "body": null,
+      "project_item_id": "GLAB_24",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/9-feature-support-multiple-save",
-  "started_at": "2026-06-02T11:54:49.486723",
+  "active_branch": "feat/11-29-13-feature-integrate-real-weather",
+  "started_at": "2026-06-03T16:41:39.132501",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -39,43 +66,36 @@
         "CHANGELOG.md",
         "README.md",
         "VERSION",
-        "backend/app/models.py",
+        "backend/.env.example",
         "backend/app/repositories/base.py",
         "backend/app/repositories/firestore.py",
         "backend/app/repositories/sqlite.py",
         "backend/app/routers/webhook.py",
         "backend/app/scheduler_tasks.py",
-        "backend/app/services/location.py",
         "backend/app/services/rainbow.py",
+        "backend/app/services/tomorrow.py",
+        "backend/app/services/weather_manager.py",
         "backend/tests/test_devmock.py",
-        "backend/tests/test_firestore.py",
         "backend/tests/test_scheduler.py",
-        "backend/tests/test_webhook.py",
         "docs/ROADMAP.md",
-        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/ai_brain/implementation_plan.md",
-        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/ai_brain/task.md",
-        "docs/features/11_issue-21_bug-active-alert-locations-are-lost-during-cloud-b2bbe204/ai_brain/walkthrough.md",
-        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/implementation_plan.md",
-        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/implementation_plan2.md",
-        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/manual_verification.md",
-        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/manual_verification2.md",
-        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/task.md",
-        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/task2.md",
-        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/walkthrough.md",
-        "docs/features/12_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2/walkthrough2.md",
+        "docs/architecture_decisions/003_false_positive_resolution_and_nowcasting.md",
+        "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/implementation_plan.md",
+        "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/manual_verification.md",
+        "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/task.md",
+        "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/walkthrough.md",
         "luma_metrics.json",
-        "luma_state.json",
-        "test_mylocation.py"
+        "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/models.py",
+        "backend/.env.example",
         "backend/app/repositories/base.py",
         "backend/app/repositories/firestore.py",
         "backend/app/repositories/sqlite.py",
         "backend/app/routers/webhook.py",
         "backend/app/scheduler_tasks.py",
-        "backend/app/services/location.py",
         "backend/app/services/rainbow.py",
+        "backend/app/services/tomorrow.py",
+        "backend/app/services/weather_manager.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -144,11 +164,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/13_issue-9-19_feature-support-multiple-saved-locations-per-user-e-6fe8dcc2"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/14_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/12",
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/13",
   "pr_number": null,
-  "last_updated": "2026-06-02T12:39:31.591640"
+  "last_updated": "2026-06-03T17:47:43.220228"
 }
