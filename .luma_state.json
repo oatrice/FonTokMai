@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 11,
@@ -83,8 +83,6 @@
         "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/manual_verification.md",
         "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/task.md",
         "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/walkthrough.md",
-        "luma/prompts/prompt_20260603_103717_de4e957c.md",
-        "luma/prompts/prompt_20260603_103721_1d7ce22b.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -170,7 +168,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/13",
   "pr_number": null,
-  "last_updated": "2026-06-03T17:38:13.229220"
+  "last_updated": "2026-06-03T17:47:43.220228"
 }
