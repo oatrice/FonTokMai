@@ -132,18 +132,21 @@ async def test_webhook_devmock_command():
     with patch("app.routers.webhook.DEVELOPER_CHAT_IDS", [str(chat_id)]):
         with patch("app.routers.webhook.send_telegram_message") as mock_send:
             with patch("app.routers.webhook.get_repo_context") as mock_ctx:
-                mock_repo = AsyncMock()
-                mock_ctx.return_value.__aenter__.return_value = mock_repo
-                
-                await call_webhook("/devmock rain")
-                mock_repo.set_mock_state.assert_called_with(chat_id, "rain")
-                mock_send.assert_called()
+                with patch("app.scheduler_tasks.check_rain_and_alert", new_callable=AsyncMock) as mock_check:
+                    mock_repo = AsyncMock()
+                    mock_ctx.return_value.__aenter__.return_value = mock_repo
+                    mock_repo.get_user_locations.return_value = []
+                    
+                    await call_webhook("/devmock rain")
+                    mock_repo.set_mock_state.assert_called_with(chat_id, "rain")
+                    mock_send.assert_called()
+                    mock_check.assert_called()
 
-                await call_webhook("/devmock clear")
-                mock_repo.set_mock_state.assert_called_with(chat_id, "clear")
+                    await call_webhook("/devmock clear")
+                    mock_repo.set_mock_state.assert_called_with(chat_id, "clear")
 
-                await call_webhook("/devmock off")
-                mock_repo.set_mock_state.assert_called_with(chat_id, None)
+                    await call_webhook("/devmock off")
+                    mock_repo.set_mock_state.assert_called_with(chat_id, None)
 
 @pytest.mark.asyncio
 async def test_scheduler_mock_state_injection():
