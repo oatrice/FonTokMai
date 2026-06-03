@@ -3,10 +3,10 @@
 Privacy-first short-term rain forecasting (Nowcasting) system using Thai Meteorological Department (TMD) radar data and global weather APIs.
 
 ## Overview
-FonMaYang integrates with multiple weather sources (RainViewer, Rainbow API) to predict incoming rain within the next 15-30 minutes. The system operates on a privacy-first principle: no continuous background location tracking. Users opt-in by sharing their current location via Telegram, and the system evaluates the coarse location against the predicted rain vectors.
+FonMaYang integrates with multiple weather sources (Tomorrow.io, RainViewer, Rainbow API) to predict incoming rain within the next 15-30 minutes. The system operates on a privacy-first principle: no continuous background location tracking. Users opt-in by sharing their current location via Telegram, and the system evaluates the coarse location against the predicted rain vectors.
 
 ## Features
-- **Pluggable Architecture**: Easily switch between or combine weather providers (RainViewer, Rainbow, TMD Radar).
+- **Pluggable Architecture**: Easily switch between or combine weather providers (Tomorrow.io, RainViewer, Rainbow, TMD Radar) with an automated fallback mechanism.
 - **Privacy-First Notifications**: On-demand location sharing via Telegram without background tracking.
 - **Multiple Saved Locations**: Support for managing multiple user locations (e.g., Home, Work) for personalized proactive alerting.
 - **Extended Meteorological Data**: Real-time evaluation of rain intensity and estimated duration.
@@ -17,6 +17,7 @@ FonMaYang integrates with multiple weather sources (RainViewer, Rainbow API) to 
 - **Cloud Run Native**: Fully containerized and automated deployment to Google Cloud Run via GitLab CI/CD pipelines.
 
 ## Data Sources
+- **Tomorrow.io API**: [tomorrow.io](https://www.tomorrow.io/)
 - **TMD Radar (Sakon Nakhon)**: [weather.tmd.go.th/sknLoop.php](https://weather.tmd.go.th/sknLoop.php)
 - **RainViewer API**: [api.rainviewer.com/public/weather-maps.json](https://api.rainviewer.com/public/weather-maps.json)
 - **Rainbow Weather API**: [api.rainbow.ai](https://api.rainbow.ai/)
@@ -36,7 +37,7 @@ FonMaYang integrates with multiple weather sources (RainViewer, Rainbow API) to 
    source .venv/bin/activate
    pip install -r requirements.txt
    ```
-3. Set up your `.env` file with your `TELEGRAM_BOT_TOKEN`, `RAINBOW_API_KEY`, `CRON_SECRET`, etc.
+3. Set up your `.env` file with your `TELEGRAM_BOT_TOKEN`, `TOMORROW_API_KEY`, `RAINBOW_API_KEY`, `CRON_SECRET`, etc.
 4. Run unit tests:
    ```bash
    pytest tests/

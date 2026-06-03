@@ -54,25 +54,50 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
         "backend/.env.example",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/rainbow.py",
+        "backend/app/services/tomorrow.py",
+        "backend/app/services/weather_manager.py",
+        "backend/tests/test_devmock.py",
+        "backend/tests/test_scheduler.py",
         "docs/ROADMAP.md",
         "docs/architecture_decisions/003_false_positive_resolution_and_nowcasting.md",
-        "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/spec.md",
+        "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/implementation_plan.md",
+        "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/manual_verification.md",
+        "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/task.md",
+        "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/walkthrough.md",
+        "luma/prompts/prompt_20260603_103717_de4e957c.md",
+        "luma/prompts/prompt_20260603_103721_1d7ce22b.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/.env.example",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/rainbow.py",
+        "backend/app/services/tomorrow.py",
+        "backend/app/services/weather_manager.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -147,5 +172,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-03T17:01:41.231111"
+  "last_updated": "2026-06-03T17:38:13.229220"
 }
