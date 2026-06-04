@@ -194,7 +194,7 @@ async def check_rain_and_alert():
                     r_lat = round(loc.latitude, 4)
                     r_lng = round(loc.longitude, 4)
                     reply_markup["inline_keyboard"].append([
-                        {"text": "📊 เทียบข้อมูล 3 API", "callback_data": f"compare_api_{r_lat}_{r_lng}"}
+                        {"text": "📊 เทียบข้อมูล", "callback_data": f"compare_api_{r_lat}_{r_lng}"}
                     ])
                     
                     ep_map = {"tomorrow": "t", "rainbow-local": "rl", "rainbow-global": "rg"}

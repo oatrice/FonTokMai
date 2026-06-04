@@ -70,6 +70,8 @@ class XweatherService(BaseWeatherService):
                 "wind_speed_kmh": 5.0,
                 "endpoint": "xweather"
             }
+        elif mock_state == "error":
+            raise Exception("Mock Network Error: Unable to reach Xweather API")
 
         params = {
             "p": f"{lat},{lng}",
@@ -81,8 +83,8 @@ class XweatherService(BaseWeatherService):
             try:
                 response = await client.get(self.MINUTECAST_API_URL, params=params)
                 
-                if response.status_code in [429, 403]:
-                    logger.error(f"Xweather rate limit hit: {response.status_code} - {response.text}")
+                if response.status_code in [401, 403, 429]:
+                    logger.error(f"Xweather rate limit/auth hit: {response.status_code} - {response.text}")
                     self._open_circuit(minutes=60)
                     response.raise_for_status()
                     
@@ -159,6 +161,17 @@ class XweatherService(BaseWeatherService):
         if not self.enabled or self._is_circuit_open():
             return {"advisories": [], "lightning": None, "stormcell": None}
             
+        if mock_state == "rain":
+            return {
+                "advisories": [{"type": "TSTORM", "name": "Severe Thunderstorm Warning (Mock)", "body": "This is a mock warning."}],
+                "lightning": {"distance_km": 2.5},
+                "stormcell": {"distance_km": 10.0, "direction": "NE", "speed_kmh": 40.0, "max_dbz": 60}
+            }
+        elif mock_state == "clear":
+            return {"advisories": [], "lightning": None, "stormcell": None}
+        elif mock_state == "error":
+            raise Exception("Mock Network Error: Unable to reach Xweather Advanced API")
+            
         params = {
             "p": f"{lat},{lng}",
             "client_id": self.client_id,
@@ -185,7 +198,7 @@ class XweatherService(BaseWeatherService):
                                 "name": details.get("name", "Advisory"),
                                 "body": details.get("body", "")
                             })
-                elif response.status_code in [429, 403]:
+                elif response.status_code in [401, 403, 429]:
                     self._open_circuit(60)
                     return result # Return empty immediately
             except Exception as e:
@@ -204,7 +217,7 @@ class XweatherService(BaseWeatherService):
                             dist_km = closest.get("relativeTo", {}).get("distanceKM")
                             if dist_km is not None:
                                 result["lightning"] = {"distance_km": dist_km}
-                    elif response.status_code in [429, 403]:
+                    elif response.status_code in [401, 403, 429]:
                         self._open_circuit(60)
                         return result
                 except Exception as e:
@@ -229,7 +242,7 @@ class XweatherService(BaseWeatherService):
                                 "speed_kmh": movement.get("speedKPH", 0),
                                 "max_dbz": traits.get("dbz", 0)
                             }
-                    elif response.status_code in [429, 403]:
+                    elif response.status_code in [401, 403, 429]:
                         self._open_circuit(60)
                         return result
                 except Exception as e:
