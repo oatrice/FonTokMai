@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 41,
@@ -65,8 +65,6 @@
         "docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48/manual_verification.md",
         "docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48/task.md",
         "docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48/walkthrough.md",
-        "luma/prompts/prompt_20260604_120756_44018fd5.md",
-        "luma/prompts/prompt_20260604_120759_091a7647.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -150,7 +148,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/15",
   "pr_number": null,
-  "last_updated": "2026-06-04T19:08:35.075833"
+  "last_updated": "2026-06-04T19:13:12.648420"
 }
