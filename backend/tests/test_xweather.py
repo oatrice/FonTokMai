@@ -81,3 +81,47 @@ async def test_xweather_predict_rain_success(xweather_service):
     assert len(result["predictions"]) == 2
     assert result["predictions"][0]["rain"] == 2.5
     assert result["wind_speed_kmh"] == 15.0 # average wind during rain
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_xweather_get_advanced_alerts(xweather_service):
+    # Mock Advisories
+    respx.get("https://data.api.xweather.com/advisories").mock(
+        return_value=httpx.Response(200, json={
+            "success": True,
+            "response": [{
+                "details": {"type": "FLD", "name": "Flood Warning", "body": "Heavy rain causing flooding."}
+            }]
+        })
+    )
+    
+    # Mock Lightning
+    respx.get("https://data.api.xweather.com/lightning/closest").mock(
+        return_value=httpx.Response(200, json={
+            "success": True,
+            "response": [{"relativeTo": {"distanceKM": 3.5}}]
+        })
+    )
+    
+    # Mock Stormcells
+    respx.get("https://data.api.xweather.com/stormcells/closest").mock(
+        return_value=httpx.Response(200, json={
+            "success": True,
+            "response": [{
+                "traits": {"dbz": 55},
+                "movement": {"directionTo": "NE", "speedKPH": 30},
+                "relativeTo": {"distanceKM": 8.0}
+            }]
+        })
+    )
+    
+    result = await xweather_service.get_advanced_alerts(13.0, 100.0)
+    
+    assert len(result["advisories"]) == 1
+    assert result["advisories"][0]["name"] == "Flood Warning"
+    
+    assert result["lightning"]["distance_km"] == 3.5
+    
+    assert result["stormcell"]["distance_km"] == 8.0
+    assert result["stormcell"]["max_dbz"] == 55
+    assert result["stormcell"]["speed_kmh"] == 30

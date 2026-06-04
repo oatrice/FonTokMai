@@ -148,3 +148,25 @@ async def test_weather_manager_compare_all_apis():
     assert results["tomorrow"]["max_rain"] == 1.0
     assert results["rainbow-local"]["max_rain"] == 2.0
     assert results["rainbow-global"]["max_rain"] == 2.0
+
+@pytest.mark.asyncio
+async def test_weather_manager_fallback_chain():
+    from app.services.weather_manager import WeatherManager
+    
+    manager = WeatherManager()
+    
+    # 1. Test Xweather succeeds
+    manager.xweather_svc.predict_rain_by_location = AsyncMock(return_value={"endpoint": "xweather", "max_rain": 5.0})
+    manager.tomorrow_svc.predict_rain_by_location = AsyncMock(return_value={"endpoint": "tomorrow", "max_rain": 1.0})
+    result = await manager.predict_rain(13.0, 100.0)
+    assert result["endpoint"] == "xweather"
+    assert result["max_rain"] == 5.0
+    manager.tomorrow_svc.predict_rain_by_location.assert_not_called()
+    
+    # 2. Test Xweather fails -> fall back to Tomorrow.io
+    manager.xweather_svc.predict_rain_by_location = AsyncMock(side_effect=Exception("Xweather failed"))
+    manager.tomorrow_svc.predict_rain_by_location.reset_mock()
+    result = await manager.predict_rain(13.0, 100.0)
+    assert result["endpoint"] == "tomorrow"
+    assert result["max_rain"] == 1.0
+    manager.tomorrow_svc.predict_rain_by_location.assert_called_once()
