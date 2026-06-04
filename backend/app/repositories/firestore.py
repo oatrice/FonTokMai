@@ -122,3 +122,31 @@ class FirestoreLocationRepository(LocationRepository):
             await doc_ref.delete()
         else:
             await doc_ref.set({"state": state})
+
+    async def save_feedback(
+        self,
+        chat_id: int,
+        lat: float,
+        lng: float,
+        feedback_type: str,
+        prediction_context: Optional[str] = None
+    ):
+        from app.models import UserFeedback
+        timestamp = datetime.now(timezone.utc).replace(tzinfo=None)
+        
+        data = {
+            "chat_id": chat_id,
+            "latitude": lat,
+            "longitude": lng,
+            "timestamp": timestamp,
+            "feedback_type": feedback_type,
+            "prediction_context": prediction_context
+        }
+        
+        # In Firestore, it's easier to just use an auto-generated ID for feedback
+        doc_ref = self.db.collection('user_feedbacks').document()
+        await doc_ref.set(data)
+        
+        feedback = UserFeedback(**data)
+        feedback.id = doc_ref.id  # Firestore document ID
+        return feedback

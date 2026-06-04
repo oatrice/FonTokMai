@@ -1,94 +1,55 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 38,
-      "title": "Tech Debt: Refactor Telegram Webhook to use WeatherManager (Fix Inconsistency)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/38",
+      "number": 41,
+      "title": "feat: Cancellation / All-Clear Alert (แจ้งเตือนฝนหยุด/เปลี่ยนทิศ)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/41",
       "body": null,
-      "project_item_id": "GLAB_38",
+      "project_item_id": "GLAB_41",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 37,
-      "title": "Feature: Immediate Reply/Loading State on User Input",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/37",
+      "number": 42,
+      "title": "feat: Insights API Comparison (แสดงข้อมูลเทียบทุกค่าย)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/42",
       "body": null,
-      "project_item_id": "GLAB_37",
+      "project_item_id": "GLAB_42",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 26,
-      "title": "Feature: Smart Cooldown (Escalation Alert) for Background Scheduler",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/26",
+      "number": 39,
+      "title": "Feature: Interactive Ground Truth Feedback (Crowdsourcing)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/39",
       "body": null,
-      "project_item_id": "GLAB_26",
+      "project_item_id": "GLAB_39",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/38-37-26-tech-debt-refactor-telegram-we",
-  "started_at": "2026-06-04T14:47:48.237943",
+  "active_branch": "feat/41-42-39-feat-cancellation-/-all-clear",
+  "started_at": "2026-06-04T18:09:26.758337",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/rainbow.py",
-        "backend/app/services/telegram.py",
-        "backend/app/services/weather_manager.py",
-        "backend/scripts/migrate_issue26.py",
-        "backend/tests/test_scheduler.py",
-        "backend/tests/test_webhook.py",
+        "VERSION"
+      ],
+      "changed_files": [
         "docs/ROADMAP.md",
-        "docs/architecture_decisions/001_next_steps_and_schedulers_tradeoffs.md",
         "docs/architecture_decisions/002_issue_batching_strategy.md",
-        "docs/architecture_decisions/003_false_positive_resolution_and_nowcasting.md",
-        "docs/architecture_decisions/004_xweather_migration_and_contingency.md",
-        "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/ai_brain/implementation_plan.md",
-        "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/ai_brain/task.md",
-        "docs/features/13_issue-11-29-13_feature-integrate-real-weather-api-tomorrow-io-openweat-2413b8d9/ai_brain/walkthrough.md",
-        "docs/features/14_issue-38-37-26_tech-debt-refactor-telegram-webhook-use-weathermanager-3fda2307/implementation_plan.md",
-        "docs/features/14_issue-38-37-26_tech-debt-refactor-telegram-webhook-use-weathermanager-3fda2307/manual_verification.md",
-        "docs/features/14_issue-38-37-26_tech-debt-refactor-telegram-webhook-use-weathermanager-3fda2307/task.md",
-        "docs/features/14_issue-38-37-26_tech-debt-refactor-telegram-webhook-use-weathermanager-3fda2307/walkthrough.md",
-        "gitlab-ci.yml",
-        "luma_metrics.json",
+        "luma/prompts/prompt_20260604_110924_97f16eb7.md",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/rainbow.py",
-        "backend/app/services/telegram.py",
-        "backend/app/services/weather_manager.py",
-        "backend/scripts/migrate_issue26.py",
-        "gitlab-ci.yml",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -156,11 +117,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/14_issue-38-37-26_tech-debt-refactor-telegram-webhook-use-weathermanager-3fda2307"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/14",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-04T18:05:24.787334"
+  "last_updated": "2026-06-04T18:09:30.983034"
 }

@@ -52,6 +52,10 @@ async def check_rain_and_alert():
                             )
                             severity_escalated = True
                             result = pre_result
+                        elif last_max_rain > 0.0 and current_max_rain < RAIN_TRIGGER_THRESHOLD_MM:
+                            # All-Clear condition met during cooldown → ทะลุบล็อกส่ง All-Clear
+                            logger.info(f"Smart Cooldown override (All-Clear) for chat_id {loc.chat_id}")
+                            result = pre_result
                         else:
                             logger.debug(
                                 f"Skipping chat_id {loc.chat_id} (cooldown, "
@@ -71,7 +75,15 @@ async def check_rain_and_alert():
                 # Filter by Threshold
                 max_rain = result.get("max_rain", 0.0)
                 if max_rain < RAIN_TRIGGER_THRESHOLD_MM:
-                    logger.debug(f"Skipping alert for {loc.chat_id}: Max rain {max_rain} mm/hr < threshold {RAIN_TRIGGER_THRESHOLD_MM}")
+                    # All-Clear Logic (Issue #41)
+                    if loc.last_alert_max_rain and loc.last_alert_max_rain > 0.0:
+                        logger.info(f"Sending All-Clear alert for chat_id {loc.chat_id}")
+                        loc_name_str = f" '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else " "
+                        text = f"☀️ สภาพอากาศ ณ พิกัด{loc_name_str}เคลียร์แล้ว\n(ไม่มีแนวโน้มฝนตกในขณะนี้)"
+                        await send_telegram_message(loc.chat_id, text)
+                        await repo.update_last_alerted(loc, now, max_rain=0.0)
+                    else:
+                        logger.debug(f"Skipping alert for {loc.chat_id}: Max rain {max_rain} mm/hr < threshold {RAIN_TRIGGER_THRESHOLD_MM}")
                     continue
                 
                 predictions = result.get("predictions", [])
@@ -172,6 +184,16 @@ async def check_rain_and_alert():
                         
                     is_dev = str(loc.chat_id) in DEVELOPER_CHAT_IDS
                     reply_markup = get_radar_inline_keyboard(loc.latitude, loc.longitude, is_developer=is_dev)
+                    
+                    # Append Issue #39 and #42 Buttons
+                    r_lat = round(loc.latitude, 4)
+                    r_lng = round(loc.longitude, 4)
+                    reply_markup["inline_keyboard"].append([
+                        {"text": "📊 เทียบข้อมูล 3 API", "callback_data": f"compare_api_{r_lat}_{r_lng}"}
+                    ])
+                    reply_markup["inline_keyboard"].append([
+                        {"text": "❌ แจ้งเตือนผิดพลาด (ฝนไม่ตกจริง)", "callback_data": f"fb_falsealarm_{r_lat}_{r_lng}"}
+                    ])
                     
                     logger.info(f"Alerting chat_id {loc.chat_id}: ETA {eta_minutes} mins")
                     

@@ -20,3 +20,14 @@ class DeveloperMock(Base):
 
     chat_id = Column(BigInteger, primary_key=True, index=True)
     state = Column(String, nullable=False) # 'rain', 'clear'
+
+class UserFeedback(Base):
+    __tablename__ = "user_feedbacks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(BigInteger, index=True, nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+    feedback_type = Column(String, nullable=False) # e.g. 'false_alarm'
+    prediction_context = Column(String, nullable=True) # e.g. "max_rain: 1.5 mm/hr"

@@ -81,3 +81,27 @@ class WeatherManager:
                 "wind_speed_kmh": 0.0,
                 "endpoint": "error",
             }
+
+    async def compare_all_apis(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
+        """
+        เรียก 3 API พร้อมกันเพื่อเปรียบเทียบผลลัพธ์
+        """
+        import asyncio
+        
+        async def safe_call(name, coro):
+            try:
+                res = await coro
+                res["endpoint"] = name
+                return name, res
+            except Exception as e:
+                logger.error(f"Error fetching from {name}: {e}")
+                return name, {"error": str(e), "endpoint": name, "max_rain": 0.0}
+
+        tasks = [
+            safe_call("tomorrow", self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)),
+            safe_call("rainbow-local", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state)),
+            safe_call("rainbow-global", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state))
+        ]
+        
+        results = await asyncio.gather(*tasks)
+        return {k: v for k, v in results}

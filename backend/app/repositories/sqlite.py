@@ -111,3 +111,25 @@ class SQLiteLocationRepository(LocationRepository):
                 self.session.add(mock)
                 
         await self.session.commit()
+
+    async def save_feedback(
+        self,
+        chat_id: int,
+        lat: float,
+        lng: float,
+        feedback_type: str,
+        prediction_context: Optional[str] = None
+    ):
+        from app.models import UserFeedback
+        feedback = UserFeedback(
+            chat_id=chat_id,
+            latitude=lat,
+            longitude=lng,
+            timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
+            feedback_type=feedback_type,
+            prediction_context=prediction_context
+        )
+        self.session.add(feedback)
+        await self.session.commit()
+        await self.session.refresh(feedback)
+        return feedback

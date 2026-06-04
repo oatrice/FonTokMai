@@ -74,7 +74,7 @@ async def test_check_rain_and_alert_rain_incoming(
     reply_markup = call_args[2] if len(call_args) > 2 else call_kwargs.get("reply_markup")
     assert reply_markup is not None
     kb = reply_markup["inline_keyboard"]
-    assert len(kb) == 3
+    assert len(kb) == 5
 
     mock_repo.update_last_alerted.assert_called_once()
 
@@ -226,6 +226,56 @@ async def test_check_rain_and_alert_no_rain(
     # Should NOT send message because rain is below threshold
     mock_send_msg.assert_not_called()
     mock_repo.update_last_alerted.assert_not_called()
+
+@pytest.mark.asyncio
+@patch('app.scheduler_tasks.WeatherManager')
+@patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
+@patch('app.scheduler_tasks.get_repo_context')
+async def test_check_rain_and_alert_all_clear(
+    mock_get_repo_context,
+    mock_send_msg,
+    mock_weather_mgr_cls
+):
+    mock_repo = AsyncMock()
+    
+    @asynccontextmanager
+    async def mock_context():
+        yield mock_repo
+    mock_get_repo_context.side_effect = mock_context
+    
+    # Previously alerted
+    loc1 = UserLocation(
+        chat_id=123,
+        name="home",
+        latitude=13.0,
+        longitude=100.0,
+        last_alerted_at=datetime.now() - timedelta(minutes=30),
+        last_alert_max_rain=2.0
+    )
+    mock_repo.get_active_locations.return_value = [loc1]
+    mock_repo.get_mock_state.return_value = None
+
+    mock_wm_instance = mock_weather_mgr_cls.return_value
+    base_time = datetime.now(timezone.utc)
+    # No rain
+    mock_wm_instance.predict_rain = AsyncMock(return_value={
+        "predictions": [
+            {"time": base_time.isoformat(), "rain": 0.0}
+        ],
+        "max_rain": 0.0
+    })
+
+    # Execute
+    await check_rain_and_alert()
+
+    # Should send All-Clear message
+    mock_send_msg.assert_called_once()
+    call_args, call_kwargs = mock_send_msg.call_args
+    assert "เคลียร์แล้ว" in call_args[1] or "หยุดตกแล้ว" in call_args[1]
+    
+    mock_repo.update_last_alerted.assert_called_once()
+    call_args, call_kwargs = mock_repo.update_last_alerted.call_args
+    assert call_kwargs.get("max_rain") == 0.0
 
 # --- Endpoint Tests ---
 import os
