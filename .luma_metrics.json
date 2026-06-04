@@ -805,15 +805,15 @@
       "post_story_point": 2.0,
       "estimated_mandays": 1.0,
       "start_datetime": "2026-06-04T19:26:10",
-      "actual_mandays": 0.0,
+      "actual_mandays": 0.5,
       "due_date": "2026-06-05T23:59:59",
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-06-04T21:40:52",
       "effort_level": "Low",
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-03T12:22:57.178Z",
-      "updated_at": "2026-06-04T21:33:23.172745"
+      "updated_at": "2026-06-04T21:40:52.305645"
     },
     "oatricedev/FonMaYang#34": {
       "issue_key": "oatricedev/FonMaYang#34",
@@ -827,15 +827,15 @@
       "post_story_point": 2.0,
       "estimated_mandays": 1.0,
       "start_datetime": "2026-06-04T19:26:10",
-      "actual_mandays": 0.0,
+      "actual_mandays": 0.5,
       "due_date": "2026-06-05T23:59:59",
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-06-04T21:40:52",
       "effort_level": "Low",
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-03T12:22:54.964Z",
-      "updated_at": "2026-06-04T21:33:22.407147"
+      "updated_at": "2026-06-04T21:40:52.304573"
     },
     "oatricedev/FonMaYang#33": {
       "issue_key": "oatricedev/FonMaYang#33",
@@ -849,15 +849,15 @@
       "post_story_point": 3.0,
       "estimated_mandays": 1.0,
       "start_datetime": "2026-04-02T08:49:42",
-      "actual_mandays": 0.0,
+      "actual_mandays": 63.5,
       "due_date": "2026-06-05T23:59:59",
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-06-04T21:40:52",
       "effort_level": "Low",
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-03T12:22:52.476Z",
-      "updated_at": "2026-06-04T21:33:22.187322"
+      "updated_at": "2026-06-04T21:40:52.303464"
     },
     "oatricedev/FonMaYang#32": {
       "issue_key": "oatricedev/FonMaYang#32",
@@ -871,15 +871,15 @@
       "post_story_point": 5.0,
       "estimated_mandays": 1.5,
       "start_datetime": "2026-04-02T08:49:42",
-      "actual_mandays": 0.0,
+      "actual_mandays": 63.5,
       "due_date": "2026-06-06T23:59:59",
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-06-04T21:40:52",
       "effort_level": "Medium",
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-03T12:22:49.424Z",
-      "updated_at": "2026-06-04T21:33:21.996801"
+      "updated_at": "2026-06-04T21:40:52.301037"
     },
     "oatricedev/FonMaYang#41": {
       "issue_key": "oatricedev/FonMaYang#41",
