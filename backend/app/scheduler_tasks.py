@@ -194,7 +194,7 @@ async def check_rain_and_alert():
                     r_lat = round(loc.latitude, 4)
                     r_lng = round(loc.longitude, 4)
                     reply_markup["inline_keyboard"].append([
-                        {"text": "📊 เทียบข้อมูล 3 API", "callback_data": f"compare_api_{r_lat}_{r_lng}"}
+                        {"text": "📊 เทียบข้อมูล", "callback_data": f"compare_api_{r_lat}_{r_lng}"}
                     ])
                     
                     ep_map = {"tomorrow": "t", "rainbow-local": "rl", "rainbow-global": "rg"}
@@ -212,6 +212,39 @@ async def check_rain_and_alert():
                     
                     # Update DB (บันทึกทั้งเวลาและความรุนแรงของฝน)
                     await repo.update_last_alerted(loc, now, max_rain=max_rain)
+                    
+                    # --- Advanced Alerts (Issue #33-35) ---
+                    try:
+                        advanced_data = await weather_manager.get_advanced_alerts(loc.latitude, loc.longitude, mock_state=mock_state)
+                        has_advisory = len(advanced_data.get("advisories", [])) > 0
+                        has_lightning = advanced_data.get("lightning") is not None
+                        has_stormcell = advanced_data.get("stormcell") is not None
+                        
+                        if has_advisory or has_lightning or has_stormcell:
+                            adv_text = "🚨 *ข้อมูลเตือนภัยขั้นสูงรอบตัวคุณ*\n\n"
+                            
+                            if has_advisory:
+                                for adv in advanced_data["advisories"]:
+                                    adv_text += f"⚠️ ประกาศเตือนภัย: {adv.get('name', '')}\n"
+                                adv_text += "\n"
+                                
+                            if has_lightning:
+                                lightning = advanced_data["lightning"]
+                                adv_text += f"⚡ ฟ้าผ่าระยะใกล้สุด: {lightning.get('distance_km', 0):.1f} กม.\n\n"
+                                
+                            if has_stormcell:
+                                stormcell = advanced_data["stormcell"]
+                                adv_text += f"🌪️ ตรวจพบกลุ่มพายุ: ระยะห่าง {stormcell.get('distance_km', 0):.1f} กม.\n"
+                                adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
+                                adv_text += f"   - ความเร็ว: {stormcell.get('speed_kmh', 0):.1f} km/h\n"
+                                adv_text += f"   - ความรุนแรงสูงสุด (dBZ): {stormcell.get('max_dbz', 0)}\n\n"
+                                
+                            adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
+                            
+                            # Send secondary message box
+                            await send_telegram_message(loc.chat_id, adv_text)
+                    except Exception as e:
+                        logger.error(f"Failed to process advanced alerts for {loc.chat_id}: {e}")
                     
             except Exception as e:
                 logger.error(f"Failed to check rain for chat_id {loc.chat_id}: {e}")

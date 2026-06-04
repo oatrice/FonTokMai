@@ -67,6 +67,8 @@ class TomorrowService(BaseWeatherService):
                 rain_end = None
                 wind_speed_sum = 0.0
                 wind_speed_count = 0
+                wind_dir_sum = 0.0
+                wind_dir_count = 0
                 
                 for timeline in timelines:
                     if timeline.get("timestep") == "1m":
@@ -91,10 +93,16 @@ class TomorrowService(BaseWeatherService):
                                 
                                 wind_speed_sum += wind
                                 wind_speed_count += 1
+                                
+                                wind_dir = values.get("windDirection")
+                                if wind_dir is not None:
+                                    wind_dir_sum += wind_dir
+                                    wind_dir_count += 1
 
                 intensity_text = "ไม่มีฝน (No Rain)"
                 duration_minutes = 0
                 avg_wind_speed = 0.0
+                wind_dir_text = "ไม่ทราบ"
                 
                 if max_rain > 0:
                     if max_rain < 2.5:
@@ -114,6 +122,10 @@ class TomorrowService(BaseWeatherService):
                 # Usually standard metric wind speed is m/s. We will convert it to km/h.
                 # 1 m/s = 3.6 km/h. Let's assume metric gives m/s.
                 wind_speed_kmh = avg_wind_speed * 3.6
+                
+                if wind_dir_count > 0:
+                    avg_wind_dir = wind_dir_sum / wind_dir_count
+                    wind_dir_text = self.degrees_to_cardinal(avg_wind_dir)
 
                 return {
                     "predictions": predictions,
@@ -121,6 +133,7 @@ class TomorrowService(BaseWeatherService):
                     "max_rain": max_rain,
                     "duration_minutes": duration_minutes,
                     "wind_speed_kmh": round(wind_speed_kmh, 1),
+                    "wind_dir_text": wind_dir_text,
                     "endpoint": "tomorrow"
                 }
 

@@ -40,13 +40,13 @@
   - #26 (Smart Cooldown Escalation)
 * **สถานะ:** เสร็จสมบูรณ์ ล้างหนี้ทางเทคนิคให้ Webhook ผูกกับ Fallback Chain ที่ถูกต้อง, ยกระดับ UX ให้บอทตอบสนองทันที (ไม่ติด Timeout) และระบบ Smart Cooldown สามารถเตือนทะลุบล็อกได้เมื่อความรุนแรงฝนเพิ่มขึ้น
 
-### 📦 Batch E: UX, Insights & Crowdsourcing (แนะนำให้ทำทันที)
+### ✅ Batch E: UX, Insights & Crowdsourcing (Completed)
 *(แก้ปัญหา False Positive และเพิ่มความโปร่งใสของข้อมูล)*
 * **ขอบเขตงาน:** 
   - #41 (Cancellation / All-Clear Alert - แจ้งเตือนฝนหยุด)
   - #42 (Insights API Comparison - เทียบข้อมูลทุกค่าย)
   - #39 (Interactive Ground Truth Feedback - รายงานฝนไม่ตกจริง)
-* **ความคาดหวัง:** ลดความสับสนจาก False Positive โดยอนุญาตให้ผู้ใช้เทียบข้อมูลเรดาร์ค่ายอื่นได้เองด้วยปุ่ม Insights, มีแจ้งเตือนเมื่อกลุ่มฝนผ่านไปแล้ว และเริ่มเก็บข้อมูล Ground Truth จากผู้ใช้จริง
+* **สถานะ:** เสร็จสมบูรณ์ ลดความสับสนจาก False Positive โดยผู้ใช้สามารถเทียบข้อมูลเรดาร์เองด้วยปุ่ม Insights, มีแจ้งเตือนเมื่อกลุ่มฝนผ่านไปแล้ว และเริ่มเก็บข้อมูล Ground Truth จากผู้ใช้จริงลง Firestore แล้ว
 
 ### 📦 Batch F: Xweather Integration & Advanced Alerts
 *(ควรแยก MR ทีละฟีเจอร์)*

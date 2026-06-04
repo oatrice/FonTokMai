@@ -2,11 +2,13 @@ import logging
 from typing import Optional
 from .tomorrow import TomorrowService
 from .rainbow import RainbowService
+from .xweather import XweatherService
 
 logger = logging.getLogger(__name__)
 
 class WeatherManager:
     def __init__(self):
+        self.xweather_svc = XweatherService()
         self.tomorrow_svc = TomorrowService()
         self.rainbow_svc = RainbowService()
 
@@ -46,9 +48,17 @@ class WeatherManager:
                     "endpoint": "error",
                 }
 
-        # --- โหมดปกติ: Tomorrow.io → Rainbow Local → Rainbow Global ---
+        # --- โหมดปกติ: Xweather → Tomorrow.io → Rainbow Local → Rainbow Global ---
 
-        # 1. Primary: Tomorrow.io
+        # 1. Primary: Xweather
+        try:
+            result = await self.xweather_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)
+            logger.info("Successfully fetched weather from Xweather")
+            return result
+        except Exception as e:
+            logger.warning(f"Xweather failed: {e}. Falling back to Tomorrow.io.")
+
+        # 2. Secondary: Tomorrow.io
         try:
             result = await self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)
             logger.info("Successfully fetched weather from Tomorrow.io")
@@ -94,10 +104,25 @@ class WeatherManager:
                 res["endpoint"] = name
                 return name, res
             except Exception as e:
-                logger.error(f"Error fetching from {name}: {e}")
-                return name, {"error": str(e), "endpoint": name, "max_rain": 0.0}
+                import re
+                error_msg = str(e)
+                error_msg = re.sub(r'client_id=[^&\s]+', 'client_id=***', error_msg)
+                error_msg = re.sub(r'client_secret=[^&\s]+', 'client_secret=***', error_msg)
+                logger.error(f"Error fetching from {name}: {error_msg}")
+                return name, {"error": error_msg, "endpoint": name, "max_rain": 0.0}
+
+        async def fetch_xweather_full():
+            res_rain, res_alerts = await asyncio.gather(
+                self.xweather_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
+                self.get_advanced_alerts(lat, lng, mock_state=mock_state)
+            )
+            storm = res_alerts.get("stormcell")
+            if storm and storm.get("distance_km") is not None:
+                res_rain["storm_distance_km"] = storm["distance_km"]
+            return res_rain
 
         tasks = [
+            safe_call("xweather", fetch_xweather_full()),
             safe_call("tomorrow", self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)),
             safe_call("rainbow-local", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state)),
             safe_call("rainbow-global", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state))
@@ -105,3 +130,14 @@ class WeatherManager:
         
         results = await asyncio.gather(*tasks)
         return {k: v for k, v in results}
+
+    async def get_advanced_alerts(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
+        """
+        ดึงข้อมูลเตือนภัยขั้นสูงจาก Xweather (Advisories, Lightning, Stormcells)
+        ถ้า Xweather ปิดอยู่ หรือ API พัง จะคืนค่า dict เปล่ากลับไป
+        """
+        try:
+            return await self.xweather_svc.get_advanced_alerts(lat, lng, mock_state=mock_state)
+        except Exception as e:
+            logger.warning(f"Failed to fetch advanced alerts from Xweather: {e}")
+            return {"advisories": [], "lightning": None, "stormcell": None}

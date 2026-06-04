@@ -277,6 +277,70 @@ async def test_check_rain_and_alert_all_clear(
     call_args, call_kwargs = mock_repo.update_last_alerted.call_args
     assert call_kwargs.get("max_rain") == 0.0
 
+@pytest.mark.asyncio
+@patch('app.scheduler_tasks.WeatherManager')
+@patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
+@patch('app.scheduler_tasks.get_repo_context')
+async def test_check_rain_and_alert_with_advanced_alerts(
+    mock_get_repo_context,
+    mock_send_msg,
+    mock_weather_mgr_cls
+):
+    mock_repo = AsyncMock()
+    
+    @asynccontextmanager
+    async def mock_context():
+        yield mock_repo
+    mock_get_repo_context.side_effect = mock_context
+    
+    loc1 = UserLocation(
+        chat_id=123,
+        name="home",
+        latitude=13.0,
+        longitude=100.0,
+        last_alerted_at=None
+    )
+    mock_repo.get_active_locations.return_value = [loc1]
+
+    mock_wm_instance = mock_weather_mgr_cls.return_value
+    base_time = datetime.now(timezone.utc)
+    rain_time = base_time + timedelta(minutes=10)
+    
+    mock_wm_instance.predict_rain = AsyncMock(return_value={
+        "predictions": [
+            {"time": base_time.isoformat(), "rain": 0.0},
+            {"time": rain_time.isoformat(), "rain": 5.0}
+        ],
+        "max_rain": 5.0,
+        "intensity": "ปานกลาง",
+        "duration_minutes": 30,
+        "wind_speed_kmh": 15.0,
+        "endpoint": "xweather"
+    })
+    
+    # Mock advanced alerts
+    mock_wm_instance.get_advanced_alerts = AsyncMock(return_value={
+        "advisories": [{"name": "Severe Thunderstorm Warning"}],
+        "lightning": {"distance_km": 2.5},
+        "stormcell": {"distance_km": 10.0, "max_dbz": 60, "speed_kmh": 40}
+    })
+
+    # Execute
+    await check_rain_and_alert()
+
+    # Should send TWO messages: one for rain, one for advanced alerts
+    assert mock_send_msg.call_count == 2
+    
+    # Check first message (Rain)
+    first_call_args = mock_send_msg.call_args_list[0][0]
+    assert "ฝนกำลังเคลื่อนมาทางพิกัด" in first_call_args[1]
+    
+    # Check second message (Advanced Alerts)
+    second_call_args = mock_send_msg.call_args_list[1][0]
+    assert "⚠️ ประกาศเตือนภัย: Severe Thunderstorm Warning" in second_call_args[1]
+    assert "⚡ ฟ้าผ่าระยะใกล้สุด: 2.5 กม." in second_call_args[1]
+    assert "🌪️ ตรวจพบกลุ่มพายุ" in second_call_args[1]
+
 # --- Endpoint Tests ---
 import os
 from fastapi.testclient import TestClient

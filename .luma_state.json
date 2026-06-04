@@ -4,35 +4,44 @@
   "phase": "pr_pending",
   "active_issues": [
     {
-      "number": 41,
-      "title": "feat: Cancellation / All-Clear Alert (แจ้งเตือนฝนหยุด/เปลี่ยนทิศ)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/41",
+      "number": 32,
+      "title": "Feature: Integrate Xweather as a Premium Weather Provider",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/32",
       "body": null,
-      "project_item_id": "GLAB_41",
+      "project_item_id": "GLAB_32",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 42,
-      "title": "feat: Insights API Comparison (แสดงข้อมูลเทียบทุกค่าย)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/42",
+      "number": 33,
+      "title": "Feature: Severe Weather & Flood Alerts via Xweather",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/33",
       "body": null,
-      "project_item_id": "GLAB_42",
+      "project_item_id": "GLAB_33",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 39,
-      "title": "Feature: Interactive Ground Truth Feedback (Crowdsourcing)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/39",
+      "number": 34,
+      "title": "Feature: Lightning Proximity Alerts",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/34",
       "body": null,
-      "project_item_id": "GLAB_39",
+      "project_item_id": "GLAB_34",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 35,
+      "title": "Feature: Storm Cell Tracking & ETA (Advanced Nowcasting)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/35",
+      "body": null,
+      "project_item_id": "GLAB_35",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/41-42-39-feat-cancellation-/-all-clear",
-  "started_at": "2026-06-04T18:09:26.758337",
+  "active_branch": "feat/32-33-34-35-feature-integrate-xweather-as",
+  "started_at": "2026-06-04T19:26:07.441470",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -48,34 +57,35 @@
         "CHANGELOG.md",
         "README.md",
         "VERSION",
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
+        "backend/.env.example",
         "backend/app/routers/webhook.py",
         "backend/app/scheduler_tasks.py",
+        "backend/app/services/tomorrow.py",
+        "backend/app/services/weather_base.py",
         "backend/app/services/weather_manager.py",
-        "backend/tests/test_db.py",
+        "backend/app/services/xweather.py",
+        "backend/force_test_alert.py",
+        "backend/test_network_error.py",
         "backend/tests/test_scheduler.py",
         "backend/tests/test_services.py",
-        "backend/tests/test_webhook.py",
+        "backend/tests/test_xweather.py",
         "docs/ROADMAP.md",
         "docs/architecture_decisions/002_issue_batching_strategy.md",
-        "docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48/implementation_plan.md",
-        "docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48/manual_verification.md",
-        "docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48/task.md",
-        "docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48/walkthrough.md",
+        "docs/architecture_decisions/005_crowdsourcing_and_ml_data_pipeline.md",
+        "docs/features/16_issue-32-33-34-35_feature-integrate-xweather-as-premium-weather-provider-048e4993/implementation_plan.md",
+        "docs/features/16_issue-32-33-34-35_feature-integrate-xweather-as-premium-weather-provider-048e4993/manual_verification.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
+        "backend/.env.example",
         "backend/app/routers/webhook.py",
         "backend/app/scheduler_tasks.py",
+        "backend/app/services/tomorrow.py",
+        "backend/app/services/weather_base.py",
         "backend/app/services/weather_manager.py",
+        "backend/app/services/xweather.py",
+        "backend/force_test_alert.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -144,11 +154,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/16_issue-32-33-34-35_feature-integrate-xweather-as-premium-weather-provider-048e4993"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/15",
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/16",
   "pr_number": null,
-  "last_updated": "2026-06-04T19:13:12.648420"
+  "last_updated": "2026-06-04T21:59:17.577570"
 }

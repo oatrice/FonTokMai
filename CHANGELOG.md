@@ -1,9 +1,24 @@
 # Changelog
 
+[PROMPT EXPORTED] Your prompt was saved to: /Users/oatrice/Software-projects/FonMaYang/.luma/prompts/prompt_20260604_143244_65ae4131.md
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.16.0] - 2026-06-04
+### Added
+- Integrated Xweather (Premium) as a primary weather provider for highly accurate minutely precipitation forecasting.
+- Added Advanced Weather Alerts capability to proactively warn users about nearby severe weather, including convective stormcells and lightning strikes.
+- Expanded weather data telemetry in the Telegram webhook to display precise distance, direction, and speed of incoming storms when detected by Xweather.
+
+### Changed
+- Refactored the WeatherManager's fallback chain to gracefully cascade from Xweather to Tomorrow.io and Rainbow APIs in the event of API failures or trial expirations.
+- Improved webhook reporting to include explicit API labels, ensuring users know exactly which provider generated the forecast.
+
+### Fixed
+- Enhanced Xweather service resilience by implementing a robust circuit breaker handling HTTP 401, 403, and 429 errors automatically.
 
 ## [0.15.0] - 2026-06-04
 ### Added
