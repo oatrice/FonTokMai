@@ -104,10 +104,25 @@ class WeatherManager:
                 res["endpoint"] = name
                 return name, res
             except Exception as e:
-                logger.error(f"Error fetching from {name}: {e}")
-                return name, {"error": str(e), "endpoint": name, "max_rain": 0.0}
+                import re
+                error_msg = str(e)
+                error_msg = re.sub(r'client_id=[^&\s]+', 'client_id=***', error_msg)
+                error_msg = re.sub(r'client_secret=[^&\s]+', 'client_secret=***', error_msg)
+                logger.error(f"Error fetching from {name}: {error_msg}")
+                return name, {"error": error_msg, "endpoint": name, "max_rain": 0.0}
+
+        async def fetch_xweather_full():
+            res_rain, res_alerts = await asyncio.gather(
+                self.xweather_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
+                self.get_advanced_alerts(lat, lng, mock_state=mock_state)
+            )
+            storm = res_alerts.get("stormcell")
+            if storm and storm.get("distance_km") is not None:
+                res_rain["storm_distance_km"] = storm["distance_km"]
+            return res_rain
 
         tasks = [
+            safe_call("xweather", fetch_xweather_full()),
             safe_call("tomorrow", self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)),
             safe_call("rainbow-local", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state)),
             safe_call("rainbow-global", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state))

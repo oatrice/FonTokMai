@@ -28,6 +28,16 @@ TELEGRAM_ANSWER_CB_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answ
 TELEGRAM_EDIT_REPLY_MARKUP_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageReplyMarkup"
 
 
+def format_duration_text(minutes: int) -> str:
+    if minutes < 60:
+        return f"{minutes} นาที"
+    hrs = minutes // 60
+    mins = minutes % 60
+    if mins > 0:
+        return f"{hrs} ชม. {mins} นาที"
+    return f"{hrs} ชม."
+
+
 def _build_forecast_text(result: dict) -> str:
     """
     สร้างข้อความพยากรณ์ฝนจาก result dict ที่ได้จาก WeatherManager
@@ -75,7 +85,12 @@ def _build_forecast_text(result: dict) -> str:
             text = f"🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก {eta_minutes} นาที (ตรวจสอบด้วย: {endpoint_label})\n"
 
         text += f"💧 ความรุนแรง: {intensity_str}\n"
-        text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {duration_min} นาที\n"
+        text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {format_duration_text(duration_min)}\n"
+        
+        wind_kmh = result.get("wind_speed_kmh", 0)
+        wind_dir = result.get("wind_dir_text", "ไม่ทราบ")
+        if wind_kmh > 0:
+            text += f"🌬️ สภาพลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
     else:
         text = f"ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
 
@@ -313,10 +328,11 @@ async def handle_callback_query(callback_query: dict):
                 from datetime import datetime, timezone, timedelta
                 bkk_tz = timezone(timedelta(hours=7))
                 update_time_str = datetime.now(bkk_tz).strftime("%d/%m/%Y %H:%M:%S")
-                text = f"📊 ข้อมูลเปรียบเทียบ 3 API (พิกัด {lat}, {lng}):\n"
+                text = f"📊 ข้อมูลเปรียบเทียบ 4 API (พิกัด {lat}, {lng}):\n"
                 text += f"🔄 ข้อมูลอัปเดตล่าสุด: {update_time_str}\n\n"
                 
                 display_names = {
+                    "xweather": "Xweather (Premium)",
                     "tomorrow": "Tomorrow.io",
                     "rainbow-local": "Rainbow Local",
                     "rainbow-global": "Rainbow Global"
@@ -326,9 +342,52 @@ async def handle_callback_query(callback_query: dict):
                     if "error" in v:
                         text += f"🔹 {disp_k}:\n  ❌ ข้อผิดพลาด: {v['error']}\n\n"
                     else:
+                        max_rain = v.get('max_rain', 0)
                         text += f"🔹 {disp_k}:\n"
-                        text += f"  💧 ปริมาณฝนสูงสุด: {v.get('max_rain', 0)} mm/hr\n"
-                        text += f"  🌧️ ความรุนแรง: {v.get('intensity', 'ไม่ทราบ')}\n\n"
+                        text += f"  💧 ปริมาณฝนสูงสุด: {max_rain} mm/hr\n"
+                        text += f"  🌧️ ความรุนแรง: {v.get('intensity', 'ไม่ทราบ')}\n"
+                        
+                        wind_kmh = v.get("wind_speed_kmh", 0)
+                        wind_dir = v.get("wind_dir_text", "ไม่ทราบ")
+                        if wind_kmh > 0:
+                            text += f"  🌬️ ลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+                            
+                        storm_distance = v.get("storm_distance_km")
+                        if storm_distance is not None:
+                            text += f"  🌪️ ระยะห่างพายุ: {storm_distance} กม.\n"
+                        
+                        if max_rain > 0:
+                            # Calculate ETA
+                            eta_minutes = None
+                            predictions = v.get("predictions", [])
+                            if predictions:
+                                try:
+                                    base_time = datetime.fromisoformat(predictions[0].get("time", "").replace("Z", "+00:00"))
+                                    for pred in predictions:
+                                        if pred.get("rain", 0) > 0:
+                                            pred_time = datetime.fromisoformat(pred.get("time", "").replace("Z", "+00:00"))
+                                            eta_minutes = int((pred_time - base_time).total_seconds() / 60)
+                                            break
+                                except Exception:
+                                    pass
+                                    
+                            duration = v.get("duration_minutes", 0)
+                            
+                            if eta_minutes is not None:
+                                start_dt = datetime.now(bkk_tz) + timedelta(minutes=eta_minutes)
+                                end_dt = start_dt + timedelta(minutes=duration)
+                                start_str = start_dt.strftime("%H:%M")
+                                end_str = end_dt.strftime("%H:%M")
+                                
+                                if eta_minutes == 0:
+                                    text += f"  ⏱️ เริ่มตก: ขณะนี้ ({start_str} น.)\n"
+                                else:
+                                    text += f"  ⏱️ เริ่มตกในอีก: {eta_minutes} นาที ({start_str} น.)\n"
+                                    
+                                if duration > 0:
+                                    text += f"  ⏳ ตกต่อเนื่อง: {format_duration_text(duration)} (จนถึง {end_str} น.)\n"
+                                
+                        text += "\n"
                 
                 await edit_telegram_message(chat_id, message_id, text)
                 

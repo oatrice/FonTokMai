@@ -8,8 +8,8 @@ from .weather_base import BaseWeatherService
 logger = logging.getLogger(__name__)
 
 class XweatherService(BaseWeatherService):
-    MINUTECAST_API_URL = "https://data.api.xweather.com/minutecast"
-    ADVISORIES_API_URL = "https://data.api.xweather.com/advisories"
+    MINUTECAST_API_URL = "https://data.api.xweather.com/conditions"
+    ADVISORIES_API_URL = "https://data.api.xweather.com/alerts"
     LIGHTNING_API_URL = "https://data.api.xweather.com/lightning/closest"
     STORMCELLS_API_URL = "https://data.api.xweather.com/stormcells/closest"
     
@@ -76,7 +76,8 @@ class XweatherService(BaseWeatherService):
         params = {
             "p": f"{lat},{lng}",
             "client_id": self.client_id,
-            "client_secret": self.client_secret
+            "client_secret": self.client_secret,
+            "filter": "minutelyprecip"
         }
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -97,12 +98,21 @@ class XweatherService(BaseWeatherService):
                 rain_end = None
                 wind_speed_sum = 0.0
                 wind_speed_count = 0
+                wind_dir_sum = 0.0
+                wind_dir_count = 0
                 
-                periods = data.get("response", {}).get("periods", [])
+                res_data = data.get("response", [])
+                periods = []
+                if isinstance(res_data, list) and res_data:
+                    periods = res_data[0].get("periods", [])
+                elif isinstance(res_data, dict):
+                    periods = res_data.get("periods", [])
+                    
                 for period in periods:
                     time_str = period.get("dateTimeISO", "")
                     precip = period.get("precipMM", 0.0)
                     wind = period.get("windSpeedKPH", 0.0)
+                    wind_dir_deg = period.get("windDirDEG")
                     
                     predictions.append({
                         "time": time_str,
@@ -122,9 +132,14 @@ class XweatherService(BaseWeatherService):
                         wind_speed_sum += wind
                         wind_speed_count += 1
                         
+                        if wind_dir_deg is not None:
+                            wind_dir_sum += wind_dir_deg
+                            wind_dir_count += 1
+                        
                 intensity_text = "ไม่มีฝน (No Rain)"
                 duration_minutes = 0
                 avg_wind_speed = 0.0
+                wind_dir_text = "ไม่ทราบ"
                 
                 if max_rain > 0:
                     if max_rain < 2.5:
@@ -140,21 +155,34 @@ class XweatherService(BaseWeatherService):
                     if wind_speed_count > 0:
                         avg_wind_speed = wind_speed_sum / wind_speed_count
                         
+                    if wind_dir_count > 0:
+                        avg_wind_dir = wind_dir_sum / wind_dir_count
+                        wind_dir_text = self.degrees_to_cardinal(avg_wind_dir)
+                        
                 return {
                     "predictions": predictions,
                     "intensity": intensity_text,
                     "max_rain": max_rain,
                     "duration_minutes": duration_minutes,
                     "wind_speed_kmh": round(avg_wind_speed, 1),
+                    "wind_dir_text": wind_dir_text,
                     "endpoint": "xweather"
                 }
 
             except httpx.HTTPStatusError as e:
-                logger.error(f"Xweather HTTP error {e.response.status_code}: {e.response.text}")
-                raise e
+                import re
+                err_str = str(e)
+                err_str = re.sub(r'client_id=[^&\s]+', 'client_id=***', err_str)
+                err_str = re.sub(r'client_secret=[^&\s]+', 'client_secret=***', err_str)
+                logger.error(f"Xweather HTTP error {e.response.status_code}: {err_str}")
+                raise Exception(err_str)
             except Exception as e:
-                logger.error(f"Xweather Request failed: {e}")
-                raise e
+                import re
+                err_str = str(e)
+                err_str = re.sub(r'client_id=[^&\s]+', 'client_id=***', err_str)
+                err_str = re.sub(r'client_secret=[^&\s]+', 'client_secret=***', err_str)
+                logger.error(f"Xweather Request failed: {err_str}")
+                raise Exception(err_str)
 
     async def get_advanced_alerts(self, lat: float, lng: float, mock_state: Optional[str] = None) -> Dict[str, Any]:
         """Fetch advanced alerts: advisories, lightning, stormcells."""
