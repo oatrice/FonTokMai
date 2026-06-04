@@ -130,11 +130,7 @@ class RainbowService(BaseWeatherService):
                 logger.error(f"Rainbow.ai API error: {e}")
                 if hasattr(e, 'response') and e.response is not None:
                     logger.error(f"Response status: {e.response.status_code}, content: {e.response.text}")
-                # Return empty predictions on failure for MVP safety
-                return {
-                    "predictions": [{"time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), "rain": 0}],
-                    "intensity": "ไม่มีฝน (No Rain)",
-                    "max_rain": 0.0,
-                    "duration_minutes": 0,
-                    "endpoint": endpoint_type
-                }
+                # Re-raise เพื่อให้ WeatherManager จัดการ fallback chain ได้ถูกต้อง
+                # (เดิม: return empty dict → WeatherManager หยุดที่นี่ ไม่ fallback ต่อ)
+                raise
+
