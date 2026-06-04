@@ -57,19 +57,19 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #35 - Feature: Storm Cell Tracking & ETA (Advanced Nowcasting)
 - **GitHub:** [#35](https://gitlab.com/oatricedev/FonMaYang/-/issues/35)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.16.0)
 
 ### Issue #34 - Feature: Lightning Proximity Alerts
 - **GitHub:** [#34](https://gitlab.com/oatricedev/FonMaYang/-/issues/34)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.16.0)
 
 ### Issue #33 - Feature: Severe Weather & Flood Alerts via Xweather
 - **GitHub:** [#33](https://gitlab.com/oatricedev/FonMaYang/-/issues/33)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.16.0)
 
 ### Issue #32 - Feature: Integrate Xweather as a Premium Weather Provider
 - **GitHub:** [#32](https://gitlab.com/oatricedev/FonMaYang/-/issues/32)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.16.0)
 
 ### Issue #31 - Feature: Wind Vector Nowcasting — Calculate Storm Cell Movement Trajectory Before Alerting
 - **GitHub:** [#31](https://gitlab.com/oatricedev/FonMaYang/-/issues/31)

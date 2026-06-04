@@ -45,22 +45,49 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
+        "backend/.env.example",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/tomorrow.py",
+        "backend/app/services/weather_base.py",
+        "backend/app/services/weather_manager.py",
+        "backend/app/services/xweather.py",
+        "backend/force_test_alert.py",
+        "backend/test_network_error.py",
+        "backend/tests/test_scheduler.py",
+        "backend/tests/test_services.py",
+        "backend/tests/test_xweather.py",
         "docs/architecture_decisions/002_issue_batching_strategy.md",
         "docs/architecture_decisions/005_crowdsourcing_and_ml_data_pipeline.md",
-        "luma/prompts/prompt_20260604_122604_01d8bb45.md",
+        "docs/features/16_issue-32-33-34-35_feature-integrate-xweather-as-premium-weather-provider-048e4993/implementation_plan.md",
+        "docs/features/16_issue-32-33-34-35_feature-integrate-xweather-as-premium-weather-provider-048e4993/manual_verification.md",
+        "luma/prompts/prompt_20260604_143244_65ae4131.md",
+        "luma/prompts/prompt_20260604_143246_4ce10257.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/.env.example",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/tomorrow.py",
+        "backend/app/services/weather_base.py",
+        "backend/app/services/weather_manager.py",
+        "backend/app/services/xweather.py",
+        "backend/force_test_alert.py",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -134,5 +161,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-04T19:43:33.706775"
+  "last_updated": "2026-06-04T21:33:24.996437"
 }
