@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 38,
@@ -73,8 +73,6 @@
         "docs/features/14_issue-38-37-26_tech-debt-refactor-telegram-webhook-use-weathermanager-3fda2307/task.md",
         "docs/features/14_issue-38-37-26_tech-debt-refactor-telegram-webhook-use-weathermanager-3fda2307/walkthrough.md",
         "gitlab-ci.yml",
-        "luma/prompts/prompt_20260604_110016_a62f8759.md",
-        "luma/prompts/prompt_20260604_110021_2fe623e3.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -162,7 +160,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/14",
   "pr_number": null,
-  "last_updated": "2026-06-04T18:00:55.592618"
+  "last_updated": "2026-06-04T18:05:24.787334"
 }
