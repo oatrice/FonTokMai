@@ -37,11 +37,11 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #38 - Tech Debt: Refactor Telegram Webhook to use WeatherManager (Fix Inconsistency)
 - **GitHub:** [#38](https://gitlab.com/oatricedev/FonMaYang/-/issues/38)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.14.0)
 
 ### Issue #37 - Feature: Immediate Reply/Loading State on User Input
 - **GitHub:** [#37](https://gitlab.com/oatricedev/FonMaYang/-/issues/37)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.14.0)
 
 ### Issue #36 - Feature: Telegram Mini App - Live Weather Map
 - **GitHub:** [#36](https://gitlab.com/oatricedev/FonMaYang/-/issues/36)
@@ -85,7 +85,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #26 - Feature: Smart Cooldown (Escalation Alert) for Background Scheduler
 - **GitHub:** [#26](https://gitlab.com/oatricedev/FonMaYang/-/issues/26)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.14.0)
 
 ### Issue #25 - Refactor: Replace APScheduler with external cron service and webhook endpoint
 - **GitHub:** [#25](https://gitlab.com/oatricedev/FonMaYang/-/issues/25)
