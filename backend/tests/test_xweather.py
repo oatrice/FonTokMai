@@ -25,12 +25,12 @@ async def test_xweather_disabled_raises_error(monkeypatch):
 @pytest.mark.asyncio
 async def test_xweather_circuit_breaker(xweather_service):
     # Mock a 429 response
-    route = respx.get("https://data.api.xweather.com/minutecast").mock(
+    route = respx.get(url__startswith="https://data.api.xweather.com/conditions").mock(
         return_value=httpx.Response(429, json={"error": "Too Many Requests", "description": "Rate limit exceeded"})
     )
     
     # First request should fail and open the circuit breaker
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(Exception, match="429 Too Many Requests"):
         await xweather_service.predict_rain_by_location(13.0, 100.0)
         
     assert route.called
@@ -69,7 +69,7 @@ async def test_xweather_predict_rain_success(xweather_service):
         }
     }
     
-    respx.get("https://data.api.xweather.com/minutecast").mock(
+    respx.get(url__startswith="https://data.api.xweather.com/conditions").mock(
         return_value=httpx.Response(200, json=mock_response)
     )
     
@@ -86,7 +86,7 @@ async def test_xweather_predict_rain_success(xweather_service):
 @pytest.mark.asyncio
 async def test_xweather_get_advanced_alerts(xweather_service):
     # Mock Advisories
-    respx.get("https://data.api.xweather.com/advisories").mock(
+    respx.get(url__startswith="https://data.api.xweather.com/alerts").mock(
         return_value=httpx.Response(200, json={
             "success": True,
             "response": [{
@@ -96,7 +96,7 @@ async def test_xweather_get_advanced_alerts(xweather_service):
     )
     
     # Mock Lightning
-    respx.get("https://data.api.xweather.com/lightning/closest").mock(
+    respx.get(url__startswith="https://data.api.xweather.com/lightning/closest").mock(
         return_value=httpx.Response(200, json={
             "success": True,
             "response": [{"relativeTo": {"distanceKM": 3.5}}]
@@ -104,7 +104,7 @@ async def test_xweather_get_advanced_alerts(xweather_service):
     )
     
     # Mock Stormcells
-    respx.get("https://data.api.xweather.com/stormcells/closest").mock(
+    respx.get(url__startswith="https://data.api.xweather.com/stormcells/closest").mock(
         return_value=httpx.Response(200, json={
             "success": True,
             "response": [{

@@ -3,6 +3,7 @@ uvicorn[standard]
 httpx
 pytest
 pytest-asyncio
+respx
 python-dotenv
 sqlalchemy
 aiosqlite
