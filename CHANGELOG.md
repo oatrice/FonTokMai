@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-06-04
+### Added
+- Implemented an immediate "loading" state in the Telegram webhook using background tasks to prevent API timeouts and improve responsiveness (Issue #37).
+- Added a "Smart Cooldown" feature that overrides active alert cooldowns if rain severity escalates (Issue #26).
+
+### Changed
+- Refactored Telegram webhook to utilize the `WeatherManager` fallback chain directly, ensuring consistent weather data processing (Issue #38).
+
+### Fixed
+- Fixed an issue where the Rainbow.ai API client swallowed HTTP exceptions, which prevented the fallback chain from activating.
+- Corrected Telegram bot message rendering to show a proper error message when all weather APIs fail, instead of incorrectly reporting no rain.
+
 ## [0.13.0] - 2026-06-03
 ### Added
 - Integrated Tomorrow.io weather service as the primary data source for hyper-local rain forecasting.

@@ -95,17 +95,19 @@ async def test_check_rain_and_alert_recently_alerted(
         yield mock_repo
     mock_get_repo_context.side_effect = mock_context
     
-    # Alerted 30 mins ago
+    # Alerted 30 mins ago (cooldown: 120 min ยังไม่หมด)
+    # last_alert_max_rain = 1.5 → rain ปัจจุบัน = 1.5 → ไม่เพิ่มขึ้น → ไม่ทะลุบล็อก
     loc1 = UserLocation(
         chat_id=123,
         name="home",
         latitude=13.0,
         longitude=100.0,
-        last_alerted_at=datetime.now() - timedelta(minutes=30)
+        last_alerted_at=datetime.now() - timedelta(minutes=30),
+        last_alert_max_rain=1.5,  # ความรุนแรงครั้งล่าสุดเท่ากับปัจจุบัน
     )
     mock_repo.get_active_locations.return_value = [loc1]
-    
-    # Rain in 30 mins
+
+    # Rain in 30 mins (same intensity as last alert → Smart Cooldown should NOT override)
     mock_wm_instance = mock_weather_mgr_cls.return_value
     base_time = datetime.now(timezone.utc)
     rain_time = base_time + timedelta(minutes=30)
@@ -114,17 +116,77 @@ async def test_check_rain_and_alert_recently_alerted(
             {"time": base_time.isoformat(), "rain": 0},
             {"time": rain_time.isoformat(), "rain": 1.5}
         ],
-        "max_rain": 1.5
+        "max_rain": 1.5  # เท่าเดิม → ไม่ทะลุบล็อก
     })
 
     # Execute
     await check_rain_and_alert()
 
-    # Should NOT send message due to cooldown
+    # Should NOT send message (cooldown, ความรุนแรงไม่เพิ่มขึ้น)
     mock_send_msg.assert_not_called()
     mock_repo.update_last_alerted.assert_not_called()
 
+
 @pytest.mark.asyncio
+@patch('app.scheduler_tasks.WeatherManager')
+@patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
+@patch('app.scheduler_tasks.get_repo_context')
+async def test_check_rain_and_alert_smart_cooldown_override(
+    mock_get_repo_context,
+    mock_send_msg,
+    mock_weather_mgr_cls
+):
+    """
+    Issue #26: Smart Cooldown Override
+    ถ้าความรุนแรงของฝนปัจจุบัน > ครั้งล่าสุด ควรทะลุ Cooldown และแจ้งเตือนได้ทันที
+    """
+    mock_repo = AsyncMock()
+
+    @asynccontextmanager
+    async def mock_context():
+        yield mock_repo
+    mock_get_repo_context.side_effect = mock_context
+
+    # แจ้งเตือนไปแล้ว 30 นาที (ยังติด cooldown 120 นาที)
+    # แต่ครั้งก่อนฝน 2.0 mm/hr, ตอนนี้เจอพายุ 8.0 mm/hr → ทะลุบล็อก!
+    loc1 = UserLocation(
+        chat_id=456,
+        name="home",
+        latitude=13.0,
+        longitude=100.0,
+        last_alerted_at=datetime.now() - timedelta(minutes=30),
+        last_alert_max_rain=2.0,
+    )
+    mock_repo.get_active_locations.return_value = [loc1]
+    mock_repo.get_mock_state.return_value = None
+
+    mock_wm_instance = mock_weather_mgr_cls.return_value
+    base_time = datetime.now(timezone.utc)
+    rain_time = base_time + timedelta(minutes=10)
+    mock_wm_instance.predict_rain = AsyncMock(return_value={
+        "predictions": [
+            {"time": base_time.isoformat(), "rain": 0},
+            {"time": rain_time.isoformat(), "rain": 8.0}
+        ],
+        "max_rain": 8.0,
+        "intensity": "หนักมาก",
+        "duration_minutes": 45,
+        "wind_speed_kmh": 30.0,
+        "endpoint": "tomorrow",
+    })
+
+    await check_rain_and_alert()
+
+    # ต้องส่งแจ้งเตือน (Smart Cooldown Override)
+    mock_send_msg.assert_called_once()
+    call_args, call_kwargs = mock_send_msg.call_args
+    assert call_args[0] == 456
+    assert "ทวีความรุนแรง" in call_args[1] or "อัปเดต" in call_args[1]
+    mock_repo.update_last_alerted.assert_called_once()
+
+
+@pytest.mark.asyncio
+
 @patch('app.scheduler_tasks.WeatherManager')
 @patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
 @patch('app.scheduler_tasks.get_repo_context')

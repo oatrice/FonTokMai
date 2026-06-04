@@ -10,7 +10,8 @@ FonMaYang integrates with multiple weather sources (Tomorrow.io, RainViewer, Rai
 - **Privacy-First Notifications**: On-demand location sharing via Telegram without background tracking.
 - **Multiple Saved Locations**: Support for managing multiple user locations (e.g., Home, Work) for personalized proactive alerting.
 - **Extended Meteorological Data**: Real-time evaluation of rain intensity and estimated duration.
-- **Proactive Alerts & Scheduling**: Webhook endpoint designed for external cron services to continuously monitor rain vectors and alert users proactively before rain hits. Includes a configurable alert cooldown.
+- **Proactive Alerts & Scheduling**: Webhook endpoint designed for external cron services to continuously monitor rain vectors and alert users proactively before rain hits. Includes a Smart Cooldown system with severity escalation.
+- **Responsive Webhooks**: Background task processing ensures immediate acknowledgment and loading states for users even during slow API fetching.
 - **Interactive Radar**: Telegram `/radar` command providing multi-source visual tracking (Zoom Earth, Windy, TMD).
 - **Developer Mock Mode**: Built-in `/devmock` command for simulating weather states during testing without making live API calls.
 - **FastAPI Backend**: Asynchronous, highly concurrent backend structure.

@@ -32,17 +32,42 @@ async def check_rain_and_alert():
         now = datetime.now(timezone.utc).replace(tzinfo=None)
 
         for loc in locations:
-            # Check cooldown
+            # --- Smart Cooldown (Issue #26) ---
+            severity_escalated = False
             if loc.last_alerted_at:
                 time_since_last_alert = now - loc.last_alerted_at
                 if time_since_last_alert < timedelta(minutes=ALERT_COOLDOWN_MINUTES):
-                    logger.debug(f"Skipping chat_id {loc.chat_id} due to cooldown.")
-                    continue
-            
+                    # ยังอยู่ใน cooldown window → ดึงข้อมูลก่อนเพื่อตรวจสอบความรุนแรง
+                    try:
+                        mock_state_pre = await repo.get_mock_state(loc.chat_id)
+                        pre_result = await weather_manager.predict_rain(loc.latitude, loc.longitude, mock_state=mock_state_pre)
+                        current_max_rain = pre_result.get("max_rain", 0.0)
+                        last_max_rain = loc.last_alert_max_rain or 0.0
+
+                        if current_max_rain > last_max_rain and current_max_rain >= RAIN_TRIGGER_THRESHOLD_MM:
+                            # ความรุนแรงเพิ่มขึ้น → ทะลุบล็อก และใช้ผลลัพธ์ที่ดึงมาแล้ว
+                            logger.info(
+                                f"Smart Cooldown override for chat_id {loc.chat_id}: "
+                                f"rain {last_max_rain:.1f} → {current_max_rain:.1f} mm/hr"
+                            )
+                            severity_escalated = True
+                            result = pre_result
+                        else:
+                            logger.debug(
+                                f"Skipping chat_id {loc.chat_id} (cooldown, "
+                                f"rain {current_max_rain:.1f} mm/hr ≤ last {last_max_rain:.1f} mm/hr)"
+                            )
+                            continue
+                    except Exception as e:
+                        logger.warning(f"Smart Cooldown pre-check failed for {loc.chat_id}: {e}. Skipping.")
+                        continue
+
             try:
-                mock_state = await repo.get_mock_state(loc.chat_id)
-                result = await weather_manager.predict_rain(loc.latitude, loc.longitude, mock_state=mock_state)
-                
+                # ถ้า severity_escalated จะมี result อยู่แล้วจาก pre-check ของ Smart Cooldown
+                if not severity_escalated:
+                    mock_state = await repo.get_mock_state(loc.chat_id)
+                    result = await weather_manager.predict_rain(loc.latitude, loc.longitude, mock_state=mock_state)
+
                 # Filter by Threshold
                 max_rain = result.get("max_rain", 0.0)
                 if max_rain < RAIN_TRIGGER_THRESHOLD_MM:
@@ -104,10 +129,20 @@ async def check_rain_and_alert():
                     # distance = (time in hours) * speed
                     distance_km = (eta_minutes / 60.0) * wind_speed_kmh
                     
-                    if eta_minutes == 0:
-                        text = f"🌧️ ฝนกำลังตกอยู่ที่พิกัด{loc_name_str}ของคุณ ณ ขณะนี้\n"
+                    # เพิ่มส่วนหัวพิเศษเมื่อ Smart Cooldown ทะลุบล็อก
+                    if severity_escalated:
+                        last_rain_val = loc.last_alert_max_rain or 0.0
+                        text = (
+                            f"⚠️ *อัปเดต: ฝนทวีความรุนแรงขึ้น!*\n"
+                            f"({last_rain_val:.1f} mm/hr → {max_rain:.1f} mm/hr)\n\n"
+                        )
                     else:
-                        text = f"🌧️ ฝนกำลังเคลื่อนมาทางพิกัด{loc_name_str}ของคุณ\n"
+                        text = ""
+
+                    if eta_minutes == 0:
+                        text += f"🌧️ ฝนกำลังตกอยู่ที่พิกัด{loc_name_str}ของคุณ ณ ขณะนี้\n"
+                    else:
+                        text += f"🌧️ ฝนกำลังเคลื่อนมาทางพิกัด{loc_name_str}ของคุณ\n"
                         text += f"⏰ จะเริ่มตกเวลา: {start_time_str} (ในอีก {eta_minutes} นาที)\n"
                     
                     # Duration/End time
@@ -143,8 +178,8 @@ async def check_rain_and_alert():
                     # Call Telegram Service
                     await send_telegram_message(loc.chat_id, text, reply_markup=reply_markup)
                     
-                    # Update DB
-                    await repo.update_last_alerted(loc, now)
+                    # Update DB (บันทึกทั้งเวลาและความรุนแรงของฝน)
+                    await repo.update_last_alerted(loc, now, max_rain=max_rain)
                     
             except Exception as e:
                 logger.error(f"Failed to check rain for chat_id {loc.chat_id}: {e}")

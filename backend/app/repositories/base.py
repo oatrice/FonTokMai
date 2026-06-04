@@ -21,7 +21,13 @@ class LocationRepository(ABC):
         pass
 
     @abstractmethod
-    async def update_last_alerted(self, location: UserLocation, alerted_time: Optional[datetime]) -> UserLocation:
+    async def update_last_alerted(
+        self,
+        location: UserLocation,
+        alerted_time: Optional[datetime],
+        max_rain: Optional[float] = None,
+    ) -> UserLocation:
+        """อัปเดตเวลาแจ้งเตือนล่าสุด และความรุนแรงของฝนที่แจ้งไป (mm/hr)"""
         pass
 
     @abstractmethod

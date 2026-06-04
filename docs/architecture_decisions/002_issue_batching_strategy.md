@@ -24,19 +24,45 @@
 
 ## Development Batches (Revised)
 
-เพื่อความปลอดภัยในการทำ Code Review และป้องกันคอขวด ให้แบ่งการพัฒนาออกเป็น 3 ระยะ (Phases) ดังนี้:
+เพื่อความปลอดภัยในการทำ Code Review และการส่งมอบฟีเจอร์อย่างต่อเนื่อง ได้มีการปรับปรุง Batch การทำงานใหม่ (อัปเดต มิ.ย. 2026) โดยเพิ่มกลุ่มงาน Xweather และ UX เข้ามา:
 
-### 📦 Batch A: DevOps & Quick Win
-*(สามารถทำร่วมกันใน 1 MR ได้ หรือแยก 2 MR เล็ก)*
-* **ขอบเขตงาน:** #15 (CI/CD) และ #13 (Extended Data)
-* **ความคาดหวัง:** ได้ท่อ Deploy อัตโนมัติที่เสถียร และยกระดับข้อความแจ้งเตือนปัจจุบันให้มีข้อมูลครบถ้วนขึ้นทันที ถือเป็น Quick Win ที่เห็นผลเร็วที่สุด
+### ✅ Batch A & B: Core, DevOps & Database (Completed)
+* **ขอบเขตงาน:** 
+  - #15 (CI/CD) 
+  - #11, #29, #13 (Integrate Tomorrow.io / Extended Data)
+  - #9 (Multiple Locations - Refactored Schema)
+* **สถานะ:** เสร็จสมบูรณ์ ระบบสามารถรับหลายพิกัดต่อ 1 User (ผ่านคอลัมน์ name ในตาราง) และแจ้งเตือนพร้อมข้อมูลปริมาณฝนได้อย่างเสถียร
 
-### 📦 Batch B: Database Refactoring
-*(ต้องแยกทำ 1 MR เดี่ยวๆ)*
-* **ขอบเขตงาน:** #9 (Multiple Locations)
-* **ความคาดหวัง:** ปรับปรุงและ Migrate Database Schema อย่างปลอดภัย งานนี้จะมีความเสี่ยงสูงต่อข้อมูลเดิม จึงต้องแยก MR เพื่อให้ Review ได้อย่างละเอียด และเป็นการปูทางไปสู่ Geofencing
+### 📦 Batch D: UX, Bot Reliability & Tech Debt (แนะนำให้ทำทันที)
+*(Quick Wins สามารถแยกทำ MR เล็กๆ ได้)*
+* **ขอบเขตงาน:** 
+  - #38 (Tech Debt: Refactor Webhook to use WeatherManager) **[ด่วนที่สุด]**
+  - #37 (Immediate Reply/Loading State)
+  - #26 (Smart Cooldown Escalation)
+* **ความคาดหวัง:** ล้างหนี้ทางเทคนิคให้ Webhook กลับมาใช้ Fallback ที่ถูกต้อง, ยกระดับประสบการณ์ผู้ใช้ (UX) ให้ตอบสนองทันที และเพิ่มความฉลาดให้ระบบ Cooldown
 
-### 📦 Batch C: Spatial Architecture
+### 📦 Batch E: Xweather Integration & Advanced Alerts (แนะนำให้ทำถัดไป)
+*(ควรแยก MR ทีละฟีเจอร์)*
+* **ขอบเขตงาน:** 
+  - #32 (Integrate Xweather API)
+  - #33 (Severe Weather & Flood Alerts)
+  - #34 (Lightning Proximity Alerts)
+  - #35 (Storm Cell Tracking & ETA)
+* **ความคาดหวัง:** วางระบบเชื่อมต่อกับ Xweather และขยายความสามารถในการเตือนภัยพิบัติและฟ้าผ่าแบบ Hyper-local ซึ่งเป็นการยกระดับความสามารถของบอทให้เหนือกว่าการแจ้งเตือนฝนปกติ
+
+### 📦 Batch F: Interactive Telegram Mini App
+*(ทำหลังจาก Batch E เสถียรแล้ว)*
+* **ขอบเขตงาน:** #36 (Live Weather Map Mini App)
+* **ความคาดหวัง:** มีแผนที่แบบ Vector เรดาร์ฝนที่ลื่นไหลให้ผู้ใช้กดดูได้โดยไม่ต้องออกจากแอป Telegram
+
+### 📦 Batch G: Crowdsourcing & AI Training (Research & Future Scope)
+*(ทำหลังจากฟีเจอร์หลักเริ่มนิ่งแล้ว)*
+* **ขอบเขตงาน:** 
+  - #39 (Interactive Ground Truth Feedback)
+  - #40 (AI Training via Radar/JSON Uploads)
+* **ความคาดหวัง:** รวบรวมข้อมูลสภาพอากาศจริงจากผู้ใช้ (Ground Truth) และสร้างช่องทางสำหรับป้อนข้อมูลให้ AI เรียนรู้ เพื่อแก้ปัญหาโมเดลผิดพลาด (เช่น Virga) ในระยะยาว
+
+### 📦 Batch C: Spatial Architecture (Pending)
 *(ต้องแยกทำ 1 MR เดี่ยวๆ)*
 * **ขอบเขตงาน:** #7 (Geofencing)
-* **ความคาดหวัง:** เปลี่ยนแปลงวิธีคิดของระบบ Scheduler ครั้งใหญ่ (Paradigm Shift) จาก 1-to-1 เป็น Zone-to-Many งานนี้ซับซ้อนที่สุดและต้องใช้เวลาทดสอบนานที่สุด
+* **ความคาดหวัง:** เปลี่ยนแปลงวิธีคิดของระบบ Scheduler ครั้งใหญ่จาก 1-to-1 เป็น Zone-to-Many
