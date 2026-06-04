@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 38,
@@ -34,7 +34,9 @@
   "active_branch": "feat/38-37-26-tech-debt-refactor-telegram-we",
   "started_at": "2026-06-04T14:47:48.237943",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -128,5 +130,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-04T14:47:51.596694"
+  "last_updated": "2026-06-04T15:18:27.726701"
 }
