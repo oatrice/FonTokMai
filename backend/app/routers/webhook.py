@@ -110,6 +110,18 @@ async def process_telegram_location(
 
         text, actual_endpoint, eta_minutes = _build_forecast_text(result)
 
+        # ถ้าทุก API พัง แสดงข้อความ error ชัดเจน แทนการบอกว่า "ไม่มีฝน"
+        if actual_endpoint == "error":
+            error_text = (
+                "⚠️ ขออภัย ไม่สามารถเชื่อมต่อกับระบบพยากรณ์ฝนได้ในขณะนี้\n"
+                "กรุณาลองใหม่อีกครั้งในภายหลัง"
+            )
+            if message_id_to_edit:
+                await edit_telegram_message(chat_id, message_id_to_edit, error_text)
+            else:
+                await send_telegram_message(chat_id, error_text)
+            return
+
         # ตรวจสอบ location ที่บันทึกไว้
         has_existing_loc = False
         async with get_repo_context() as repo:
