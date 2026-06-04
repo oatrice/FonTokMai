@@ -48,23 +48,56 @@
   - #39 (Interactive Ground Truth Feedback - รายงานฝนไม่ตกจริง)
 * **สถานะ:** เสร็จสมบูรณ์ ลดความสับสนจาก False Positive โดยผู้ใช้สามารถเทียบข้อมูลเรดาร์เองด้วยปุ่ม Insights, มีแจ้งเตือนเมื่อกลุ่มฝนผ่านไปแล้ว และเริ่มเก็บข้อมูล Ground Truth จากผู้ใช้จริงลง Firestore แล้ว
 
-### 📦 Batch F: Xweather Integration & Advanced Alerts
-*(ควรแยก MR ทีละฟีเจอร์)*
+### ✅ Batch F: Xweather Integration & Advanced Alerts (Completed)
+*(Integrated Premium Weather API with Circuit Breakers)*
 * **ขอบเขตงาน:** 
   - #32 (Integrate Xweather API)
   - #33 (Severe Weather & Flood Alerts)
   - #34 (Lightning Proximity Alerts)
   - #35 (Storm Cell Tracking & ETA)
-* **ความคาดหวัง:** วางระบบเชื่อมต่อกับ Xweather และขยายความสามารถในการเตือนภัยพิบัติและฟ้าผ่าแบบ Hyper-local ซึ่งเป็นการยกระดับความสามารถของบอทให้เหนือกว่าการแจ้งเตือนฝนปกติ
+  - #31 (Wind Vector Nowcasting - Superseded by Xweather Stormcells)
+  - #16 (Integrate external meteorological APIs - Superseded)
+* **สถานะ:** เสร็จสมบูรณ์ นำ Xweather มาใช้แจ้งเตือนฟ้าผ่า, ทิศทางพายุ, และมีระบบ Circuit Breaker กันโควต้าเต็ม
 
-### 📦 Batch G: Telegram Mini App & AI Training
-*(ทำหลังจาก Batch E & F เสถียรแล้ว)*
+### 📦 Batch G: Comprehensive Weather & Air Quality
+*(ฟีเจอร์พยากรณ์อากาศแบบครบวงจรประจำวัน)*
 * **ขอบเขตงาน:** 
-  - #36 (Live Weather Map Mini App)
-  - #40 (AI Training via Radar/JSON Uploads)
-* **ความคาดหวัง:** มีแผนที่แบบ Vector เรดาร์ฝนที่ลื่นไหลให้ผู้ใช้กดดูได้โดยไม่ต้องออกจากแอป Telegram และนำข้อมูล Crowdsource จาก Batch E มาฝึก AI
+  - #44 (Feature: Batch G - Comprehensive Weather & Air Quality)
+* **ความคาดหวัง:** เพิ่มระบบ `/forecast` (ล่วงหน้า 7 วัน), `/aqi` (ฝุ่น/มลพิษ) และ Cron Job สรุปอากาศยามเช้า
 
-### 📦 Batch C: Spatial Architecture (Pending)
-*(ต้องแยกทำ 1 MR เดี่ยวๆ)*
-* **ขอบเขตงาน:** #7 (Geofencing)
-* **ความคาดหวัง:** เปลี่ยนแปลงวิธีคิดของระบบ Scheduler ครั้งใหญ่จาก 1-to-1 เป็น Zone-to-Many
+### 📦 Batch H: Disasters & Natural Hazards Alerts
+*(ระบบความปลอดภัยขั้นสูงสุด)*
+* **ขอบเขตงาน:** 
+  - #45 (Feature: Batch H - Disasters & Natural Hazards Alerts)
+* **ความคาดหวัง:** แจ้งเตือนแผ่นดินไหว, ไต้ฝุ่น, และจุดความร้อน/ไฟป่า ล่วงหน้าเมื่อกระทบรัศมีผู้ใช้
+
+### 📦 Batch I: Interactive Maps & Routing (Telegram Mini App)
+*(ประสบการณ์ผู้ใช้แบบกราฟิก Web-based)*
+* **ขอบเขตงาน:** 
+  - #46 (Feature: Batch I - Interactive Weather Maps & Routing)
+  - #36 (Telegram Mini App - Live Weather Map)
+  - #14 (Rain Prediction along Driving Route)
+  - #28 (Switch to RainViewer Radar API for Tiles)
+* **ความคาดหวัง:** ผู้ใช้สามารถกดเปิดแผนที่เรดาร์ฝนแบบโต้ตอบได้โดยไม่ต้องออกจาก Telegram และจัดเส้นทางขับรถหนีฝนได้
+
+### 📦 Batch J: Spatial Architecture & Geofencing Optimization
+*(เพิ่มความแม่นยำเชิงพื้นที่ ลด False Positive)*
+* **ขอบเขตงาน:** 
+  - #7 (Broad Geofencing and District-Level Alert System)
+  - #30 (Tighten Geofence Radius to 5-10 km)
+  - #27 (Bug: False Positive Rain Alert caused by Global Model)
+* **ความคาดหวัง:** ปรับสถาปัตยกรรม Scheduler จาก 1-to-1 เป็น Zone-to-Many และจำกัดรัศมีเตือนฝนเพื่อลดการแจ้งเตือนผิดพลาดจากพายุที่อยู่ไกลออกไป
+
+### 📦 Batch K: AI & Machine Learning Pipeline
+*(นำ Data ที่รวบรวมไว้มาใช้งานจริง)*
+* **ขอบเขตงาน:** 
+  - #40 (Feature: AI Training via Radar Image / JSON Uploads)
+* **ความคาดหวัง:** ประมวลผล Ground Truth Data ที่ User โหวตเข้ามา นำไปเทรน Machine Learning Model เพื่อ Nowcasting
+
+### 📦 Batch L: Infrastructure & Multi-Platform (Future)
+*(เตรียมตัวก้าวข้าม Telegram และยกระดับระบบเซิร์ฟเวอร์)*
+* **ขอบเขตงาน:** 
+  - #47 (Infrastructure: Migrate to Terraform & Google Secret Manager)
+  - #8 (Develop Cross-Platform Mobile App)
+  - #5 (Integrate Notification Services for Line OA)
+* **ความคาดหวัง:** เปลี่ยนไปใช้ Infrastructure as Code (Terraform) ให้ระบบความปลอดภัยสูงสุด และเตรียมเชื่อมต่อแอปแยก/Line OA
