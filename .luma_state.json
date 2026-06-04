@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 32,
@@ -69,12 +69,11 @@
         "backend/tests/test_scheduler.py",
         "backend/tests/test_services.py",
         "backend/tests/test_xweather.py",
+        "docs/ROADMAP.md",
         "docs/architecture_decisions/002_issue_batching_strategy.md",
         "docs/architecture_decisions/005_crowdsourcing_and_ml_data_pipeline.md",
         "docs/features/16_issue-32-33-34-35_feature-integrate-xweather-as-premium-weather-provider-048e4993/implementation_plan.md",
         "docs/features/16_issue-32-33-34-35_feature-integrate-xweather-as-premium-weather-provider-048e4993/manual_verification.md",
-        "luma/prompts/prompt_20260604_143244_65ae4131.md",
-        "luma/prompts/prompt_20260604_143246_4ce10257.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -159,7 +158,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/16",
   "pr_number": null,
-  "last_updated": "2026-06-04T21:33:24.996437"
+  "last_updated": "2026-06-04T21:59:17.577570"
 }
