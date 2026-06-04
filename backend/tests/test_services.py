@@ -126,3 +126,25 @@ async def test_check_data_delay():
     old_timestamp = int(datetime.now(timezone.utc).timestamp()) - 3600 # 1 hour ago
     is_delayed = service.check_data_delay(old_timestamp)
     assert is_delayed is True
+
+@pytest.mark.asyncio
+async def test_weather_manager_compare_all_apis():
+    from app.services.weather_manager import WeatherManager
+    
+    manager = WeatherManager()
+    manager.tomorrow_svc.predict_rain_by_location = AsyncMock(return_value={"endpoint": "tomorrow", "max_rain": 1.0})
+    
+    async def mock_rainbow(lat, lng, endpoint_type="global", mock_state=None):
+        return {"endpoint": endpoint_type, "max_rain": 2.0}
+        
+    manager.rainbow_svc.predict_rain_by_location = AsyncMock(side_effect=mock_rainbow)
+    
+    results = await manager.compare_all_apis(13.0, 100.0)
+    
+    assert "tomorrow" in results
+    assert "rainbow-local" in results
+    assert "rainbow-global" in results
+    
+    assert results["tomorrow"]["max_rain"] == 1.0
+    assert results["rainbow-local"]["max_rain"] == 2.0
+    assert results["rainbow-global"]["max_rain"] == 2.0

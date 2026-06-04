@@ -33,15 +33,22 @@
   - #9 (Multiple Locations - Refactored Schema)
 * **สถานะ:** เสร็จสมบูรณ์ ระบบสามารถรับหลายพิกัดต่อ 1 User (ผ่านคอลัมน์ name ในตาราง) และแจ้งเตือนพร้อมข้อมูลปริมาณฝนได้อย่างเสถียร
 
-### 📦 Batch D: UX, Bot Reliability & Tech Debt (แนะนำให้ทำทันที)
-*(Quick Wins สามารถแยกทำ MR เล็กๆ ได้)*
+### ✅ Batch D: UX, Bot Reliability & Tech Debt (Completed)
 * **ขอบเขตงาน:** 
-  - #38 (Tech Debt: Refactor Webhook to use WeatherManager) **[ด่วนที่สุด]**
+  - #38 (Tech Debt: Refactor Webhook to use WeatherManager)
   - #37 (Immediate Reply/Loading State)
   - #26 (Smart Cooldown Escalation)
-* **ความคาดหวัง:** ล้างหนี้ทางเทคนิคให้ Webhook กลับมาใช้ Fallback ที่ถูกต้อง, ยกระดับประสบการณ์ผู้ใช้ (UX) ให้ตอบสนองทันที และเพิ่มความฉลาดให้ระบบ Cooldown
+* **สถานะ:** เสร็จสมบูรณ์ ล้างหนี้ทางเทคนิคให้ Webhook ผูกกับ Fallback Chain ที่ถูกต้อง, ยกระดับ UX ให้บอทตอบสนองทันที (ไม่ติด Timeout) และระบบ Smart Cooldown สามารถเตือนทะลุบล็อกได้เมื่อความรุนแรงฝนเพิ่มขึ้น
 
-### 📦 Batch E: Xweather Integration & Advanced Alerts (แนะนำให้ทำถัดไป)
+### 📦 Batch E: UX, Insights & Crowdsourcing (แนะนำให้ทำทันที)
+*(แก้ปัญหา False Positive และเพิ่มความโปร่งใสของข้อมูล)*
+* **ขอบเขตงาน:** 
+  - #41 (Cancellation / All-Clear Alert - แจ้งเตือนฝนหยุด)
+  - #42 (Insights API Comparison - เทียบข้อมูลทุกค่าย)
+  - #39 (Interactive Ground Truth Feedback - รายงานฝนไม่ตกจริง)
+* **ความคาดหวัง:** ลดความสับสนจาก False Positive โดยอนุญาตให้ผู้ใช้เทียบข้อมูลเรดาร์ค่ายอื่นได้เองด้วยปุ่ม Insights, มีแจ้งเตือนเมื่อกลุ่มฝนผ่านไปแล้ว และเริ่มเก็บข้อมูล Ground Truth จากผู้ใช้จริง
+
+### 📦 Batch F: Xweather Integration & Advanced Alerts
 *(ควรแยก MR ทีละฟีเจอร์)*
 * **ขอบเขตงาน:** 
   - #32 (Integrate Xweather API)
@@ -50,17 +57,12 @@
   - #35 (Storm Cell Tracking & ETA)
 * **ความคาดหวัง:** วางระบบเชื่อมต่อกับ Xweather และขยายความสามารถในการเตือนภัยพิบัติและฟ้าผ่าแบบ Hyper-local ซึ่งเป็นการยกระดับความสามารถของบอทให้เหนือกว่าการแจ้งเตือนฝนปกติ
 
-### 📦 Batch F: Interactive Telegram Mini App
-*(ทำหลังจาก Batch E เสถียรแล้ว)*
-* **ขอบเขตงาน:** #36 (Live Weather Map Mini App)
-* **ความคาดหวัง:** มีแผนที่แบบ Vector เรดาร์ฝนที่ลื่นไหลให้ผู้ใช้กดดูได้โดยไม่ต้องออกจากแอป Telegram
-
-### 📦 Batch G: Crowdsourcing & AI Training (Research & Future Scope)
-*(ทำหลังจากฟีเจอร์หลักเริ่มนิ่งแล้ว)*
+### 📦 Batch G: Telegram Mini App & AI Training
+*(ทำหลังจาก Batch E & F เสถียรแล้ว)*
 * **ขอบเขตงาน:** 
-  - #39 (Interactive Ground Truth Feedback)
+  - #36 (Live Weather Map Mini App)
   - #40 (AI Training via Radar/JSON Uploads)
-* **ความคาดหวัง:** รวบรวมข้อมูลสภาพอากาศจริงจากผู้ใช้ (Ground Truth) และสร้างช่องทางสำหรับป้อนข้อมูลให้ AI เรียนรู้ เพื่อแก้ปัญหาโมเดลผิดพลาด (เช่น Virga) ในระยะยาว
+* **ความคาดหวัง:** มีแผนที่แบบ Vector เรดาร์ฝนที่ลื่นไหลให้ผู้ใช้กดดูได้โดยไม่ต้องออกจากแอป Telegram และนำข้อมูล Crowdsource จาก Batch E มาฝึก AI
 
 ### 📦 Batch C: Spatial Architecture (Pending)
 *(ต้องแยกทำ 1 MR เดี่ยวๆ)*

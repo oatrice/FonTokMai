@@ -228,6 +228,25 @@ async def handle_callback_query(callback_query: dict):
                 answer_text = f"ลบข้อมูลพิกัด {name} เรียบร้อยแล้ว"
         elif data == "loc_no":
             answer_text = "ระบบรับทราบ จะไม่จดจำตำแหน่งใหม่"
+        elif data.startswith("fb_falsealarm_"):
+            parts = data.split("_")
+            if len(parts) >= 4:
+                try:
+                    lat = float(parts[2])
+                    lng = float(parts[3])
+                    
+                    context_msg = "User reported false alarm from inline button"
+                    if len(parts) >= 6:
+                        ep_map_rev = {"t": "Tomorrow.io", "rl": "Rainbow Local", "rg": "Rainbow Global", "u": "Unknown"}
+                        ep_name = ep_map_rev.get(parts[4], parts[4])
+                        max_r = parts[5]
+                        context_msg = f"Source: {ep_name}, max_rain: {max_r} mm/hr"
+                        
+                    await repo.save_feedback(chat_id, lat, lng, "false_alarm", context_msg)
+                    answer_text = "ขอบคุณสำหรับข้อมูล เราจะนำไปปรับปรุงความแม่นยำครับ"
+                except Exception as e:
+                    logger.error(f"Error parsing false alarm data: {e}")
+                    answer_text = "เกิดข้อผิดพลาดในการบันทึกข้อมูล"
 
     # Handle Developer Raw Data Request
     if data.startswith("raw_"):
@@ -273,6 +292,49 @@ async def handle_callback_query(callback_query: dict):
             except Exception as e:
                 logger.error(f"Error handling switch endpoint: {e}")
                 answer_text = "เกิดข้อผิดพลาดในการสลับแหล่งข้อมูล"
+
+    # Handle Compare API (Issue #42)
+    if data.startswith("compare_api_"):
+        parts = data.split("_")
+        if len(parts) >= 4:
+            try:
+                lat = float(parts[2])
+                lng = float(parts[3])
+                
+                answer_text = "กำลังดึงข้อมูลเปรียบเทียบ..."
+                
+                async with get_repo_context() as repo:
+                    mock_state = await repo.get_mock_state(chat_id)
+                
+                weather_manager = WeatherManager()
+                results = await weather_manager.compare_all_apis(lat, lng, mock_state=mock_state)
+                
+                # Format results
+                from datetime import datetime, timezone, timedelta
+                bkk_tz = timezone(timedelta(hours=7))
+                update_time_str = datetime.now(bkk_tz).strftime("%d/%m/%Y %H:%M:%S")
+                text = f"📊 ข้อมูลเปรียบเทียบ 3 API (พิกัด {lat}, {lng}):\n"
+                text += f"🔄 ข้อมูลอัปเดตล่าสุด: {update_time_str}\n\n"
+                
+                display_names = {
+                    "tomorrow": "Tomorrow.io",
+                    "rainbow-local": "Rainbow Local",
+                    "rainbow-global": "Rainbow Global"
+                }
+                for k, v in results.items():
+                    disp_k = display_names.get(k, k)
+                    if "error" in v:
+                        text += f"🔹 {disp_k}:\n  ❌ ข้อผิดพลาด: {v['error']}\n\n"
+                    else:
+                        text += f"🔹 {disp_k}:\n"
+                        text += f"  💧 ปริมาณฝนสูงสุด: {v.get('max_rain', 0)} mm/hr\n"
+                        text += f"  🌧️ ความรุนแรง: {v.get('intensity', 'ไม่ทราบ')}\n\n"
+                
+                await edit_telegram_message(chat_id, message_id, text)
+                
+            except Exception as e:
+                logger.error(f"Error handling compare_api: {e}")
+                answer_text = "เกิดข้อผิดพลาดในการดึงข้อมูลเปรียบเทียบ"
 
     async with httpx.AsyncClient() as client:
         # ตอบ Callback Query
@@ -359,7 +421,10 @@ async def handle_devmock_command(chat_id: int, command: str):
             await check_rain_and_alert()
         elif command == "/devmock clear":
             await repo.set_mock_state(chat_id, "clear")
-            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: ☀️ ท้องฟ้าแจ่มใส")
+            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: ☀️ ท้องฟ้าแจ่มใส\n⏳ กำลังตรวจสอบสภาพอากาศ...")
+            
+            from app.scheduler_tasks import check_rain_and_alert
+            await check_rain_and_alert()
         elif command == "/devmock off":
             await repo.set_mock_state(chat_id, None)
             await send_telegram_message(chat_id, "🛠️ [DEV MOCK] ปิดใช้งานโหมดจำลองเรียบร้อยแล้ว")

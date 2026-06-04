@@ -43,3 +43,15 @@ class LocationRepository(ABC):
     async def set_mock_state(self, chat_id: int, state: Optional[str]) -> None:
         """Set the developer mock state for a chat_id. Set to None to disable mock."""
         pass
+
+    @abstractmethod
+    async def save_feedback(
+        self,
+        chat_id: int,
+        lat: float,
+        lng: float,
+        feedback_type: str,
+        prediction_context: Optional[str] = None
+    ):
+        """Save user feedback (e.g. false_alarm) for ML improvements."""
+        pass

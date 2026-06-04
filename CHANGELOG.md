@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-06-04
+### Added
+- Implemented cancellation (All-Clear) alerts to notify users when previously forecasted rain dissipates before reaching them.
+- Added interactive API Comparison feature allowing users to view raw forecast data from all 3 sources (Tomorrow.io, Rainbow Local, Rainbow Global) directly via inline buttons.
+- Introduced interactive Ground Truth Feedback allowing users to report false alarms directly from notifications, storing precise API context and max rain parameters for future AI training.
+- Added explicit "last updated" timestamps to both the initial alert and the comparison messages.
+
+### Fixed
+- Fixed an issue where saving user feedback failed silently on Firestore due to incompatible naive datetime objects in the Python SDK.
+
 ## [0.14.0] - 2026-06-04
 ### Added
 - Implemented an immediate "loading" state in the Telegram webhook using background tasks to prevent API timeouts and improve responsiveness (Issue #37).

@@ -82,3 +82,20 @@ async def test_delete_location(db_session):
     # Delete non-existent
     result = await delete_location(db_session, 2222)
     assert result is False
+
+@pytest.mark.asyncio
+async def test_save_feedback(db_session):
+    from app.repositories.sqlite import SQLiteLocationRepository
+    repo = SQLiteLocationRepository(db_session)
+    
+    chat_id = 12345
+    lat = 13.0
+    lng = 100.0
+    
+    feedback = await repo.save_feedback(chat_id, lat, lng, "false_alarm", "max_rain: 1.5 mm/hr")
+    
+    assert feedback is not None
+    assert feedback.chat_id == chat_id
+    assert feedback.feedback_type == "false_alarm"
+    assert feedback.prediction_context == "max_rain: 1.5 mm/hr"
+    assert feedback.timestamp is not None

@@ -27,13 +27,21 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #42 - feat: Insights API Comparison (แสดงข้อมูลเทียบทุกค่าย)
+- **GitHub:** [#42](https://gitlab.com/oatricedev/FonMaYang/-/issues/42)
+    - ✅ **Done** (0.15.0)
+
+### Issue #41 - feat: Cancellation / All-Clear Alert (แจ้งเตือนฝนหยุด/เปลี่ยนทิศ)
+- **GitHub:** [#41](https://gitlab.com/oatricedev/FonMaYang/-/issues/41)
+    - ✅ **Done** (0.15.0)
+
 ### Issue #40 - Feature: AI Training via Radar Image / JSON Uploads
 - **GitHub:** [#40](https://gitlab.com/oatricedev/FonMaYang/-/issues/40)
 - **Status:** 🟢 **Ready**
 
 ### Issue #39 - Feature: Interactive Ground Truth Feedback (Crowdsourcing)
 - **GitHub:** [#39](https://gitlab.com/oatricedev/FonMaYang/-/issues/39)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.15.0)
 
 ### Issue #38 - Tech Debt: Refactor Telegram Webhook to use WeatherManager (Fix Inconsistency)
 - **GitHub:** [#38](https://gitlab.com/oatricedev/FonMaYang/-/issues/38)
