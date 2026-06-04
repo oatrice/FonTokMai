@@ -41,7 +41,7 @@ class FirestoreLocationRepository(LocationRepository):
             # Just keep it as UTC timestamp or python datetime
             # We'll calculate it from current time + 60 days
             from datetime import timedelta
-            expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=60)
+            expires_at = datetime.now(timezone.utc) + timedelta(days=60)
             
         data = {
             "chat_id": chat_id,
@@ -131,8 +131,7 @@ class FirestoreLocationRepository(LocationRepository):
         feedback_type: str,
         prediction_context: Optional[str] = None
     ):
-        from app.models import UserFeedback
-        timestamp = datetime.now(timezone.utc).replace(tzinfo=None)
+        timestamp = datetime.now(timezone.utc)
         
         data = {
             "chat_id": chat_id,
@@ -147,6 +146,6 @@ class FirestoreLocationRepository(LocationRepository):
         doc_ref = self.db.collection('user_feedbacks').document()
         await doc_ref.set(data)
         
-        feedback = UserFeedback(**data)
-        feedback.id = doc_ref.id  # Firestore document ID
-        return feedback
+        # Don't construct SQLAlchemy model here, just return dict
+        data["id"] = doc_ref.id
+        return data

@@ -181,6 +181,11 @@ async def check_rain_and_alert():
                         text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\n"
                         
                     text += f"📡 แหล่งข้อมูล: {source_name}\n"
+                    
+                    # Add Last Updated Time
+                    bkk_tz = timezone(timedelta(hours=7))
+                    update_time_str = datetime.now(bkk_tz).strftime("%d/%m/%Y %H:%M:%S")
+                    text += f"🔄 ข้อมูลอัปเดตล่าสุด: {update_time_str}\n"
                         
                     is_dev = str(loc.chat_id) in DEVELOPER_CHAT_IDS
                     reply_markup = get_radar_inline_keyboard(loc.latitude, loc.longitude, is_developer=is_dev)
@@ -191,8 +196,13 @@ async def check_rain_and_alert():
                     reply_markup["inline_keyboard"].append([
                         {"text": "📊 เทียบข้อมูล 3 API", "callback_data": f"compare_api_{r_lat}_{r_lng}"}
                     ])
+                    
+                    ep_map = {"tomorrow": "t", "rainbow-local": "rl", "rainbow-global": "rg"}
+                    ep_code = ep_map.get(result.get("endpoint"), "u")
+                    cb_data = f"fb_falsealarm_{r_lat}_{r_lng}_{ep_code}_{max_rain:.1f}"
+                    
                     reply_markup["inline_keyboard"].append([
-                        {"text": "❌ แจ้งเตือนผิดพลาด (ฝนไม่ตกจริง)", "callback_data": f"fb_falsealarm_{r_lat}_{r_lng}"}
+                        {"text": "❌ แจ้งเตือนผิดพลาด (ฝนไม่ตกจริง)", "callback_data": cb_data}
                     ])
                     
                     logger.info(f"Alerting chat_id {loc.chat_id}: ETA {eta_minutes} mins")
