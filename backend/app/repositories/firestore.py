@@ -72,12 +72,23 @@ class FirestoreLocationRepository(LocationRepository):
                 
         return locations
 
-    async def update_last_alerted(self, location: UserLocation, alerted_time: Optional[datetime]) -> UserLocation:
+    async def update_last_alerted(
+        self,
+        location: UserLocation,
+        alerted_time: Optional[datetime],
+        max_rain: Optional[float] = None,
+    ) -> UserLocation:
         alerted_time_native = alerted_time.replace(tzinfo=None) if alerted_time else None
+        update_data: dict = {"last_alerted_at": alerted_time_native}
+        if max_rain is not None:
+            update_data["last_alert_max_rain"] = max_rain
         doc_ref = self.collection.document(f"{location.chat_id}_{location.name}")
-        await doc_ref.update({"last_alerted_at": alerted_time_native})
+        await doc_ref.update(update_data)
         location.last_alerted_at = alerted_time_native
+        if max_rain is not None:
+            location.last_alert_max_rain = max_rain
         return location
+
 
     async def delete_location(self, chat_id: int, name: str = "default") -> bool:
         doc_ref = self.collection.document(f"{chat_id}_{name}")

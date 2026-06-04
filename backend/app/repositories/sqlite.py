@@ -65,8 +65,15 @@ class SQLiteLocationRepository(LocationRepository):
         )
         return list(result.scalars().all())
 
-    async def update_last_alerted(self, location: UserLocation, alerted_time: Optional[datetime]) -> UserLocation:
+    async def update_last_alerted(
+        self,
+        location: UserLocation,
+        alerted_time: Optional[datetime],
+        max_rain: Optional[float] = None,
+    ) -> UserLocation:
         location.last_alerted_at = alerted_time.replace(tzinfo=None) if alerted_time else None
+        if max_rain is not None:
+            location.last_alert_max_rain = max_rain
         await self.session.commit()
         return location
 

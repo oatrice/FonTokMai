@@ -13,6 +13,7 @@ class UserLocation(Base):
     retention_type = Column(String, nullable=False) # 'ONCE', 'TWO_MONTHS', 'FOREVER'
     expires_at = Column(DateTime, nullable=True)
     last_alerted_at = Column(DateTime, nullable=True)
+    last_alert_max_rain = Column(Float, nullable=True, default=0.0)  # mm/hr ของการแจ้งเตือนครั้งล่าสุด
 
 class DeveloperMock(Base):
     __tablename__ = "developer_mocks"

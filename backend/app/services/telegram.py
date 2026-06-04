@@ -57,6 +57,30 @@ async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[
         logger.error(f"Failed to send telegram message to {chat_id}: {e}")
         return False
 
+async def send_telegram_message_return_id(chat_id: int, text: str) -> Optional[int]:
+    """
+    Sends a message to a specific Telegram chat_id and returns the message_id.
+    Used for sending immediate "loading..." messages that will be edited later.
+    Returns None on failure.
+    """
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(TELEGRAM_API_URL, json=payload)
+            if response.status_code != 200:
+                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+                return None
+            data = response.json()
+            return data.get("result", {}).get("message_id")
+    except Exception as e:
+        logger.error(f"Failed to send telegram loading message to {chat_id}: {e}")
+        return None
+
+
+
 async def send_telegram_document(chat_id: int, file_data: bytes, filename: str) -> bool:
     """
     Sends a document to a specific Telegram chat_id.

@@ -10,10 +10,44 @@ class WeatherManager:
         self.tomorrow_svc = TomorrowService()
         self.rainbow_svc = RainbowService()
 
-    async def predict_rain(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
+    async def predict_rain(
+        self,
+        lat: float,
+        lng: float,
+        mock_state: Optional[str] = None,
+        force_endpoint: Optional[str] = None,
+    ) -> dict:
         """
-        Tries Tomorrow.io first. If it fails, falls back to Rainbow Local, then Rainbow Global.
+        ดึงข้อมูลพยากรณ์ฝนโดยผ่านระบบ Fallback อัตโนมัติ:
+          Tomorrow.io → Rainbow Local → Rainbow Global
+
+        พารามิเตอร์:
+          force_endpoint: ถ้าระบุ ("global" หรือ "local") จะเรียก Rainbow endpoint นั้นโดยตรง
+                          โดยไม่ผ่าน fallback chain (ใช้สำหรับ user สลับ endpoint เอง)
         """
+        # --- โหมดบังคับ endpoint (ไม่ผ่าน fallback) ---
+        if force_endpoint in ("global", "local"):
+            try:
+                result = await self.rainbow_svc.predict_rain_by_location(
+                    lat, lng, endpoint_type=force_endpoint, mock_state=mock_state
+                )
+                endpoint_label = "rainbow-global" if force_endpoint == "global" else "rainbow-local"
+                result["endpoint"] = endpoint_label
+                logger.info(f"Successfully fetched weather from Rainbow ({force_endpoint}) [forced]")
+                return result
+            except Exception as e:
+                logger.error(f"Rainbow ({force_endpoint}) failed (forced mode): {e}")
+                return {
+                    "predictions": [],
+                    "intensity": "ไม่ทราบ",
+                    "max_rain": 0.0,
+                    "duration_minutes": 0,
+                    "wind_speed_kmh": 0.0,
+                    "endpoint": "error",
+                }
+
+        # --- โหมดปกติ: Tomorrow.io → Rainbow Local → Rainbow Global ---
+
         # 1. Primary: Tomorrow.io
         try:
             result = await self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)
@@ -45,5 +79,5 @@ class WeatherManager:
                 "max_rain": 0.0,
                 "duration_minutes": 0,
                 "wind_speed_kmh": 0.0,
-                "endpoint": "error"
+                "endpoint": "error",
             }

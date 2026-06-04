@@ -27,6 +27,42 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #40 - Feature: AI Training via Radar Image / JSON Uploads
+- **GitHub:** [#40](https://gitlab.com/oatricedev/FonMaYang/-/issues/40)
+- **Status:** 🟢 **Ready**
+
+### Issue #39 - Feature: Interactive Ground Truth Feedback (Crowdsourcing)
+- **GitHub:** [#39](https://gitlab.com/oatricedev/FonMaYang/-/issues/39)
+- **Status:** 🟢 **Ready**
+
+### Issue #38 - Tech Debt: Refactor Telegram Webhook to use WeatherManager (Fix Inconsistency)
+- **GitHub:** [#38](https://gitlab.com/oatricedev/FonMaYang/-/issues/38)
+- **Status:** 🟢 **Ready**
+
+### Issue #37 - Feature: Immediate Reply/Loading State on User Input
+- **GitHub:** [#37](https://gitlab.com/oatricedev/FonMaYang/-/issues/37)
+- **Status:** 🟢 **Ready**
+
+### Issue #36 - Feature: Telegram Mini App - Live Weather Map
+- **GitHub:** [#36](https://gitlab.com/oatricedev/FonMaYang/-/issues/36)
+- **Status:** 🟢 **Ready**
+
+### Issue #35 - Feature: Storm Cell Tracking & ETA (Advanced Nowcasting)
+- **GitHub:** [#35](https://gitlab.com/oatricedev/FonMaYang/-/issues/35)
+- **Status:** 🟢 **Ready**
+
+### Issue #34 - Feature: Lightning Proximity Alerts
+- **GitHub:** [#34](https://gitlab.com/oatricedev/FonMaYang/-/issues/34)
+- **Status:** 🟢 **Ready**
+
+### Issue #33 - Feature: Severe Weather & Flood Alerts via Xweather
+- **GitHub:** [#33](https://gitlab.com/oatricedev/FonMaYang/-/issues/33)
+- **Status:** 🟢 **Ready**
+
+### Issue #32 - Feature: Integrate Xweather as a Premium Weather Provider
+- **GitHub:** [#32](https://gitlab.com/oatricedev/FonMaYang/-/issues/32)
+- **Status:** 🟢 **Ready**
+
 ### Issue #31 - Feature: Wind Vector Nowcasting — Calculate Storm Cell Movement Trajectory Before Alerting
 - **GitHub:** [#31](https://gitlab.com/oatricedev/FonMaYang/-/issues/31)
 - **Status:** 🟢 **Ready**
