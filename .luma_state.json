@@ -36,22 +36,49 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/weather_manager.py",
+        "backend/tests/test_db.py",
+        "backend/tests/test_scheduler.py",
+        "backend/tests/test_services.py",
+        "backend/tests/test_webhook.py",
         "docs/ROADMAP.md",
         "docs/architecture_decisions/002_issue_batching_strategy.md",
-        "luma/prompts/prompt_20260604_110924_97f16eb7.md",
+        "docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48/implementation_plan.md",
+        "docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48/manual_verification.md",
+        "docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48/task.md",
+        "docs/features/15_issue-41-42-39_feat-cancellation-all-clear-alert-aechngetueonfnhyud-ep-ff5f2d48/walkthrough.md",
+        "luma/prompts/prompt_20260604_120756_44018fd5.md",
+        "luma/prompts/prompt_20260604_120759_091a7647.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/weather_manager.py",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -125,5 +152,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-04T18:20:08.163387"
+  "last_updated": "2026-06-04T19:08:35.075833"
 }

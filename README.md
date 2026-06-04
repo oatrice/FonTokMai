@@ -12,6 +12,8 @@ FonMaYang integrates with multiple weather sources (Tomorrow.io, RainViewer, Rai
 - **Extended Meteorological Data**: Real-time evaluation of rain intensity and estimated duration.
 - **Proactive Alerts & Scheduling**: Webhook endpoint designed for external cron services to continuously monitor rain vectors and alert users proactively before rain hits. Includes a Smart Cooldown system with severity escalation.
 - **Responsive Webhooks**: Background task processing ensures immediate acknowledgment and loading states for users even during slow API fetching.
+- **Interactive Ground Truth Feedback**: Inline buttons allowing users to report false alarms directly from notifications, storing precise API context for future AI training.
+- **API Comparison & All-Clear Alerts**: Real-time comparison across all integrated weather APIs and automated cancellation notifications when forecasted rain dissipates.
 - **Interactive Radar**: Telegram `/radar` command providing multi-source visual tracking (Zoom Earth, Windy, TMD).
 - **Developer Mock Mode**: Built-in `/devmock` command for simulating weather states during testing without making live API calls.
 - **FastAPI Backend**: Asynchronous, highly concurrent backend structure.
