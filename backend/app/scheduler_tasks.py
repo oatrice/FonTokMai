@@ -292,7 +292,7 @@ async def fetch_tmd_radar_routine():
     logger.info("Starting TMD Radar fetch routine...")
     from app.services.tmd_radar_processor import TMDRadarProcessor
     
-    stations_to_update = ["kkn120", "kkn240", "skn120"]
+    stations_to_update = ["kkn120", "kkn240", "skn240"]
     for station in stations_to_update:
         try:
             processor = TMDRadarProcessor(station_code=station)

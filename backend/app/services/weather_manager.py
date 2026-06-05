@@ -182,7 +182,7 @@ class WeatherManager:
         and return the expected rain max_rain and ETA.
         """
         # MVP: Attempt to locate the station and see if it's in bounds
-        for station_code in ["kkn120", "kkn240", "skn120"]:
+        for station_code in ["kkn120", "kkn240", "skn240"]:
             try:
                 processor = TMDRadarProcessor(station_code)
                 px, py = processor.latlng_to_pixel(lat, lng)

@@ -55,21 +55,25 @@ STATIONS = {
     "kkn120": StationConfig(
         code="kkn120",
         name="Khon Kaen (120km)",
-        static_image_url="https://weather.tmd.go.th/kkn120.png",
+        static_image_url="https://weather.tmd.go.th/kkn/kkn120_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
         bbox=KKN_BBOX
     ),
     "kkn240": StationConfig(
         code="kkn240",
         name="Khon Kaen (240km)",
-        static_image_url="https://weather.tmd.go.th/kkn240.png",
+        static_image_url="https://weather.tmd.go.th/kkn/kkn240_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
-        bbox=KKN240_BBOX
+        bbox=KKN240_BBOX,
+        crop_x=75,
+        crop_y=0,
+        crop_width=725,
+        crop_height=786
     ),
-    "skn120": StationConfig(
-        code="skn120",
-        name="Sakon Nakhon",
-        static_image_url="https://weather.tmd.go.th/skn120.png",
+    "skn240": StationConfig(
+        code="skn240",
+        name="Sakon Nakhon (240km)",
+        static_image_url="https://weather.tmd.go.th/skn/skn240_latest.jpg",
         loop_page_url="https://weather.tmd.go.th/sknLoop.php",
         bbox=SKN_BBOX
     )
