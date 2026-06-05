@@ -29,7 +29,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ## Synced From GitHub
 ### Issue #50 - Feature: Automated TMD Radar Image Processing
 - **GitHub:** [#50](https://gitlab.com/oatricedev/FonMaYang/-/issues/50)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.19.0)
 
 ### Issue #49 - Research: Evaluation Table comparing Weather Providers (Xweather, Tomorrow.io, Rainbow.ai, TMD Image Processing, Open-Meteo)
 - **GitHub:** [#49](https://gitlab.com/oatricedev/FonMaYang/-/issues/49)
