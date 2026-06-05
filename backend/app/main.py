@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
     
     async def ws_callback(event):
         async with get_repo_context() as repo:
-            await process_disaster_event(repo.session, "earthquake", event)
+            await process_disaster_event(repo, "earthquake", event)
             
     # Start the websocket in the background
     asyncio.create_task(start_emsc_websocket(ws_callback))

@@ -260,9 +260,8 @@ async def check_disasters_frequent_routine():
         return
         
     async with get_repo_context() as repo:
-        session = repo.session
         for event in events:
-            await process_disaster_event(session, "earthquake", event)
+            await process_disaster_event(repo, "earthquake", event)
 
 async def check_disasters_infrequent_routine():
     """Run infrequently (e.g., every 30-60 mins) for Xweather Cyclones/Fires."""
@@ -276,8 +275,7 @@ async def check_disasters_infrequent_routine():
     fires = await xweather.get_active_fires()
     
     async with get_repo_context() as repo:
-        session = repo.session
         for event in cyclones:
-            await process_disaster_event(session, "cyclone", event)
+            await process_disaster_event(repo, "cyclone", event)
         for event in fires:
-            await process_disaster_event(session, "fire", event)
+            await process_disaster_event(repo, "fire", event)

@@ -1,9 +1,10 @@
+from app.repositories.base import LocationRepository
+from app.database import AsyncSessionLocal
 import logging
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from datetime import datetime, timezone
-from app.models import UserLocation, DisasterAlertHistory
-from app.services.location import get_active_locations, haversine_distance
+from app.models import DisasterAlertHistory
+from app.services.location import haversine_distance
 from app.services.telegram import send_disaster_alert
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ def get_impact_radius_km(event_type: str, event_data: dict) -> float:
         return 50.0
     return 0.0
 
-async def process_disaster_event(session: AsyncSession, event_type: str, event_data: dict):
+async def process_disaster_event(repo: LocationRepository, event_type: str, event_data: dict):
     """
     Process a disaster event, match it against user locations, and send alerts.
     event_data should have: id, lat, lng, and type-specific fields.
@@ -36,7 +37,7 @@ async def process_disaster_event(session: AsyncSession, event_type: str, event_d
     if impact_radius <= 0:
         return # Skip minor events
         
-    locations = await get_active_locations(session)
+    locations = await repo.get_active_locations()
     if not locations:
         return
 
@@ -50,39 +51,39 @@ async def process_disaster_event(session: AsyncSession, event_type: str, event_d
     if not affected_users:
         return
 
-    # Check alert history
-    # To optimize, we can fetch all chat_ids that already received this event_id
-    query = select(DisasterAlertHistory.chat_id).where(
-        DisasterAlertHistory.event_id == event_id
-    )
-    result = await session.execute(query)
-    already_alerted_chats = set(result.scalars().all())
-    
-    # Send alerts to new users
-    new_alerts_history = []
-    for loc, dist in affected_users:
-        if loc.chat_id in already_alerted_chats:
-            continue
-            
-        try:
-            # We add 'distance_km' to event_data for the message
-            event_data_with_dist = event_data.copy()
-            event_data_with_dist["distance_km"] = dist
-            
-            await send_disaster_alert(loc.chat_id, event_type, event_data_with_dist, loc.name)
-            
-            new_alerts_history.append(
-                DisasterAlertHistory(
-                    chat_id=loc.chat_id,
-                    event_id=event_id,
-                    event_type=event_type,
-                    alerted_at=datetime.now(timezone.utc).replace(tzinfo=None)
+    # Check alert history using SQLAlchemy independently of repo
+    async with AsyncSessionLocal() as session:
+        query = select(DisasterAlertHistory.chat_id).where(
+            DisasterAlertHistory.event_id == event_id
+        )
+        result = await session.execute(query)
+        already_alerted_chats = set(result.scalars().all())
+        
+        # Send alerts to new users
+        new_alerts_history = []
+        for loc, dist in affected_users:
+            if loc.chat_id in already_alerted_chats:
+                continue
+                
+            try:
+                # We add 'distance_km' to event_data for the message
+                event_data_with_dist = event_data.copy()
+                event_data_with_dist["distance_km"] = dist
+                
+                await send_disaster_alert(loc.chat_id, event_type, event_data_with_dist, loc.name)
+                
+                new_alerts_history.append(
+                    DisasterAlertHistory(
+                        chat_id=loc.chat_id,
+                        event_id=event_id,
+                        event_type=event_type,
+                        alerted_at=datetime.now(timezone.utc).replace(tzinfo=None)
+                    )
                 )
-            )
-        except Exception as e:
-            logger.error(f"Failed to send {event_type} alert to {loc.chat_id}: {e}")
-            
-    if new_alerts_history:
-        session.add_all(new_alerts_history)
-        await session.commit()
-        logger.info(f"Alerted {len(new_alerts_history)} users for {event_type} {event_id}")
+            except Exception as e:
+                logger.error(f"Failed to send {event_type} alert to {loc.chat_id}: {e}")
+                
+        if new_alerts_history:
+            session.add_all(new_alerts_history)
+            await session.commit()
+            logger.info(f"Alerted {len(new_alerts_history)} users for {event_type} {event_id}")
