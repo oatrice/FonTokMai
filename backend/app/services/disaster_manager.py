@@ -41,12 +41,16 @@ async def process_disaster_event(repo: LocationRepository, event_type: str, even
     if not locations:
         return
 
+    logger.info(f"Checking {len(locations)} active locations for event {event_id} (radius {impact_radius}km)")
+    
     # Filter users within radius
     affected_users = []
     for loc in locations:
         dist = haversine_distance(loc.latitude, loc.longitude, lat, lng)
         if dist <= impact_radius:
             affected_users.append((loc, dist))
+
+    logger.info(f"Found {len(affected_users)} affected users for event {event_id}")
             
     if not affected_users:
         return
