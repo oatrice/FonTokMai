@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-06-05
+### Added
+- Integrated Open-Meteo as a contingency service for predicting wind vectors and stormcells.
+- Implemented a feedback-driven API reliability and auto-selection system that automatically prioritizes the most accurate weather source based on user reports.
+- Added API accuracy evaluation scores to the Telegram 'Compare API' functionality.
+
+### Changed
+- Refactored WeatherManager fallback logic to dynamically sort APIs based on their accuracy scores.
+- Updated API mapping to properly record false alarms from Open-Meteo and Xweather.
+
 ## [0.17.0] - 2026-06-05
 ### Added
 - Implemented proactive alerts for major natural hazards including Earthquakes, Tropical Cyclones, and Fires/Hotspots.
