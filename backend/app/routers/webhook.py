@@ -252,7 +252,7 @@ async def handle_callback_query(callback_query: dict):
                     
                     context_msg = "User reported false alarm from inline button"
                     if len(parts) >= 6:
-                        ep_map_rev = {"t": "Tomorrow.io", "rl": "Rainbow Local", "rg": "Rainbow Global", "u": "Unknown"}
+                        ep_map_rev = {"t": "Tomorrow.io", "rl": "Rainbow Local", "rg": "Rainbow Global", "xw": "Xweather", "om": "Open-Meteo", "u": "Unknown"}
                         ep_name = ep_map_rev.get(parts[4], parts[4])
                         max_r = parts[5]
                         context_msg = f"Source: {ep_name}, max_rain: {max_r} mm/hr"
@@ -339,11 +339,14 @@ async def handle_callback_query(callback_query: dict):
                 }
                 for k, v in results.items():
                     disp_k = display_names.get(k, k)
+                    accuracy = v.get("accuracy_score", 0.0)
+                    acc_percent = accuracy * 100.0
+                    
                     if "error" in v:
-                        text += f"🔹 {disp_k}:\n  ❌ ข้อผิดพลาด: {v['error']}\n\n"
+                        text += f"🔹 {disp_k} (ความแม่นยำ: {acc_percent:.1f}%):\n  ❌ ข้อผิดพลาด: {v['error']}\n\n"
                     else:
                         max_rain = v.get('max_rain', 0)
-                        text += f"🔹 {disp_k}:\n"
+                        text += f"🔹 {disp_k} (ความแม่นยำ: {acc_percent:.1f}%):\n"
                         text += f"  💧 ปริมาณฝนสูงสุด: {max_rain} mm/hr\n"
                         text += f"  🌧️ ความรุนแรง: {v.get('intensity', 'ไม่ทราบ')}\n"
                         

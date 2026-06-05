@@ -120,7 +120,7 @@ class SQLiteLocationRepository(LocationRepository):
         feedback_type: str,
         prediction_context: Optional[str] = None
     ):
-        from app.models import UserFeedback
+        from app.models import UserFeedback, ApiReliability
         feedback = UserFeedback(
             chat_id=chat_id,
             latitude=lat,
@@ -130,6 +130,34 @@ class SQLiteLocationRepository(LocationRepository):
             prediction_context=prediction_context
         )
         self.session.add(feedback)
+        
+        if feedback_type == "false_alarm" and prediction_context:
+            endpoint = None
+            if "Source: Tomorrow.io" in prediction_context: endpoint = "tomorrow"
+            elif "Source: Rainbow Local" in prediction_context: endpoint = "rainbow-local"
+            elif "Source: Rainbow Global" in prediction_context: endpoint = "rainbow-global"
+            elif "Source: Xweather" in prediction_context: endpoint = "xweather"
+            elif "Source: Open-Meteo" in prediction_context: endpoint = "open-meteo"
+            
+            if endpoint:
+                result = await self.session.execute(select(ApiReliability).where(ApiReliability.endpoint == endpoint))
+                rel = result.scalars().first()
+                if not rel:
+                    defaults = {"xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8}
+                    rel = ApiReliability(
+                        endpoint=endpoint, 
+                        total_queries=0, 
+                        false_alarms=0, 
+                        accuracy_score=defaults.get(endpoint, 1.0)
+                    )
+                    self.session.add(rel)
+                    
+                rel.false_alarms += 1
+                if rel.total_queries > 0:
+                    rel.accuracy_score = 1.0 - (rel.false_alarms / rel.total_queries)
+                    if rel.accuracy_score < 0:
+                        rel.accuracy_score = 0.0
+
         await self.session.commit()
         await self.session.refresh(feedback)
         return feedback
@@ -153,4 +181,49 @@ class SQLiteLocationRepository(LocationRepository):
             alerted_at=datetime.now(timezone.utc).replace(tzinfo=None)
         )
         self.session.add(history)
+        await self.session.commit()
+
+    async def get_all_api_reliability(self) -> dict[str, float]:
+        from app.models import ApiReliability
+        result = await self.session.execute(select(ApiReliability))
+        reliabilities = result.scalars().all()
+        
+        scores = {}
+        for r in reliabilities:
+            scores[r.endpoint] = r.accuracy_score
+            
+        defaults = {
+            "xweather": 1.0,
+            "tomorrow": 0.95,
+            "rainbow-local": 0.9,
+            "rainbow-global": 0.85,
+            "open-meteo": 0.8
+        }
+        for ep, default_score in defaults.items():
+            if ep not in scores:
+                scores[ep] = default_score
+                
+        return scores
+
+    async def record_api_query_success(self, endpoint: str) -> None:
+        from app.models import ApiReliability
+        result = await self.session.execute(select(ApiReliability).where(ApiReliability.endpoint == endpoint))
+        rel = result.scalars().first()
+        
+        if not rel:
+            defaults = {"xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8}
+            rel = ApiReliability(
+                endpoint=endpoint, 
+                total_queries=0, 
+                false_alarms=0, 
+                accuracy_score=defaults.get(endpoint, 1.0)
+            )
+            self.session.add(rel)
+            
+        rel.total_queries += 1
+        if rel.total_queries > 0:
+            rel.accuracy_score = 1.0 - (rel.false_alarms / rel.total_queries)
+            if rel.accuracy_score < 0:
+                rel.accuracy_score = 0.0
+                
         await self.session.commit()

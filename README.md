@@ -3,18 +3,18 @@
 Privacy-first short-term rain forecasting (Nowcasting) system using Thai Meteorological Department (TMD) radar data and global weather APIs.
 
 ## Overview
-FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, RainViewer, Rainbow API) to predict incoming rain within the next 15-30 minutes. The system operates on a privacy-first principle: no continuous background location tracking. Users opt-in by sharing their current location via Telegram, and the system evaluates the coarse location against the predicted rain vectors.
+FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-Meteo, RainViewer, Rainbow API) to predict incoming rain within the next 15-30 minutes. The system operates on a privacy-first principle: no continuous background location tracking. Users opt-in by sharing their current location via Telegram, and the system evaluates the coarse location against the predicted rain vectors.
 
 ## Features
-- **Pluggable Architecture**: Easily switch between or combine weather providers (Xweather, Tomorrow.io, RainViewer, Rainbow, TMD Radar) with an automated fallback mechanism.
+- **Pluggable Architecture**: Easily switch between or combine weather providers (Xweather, Tomorrow.io, Open-Meteo, RainViewer, Rainbow, TMD Radar) with an automated fallback mechanism based on user feedback and reliability scoring.
 - **Natural Hazard Alerts**: Proactive monitoring for severe natural disasters including Earthquakes (via real-time EMSC WebSockets & USGS polling), Tropical Cyclones, and Wildfires, complete with broad geofencing and grouped notifications for users with multiple locations.
-- **Advanced Weather Alerts**: Proactively warns users about nearby severe weather, including convective stormcells and lightning strikes, using Xweather's premium data.
+- **Advanced Weather Alerts**: Proactively warns users about nearby severe weather, including convective stormcells and lightning strikes, using Xweather's premium data and Open-Meteo contingency data.
 - **Privacy-First Notifications**: On-demand location sharing via Telegram without background tracking.
 - **Multiple Saved Locations**: Support for managing multiple user locations (e.g., Home, Work) for personalized proactive alerting.
 - **Extended Meteorological Data**: Real-time evaluation of rain intensity and estimated duration.
 - **Proactive Alerts & Scheduling**: Webhook endpoint designed for external cron services to continuously monitor rain vectors and alert users proactively before rain hits. Includes a Smart Cooldown system with severity escalation.
 - **Responsive Webhooks**: Background task processing ensures immediate acknowledgment and loading states for users even during slow API fetching.
-- **Interactive Ground Truth Feedback**: Inline buttons allowing users to report false alarms directly from notifications, storing precise API context for future AI training.
+- **Interactive Ground Truth Feedback**: Inline buttons allowing users to report false alarms directly from notifications. This data feeds an automated API reliability system that auto-selects the most accurate weather source for future alerts.
 - **API Comparison & All-Clear Alerts**: Real-time comparison across all integrated weather APIs and automated cancellation notifications when forecasted rain dissipates.
 - **Interactive Radar**: Telegram `/radar` command providing multi-source visual tracking (Zoom Earth, Windy, TMD).
 - **Developer Mock Mode**: Built-in `/devmock` command and mock event servers for simulating weather states and natural disasters during testing without making live API calls.
@@ -24,6 +24,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, RainV
 ## Data Sources
 - **Xweather API**: [xweather.com](https://www.xweather.com/)
 - **Tomorrow.io API**: [tomorrow.io](https://www.tomorrow.io/)
+- **Open-Meteo API**: [open-meteo.com](https://open-meteo.com/)
 - **TMD Radar (Sakon Nakhon)**: [weather.tmd.go.th/sknLoop.php](https://weather.tmd.go.th/sknLoop.php)
 - **RainViewer API**: [api.rainviewer.com/public/weather-maps.json](https://api.rainviewer.com/public/weather-maps.json)
 - **Rainbow Weather API**: [api.rainbow.ai](https://api.rainbow.ai/)

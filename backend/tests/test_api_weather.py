@@ -39,3 +39,48 @@ def test_predict_weather_missing_params():
     response = client.get("/api/v1/weather/predict?lat=17.1664")
     assert response.status_code == 422
 
+@patch.dict('os.environ', {'XWEATHER_ENABLED': 'true', 'XWEATHER_CLIENT_ID': 'test', 'XWEATHER_CLIENT_SECRET': 'test'})
+def test_compare_weather_apis_e2e():
+    """
+    E2E Test สำหรับ Issue #49: Compare all APIs
+    โดยใช้ mock_state="rain" เพื่อจำลองข้อมูลโดยไม่ต้องยิง API จริง
+    """
+    if not client:
+        pytest.fail("FastAPI app is not implemented yet")
+
+    with patch("app.dependencies.get_repo_context") as mock_get_repo:
+        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock
+        
+        mock_repo = AsyncMock()
+        mock_repo.get_all_api_reliability.return_value = {
+            "xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8
+        }
+        
+        @asynccontextmanager
+        async def mock_context():
+            yield mock_repo
+            
+        mock_get_repo.side_effect = mock_context
+        
+        response = client.get("/api/v1/weather/compare?lat=13.7&lng=100.5&mock_state=rain")
+        
+    assert response.status_code == 200
+    data = response.json()
+    
+    # ตรวจสอบว่ามีข้อมูลจาก API ครบถ้วนตามที่คาดหวังหรือไม่
+    assert "xweather" in data
+    assert "tomorrow" in data
+    assert "rainbow-local" in data
+    assert "rainbow-global" in data
+    assert "open-meteo" in data
+    
+    # ตรวจสอบข้อมูลจาก open-meteo (ตาม spec mock_state="rain")
+    assert data["open-meteo"]["max_rain"] == 15.0
+    assert data["open-meteo"]["intensity"] == "หนัก (Heavy)"
+    assert data["open-meteo"]["endpoint"] == "open-meteo"
+
+    # Xweather ควรมีการนำ distance_km ของ stormcell มาแปะเป็น storm_distance_km
+    assert "storm_distance_km" in data["xweather"]
+    assert data["xweather"]["storm_distance_km"] == 10.0
+

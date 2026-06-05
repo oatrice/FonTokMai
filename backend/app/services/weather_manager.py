@@ -3,6 +3,7 @@ from typing import Optional
 from .tomorrow import TomorrowService
 from .rainbow import RainbowService
 from .xweather import XweatherService
+from .open_meteo import OpenMeteoService
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,7 @@ class WeatherManager:
         self.xweather_svc = XweatherService()
         self.tomorrow_svc = TomorrowService()
         self.rainbow_svc = RainbowService()
+        self.open_meteo_svc = OpenMeteoService()
 
     async def predict_rain(
         self,
@@ -48,60 +50,65 @@ class WeatherManager:
                     "endpoint": "error",
                 }
 
-        # --- โหมดปกติ: Xweather → Tomorrow.io → Rainbow Local → Rainbow Global ---
-
-        # 1. Primary: Xweather
-        try:
-            result = await self.xweather_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)
-            logger.info("Successfully fetched weather from Xweather")
-            return result
-        except Exception as e:
-            logger.warning(f"Xweather failed: {e}. Falling back to Tomorrow.io.")
-
-        # 2. Secondary: Tomorrow.io
-        try:
-            result = await self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)
-            logger.info("Successfully fetched weather from Tomorrow.io")
-            return result
-        except Exception as e:
-            logger.warning(f"Tomorrow.io failed: {e}. Falling back to Rainbow (Local).")
-
-        # 2. Secondary: Rainbow Local
-        try:
-            result = await self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state)
-            logger.info("Successfully fetched weather from Rainbow (Local)")
-            result["endpoint"] = "rainbow-local"
-            return result
-        except Exception as e:
-            logger.warning(f"Rainbow Local failed: {e}. Falling back to Rainbow (Global).")
-
-        # 3. Fallback: Rainbow Global
-        try:
-            result = await self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state)
-            logger.info("Successfully fetched weather from Rainbow (Global)")
-            result["endpoint"] = "rainbow-global"
-            return result
-        except Exception as e:
-            logger.error(f"All weather APIs failed. Last error: {e}")
-            return {
-                "predictions": [],
-                "intensity": "ไม่ทราบ",
-                "max_rain": 0.0,
-                "duration_minutes": 0,
-                "wind_speed_kmh": 0.0,
-                "endpoint": "error",
-            }
+        # --- โหมดปกติ: Auto-select based on accuracy score ---
+        from app.dependencies import get_repo_context
+        async with get_repo_context() as repo:
+            reliabilities = await repo.get_all_api_reliability()
+            
+        sorted_endpoints = sorted(reliabilities.keys(), key=lambda k: reliabilities[k], reverse=True)
+        
+        service_map = {
+            "xweather": lambda: self.xweather_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
+            "tomorrow": lambda: self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
+            "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
+            "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
+            "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)
+        }
+        
+        for ep in sorted_endpoints:
+            if ep not in service_map:
+                continue
+                
+            try:
+                result = await service_map[ep]()
+                logger.info(f"Successfully fetched weather from {ep} (accuracy: {reliabilities[ep]:.2f})")
+                if "endpoint" not in result:
+                    result["endpoint"] = ep
+                    
+                # หากดึงสำเร็จและมีการทายว่าฝนจะตก ให้บวก total_queries
+                if result.get("max_rain", 0.0) > 0:
+                    async with get_repo_context() as update_repo:
+                        await update_repo.record_api_query_success(ep)
+                        
+                return result
+            except Exception as e:
+                logger.warning(f"{ep} failed: {e}. Falling back to next...")
+                
+        logger.error("All weather APIs failed in auto-select.")
+        return {
+            "predictions": [],
+            "intensity": "ไม่ทราบ",
+            "max_rain": 0.0,
+            "duration_minutes": 0,
+            "wind_speed_kmh": 0.0,
+            "endpoint": "error",
+        }
 
     async def compare_all_apis(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
         """
         เรียก 3 API พร้อมกันเพื่อเปรียบเทียบผลลัพธ์
         """
         import asyncio
+        from app.dependencies import get_repo_context
+        
+        async with get_repo_context() as repo:
+            reliabilities = await repo.get_all_api_reliability()
         
         async def safe_call(name, coro):
             try:
                 res = await coro
                 res["endpoint"] = name
+                res["accuracy_score"] = reliabilities.get(name, 0.0)
                 return name, res
             except Exception as e:
                 import re
@@ -109,7 +116,7 @@ class WeatherManager:
                 error_msg = re.sub(r'client_id=[^&\s]+', 'client_id=***', error_msg)
                 error_msg = re.sub(r'client_secret=[^&\s]+', 'client_secret=***', error_msg)
                 logger.error(f"Error fetching from {name}: {error_msg}")
-                return name, {"error": error_msg, "endpoint": name, "max_rain": 0.0}
+                return name, {"error": error_msg, "endpoint": name, "max_rain": 0.0, "accuracy_score": reliabilities.get(name, 0.0)}
 
         async def fetch_xweather_full():
             res_rain, res_alerts = await asyncio.gather(
@@ -125,22 +132,43 @@ class WeatherManager:
             safe_call("xweather", fetch_xweather_full()),
             safe_call("tomorrow", self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)),
             safe_call("rainbow-local", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state)),
-            safe_call("rainbow-global", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state))
+            safe_call("rainbow-global", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state)),
+            safe_call("open-meteo", self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state))
         ]
         
         results = await asyncio.gather(*tasks)
-        return {k: v for k, v in results}
+        
+        final_results = {}
+        for k, v in results:
+            if "predictions" in v:
+                v["predictions"] = v["predictions"][:15]
+            final_results[k] = v
+            
+        return final_results
 
     async def get_advanced_alerts(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
         """
         ดึงข้อมูลเตือนภัยขั้นสูงจาก Xweather (Advisories, Lightning, Stormcells)
-        ถ้า Xweather ปิดอยู่ หรือ API พัง จะคืนค่า dict เปล่ากลับไป
+        ถ้า Xweather ปิดอยู่ หรือ API พัง จะพยายามดึงข้อมูลลมจาก Open-Meteo แทน (Contingency)
         """
         try:
+            if not self.xweather_svc.enabled or self.xweather_svc._is_circuit_open():
+                raise Exception("Xweather is disabled or circuit is open")
             return await self.xweather_svc.get_advanced_alerts(lat, lng, mock_state=mock_state)
         except Exception as e:
-            # TODO(Contingency): หาก Xweather หมดอายุ/ใช้งานไม่ได้ถาวร ระบบจะสูญเสียการคำนวณทิศทางพายุ (Stormcells)
-            # โปรดดู Issue ใหม่ในบอร์ด (Contingency: Implement Manual Wind Vector Trajectory)
-            # หรือรื้อฟื้นแนวคิดจาก Issue #16 และ #31 กลับมาทำ (ดึงลมจาก Open-Meteo มาคำนวณ Advection เอง)
-            logger.warning(f"Failed to fetch advanced alerts from Xweather: {e}")
-            return {"advisories": [], "lightning": None, "stormcell": None}
+            logger.warning(f"Failed to fetch advanced alerts from Xweather: {e}. Falling back to Open-Meteo for wind vectors.")
+            try:
+                wind_data = await self.open_meteo_svc.get_wind_vector(lat, lng, mock_state=mock_state)
+                return {
+                    "advisories": [], 
+                    "lightning": None, 
+                    "stormcell": {
+                        "distance_km": None,
+                        "direction": wind_data.get("direction_cardinal", ""),
+                        "speed_kmh": wind_data.get("speed_kmh", 0),
+                        "max_dbz": None
+                    }
+                }
+            except Exception as e_meteo:
+                logger.error(f"Open-Meteo Contingency failed: {e_meteo}")
+                return {"advisories": [], "lightning": None, "stormcell": None}

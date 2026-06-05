@@ -200,3 +200,55 @@ async def test_get_user_locations(firestore_repo):
     assert locs[0].name == "Home"
     assert locs[1].name == "Work"
     firestore_repo.mock_collection.where.assert_called_once_with("chat_id", "==", chat_id)
+
+@pytest.mark.asyncio
+async def test_save_feedback_firestore(firestore_repo):
+    chat_id = 7777
+    lat = 13.0
+    lng = 100.0
+    
+    mock_doc_ref = MagicMock()
+    mock_doc_ref.id = "feed_1"
+    firestore_repo.db.collection.return_value.document.return_value = mock_doc_ref
+    
+    mock_rel_doc = MagicMock()
+    mock_rel_doc.exists = True
+    mock_rel_doc.to_dict.return_value = {"total_queries": 2, "false_alarms": 0, "accuracy_score": 1.0}
+    mock_doc_ref.get = AsyncMock(return_value=mock_rel_doc)
+    mock_doc_ref.set = AsyncMock()
+    mock_doc_ref.update = AsyncMock()
+    
+    # We need to correctly route db.collection("api_reliability").document("tomorrow").get()
+    async def mock_get():
+        return mock_rel_doc
+    mock_doc_ref.get = mock_get
+    
+    res = await firestore_repo.save_feedback(chat_id, lat, lng, "false_alarm", "Source: Tomorrow.io, max_rain: 1.5")
+    assert res["id"] == "feed_1"
+    assert res["feedback_type"] == "false_alarm"
+    
+    mock_doc_ref.update.assert_called_once()
+    update_args = mock_doc_ref.update.call_args[0][0]
+    assert update_args["false_alarms"] == 1
+    assert update_args["accuracy_score"] == 0.5  # 1 - (1/2)
+
+@pytest.mark.asyncio
+async def test_record_api_query_success_firestore(firestore_repo):
+    mock_doc_ref = MagicMock()
+    firestore_repo.db.collection.return_value.document.return_value = mock_doc_ref
+    
+    mock_rel_doc = MagicMock()
+    mock_rel_doc.exists = False
+    
+    async def mock_get():
+        return mock_rel_doc
+    mock_doc_ref.get = mock_get
+    mock_doc_ref.set = AsyncMock()
+    
+    await firestore_repo.record_api_query_success("open-meteo")
+    
+    mock_doc_ref.set.assert_called_once()
+    set_args = mock_doc_ref.set.call_args[0][0]
+    assert set_args["total_queries"] == 1
+    assert set_args["false_alarms"] == 0
+    assert set_args["accuracy_score"] == 0.8  # Default for open-meteo
