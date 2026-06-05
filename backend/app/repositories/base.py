@@ -55,3 +55,13 @@ class LocationRepository(ABC):
     ):
         """Save user feedback (e.g. false_alarm) for ML improvements."""
         pass
+
+    @abstractmethod
+    async def has_disaster_alert_been_sent(self, chat_id: int, event_id: str) -> bool:
+        """Check if a disaster alert has already been processed and sent."""
+        pass
+
+    @abstractmethod
+    async def mark_disaster_alert_sent(self, chat_id: int, event_id: str, event_type: str) -> None:
+        """Mark a disaster alert as sent to prevent duplicate processing."""
+        pass

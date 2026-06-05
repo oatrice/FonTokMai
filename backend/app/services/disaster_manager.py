@@ -13,15 +13,17 @@ logger = logging.getLogger(__name__)
 def get_impact_radius_km(event_type: str, event_data: dict) -> float:
     if event_type == "earthquake":
         mag = float(event_data.get("mag", 0))
-        if mag >= 6.0:
-            return 300.0
+        if mag >= 7.0:
+            return 1000.0
+        elif mag >= 6.0:
+            return 800.0
         elif mag >= 4.5:
-            return 100.0
+            return 300.0
         return 0.0 # Ignore small ones
     elif event_type == "cyclone":
-        return 500.0
+        return 1000.0
     elif event_type == "fire":
-        return 50.0
+        return 200.0
     return 0.0
 
 async def process_disaster_event(repo: LocationRepository, event_type: str, event_data: dict):
@@ -55,39 +57,23 @@ async def process_disaster_event(repo: LocationRepository, event_type: str, even
     if not affected_users:
         return
 
-    # Check alert history using SQLAlchemy independently of repo
-    async with AsyncSessionLocal() as session:
-        query = select(DisasterAlertHistory.chat_id).where(
-            DisasterAlertHistory.event_id == event_id
-        )
-        result = await session.execute(query)
-        already_alerted_chats = set(result.scalars().all())
-        
-        # Send alerts to new users
-        new_alerts_history = []
-        for loc, dist in affected_users:
-            if loc.chat_id in already_alerted_chats:
-                continue
-                
-            try:
-                # We add 'distance_km' to event_data for the message
-                event_data_with_dist = event_data.copy()
-                event_data_with_dist["distance_km"] = dist
-                
-                await send_disaster_alert(loc.chat_id, event_type, event_data_with_dist, loc.name)
-                
-                new_alerts_history.append(
-                    DisasterAlertHistory(
-                        chat_id=loc.chat_id,
-                        event_id=event_id,
-                        event_type=event_type,
-                        alerted_at=datetime.now(timezone.utc).replace(tzinfo=None)
-                    )
-                )
-            except Exception as e:
-                logger.error(f"Failed to send {event_type} alert to {loc.chat_id}: {e}")
-                
-        if new_alerts_history:
-            session.add_all(new_alerts_history)
-            await session.commit()
-            logger.info(f"Alerted {len(new_alerts_history)} users for {event_type} {event_id}")
+    # Check alert history using repository
+    alerted_count = 0
+    for loc, dist in affected_users:
+        if await repo.has_disaster_alert_been_sent(loc.chat_id, event_id):
+            continue
+            
+        try:
+            # We add 'distance_km' to event_data for the message
+            event_data_with_dist = event_data.copy()
+            event_data_with_dist["distance_km"] = dist
+            
+            await send_disaster_alert(loc.chat_id, event_type, event_data_with_dist, loc.name)
+            await repo.mark_disaster_alert_sent(loc.chat_id, event_id, event_type)
+            alerted_count += 1
+            
+        except Exception as e:
+            logger.error(f"Failed to send {event_type} alert to {loc.chat_id}: {e}")
+            
+    if alerted_count > 0:
+        logger.info(f"Alerted {alerted_count} users for {event_type} {event_id}")

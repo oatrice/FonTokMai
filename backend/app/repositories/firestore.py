@@ -149,3 +149,17 @@ class FirestoreLocationRepository(LocationRepository):
         # Don't construct SQLAlchemy model here, just return dict
         data["id"] = doc_ref.id
         return data
+
+    async def has_disaster_alert_been_sent(self, chat_id: int, event_id: str) -> bool:
+        doc_ref = self.db.collection('disaster_alerts_history').document(f"{chat_id}_{event_id}")
+        doc = await doc_ref.get()
+        return doc.exists
+
+    async def mark_disaster_alert_sent(self, chat_id: int, event_id: str, event_type: str) -> None:
+        doc_ref = self.db.collection('disaster_alerts_history').document(f"{chat_id}_{event_id}")
+        await doc_ref.set({
+            "chat_id": chat_id,
+            "event_id": event_id,
+            "event_type": event_type,
+            "timestamp": datetime.now(timezone.utc)
+        })

@@ -133,3 +133,24 @@ class SQLiteLocationRepository(LocationRepository):
         await self.session.commit()
         await self.session.refresh(feedback)
         return feedback
+
+    async def has_disaster_alert_been_sent(self, chat_id: int, event_id: str) -> bool:
+        from app.models import DisasterAlertHistory
+        result = await self.session.execute(
+            select(DisasterAlertHistory).where(
+                (DisasterAlertHistory.chat_id == chat_id) & 
+                (DisasterAlertHistory.event_id == event_id)
+            )
+        )
+        return result.scalars().first() is not None
+
+    async def mark_disaster_alert_sent(self, chat_id: int, event_id: str, event_type: str) -> None:
+        from app.models import DisasterAlertHistory
+        history = DisasterAlertHistory(
+            chat_id=chat_id,
+            event_id=event_id,
+            event_type=event_type,
+            alerted_at=datetime.now(timezone.utc).replace(tzinfo=None)
+        )
+        self.session.add(history)
+        await self.session.commit()
