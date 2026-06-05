@@ -252,7 +252,7 @@ async def handle_callback_query(callback_query: dict):
                     
                     context_msg = "User reported false alarm from inline button"
                     if len(parts) >= 6:
-                        ep_map_rev = {"t": "Tomorrow.io", "rl": "Rainbow Local", "rg": "Rainbow Global", "u": "Unknown"}
+                        ep_map_rev = {"t": "Tomorrow.io", "rl": "Rainbow Local", "rg": "Rainbow Global", "xw": "Xweather", "om": "Open-Meteo", "u": "Unknown"}
                         ep_name = ep_map_rev.get(parts[4], parts[4])
                         max_r = parts[5]
                         context_msg = f"Source: {ep_name}, max_rain: {max_r} mm/hr"

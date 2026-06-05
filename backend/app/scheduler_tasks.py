@@ -197,7 +197,7 @@ async def check_rain_and_alert():
                         {"text": "📊 เทียบข้อมูล", "callback_data": f"compare_api_{r_lat}_{r_lng}"}
                     ])
                     
-                    ep_map = {"tomorrow": "t", "rainbow-local": "rl", "rainbow-global": "rg"}
+                    ep_map = {"tomorrow": "t", "rainbow-local": "rl", "rainbow-global": "rg", "xweather": "xw", "open-meteo": "om"}
                     ep_code = ep_map.get(result.get("endpoint"), "u")
                     cb_data = f"fb_falsealarm_{r_lat}_{r_lng}_{ep_code}_{max_rain:.1f}"
                     
