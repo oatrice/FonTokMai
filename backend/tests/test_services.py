@@ -170,3 +170,48 @@ async def test_weather_manager_fallback_chain():
     assert result["endpoint"] == "tomorrow"
     assert result["max_rain"] == 1.0
     manager.tomorrow_svc.predict_rain_by_location.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_weather_manager_get_advanced_alerts_fallback():
+    from app.services.weather_manager import WeatherManager
+    
+    manager = WeatherManager()
+    manager.xweather_svc.enabled = True
+    
+    # 1. Test Xweather succeeds
+    manager.xweather_svc.get_advanced_alerts = AsyncMock(return_value={
+        "advisories": [], "lightning": None, "stormcell": {"distance_km": 5.0, "direction": "N", "speed_kmh": 20.0, "max_dbz": 45}
+    })
+    manager.open_meteo_svc.get_wind_vector = AsyncMock()
+    
+    res1 = await manager.get_advanced_alerts(13.0, 100.0)
+    assert res1["stormcell"]["distance_km"] == 5.0
+    assert res1["stormcell"]["direction"] == "N"
+    manager.open_meteo_svc.get_wind_vector.assert_not_called()
+    
+    # 2. Test Xweather fails -> fallback to Open-Meteo contingency
+    manager.xweather_svc.get_advanced_alerts = AsyncMock(side_effect=Exception("Xweather API timeout"))
+    manager.open_meteo_svc.get_wind_vector = AsyncMock(return_value={
+        "direction_cardinal": "NE",
+        "speed_kmh": 35.5
+    })
+    
+    res2 = await manager.get_advanced_alerts(13.0, 100.0)
+    assert res2["stormcell"]["distance_km"] is None
+    assert res2["stormcell"]["direction"] == "NE"
+    assert res2["stormcell"]["speed_kmh"] == 35.5
+    manager.open_meteo_svc.get_wind_vector.assert_called_once()
+
+    # 3. Test Xweather is disabled -> fallback to Open-Meteo contingency
+    manager.xweather_svc.enabled = False
+    manager.open_meteo_svc.get_wind_vector.reset_mock()
+    manager.open_meteo_svc.get_wind_vector = AsyncMock(return_value={
+        "direction_cardinal": "S",
+        "speed_kmh": 12.0
+    })
+    
+    res3 = await manager.get_advanced_alerts(13.0, 100.0)
+    assert res3["stormcell"]["distance_km"] is None
+    assert res3["stormcell"]["direction"] == "S"
+    assert res3["stormcell"]["speed_kmh"] == 12.0
+    manager.open_meteo_svc.get_wind_vector.assert_called_once()

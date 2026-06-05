@@ -147,6 +147,8 @@ class WeatherManager:
         ถ้า Xweather ปิดอยู่ หรือ API พัง จะพยายามดึงข้อมูลลมจาก Open-Meteo แทน (Contingency)
         """
         try:
+            if not self.xweather_svc.enabled or self.xweather_svc._is_circuit_open():
+                raise Exception("Xweather is disabled or circuit is open")
             return await self.xweather_svc.get_advanced_alerts(lat, lng, mock_state=mock_state)
         except Exception as e:
             logger.warning(f"Failed to fetch advanced alerts from Xweather: {e}. Falling back to Open-Meteo for wind vectors.")

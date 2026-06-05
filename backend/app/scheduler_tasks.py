@@ -234,12 +234,19 @@ async def check_rain_and_alert():
                                 
                             if has_stormcell:
                                 stormcell = advanced_data["stormcell"]
-                                adv_text += f"🌪️ ตรวจพบกลุ่มพายุ: ระยะห่าง {stormcell.get('distance_km', 0):.1f} กม.\n"
-                                adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
-                                adv_text += f"   - ความเร็ว: {stormcell.get('speed_kmh', 0):.1f} km/h\n"
-                                adv_text += f"   - ความรุนแรงสูงสุด (dBZ): {stormcell.get('max_dbz', 0)}\n\n"
-                                
-                            adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
+                                if stormcell.get('distance_km') is None:
+                                    adv_text += f"🌪️ แนวโน้มกลุ่มฝน/ลม (Contingency):\n"
+                                    adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
+                                    adv_text += f"   - ความเร็วลม: {stormcell.get('speed_kmh', 0):.1f} km/h\n\n"
+                                    adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Open-Meteo (Fallback)"
+                                else:
+                                    adv_text += f"🌪️ ตรวจพบกลุ่มพายุ: ระยะห่าง {stormcell.get('distance_km', 0):.1f} กม.\n"
+                                    adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
+                                    adv_text += f"   - ความเร็ว: {stormcell.get('speed_kmh', 0):.1f} km/h\n"
+                                    adv_text += f"   - ความรุนแรงสูงสุด (dBZ): {stormcell.get('max_dbz', 0)}\n\n"
+                                    adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
+                            elif has_advisory or has_lightning:
+                                adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
                             
                             # Send secondary message box
                             await send_telegram_message(loc.chat_id, adv_text)
