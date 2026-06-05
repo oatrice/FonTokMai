@@ -14,12 +14,11 @@
 >    - **Primary (Real-time):** เปิดการเชื่อมต่อ **WebSocket กับ EMSC** ตอนที่บอทเริ่มทำงาน เพื่อรับ Push ข้อมูลแผ่นดินไหวทันทีในระดับเสี้ยววินาที
 >    - **Fallback (Reliability):** ให้ตัว Scheduler ยิงเช็ค **USGS GeoJSON Feed** ทุกๆ 1 นาที เผื่อกรณีที่ WebSocket หลุด (ซึ่งพบบ่อยใน Cloud Run) ระบบก็จะไม่พลาดการแจ้งเตือน
 > 2. **ความถี่ในการดึงข้อมูลอื่นๆ (Polling Interval):** พายุ/ไฟป่า เช็คทุกๆ 30-60 นาทีจาก Xweather เหมือนเดิม
-> 3. **รัศมีการแจ้งเตือน (Impact Radius Threshold):**
->    - **แผ่นดินไหว:** เสนอรัศมีแปรผันตามขนาด (เช่น Mag > 4.5 ภายใน 100km, Mag > 6 ภายใน 300km)
->    - **พายุไต้ฝุ่น:** เสนอ 300-500 km จากจุดศูนย์กลาง หรือเช็คว่าพิกัดผู้ใช้อยู่ใน Forecast Cone
->    - **ไฟป่า/จุดความร้อน:** เสนอ 20-50 km
->    ผู้ใช้เห็นด้วยกับตัวเลขเหล่านี้หรือไม่?
-> 4. **Database Schema:** จำเป็นต้องเพิ่มตาราง `disaster_alert_history` เพื่อจำว่า User คนนี้ถูกเตือนภัยพิบัติ ID นี้ไปแล้ว (ป้องกันการแจ้งเตือนซ้ำทุกๆ รอบ Scheduler) เห็นด้วยหรือไม่?
+> 3. **รัศมีการแจ้งเตือน (Impact Radius Threshold) ที่ใช้งานจริง:**
+>    - **แผ่นดินไหว:** ขนาด 7.0+ (1,000km), ขนาด 6.0+ (800km), ขนาด 4.5+ (300km)
+>    - **พายุไต้ฝุ่น:** 1,000 km 
+>    - **ไฟป่า/จุดความร้อน:** 200 km
+> 4. **Database Schema:** บันทึกประวัติผ่าน `LocationRepository` ลง Firestore หรือ SQLite อัตโนมัติตามการตั้งค่า เพื่อป้องกันข้อมูลหายเมื่อ Cloud Run Scale
 
 ## Proposed Changes
 
@@ -27,13 +26,10 @@
 
 ### Database Schema
 
-#### [NEW] `disaster_alert_history` in `backend/app/models.py`
-เพิ่มตารางใหม่เพื่อใช้เก็บประวัติการแจ้งเตือนภัยพิบัติ ป้องกันการเตือนซ้ำในเหตุการณ์เดิม
-- `id` (Integer)
-- `chat_id` (BigInteger)
-- `event_id` (String) - ID ของภัยพิบัติจาก Xweather (เช่น `eq_12345`)
-- `event_type` (String) - `cyclone`, `earthquake`, `fire`
-- `alerted_at` (DateTime)
+#### [NEW] `disaster_alerts_history` in `LocationRepository`
+เพิ่มฟังก์ชันใน `LocationRepository` (ทั้ง SQLite และ Firestore) เพื่อเช็คและบันทึกประวัติ ป้องกันการเตือนซ้ำในเหตุการณ์เดิม
+- `has_disaster_alert_been_sent(chat_id, event_id)`
+- `mark_disaster_alert_sent(chat_id, event_id, event_type)`
 
 ---
 

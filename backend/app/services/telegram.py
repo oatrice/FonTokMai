@@ -113,9 +113,10 @@ def get_radar_inline_keyboard(lat: float, lng: float, is_developer: bool = False
         "inline_keyboard": keyboard
     }
 
-async def send_disaster_alert(chat_id: int, event_type: str, event_data: dict, location_name: str) -> bool:
-    """Send proactive disaster alert (Earthquake, Cyclone, Fire)."""
-    dist_km = event_data.get("distance_km", 0)
+async def send_grouped_disaster_alert(chat_id: int, event_type: str, event_data: dict, locations_info: list) -> bool:
+    """Send proactive disaster alert for multiple locations belonging to the same user."""
+    
+    locations_text = "\n".join([f"📍 <b>{loc.name}:</b> ห่าง {dist:.1f} กม." for loc, dist in locations_info])
     
     if event_type == "earthquake":
         mag = event_data.get("mag", 0)
@@ -123,8 +124,9 @@ async def send_disaster_alert(chat_id: int, event_type: str, event_data: dict, l
         text = (
             f"🚨 <b>ด่วน! แจ้งเตือนแผ่นดินไหว</b>\n\n"
             f"📍 <b>จุดเกิดเหตุ:</b> {place}\n"
-            f"⚠️ <b>ขนาด:</b> {mag} ริกเตอร์\n"
-            f"📏 <b>ระยะห่างจากคุณ ({location_name}):</b> ประมาณ {dist_km:.1f} กม.\n\n"
+            f"⚠️ <b>ขนาด:</b> {mag} ริกเตอร์\n\n"
+            f"<b>พิกัดของคุณที่ได้รับผลกระทบ:</b>\n"
+            f"{locations_text}\n\n"
             f"โปรดระมัดระวังและติดตามข่าวสารอย่างใกล้ชิด"
         )
     elif event_type == "cyclone":
@@ -132,20 +134,22 @@ async def send_disaster_alert(chat_id: int, event_type: str, event_data: dict, l
         cat = event_data.get("category", "")
         text = (
             f"🌀 <b>แจ้งเตือนพายุหมุนเขตร้อน</b>\n\n"
-            f"🌪️ <b>ชื่อพายุ:</b> {name} ({cat})\n"
-            f"📏 <b>ระยะห่างจากคุณ ({location_name}):</b> ประมาณ {dist_km:.1f} กม.\n\n"
+            f"🌪️ <b>ชื่อพายุ:</b> {name} ({cat})\n\n"
+            f"<b>พิกัดของคุณที่ได้รับผลกระทบ:</b>\n"
+            f"{locations_text}\n\n"
             f"โปรดเตรียมรับมือฝนตกหนักและลมกระโชกแรง"
         )
     elif event_type == "fire":
         name = event_data.get("name", "Wildfire")
         text = (
             f"🔥 <b>แจ้งเตือนไฟป่า/จุดความร้อน</b>\n\n"
-            f"📍 <b>บริเวณ:</b> {name}\n"
-            f"📏 <b>ระยะห่างจากคุณ ({location_name}):</b> ประมาณ {dist_km:.1f} กม.\n\n"
+            f"📍 <b>บริเวณ:</b> {name}\n\n"
+            f"<b>พิกัดของคุณที่ได้รับผลกระทบ:</b>\n"
+            f"{locations_text}\n\n"
             f"โปรดระวังกลุ่มควันและค่าฝุ่นละออง (PM2.5) ที่อาจพัดผ่าน"
         )
     else:
-        text = f"⚠️ <b>แจ้งเตือนภัยพิบัติ</b>\nเกิดเหตุ {event_type} ห่างจากคุณ {dist_km:.1f} กม."
+        text = f"⚠️ <b>แจ้งเตือนภัยพิบัติ</b>\nเกิดเหตุ {event_type}\n<b>พิกัดที่กระทบ:</b>\n{locations_text}"
 
     # Parse mode HTML is supported by default telegram.py wrapper if we use normal text?
     # Wait, send_telegram_message doesn't have parse_mode="HTML" parameter in the payload.

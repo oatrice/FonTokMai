@@ -3,9 +3,10 @@ from app.database import AsyncSessionLocal
 import logging
 from sqlalchemy.future import select
 from datetime import datetime, timezone
+from collections import defaultdict
 from app.models import DisasterAlertHistory
 from app.services.location import haversine_distance
-from app.services.telegram import send_disaster_alert
+from app.services.telegram import send_grouped_disaster_alert
 
 logger = logging.getLogger(__name__)
 
@@ -57,23 +58,24 @@ async def process_disaster_event(repo: LocationRepository, event_type: str, even
     if not affected_users:
         return
 
+    # Group affected locations by chat_id
+    users_to_alert = defaultdict(list)
+    for loc, dist in affected_users:
+        users_to_alert[loc.chat_id].append((loc, dist))
+
     # Check alert history using repository
     alerted_count = 0
-    for loc, dist in affected_users:
-        if await repo.has_disaster_alert_been_sent(loc.chat_id, event_id):
+    for chat_id, locations_info in users_to_alert.items():
+        if await repo.has_disaster_alert_been_sent(chat_id, event_id):
             continue
             
         try:
-            # We add 'distance_km' to event_data for the message
-            event_data_with_dist = event_data.copy()
-            event_data_with_dist["distance_km"] = dist
-            
-            await send_disaster_alert(loc.chat_id, event_type, event_data_with_dist, loc.name)
-            await repo.mark_disaster_alert_sent(loc.chat_id, event_id, event_type)
+            await send_grouped_disaster_alert(chat_id, event_type, event_data, locations_info)
+            await repo.mark_disaster_alert_sent(chat_id, event_id, event_type)
             alerted_count += 1
             
         except Exception as e:
-            logger.error(f"Failed to send {event_type} alert to {loc.chat_id}: {e}")
+            logger.error(f"Failed to send {event_type} alert to {chat_id}: {e}")
             
     if alerted_count > 0:
         logger.info(f"Alerted {alerted_count} users for {event_type} {event_id}")

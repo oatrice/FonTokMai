@@ -4,9 +4,17 @@ Here is a step-by-step guide to verify the Disaster Alerts implementation locall
 
 ### Prerequisites
 1. Ensure your local virtual environment is active: `source venv/bin/activate`
-2. Run database migrations to ensure the `DisasterAlertHistory` table exists (if using Alembic: `alembic upgrade head`, or let `main.py` create it automatically on startup).
+2. Run database migrations or ensure the `DisasterAlertHistory` is supported by your chosen repository (Firestore or SQLite).
 3. Start the FastAPI server locally: `uvicorn app.main:app --reload --port 8000`
 4. Make sure you have valid user locations in your local database with your Telegram `chat_id`.
+
+### Impact Radiuses
+The system is configured to alert users if a disaster occurs within the following radiuses from their saved locations:
+- **Earthquake >= 7.0:** 1,000 km
+- **Earthquake 6.0 - 6.9:** 800 km
+- **Earthquake 4.5 - 5.9:** 300 km
+- **Cyclone:** 1,000 km
+- **Fire:** 200 km
 
 ### Test 1: Verify Endpoint Authorization
 - **Step 1:** Use `curl` to hit the new scheduler endpoint without a secret.
@@ -20,14 +28,14 @@ Here is a step-by-step guide to verify the Disaster Alerts implementation locall
   ```bash
   curl -X POST -H "X-Cron-Secret: default_secret_for_local_testing" http://localhost:8000/api/v1/cron/check-disasters-infrequent
   ```
-- **Expected Result:** The endpoint should return `{"status": "ok", "message": "Infrequent disaster check task added to background"}`. Check your FastAPI logs. If there are active cyclones or fires near your database locations (e.g. within 500km for cyclones, 50km for fires), you should receive a Telegram message. Check the database to see the record in `DisasterAlertHistory`.
+- **Expected Result:** The endpoint should return `{"status": "ok", "message": "Infrequent disaster check task added to background"}`. Check your FastAPI logs. If there are active cyclones or fires near your database locations (e.g. within 1,000km for cyclones, 200km for fires), you should receive a Telegram message. Check the database/Firestore to see the record in `disaster_alerts_history`.
 
 ### Test 3: Trigger Frequent Disasters (USGS Earthquakes)
 - **Step 1:** Trigger the frequent disaster check.
   ```bash
   curl -X POST -H "X-Cron-Secret: default_secret_for_local_testing" http://localhost:8000/api/v1/cron/check-disasters-frequent
   ```
-- **Expected Result:** The endpoint returns status "ok". Check the terminal logs to see if USGS GeoJSON was fetched successfully. If any earthquakes match your radius (e.g. mag >= 4.5 within 100km, or mag >= 6.0 within 300km), you should get a Telegram alert.
+- **Expected Result:** The endpoint returns status "ok". Check the terminal logs to see if USGS GeoJSON was fetched successfully. If any earthquakes match your radius (e.g. mag >= 4.5 within 300km, or mag >= 7.0 within 1,000km), you should get a Telegram alert.
 
 ### Test 4: Prevent Duplicate Alerts
 - **Step 1:** Run Test 2 or Test 3 multiple times.
