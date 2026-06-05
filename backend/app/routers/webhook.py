@@ -75,11 +75,11 @@ def _build_forecast_text(result: dict) -> str:
                     eta_minutes = 0
                 break
 
-    if eta_minutes is not None:
+    if eta_minutes is not None or result.get("max_rain", 0) > 0:
         intensity_str = result.get("intensity", "ไม่ทราบ")
         duration_min = result.get("duration_minutes", 0)
 
-        if eta_minutes == 0:
+        if eta_minutes == 0 or (eta_minutes is None and result.get("max_rain", 0) > 0):
             text = f"🌧️ ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
         else:
             text = f"🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก {eta_minutes} นาที (ตรวจสอบด้วย: {endpoint_label})\n"
