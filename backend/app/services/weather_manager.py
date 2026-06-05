@@ -4,6 +4,7 @@ from .tomorrow import TomorrowService
 from .rainbow import RainbowService
 from .xweather import XweatherService
 from .open_meteo import OpenMeteoService
+from .tmd_radar_processor import TMDRadarProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,8 @@ class WeatherManager:
             "tomorrow": lambda: self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
             "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
             "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
-            "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)
+            "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng)
         }
         
         for ep in sorted_endpoints:
@@ -172,3 +174,29 @@ class WeatherManager:
             except Exception as e_meteo:
                 logger.error(f"Open-Meteo Contingency failed: {e_meteo}")
                 return {"advisories": [], "lightning": None, "stormcell": None}
+
+    async def _get_tmd_prediction(self, lat: float, lng: float) -> dict:
+        """
+        Wrapper for TMD Radar predictions.
+        In the future, this will check cached images, calculate optical flow trajectory, 
+        and return the expected rain max_rain and ETA.
+        """
+        # MVP: Attempt to locate the station and see if it's in bounds
+        for station_code in ["kkn120", "kkn240", "skn120"]:
+            try:
+                processor = TMDRadarProcessor(station_code)
+                px, py = processor.latlng_to_pixel(lat, lng)
+                if px is not None and py is not None:
+                    # In a real scenario, we'd read the cached Optical Flow array and return ETA.
+                    # Returning a stub for the integration task.
+                    return {
+                        "predictions": [],
+                        "intensity": "ไม่ทราบ",
+                        "max_rain": 0.0,
+                        "duration_minutes": 0,
+                        "wind_speed_kmh": 0.0,
+                        "endpoint": "tmd-radar"
+                    }
+            except Exception:
+                pass
+        raise Exception("Location out of bounds for active TMD Radars.")

@@ -286,3 +286,23 @@ async def check_disasters_infrequent_routine():
             await process_disaster_event(repo, "cyclone", event)
         for event in fires:
             await process_disaster_event(repo, "fire", event)
+
+async def fetch_tmd_radar_routine():
+    """Run frequently (e.g., every 15 mins) to fetch and cache TMD Radar images."""
+    logger.info("Starting TMD Radar fetch routine...")
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+    
+    stations_to_update = ["kkn120", "kkn240", "skn120"]
+    for station in stations_to_update:
+        try:
+            processor = TMDRadarProcessor(station_code=station)
+            # In a real app, we would check if history is empty in DB/Cache
+            # and call fetch_loop_history_bytes if so.
+            # Otherwise, just poll the latest static image.
+            latest_bytes = await processor.fetch_latest_image_bytes()
+            if latest_bytes:
+                logger.info(f"Successfully fetched latest radar image for {station} (Size: {len(latest_bytes)} bytes)")
+                # TODO: Save to cache/DB or process immediately
+        except Exception as e:
+            logger.error(f"Failed to fetch TMD radar for {station}: {e}")
+

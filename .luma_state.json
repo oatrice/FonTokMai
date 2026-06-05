@@ -1,78 +1,36 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 48,
-      "title": "Contingency: Implement Manual Wind Vector Trajectory (Open-Meteo) if Xweather Expires",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/48",
+      "number": 50,
+      "title": "Feature: Automated TMD Radar Image Processing",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/50",
       "body": null,
-      "project_item_id": "GLAB_48",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 49,
-      "title": "Research: Evaluation Table comparing Weather Providers (Xweather, Tomorrow.io, Rainbow.ai, TMD Image Processing, Open-Meteo)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/49",
-      "body": null,
-      "project_item_id": "GLAB_49",
+      "project_item_id": "GLAB_50",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/48-49-contingency-implement-manual-w",
-  "started_at": "2026-06-05T21:16:51.681004",
+  "active_branch": "feat/50-feature-automated-tmd-radar-im",
+  "started_at": "2026-06-05T22:44:01.911664",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/weather.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/open_meteo.py",
-        "backend/app/services/weather_manager.py",
-        "backend/tests/test_api_weather.py",
-        "backend/tests/test_db.py",
-        "backend/tests/test_firestore.py",
-        "backend/tests/test_open_meteo.py",
-        "backend/tests/test_services.py",
-        "backend/tests/test_webhook.py",
+        "VERSION"
+      ],
+      "changed_files": [
         "docs/ROADMAP.md",
-        "docs/features/18_issue-48-49_contingency-implement-manual-wind-vector-trajectory-ope-9d29354d/implementation_plan.md",
-        "docs/features/18_issue-48-49_contingency-implement-manual-wind-vector-trajectory-ope-9d29354d/manual_verification.md",
-        "docs/features/18_issue-48-49_contingency-implement-manual-wind-vector-trajectory-ope-9d29354d/task.md",
-        "docs/features/18_issue-48-49_contingency-implement-manual-wind-vector-trajectory-ope-9d29354d/walkthrough.md",
-        "luma_metrics.json",
+        "luma/prompts/prompt_20260605_154356_55f4543a.md",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/weather.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/open_meteo.py",
-        "backend/app/services/weather_manager.py",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -140,11 +98,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/18_issue-48-49_contingency-implement-manual-wind-vector-trajectory-ope-9d29354d"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/19_issue-50_feature-automated-tmd-radar-image-processing"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/18",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-05T22:37:47.597486"
+  "last_updated": "2026-06-05T22:44:05.182729"
 }

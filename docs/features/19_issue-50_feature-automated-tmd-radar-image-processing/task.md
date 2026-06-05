@@ -1,0 +1,9 @@
+- `[x]` 1. **Setup Dependencies**: เพิ่ม `opencv-python-headless` และ `numpy` ใน `backend/requirements.txt`
+- `[x]` 2. **TMD Configuration**: สร้างไฟล์ `tmd_radar_config.py` เพื่อเก็บค่า Bounding Box, Color Mapping (dBZ) และ URLs
+- `[x]` 3. **TDD - Red Phase**: เขียน Unit Tests (ทดสอบ Color Mapping, Coordinate Mapping, และ Mock Fetching) ใน `test_tmd_processor.py` ซึ่งจะล้มเหลว
+- `[ ]` 4. **TDD - Green Phase (Image Processing)**: สร้าง `tmd_radar_processor.py` ให้คำนวณ dBZ และ Coordinate Mapping ถูกต้อง
+- `[ ]` 5. **Hybrid Fetching Logic**: พัฒนาคลาส/ฟังก์ชันดึงภาพแบบ Hybrid (Scrape `loop.php` สำหรับกู้ History และ Polling ภาพนิ่งสำหรับการอัปเดตปกติ)
+- `[ ]` 6. **Optical Flow & Cell Tracking**: พัฒนาอัลกอริทึมใน `tmd_radar_processor.py` เพื่อหาเวกเตอร์ความเร็ว (Motion Prediction) และการเติบโต/สลายตัว (Growth & Decay)
+- `[ ]` 7. **Scheduler Integration**: เพิ่ม Routine ใน `scheduler_tasks.py` สำหรับอัปเดตแคชภาพเรดาร์ของ KKN และ SKN ทุกๆ 15 นาที
+- `[ ]` 8. **WeatherManager Integration**: ผูกข้อมูลการเคลื่อนที่ของฝนเข้ากับตรรกะการ Nowcasting ปัจจุบัน
+- `[ ]` 9. **Verify & Walkthrough**: รัน Tests ทั้งหมดให้ผ่าน (Refactor Phase) และสร้างไฟล์ Walkthrough เพื่อสรุปงาน
