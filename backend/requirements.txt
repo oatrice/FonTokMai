@@ -10,3 +10,4 @@ aiosqlite
 greenlet
 
 firebase-admin
+websockets

@@ -1,11 +1,24 @@
 # Changelog
 
-[PROMPT EXPORTED] Your prompt was saved to: /Users/oatrice/Software-projects/FonMaYang/.luma/prompts/prompt_20260604_143244_65ae4131.md
-
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.17.0] - 2026-06-05
+### Added
+- Implemented proactive alerts for major natural hazards including Earthquakes, Tropical Cyclones, and Fires/Hotspots.
+- Added a hybrid Earthquake alert system utilizing EMSC WebSockets for real-time pushing and USGS GeoJSON polling for redundancy.
+- Added smart broad geofencing logic with event-specific impact radiuses (up to 1,000km) to accurately identify affected users.
+- Introduced grouped disaster alerts to consolidate warnings for users with multiple affected saved locations, preventing notification spam.
+- Built CLI and HTTP mock testing tools (`mock_emsc_ws.py` and `mock_disasters.py`) for simulating disaster events and validating End-to-End WebSocket functionality.
+
+### Changed
+- Refactored disaster alert history tracking to use a Repository pattern, fully supporting both SQLite and Firestore state management across Cloud Run instances to prevent duplicate alerts.
+- Updated ADR documentation for Issue Batching Strategy and Terraform Infrastructure as Code.
+
+### Fixed
+- Added robust error handling and debug logging to disaster background processing loops.
 
 ## [0.16.0] - 2026-06-04
 ### Added

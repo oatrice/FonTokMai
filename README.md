@@ -7,6 +7,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, RainV
 
 ## Features
 - **Pluggable Architecture**: Easily switch between or combine weather providers (Xweather, Tomorrow.io, RainViewer, Rainbow, TMD Radar) with an automated fallback mechanism.
+- **Natural Hazard Alerts**: Proactive monitoring for severe natural disasters including Earthquakes (via real-time EMSC WebSockets & USGS polling), Tropical Cyclones, and Wildfires, complete with broad geofencing and grouped notifications for users with multiple locations.
 - **Advanced Weather Alerts**: Proactively warns users about nearby severe weather, including convective stormcells and lightning strikes, using Xweather's premium data.
 - **Privacy-First Notifications**: On-demand location sharing via Telegram without background tracking.
 - **Multiple Saved Locations**: Support for managing multiple user locations (e.g., Home, Work) for personalized proactive alerting.
@@ -16,7 +17,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, RainV
 - **Interactive Ground Truth Feedback**: Inline buttons allowing users to report false alarms directly from notifications, storing precise API context for future AI training.
 - **API Comparison & All-Clear Alerts**: Real-time comparison across all integrated weather APIs and automated cancellation notifications when forecasted rain dissipates.
 - **Interactive Radar**: Telegram `/radar` command providing multi-source visual tracking (Zoom Earth, Windy, TMD).
-- **Developer Mock Mode**: Built-in `/devmock` command for simulating weather states during testing without making live API calls.
+- **Developer Mock Mode**: Built-in `/devmock` command and mock event servers for simulating weather states and natural disasters during testing without making live API calls.
 - **FastAPI Backend**: Asynchronous, highly concurrent backend structure.
 - **Cloud Run Native**: Fully containerized and automated deployment to Google Cloud Run via GitLab CI/CD pipelines.
 
@@ -26,6 +27,8 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, RainV
 - **TMD Radar (Sakon Nakhon)**: [weather.tmd.go.th/sknLoop.php](https://weather.tmd.go.th/sknLoop.php)
 - **RainViewer API**: [api.rainviewer.com/public/weather-maps.json](https://api.rainviewer.com/public/weather-maps.json)
 - **Rainbow Weather API**: [api.rainbow.ai](https://api.rainbow.ai/)
+- **EMSC Seismic Portal**: [seismicportal.eu](https://www.seismicportal.eu/)
+- **USGS Earthquake Hazards Program**: [earthquake.usgs.gov](https://earthquake.usgs.gov/)
 
 ## Getting Started
 

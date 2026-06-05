@@ -277,3 +277,84 @@ class XweatherService(BaseWeatherService):
                     logger.warning(f"Failed to fetch stormcells: {e}")
 
         return result
+
+    async def get_active_tropical_cyclones(self) -> list[dict]:
+        """Fetch active tropical cyclones in the region (SEA)."""
+        if not self.enabled or self._is_circuit_open():
+            return []
+            
+        params = {
+            "p": "15.0,100.0", # Center of SEA
+            "radius": "2000km",
+            "filter": "active",
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "limit": 10
+        }
+        
+        events = []
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            try:
+                response = await client.get("https://data.api.xweather.com/tropicalcyclones", params=params)
+                if response.status_code == 200:
+                    data = response.json()
+                    res_list = data.get("response", [])
+                    if isinstance(res_list, list):
+                        for c in res_list:
+                            profile = c.get("profile", {})
+                            position = c.get("position", {})
+                            location = position.get("location", [0, 0])
+                            
+                            events.append({
+                                "id": c.get("id"),
+                                "name": profile.get("name", "Unknown Cyclone"),
+                                "category": profile.get("category", "TD"),
+                                "max_wind_kmh": position.get("windSpeedKPH", 0),
+                                "lat": location[1] if len(location) >= 2 else 0,
+                                "lng": location[0] if len(location) >= 2 else 0,
+                                "source": "Xweather"
+                            })
+                elif response.status_code in [401, 403, 429]:
+                    self._open_circuit(60)
+            except Exception as e:
+                logger.warning(f"Failed to fetch tropical cyclones: {e}")
+        return events
+
+    async def get_active_fires(self) -> list[dict]:
+        """Fetch active fires/hotspots in the region."""
+        if not self.enabled or self._is_circuit_open():
+            return []
+            
+        params = {
+            "p": "15.0,100.0",
+            "radius": "1000km",
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "limit": 50
+        }
+        
+        events = []
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            try:
+                response = await client.get("https://data.api.xweather.com/fires", params=params)
+                if response.status_code == 200:
+                    data = response.json()
+                    res_list = data.get("response", [])
+                    if isinstance(res_list, list):
+                        for f in res_list:
+                            loc = f.get("loc", {})
+                            profile = f.get("profile", {})
+                            
+                            events.append({
+                                "id": f.get("id"),
+                                "name": profile.get("name") or profile.get("type", "Wildfire"),
+                                "confidence": profile.get("confidence", 0),
+                                "lat": loc.get("lat", 0),
+                                "lng": loc.get("long", 0), # Xweather usually uses 'long'
+                                "source": "Xweather"
+                            })
+                elif response.status_code in [401, 403, 429]:
+                    self._open_circuit(60)
+            except Exception as e:
+                logger.warning(f"Failed to fetch active fires: {e}")
+        return events

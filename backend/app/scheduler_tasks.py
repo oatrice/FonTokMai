@@ -248,3 +248,34 @@ async def check_rain_and_alert():
                     
             except Exception as e:
                 logger.error(f"Failed to check rain for chat_id {loc.chat_id}: {e}")
+
+async def check_disasters_frequent_routine():
+    """Run frequently (e.g., every 1 min) for USGS Earthquakes."""
+    logger.info("Starting frequent disaster check (USGS Earthquakes)...")
+    from app.services.earthquake import fetch_usgs_geojson
+    from app.services.disaster_manager import process_disaster_event
+    
+    events = await fetch_usgs_geojson()
+    if not events:
+        return
+        
+    async with get_repo_context() as repo:
+        for event in events:
+            await process_disaster_event(repo, "earthquake", event)
+
+async def check_disasters_infrequent_routine():
+    """Run infrequently (e.g., every 30-60 mins) for Xweather Cyclones/Fires."""
+    logger.info("Starting infrequent disaster check (Xweather Cyclones & Fires)...")
+    from app.services.xweather import XweatherService
+    from app.services.disaster_manager import process_disaster_event
+    
+    xweather = XweatherService()
+    
+    cyclones = await xweather.get_active_tropical_cyclones()
+    fires = await xweather.get_active_fires()
+    
+    async with get_repo_context() as repo:
+        for event in cyclones:
+            await process_disaster_event(repo, "cyclone", event)
+        for event in fires:
+            await process_disaster_event(repo, "fire", event)

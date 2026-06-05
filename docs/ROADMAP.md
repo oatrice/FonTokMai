@@ -27,6 +27,26 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #48 - Contingency: Implement Manual Wind Vector Trajectory (Open-Meteo) if Xweather Expires
+- **GitHub:** [#48](https://gitlab.com/oatricedev/FonMaYang/-/issues/48)
+- **Status:** 🟢 **Ready**
+
+### Issue #47 - Infrastructure: Migrate to Terraform & Google Secret Manager
+- **GitHub:** [#47](https://gitlab.com/oatricedev/FonMaYang/-/issues/47)
+- **Status:** 🟢 **Ready**
+
+### Issue #46 - Feature: Batch I - Interactive Weather Maps & Routing
+- **GitHub:** [#46](https://gitlab.com/oatricedev/FonMaYang/-/issues/46)
+- **Status:** 🟢 **Ready**
+
+### Issue #45 - Feature: Batch H - Disasters & Natural Hazards Alerts
+- **GitHub:** [#45](https://gitlab.com/oatricedev/FonMaYang/-/issues/45)
+    - ✅ **Done** (0.17.0)
+
+### Issue #44 - Feature: Batch G - Comprehensive Weather & Air Quality (Daily, AQI)
+- **GitHub:** [#44](https://gitlab.com/oatricedev/FonMaYang/-/issues/44)
+- **Status:** 🟢 **Ready**
+
 ### Issue #42 - feat: Insights API Comparison (แสดงข้อมูลเทียบทุกค่าย)
 - **GitHub:** [#42](https://gitlab.com/oatricedev/FonMaYang/-/issues/42)
     - ✅ **Done** (0.15.0)
