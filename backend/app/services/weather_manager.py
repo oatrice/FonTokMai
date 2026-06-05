@@ -178,25 +178,40 @@ class WeatherManager:
     async def _get_tmd_prediction(self, lat: float, lng: float) -> dict:
         """
         Wrapper for TMD Radar predictions.
-        In the future, this will check cached images, calculate optical flow trajectory, 
-        and return the expected rain max_rain and ETA.
         """
-        # MVP: Attempt to locate the station and see if it's in bounds
+        import cv2
+        import numpy as np
+
         for station_code in ["kkn120", "kkn240", "skn240"]:
             try:
                 processor = TMDRadarProcessor(station_code)
                 px, py = processor.latlng_to_pixel(lat, lng)
                 if px is not None and py is not None:
-                    # In a real scenario, we'd read the cached Optical Flow array and return ETA.
-                    # Returning a stub for the integration task.
+                    # Fetch real image and get dBZ for Telegram testing
+                    img_bytes = await processor.fetch_latest_image_bytes()
+                    dbz = 0.0
+                    intensity = "ไม่ทราบ"
+                    
+                    if img_bytes:
+                        img_array = np.frombuffer(img_bytes, np.uint8)
+                        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                        if img is not None:
+                            dbz = processor.get_dbz_at_pixel(img, px, py)
+                            if dbz >= 55: intensity = "ฝนตกหนักมาก"
+                            elif dbz >= 35: intensity = "ฝนตกหนัก"
+                            elif dbz >= 20: intensity = "ฝนตกปานกลาง"
+                            elif dbz > 0:  intensity = "ฝนตกเล็กน้อย"
+                            else: intensity = "ไม่มีฝน"
+
                     return {
                         "predictions": [],
-                        "intensity": "ไม่ทราบ",
-                        "max_rain": 0.0,
+                        "intensity": intensity,
+                        "max_rain": float(dbz),
                         "duration_minutes": 0,
                         "wind_speed_kmh": 0.0,
-                        "endpoint": "tmd-radar"
+                        "endpoint": f"tmd-radar ({station_code})"
                     }
-            except Exception:
+            except Exception as e:
                 pass
+                
         raise Exception("Location out of bounds for active TMD Radars.")

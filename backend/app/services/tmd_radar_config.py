@@ -57,7 +57,11 @@ STATIONS = {
         name="Khon Kaen (120km)",
         static_image_url="https://weather.tmd.go.th/kkn/kkn120_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
-        bbox=KKN_BBOX
+        bbox=KKN_BBOX,
+        crop_x=75,
+        crop_y=0,
+        crop_width=725,
+        crop_height=786
     ),
     "kkn240": StationConfig(
         code="kkn240",

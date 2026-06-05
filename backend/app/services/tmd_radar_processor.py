@@ -32,27 +32,34 @@ class TMDRadarProcessor:
         if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
             return 0.0
             
-        # OpenCV defaults to BGR, but assuming img is RGB for this function or passed as RGB.
-        # Let's extract pixel.
+        # OpenCV defaults to BGR
         pixel = img[y, x]
-        # Ensure it's a tuple for dict lookup
         if len(pixel) >= 3:
-            r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
+            b, g, r = int(pixel[0]), int(pixel[1]), int(pixel[2])
         else:
             return 0.0
             
         color_tuple = (r, g, b)
         
-        # Check ignored
+        # Check ignored (perfect black)
         if color_tuple in IGNORED_COLORS:
             return 0.0
             
-        # Exact match
-        if color_tuple in DBZ_COLOR_MAPPING:
-            return DBZ_COLOR_MAPPING[color_tuple]
+        # Find nearest color (due to GIF compression artifacts, colors are not exact)
+        min_dist = float('inf')
+        best_dbz = 0.0
+        
+        import math
+        for known_color, dbz in DBZ_COLOR_MAPPING.items():
+            dist = math.sqrt((r - known_color[0])**2 + (g - known_color[1])**2 + (b - known_color[2])**2)
+            if dist < min_dist:
+                min_dist = dist
+                best_dbz = dbz
+                
+        # If the closest color is within a reasonable Euclidean distance (e.g., 90)
+        if min_dist < 90:
+            return best_dbz
             
-        # If no exact match, we could do nearest neighbor color matching here.
-        # For MVP, we return 0.0 if not matched exactly.
         return 0.0
 
     def calculate_optical_flow(self, frames: List[np.ndarray]) -> np.ndarray:
