@@ -146,6 +146,36 @@ class FirestoreLocationRepository(LocationRepository):
         doc_ref = self.db.collection('user_feedbacks').document()
         await doc_ref.set(data)
         
+        if feedback_type == "false_alarm" and prediction_context:
+            endpoint = None
+            if "Source: Tomorrow.io" in prediction_context: endpoint = "tomorrow"
+            elif "Source: Rainbow Local" in prediction_context: endpoint = "rainbow-local"
+            elif "Source: Rainbow Global" in prediction_context: endpoint = "rainbow-global"
+            elif "Source: Xweather" in prediction_context: endpoint = "xweather"
+            elif "Source: Open-Meteo" in prediction_context: endpoint = "open-meteo"
+            
+            if endpoint:
+                rel_ref = self.db.collection('api_reliability').document(endpoint)
+                rel_doc = await rel_ref.get()
+                if not rel_doc.exists:
+                    defaults = {"xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8}
+                    rel_data = {
+                        "total_queries": 0,
+                        "false_alarms": 1,
+                        "accuracy_score": 0.0
+                    }
+                    await rel_ref.set(rel_data)
+                else:
+                    rel_data = rel_doc.to_dict()
+                    total = rel_data.get("total_queries", 0)
+                    alarms = rel_data.get("false_alarms", 0) + 1
+                    acc = 1.0 - (alarms / total) if total > 0 else 0.0
+                    if acc < 0: acc = 0.0
+                    await rel_ref.update({
+                        "false_alarms": alarms,
+                        "accuracy_score": acc
+                    })
+        
         # Don't construct SQLAlchemy model here, just return dict
         data["id"] = doc_ref.id
         return data
@@ -162,4 +192,48 @@ class FirestoreLocationRepository(LocationRepository):
             "event_id": event_id,
             "event_type": event_type,
             "timestamp": datetime.now(timezone.utc)
+        })
+
+    async def get_all_api_reliability(self) -> dict[str, float]:
+        reliabilities = {}
+        async for doc in self.db.collection('api_reliability').stream():
+            data = doc.to_dict()
+            reliabilities[doc.id] = data.get("accuracy_score", 0.0)
+            
+        defaults = {
+            "xweather": 1.0,
+            "tomorrow": 0.95,
+            "rainbow-local": 0.9,
+            "rainbow-global": 0.85,
+            "open-meteo": 0.8
+        }
+        for ep, default_score in defaults.items():
+            if ep not in reliabilities:
+                reliabilities[ep] = default_score
+                
+        return reliabilities
+
+    async def record_api_query_success(self, endpoint: str) -> None:
+        doc_ref = self.db.collection('api_reliability').document(endpoint)
+        doc = await doc_ref.get()
+        
+        if not doc.exists:
+            defaults = {"xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8}
+            data = {
+                "total_queries": 1,
+                "false_alarms": 0,
+                "accuracy_score": defaults.get(endpoint, 1.0)
+            }
+            await doc_ref.set(data)
+            return
+            
+        data = doc.to_dict()
+        total = data.get("total_queries", 0) + 1
+        alarms = data.get("false_alarms", 0)
+        acc = 1.0 - (alarms / total)
+        if acc < 0: acc = 0.0
+        
+        await doc_ref.update({
+            "total_queries": total,
+            "accuracy_score": acc
         })

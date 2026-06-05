@@ -72,3 +72,15 @@
   ```
 - **Step 4 (Issue #49):** Look at the inline keyboard buttons attached to the first alert message. Click the **"📊 เทียบข้อมูล"** (Compare API) button.
 - **Expected Result (Issue #49):** The bot will edit the message to display a complete comparison of all APIs (Tomorrow.io, Rainbow, Open-Meteo, Xweather) natively inside the Telegram chat, showing `max_rain`, `intensity`, and `wind_speed_kmh` from Open-Meteo properly integrated into the comparison view.
+
+**Test 5: Verify API Accuracy Evaluation (False Alarm & Auto-Sort Fallback)**
+- **Step 1:** Start your FastAPI server (e.g., `uvicorn app.main:app --host 127.0.0.1 --port 8000`) and ensure your Telegram Webhook is connected.
+- **Step 2:** Open your Telegram app, go to your bot, and type:
+  ```text
+  /devmock rain
+  ```
+- **Step 3:** The bot will send a simulated rain alert. Beneath the alert message, you will see an inline button labeled **"❌ แจ้งเตือนผิดพลาด"** (False Alarm). Click it.
+- **Step 4:** The bot should respond with "ขอบคุณสำหรับข้อมูล เราจะนำไปปรับปรุงความแม่นยำครับ".
+- **Step 5:** Now click the **"📊 เทียบข้อมูล"** (Compare API) button.
+- **Expected Result:** In the comparison summary, observe the `% ความแม่นยำ` (Accuracy Score). The API that triggered the alert (e.g., Tomorrow.io หรือ Xweather) จะมีคะแนนความแม่นยำลดลงจากการกด False Alarm ของคุณ 
+- **Step 6 (Optional Database Check):** You can open `fonmayang.db` (using an SQLite viewer like DB Browser for SQLite) or look into your Firebase Console (if using Firestore) and check the `api_reliability` table/collection. You should see that `false_alarms` has incremented for that specific API endpoint, and the `accuracy_score` has been dynamically adjusted.

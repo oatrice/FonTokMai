@@ -65,3 +65,13 @@ class LocationRepository(ABC):
     async def mark_disaster_alert_sent(self, chat_id: int, event_id: str, event_type: str) -> None:
         """Mark a disaster alert as sent to prevent duplicate processing."""
         pass
+
+    @abstractmethod
+    async def get_all_api_reliability(self) -> dict[str, float]:
+        """ดึงคะแนนความแม่นยำของทุก API คืนค่าเป็น dict {endpoint: accuracy_score}"""
+        pass
+
+    @abstractmethod
+    async def record_api_query_success(self, endpoint: str) -> None:
+        """เพิ่มจำนวน total_queries ให้กับ API ที่ทำผลงานทายว่าฝนตกสำเร็จ"""
+        pass

@@ -40,3 +40,14 @@ class DisasterAlertHistory(Base):
     event_id = Column(String, index=True, nullable=False)
     event_type = Column(String, nullable=False) # e.g. 'earthquake', 'cyclone', 'fire'
     alerted_at = Column(DateTime, nullable=False)
+
+class ApiReliability(Base):
+    __tablename__ = "api_reliability"
+
+    endpoint = Column(String, primary_key=True, index=True) # 'xweather', 'tomorrow', 'rainbow-local', 'rainbow-global', 'open-meteo'
+    total_queries = Column(Integer, default=0, nullable=False)
+    false_alarms = Column(Integer, default=0, nullable=False)
+    
+    # accuracy_score = 1.0 - (false_alarms / total_queries) if total_queries > 0 else initial_score
+    # We store the raw score directly for easier querying/sorting
+    accuracy_score = Column(Float, default=1.0, nullable=False)

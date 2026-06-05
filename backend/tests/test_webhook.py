@@ -212,51 +212,59 @@ def test_telegram_webhook_callback_false_alarm():
                         "message_id": 6,
                         "chat": {"id": 7777}
                     },
-                    "data": "fb_falsealarm_13.0_100.0"
+                    "data": "fb_falsealarm_13.0_100.0_t_1.5"
                 }
             }
             response = client.post("/api/v1/telegram/webhook", json=payload)
             assert response.status_code == 200
             
             mock_repo.save_feedback.assert_called_once_with(
-                7777, 13.0, 100.0, "false_alarm", "User reported false alarm from inline button"
+                7777, 13.0, 100.0, "false_alarm", "Source: Tomorrow.io, max_rain: 1.5 mm/hr"
             )
 
 def test_telegram_webhook_callback_compare_api():
     with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value.status_code = 200
         
-        with patch("app.routers.webhook.WeatherManager") as mock_wm_cls:
-            mock_wm_instance = mock_wm_cls.return_value
-            mock_wm_instance.compare_all_apis = AsyncMock(return_value={
-                "tomorrow": {"endpoint": "tomorrow", "max_rain": 1.0, "intensity": "เบา"},
-                "rainbow-local": {"endpoint": "rainbow-local", "max_rain": 2.0, "intensity": "ปานกลาง"},
-                "rainbow-global": {"error": "Timeout"}
-            })
+        with patch("app.routers.webhook.edit_telegram_message", new_callable=AsyncMock) as mock_edit:
+            mock_edit.return_value = True
             
-            with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
-                mock_repo = AsyncMock()
-                mock_repo.get_mock_state.return_value = None
+            with patch("app.routers.webhook.WeatherManager") as mock_wm_cls:
+                mock_wm_instance = mock_wm_cls.return_value
+                mock_wm_instance.compare_all_apis = AsyncMock(return_value={
+                    "tomorrow": {"endpoint": "tomorrow", "max_rain": 1.0, "intensity": "เบา", "accuracy_score": 0.95},
+                    "rainbow-local": {"endpoint": "rainbow-local", "max_rain": 2.0, "intensity": "ปานกลาง", "accuracy_score": 0.8},
+                    "rainbow-global": {"error": "Timeout"}
+                })
                 
-                @asynccontextmanager
-                async def mock_context():
-                    yield mock_repo
-                mock_get_repo_context.side_effect = mock_context
-
-                payload = {
-                    "update_id": 224,
-                    "callback_query": {
-                        "id": "query_id_comp",
-                        "from": {"id": 8888},
-                        "message": {
-                            "message_id": 7,
-                            "chat": {"id": 8888}
-                        },
-                        "data": "compare_api_13.0_100.0"
+                with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
+                    mock_repo = AsyncMock()
+                    mock_repo.get_mock_state.return_value = None
+                    
+                    @asynccontextmanager
+                    async def mock_context():
+                        yield mock_repo
+                    mock_get_repo_context.side_effect = mock_context
+    
+                    payload = {
+                        "update_id": 224,
+                        "callback_query": {
+                            "id": "query_id_comp",
+                            "from": {"id": 8888},
+                            "message": {
+                                "message_id": 7,
+                                "chat": {"id": 8888}
+                            },
+                            "data": "compare_api_13.0_100.0"
+                        }
                     }
-                }
-                response = client.post("/api/v1/telegram/webhook", json=payload)
-                assert response.status_code == 200
-                
-                mock_wm_instance.compare_all_apis.assert_called_once_with(13.0, 100.0, mock_state=None)
-                assert mock_post.called
+                    response = client.post("/api/v1/telegram/webhook", json=payload)
+                    assert response.status_code == 200
+                    
+                    mock_wm_instance.compare_all_apis.assert_called_once_with(13.0, 100.0, mock_state=None)
+                    
+                    assert mock_edit.called
+                    call_args = mock_edit.call_args[0]
+                    text = call_args[2] # 0=chat_id, 1=message_id, 2=text
+                    assert "95.0%" in text
+                    assert "80.0%" in text

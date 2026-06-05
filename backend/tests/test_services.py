@@ -139,7 +139,12 @@ async def test_weather_manager_compare_all_apis():
         
     manager.rainbow_svc.predict_rain_by_location = AsyncMock(side_effect=mock_rainbow)
     
-    results = await manager.compare_all_apis(13.0, 100.0)
+    with patch("app.dependencies.get_repo_context") as mock_repo_context:
+        mock_repo = AsyncMock()
+        mock_repo.get_all_api_reliability.return_value = {"tomorrow": 0.9, "rainbow-local": 0.8, "rainbow-global": 0.7}
+        mock_repo_context.return_value.__aenter__.return_value = mock_repo
+        
+        results = await manager.compare_all_apis(13.0, 100.0)
     
     assert "tomorrow" in results
     assert "rainbow-local" in results
@@ -155,21 +160,31 @@ async def test_weather_manager_fallback_chain():
     
     manager = WeatherManager()
     
-    # 1. Test Xweather succeeds
-    manager.xweather_svc.predict_rain_by_location = AsyncMock(return_value={"endpoint": "xweather", "max_rain": 5.0})
-    manager.tomorrow_svc.predict_rain_by_location = AsyncMock(return_value={"endpoint": "tomorrow", "max_rain": 1.0})
-    result = await manager.predict_rain(13.0, 100.0)
-    assert result["endpoint"] == "xweather"
-    assert result["max_rain"] == 5.0
-    manager.tomorrow_svc.predict_rain_by_location.assert_not_called()
-    
-    # 2. Test Xweather fails -> fall back to Tomorrow.io
-    manager.xweather_svc.predict_rain_by_location = AsyncMock(side_effect=Exception("Xweather failed"))
-    manager.tomorrow_svc.predict_rain_by_location.reset_mock()
-    result = await manager.predict_rain(13.0, 100.0)
-    assert result["endpoint"] == "tomorrow"
-    assert result["max_rain"] == 1.0
-    manager.tomorrow_svc.predict_rain_by_location.assert_called_once()
+    with patch("app.dependencies.get_repo_context") as mock_repo_context:
+        mock_repo = AsyncMock()
+        mock_repo.get_all_api_reliability.return_value = {
+            "xweather": 1.0, 
+            "tomorrow": 0.9, 
+            "rainbow-local": 0.8, 
+            "rainbow-global": 0.7
+        }
+        mock_repo_context.return_value.__aenter__.return_value = mock_repo
+        
+        # 1. Test Xweather succeeds
+        manager.xweather_svc.predict_rain_by_location = AsyncMock(return_value={"endpoint": "xweather", "max_rain": 5.0})
+        manager.tomorrow_svc.predict_rain_by_location = AsyncMock(return_value={"endpoint": "tomorrow", "max_rain": 1.0})
+        result = await manager.predict_rain(13.0, 100.0)
+        assert result["endpoint"] == "xweather"
+        assert result["max_rain"] == 5.0
+        manager.tomorrow_svc.predict_rain_by_location.assert_not_called()
+        
+        # 2. Test Xweather fails -> fall back to Tomorrow.io
+        manager.xweather_svc.predict_rain_by_location = AsyncMock(side_effect=Exception("Xweather failed"))
+        manager.tomorrow_svc.predict_rain_by_location.reset_mock()
+        result = await manager.predict_rain(13.0, 100.0)
+        assert result["endpoint"] == "tomorrow"
+        assert result["max_rain"] == 1.0
+        manager.tomorrow_svc.predict_rain_by_location.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_weather_manager_get_advanced_alerts_fallback():

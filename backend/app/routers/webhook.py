@@ -339,11 +339,14 @@ async def handle_callback_query(callback_query: dict):
                 }
                 for k, v in results.items():
                     disp_k = display_names.get(k, k)
+                    accuracy = v.get("accuracy_score", 0.0)
+                    acc_percent = accuracy * 100.0
+                    
                     if "error" in v:
-                        text += f"🔹 {disp_k}:\n  ❌ ข้อผิดพลาด: {v['error']}\n\n"
+                        text += f"🔹 {disp_k} (ความแม่นยำ: {acc_percent:.1f}%):\n  ❌ ข้อผิดพลาด: {v['error']}\n\n"
                     else:
                         max_rain = v.get('max_rain', 0)
-                        text += f"🔹 {disp_k}:\n"
+                        text += f"🔹 {disp_k} (ความแม่นยำ: {acc_percent:.1f}%):\n"
                         text += f"  💧 ปริมาณฝนสูงสุด: {max_rain} mm/hr\n"
                         text += f"  🌧️ ความรุนแรง: {v.get('intensity', 'ไม่ทราบ')}\n"
                         

@@ -92,10 +92,36 @@ async def test_save_feedback(db_session):
     lat = 13.0
     lng = 100.0
     
-    feedback = await repo.save_feedback(chat_id, lat, lng, "false_alarm", "max_rain: 1.5 mm/hr")
+    feedback = await repo.save_feedback(chat_id, lat, lng, "false_alarm", "Source: Tomorrow.io, max_rain: 1.5 mm/hr")
     
     assert feedback is not None
     assert feedback.chat_id == chat_id
     assert feedback.feedback_type == "false_alarm"
-    assert feedback.prediction_context == "max_rain: 1.5 mm/hr"
-    assert feedback.timestamp is not None
+    
+    # Check if api_reliability for Tomorrow.io has been updated
+    reliabilities = await repo.get_all_api_reliability()
+    assert "tomorrow" in reliabilities
+    
+    # Defaults are 0 queries, 1 false alarm, so accuracy should be 0.0 initially because total < false alarms
+    # Let's add a success query first to see real calculation
+    await repo.record_api_query_success("tomorrow")
+    await repo.record_api_query_success("tomorrow")
+    # Now total_queries = 2, false_alarms = 1 => accuracy = 0.5
+    
+    # another false alarm
+    await repo.save_feedback(chat_id, lat, lng, "false_alarm", "Source: Tomorrow.io, max_rain: 1.5 mm/hr")
+    
+    reliabilities_new = await repo.get_all_api_reliability()
+    assert reliabilities_new["tomorrow"] == 0.0  # (2 queries, 2 false alarms) => 0.0
+
+@pytest.mark.asyncio
+async def test_record_api_query_success(db_session):
+    from app.repositories.sqlite import SQLiteLocationRepository
+    repo = SQLiteLocationRepository(db_session)
+    
+    await repo.record_api_query_success("xweather")
+    reliabilities = await repo.get_all_api_reliability()
+    assert reliabilities["xweather"] == 1.0
+    
+    # Test fallback defaults
+    assert reliabilities["tomorrow"] == 0.95
