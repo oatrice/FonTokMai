@@ -27,6 +27,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #49 - Research: Evaluation Table comparing Weather Providers (Xweather, Tomorrow.io, Rainbow.ai, TMD Image Processing, Open-Meteo)
+- **GitHub:** [#49](https://gitlab.com/oatricedev/FonMaYang/-/issues/49)
+- **Status:** 🟢 **Ready**
+
 ### Issue #48 - Contingency: Implement Manual Wind Vector Trajectory (Open-Meteo) if Xweather Expires
 - **GitHub:** [#48](https://gitlab.com/oatricedev/FonMaYang/-/issues/48)
 - **Status:** 🟢 **Ready**

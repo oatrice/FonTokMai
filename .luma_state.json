@@ -1,79 +1,52 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "reviewing",
   "active_issues": [
     {
-      "number": 45,
-      "title": "Feature: Batch H - Disasters & Natural Hazards Alerts",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/45",
+      "number": 48,
+      "title": "Contingency: Implement Manual Wind Vector Trajectory (Open-Meteo) if Xweather Expires",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/48",
       "body": null,
-      "project_item_id": "GLAB_45",
+      "project_item_id": "GLAB_48",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 49,
+      "title": "Research: Evaluation Table comparing Weather Providers (Xweather, Tomorrow.io, Rainbow.ai, TMD Image Processing, Open-Meteo)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/49",
+      "body": null,
+      "project_item_id": "GLAB_49",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/45-feature-batch-h-disasters-natu",
-  "started_at": "2026-06-05T20:43:11.539742",
+  "active_branch": "feat/48-49-contingency-implement-manual-w",
+  "started_at": "2026-06-05T21:16:51.681004",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "backend/app/main.py",
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/scheduler.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/disaster_manager.py",
-        "backend/app/services/earthquake.py",
-        "backend/app/services/location.py",
-        "backend/app/services/telegram.py",
+        "VERSION"
+      ],
+      "changed_files": [
+        "backend/app/services/open_meteo.py",
         "backend/app/services/weather_manager.py",
-        "backend/app/services/xweather.py",
-        "backend/mock_disasters.py",
-        "backend/mock_emsc_ws.py",
-        "backend/requirements.txt",
+        "backend/tests/test_open_meteo.py",
         "docs/ROADMAP.md",
-        "docs/architecture_decisions/002_issue_batching_strategy.md",
-        "docs/architecture_decisions/004_xweather_migration_and_contingency.md",
-        "docs/architecture_decisions/006_infrastructure_as_code_terraform.md",
-        "docs/features/17_issue-45_feature-batch-h-disasters-natural-hazards-alerts-3669c0e7/implementation_plan.md",
-        "docs/features/17_issue-45_feature-batch-h-disasters-natural-hazards-alerts-3669c0e7/manual_verification.md",
-        "docs/features/17_issue-45_feature-batch-h-disasters-natural-hazards-alerts-3669c0e7/task.md",
-        "docs/features/17_issue-45_feature-batch-h-disasters-natural-hazards-alerts-3669c0e7/walkthrough.md",
-        "luma_metrics.json",
+        "luma/prompts/prompt_20260605_141648_ab68d541.md",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/main.py",
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/scheduler.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/disaster_manager.py",
-        "backend/app/services/earthquake.py",
-        "backend/app/services/location.py",
-        "backend/app/services/telegram.py",
+        "backend/app/services/open_meteo.py",
         "backend/app/services/weather_manager.py",
-        "backend/app/services/xweather.py",
-        "backend/mock_disasters.py",
-        "backend/mock_emsc_ws.py",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -141,11 +114,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/17_issue-45_feature-batch-h-disasters-natural-hazards-alerts-3669c0e7"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/18_issue-48-49_contingency-implement-manual-wind-vector-trajectory-ope-9d29354d"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/17",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-05T21:03:36.208049"
+  "last_updated": "2026-06-05T21:22:44.367541"
 }

@@ -25,3 +25,21 @@ async def predict_weather(
     except Exception as e:
         logger.error(f"Error getting rain prediction: {e}")
         raise HTTPException(status_code=500, detail="Internal server error while fetching predictions")
+
+@router.get("/compare")
+async def compare_weather_apis(
+    lat: float = Query(..., description="Latitude of the location"),
+    lng: float = Query(..., description="Longitude of the location"),
+    mock_state: str = Query(None, description="Mock state e.g. rain, clear, error")
+):
+    """
+    Compare rain predictions from all available APIs. (Issue #49)
+    """
+    from app.services.weather_manager import WeatherManager
+    try:
+        weather_manager = WeatherManager()
+        result = await weather_manager.compare_all_apis(lat, lng, mock_state=mock_state)
+        return result
+    except Exception as e:
+        logger.error(f"Error comparing APIs: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error while comparing APIs")

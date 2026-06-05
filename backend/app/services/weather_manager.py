@@ -3,6 +3,7 @@ from typing import Optional
 from .tomorrow import TomorrowService
 from .rainbow import RainbowService
 from .xweather import XweatherService
+from .open_meteo import OpenMeteoService
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,7 @@ class WeatherManager:
         self.xweather_svc = XweatherService()
         self.tomorrow_svc = TomorrowService()
         self.rainbow_svc = RainbowService()
+        self.open_meteo_svc = OpenMeteoService()
 
     async def predict_rain(
         self,
@@ -125,22 +127,41 @@ class WeatherManager:
             safe_call("xweather", fetch_xweather_full()),
             safe_call("tomorrow", self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)),
             safe_call("rainbow-local", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state)),
-            safe_call("rainbow-global", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state))
+            safe_call("rainbow-global", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state)),
+            safe_call("open-meteo", self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state))
         ]
         
         results = await asyncio.gather(*tasks)
-        return {k: v for k, v in results}
+        
+        final_results = {}
+        for k, v in results:
+            if "predictions" in v:
+                v["predictions"] = v["predictions"][:15]
+            final_results[k] = v
+            
+        return final_results
 
     async def get_advanced_alerts(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
         """
         ดึงข้อมูลเตือนภัยขั้นสูงจาก Xweather (Advisories, Lightning, Stormcells)
-        ถ้า Xweather ปิดอยู่ หรือ API พัง จะคืนค่า dict เปล่ากลับไป
+        ถ้า Xweather ปิดอยู่ หรือ API พัง จะพยายามดึงข้อมูลลมจาก Open-Meteo แทน (Contingency)
         """
         try:
             return await self.xweather_svc.get_advanced_alerts(lat, lng, mock_state=mock_state)
         except Exception as e:
-            # TODO(Contingency): หาก Xweather หมดอายุ/ใช้งานไม่ได้ถาวร ระบบจะสูญเสียการคำนวณทิศทางพายุ (Stormcells)
-            # โปรดดู Issue ใหม่ในบอร์ด (Contingency: Implement Manual Wind Vector Trajectory)
-            # หรือรื้อฟื้นแนวคิดจาก Issue #16 และ #31 กลับมาทำ (ดึงลมจาก Open-Meteo มาคำนวณ Advection เอง)
-            logger.warning(f"Failed to fetch advanced alerts from Xweather: {e}")
-            return {"advisories": [], "lightning": None, "stormcell": None}
+            logger.warning(f"Failed to fetch advanced alerts from Xweather: {e}. Falling back to Open-Meteo for wind vectors.")
+            try:
+                wind_data = await self.open_meteo_svc.get_wind_vector(lat, lng, mock_state=mock_state)
+                return {
+                    "advisories": [], 
+                    "lightning": None, 
+                    "stormcell": {
+                        "distance_km": None,
+                        "direction": wind_data.get("direction_cardinal", ""),
+                        "speed_kmh": wind_data.get("speed_kmh", 0),
+                        "max_dbz": None
+                    }
+                }
+            except Exception as e_meteo:
+                logger.error(f"Open-Meteo Contingency failed: {e_meteo}")
+                return {"advisories": [], "lightning": None, "stormcell": None}
