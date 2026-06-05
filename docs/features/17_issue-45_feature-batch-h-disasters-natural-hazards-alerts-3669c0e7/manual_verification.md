@@ -37,5 +37,51 @@ Here is a step-by-step guide to verify the Disaster Alerts implementation locall
 - **Expected Result:** You should only receive the Telegram alert on the *first* trigger for a specific disaster ID. Subsequent runs should not send any duplicate Telegram messages, as they will be filtered by `DisasterAlertHistory` and the logs should not show any new alert events for those IDs.
 
 ### Test 5: Verify EMSC WebSocket (Real-time)
-- **Step 1:** Observe the terminal startup logs of your running FastAPI server.
-- **Expected Result:** You should see the log `Starting EMSC Earthquake WebSocket listener...` and then `Connected to EMSC WebSocket.`. The connection should remain open. Wait for a few minutes (or simulate a WebSocket message) to see if the background task successfully processes incoming earthquakes.
+- **Step 1:** Observe the terminal startup logs of your running FastAPI server. You should see `Connected to EMSC WebSocket.`
+- **Step 2 (Wait & See):** You can leave the server running. When a small earthquake happens somewhere in the world, EMSC will push the data to your server and you will see it processed in the background.
+- **Step 3 (Mock End-to-End WebSocket Test with Postman):**
+  If you want to simulate an earthquake right now using a full End-to-End pipeline:
+  1. Open a new terminal window in the `backend` folder and run the Hybrid Mock Server:
+     ```bash
+     source venv/bin/activate
+     python mock_emsc_ws.py
+     ```
+     *(This runs a single script opening two ports: `8765` for WebSocket and `8766` for HTTP)*
+  2. Stop your existing FastAPI server (`Ctrl+C`) and run it again, pointing to the mock server:
+     ```bash
+     EMSC_WS_URL=ws://localhost:8765 uvicorn app.main:app --reload --port 8001
+     ```
+  3. Open Postman and send a `POST` request to `http://localhost:8766/trigger` with this JSON body:
+     ```json
+     {
+       "mag": 8.5,
+       "lat": 13.75,
+       "lng": 100.5,
+       "place": "E2E Earthquake"
+     }
+     ```
+  4. The mock server will receive the HTTP POST, convert it to an EMSC WebSocket payload, and push it to port `8765`. Your Uvicorn server will catch it, calculate the distance, and send a Telegram alert.
+
+### Test 6: Mock All Disaster Alerts via CLI
+- **Step 1:** Run the mock script to trigger a fake Earthquake, Cyclone, and Fire centered precisely on your active database location.
+  ```bash
+  source venv/bin/activate
+  python mock_disasters.py
+  ```
+  *(You can also pass custom arguments like `--type cyclone --lat 13.75 --lng 100.5`)*
+- **Expected Result:** You will receive 3 distinct Telegram messages (one for each disaster type) beautifully formatted.
+
+### Test 7: Mock Disaster Alerts via FastAPI Backdoor (Postman)
+- **Step 1:** If you don't want to use the CLI or WebSocket, you can trigger a mock alert directly through the FastAPI app. Send a `POST` request to `http://localhost:8001/api/v1/cron/trigger-mock-disaster`.
+- **Headers Required:** 
+  - `X-Cron-Secret: default_secret_for_local_testing`
+- **Body (JSON):**
+  ```json
+  {
+    "type": "cyclone",
+    "lat": 13.75,
+    "lng": 100.5,
+    "name": "Postman Cyclone"
+  }
+  ```
+- **Expected Result:** The backend will enqueue the mock disaster processing in the background and you will receive a Telegram message.

@@ -44,3 +44,48 @@ async def trigger_disasters_infrequent(background_tasks: BackgroundTasks, x_cron
     from app.scheduler_tasks import check_disasters_infrequent_routine
     background_tasks.add_task(check_disasters_infrequent_routine)
     return {"status": "ok", "message": "Infrequent disaster check task added to background"}
+
+from pydantic import BaseModel
+from typing import Optional
+
+class MockDisasterPayload(BaseModel):
+    type: str  # "earthquake", "cyclone", "fire"
+    lat: float
+    lng: float
+    mag: Optional[float] = 7.0
+    name: Optional[str] = "Custom Postman Disaster"
+
+@router.post("/trigger-mock-disaster")
+async def trigger_mock_disaster(payload: MockDisasterPayload, background_tasks: BackgroundTasks, x_cron_secret: str = Header(None)):
+    """Endpoint for developers to trigger a custom mock disaster event via tools like Postman."""
+    if not x_cron_secret or x_cron_secret != CRON_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    async def run_mock():
+        import time
+        from app.dependencies import get_repo_context
+        from app.services.disaster_manager import process_disaster_event
+        
+        timestamp = int(time.time())
+        event_id = f"postman_mock_{timestamp}"
+        
+        event_data = {
+            "id": event_id,
+            "lat": payload.lat,
+            "lng": payload.lng,
+        }
+        
+        if payload.type == "earthquake":
+            event_data["mag"] = payload.mag
+            event_data["place"] = payload.name
+        elif payload.type == "cyclone":
+            event_data["name"] = payload.name
+            event_data["category"] = "Cat 4"
+        elif payload.type == "fire":
+            event_data["name"] = payload.name
+            
+        async with get_repo_context() as repo:
+            await process_disaster_event(repo, payload.type, event_data)
+            
+    background_tasks.add_task(run_mock)
+    return {"status": "ok", "message": f"Mock {payload.type} triggered in background"}

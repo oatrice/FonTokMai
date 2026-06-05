@@ -7,8 +7,10 @@ from typing import Callable, Awaitable, Any, Dict
 
 logger = logging.getLogger(__name__)
 
+import os
+
 USGS_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
-EMSC_WS_URL = "wss://www.seismicportal.eu/standing_order/websocket"
+EMSC_WS_URL = os.getenv("EMSC_WS_URL", "wss://www.seismicportal.eu/standing_order/websocket")
 
 async def fetch_usgs_geojson() -> list[Dict[str, Any]]:
     """Fetch the latest earthquakes from USGS GeoJSON feed (past hour)."""
