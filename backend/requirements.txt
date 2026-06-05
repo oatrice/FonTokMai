@@ -11,3 +11,5 @@ greenlet
 
 firebase-admin
 websockets
+numpy
+opencv-python-headless

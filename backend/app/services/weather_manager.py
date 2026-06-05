@@ -4,6 +4,7 @@ from .tomorrow import TomorrowService
 from .rainbow import RainbowService
 from .xweather import XweatherService
 from .open_meteo import OpenMeteoService
+from .tmd_radar_processor import TMDRadarProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,8 @@ class WeatherManager:
             "tomorrow": lambda: self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
             "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
             "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
-            "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)
+            "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng)
         }
         
         for ep in sorted_endpoints:
@@ -172,3 +174,44 @@ class WeatherManager:
             except Exception as e_meteo:
                 logger.error(f"Open-Meteo Contingency failed: {e_meteo}")
                 return {"advisories": [], "lightning": None, "stormcell": None}
+
+    async def _get_tmd_prediction(self, lat: float, lng: float) -> dict:
+        """
+        Wrapper for TMD Radar predictions.
+        """
+        import cv2
+        import numpy as np
+
+        for station_code in ["kkn120", "kkn240", "skn240"]:
+            try:
+                processor = TMDRadarProcessor(station_code)
+                px, py = processor.latlng_to_pixel(lat, lng)
+                if px is not None and py is not None:
+                    # Fetch real image and get dBZ for Telegram testing
+                    img_bytes = await processor.fetch_latest_image_bytes()
+                    dbz = 0.0
+                    intensity = "ไม่ทราบ"
+                    
+                    if img_bytes:
+                        img_array = np.frombuffer(img_bytes, np.uint8)
+                        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                        if img is not None:
+                            dbz = processor.get_dbz_at_pixel(img, px, py)
+                            if dbz >= 55: intensity = "ฝนตกหนักมาก"
+                            elif dbz >= 35: intensity = "ฝนตกหนัก"
+                            elif dbz >= 20: intensity = "ฝนตกปานกลาง"
+                            elif dbz > 0:  intensity = "ฝนตกเล็กน้อย"
+                            else: intensity = "ไม่มีฝน"
+
+                    return {
+                        "predictions": [],
+                        "intensity": intensity,
+                        "max_rain": float(dbz),
+                        "duration_minutes": 0,
+                        "wind_speed_kmh": 0.0,
+                        "endpoint": f"tmd-radar ({station_code})"
+                    }
+            except Exception as e:
+                pass
+                
+        raise Exception("Location out of bounds for active TMD Radars.")

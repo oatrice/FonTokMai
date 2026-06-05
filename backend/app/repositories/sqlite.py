@@ -143,7 +143,7 @@ class SQLiteLocationRepository(LocationRepository):
                 result = await self.session.execute(select(ApiReliability).where(ApiReliability.endpoint == endpoint))
                 rel = result.scalars().first()
                 if not rel:
-                    defaults = {"xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8}
+                    defaults = {"tmd-radar": 1.1, "xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8}
                     rel = ApiReliability(
                         endpoint=endpoint, 
                         total_queries=0, 
@@ -193,6 +193,7 @@ class SQLiteLocationRepository(LocationRepository):
             scores[r.endpoint] = r.accuracy_score
             
         defaults = {
+            "tmd-radar": 1.1,
             "xweather": 1.0,
             "tomorrow": 0.95,
             "rainbow-local": 0.9,
@@ -211,7 +212,7 @@ class SQLiteLocationRepository(LocationRepository):
         rel = result.scalars().first()
         
         if not rel:
-            defaults = {"xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8}
+            defaults = {"tmd-radar": 1.1, "xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8}
             rel = ApiReliability(
                 endpoint=endpoint, 
                 total_queries=0, 

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-06-06
+### Added
+- Implemented an automated TMD radar image processing system to extract real-time rain intensity directly from radar imagery.
+- Added live intensity testing and improved mapping accuracy for TMD radar coordinates.
+
+### Changed
+- Updated radar station configurations (`kkn120`, `kkn240`, `skn240`) and adjusted their default reliability scores within the auto-fallback system.
+
+### Fixed
+- Fixed a bug in the webhook output formatter where the current rain intensity from TMD radar was incorrectly ignored due to a lack of minute-by-minute predictions.
+
 ## [0.18.0] - 2026-06-05
 ### Added
 - Integrated Open-Meteo as a contingency service for predicting wind vectors and stormcells.

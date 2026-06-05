@@ -158,7 +158,7 @@ class FirestoreLocationRepository(LocationRepository):
                 rel_ref = self.db.collection('api_reliability').document(endpoint)
                 rel_doc = await rel_ref.get()
                 if not rel_doc.exists:
-                    defaults = {"xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8}
+                    defaults = {"tmd-radar": 1.1, "xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8}
                     rel_data = {
                         "total_queries": 0,
                         "false_alarms": 1,
@@ -201,6 +201,7 @@ class FirestoreLocationRepository(LocationRepository):
             reliabilities[doc.id] = data.get("accuracy_score", 0.0)
             
         defaults = {
+            "tmd-radar": 1.1,
             "xweather": 1.0,
             "tomorrow": 0.95,
             "rainbow-local": 0.9,
@@ -218,7 +219,7 @@ class FirestoreLocationRepository(LocationRepository):
         doc = await doc_ref.get()
         
         if not doc.exists:
-            defaults = {"xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8}
+            defaults = {"tmd-radar": 1.1, "xweather": 1.0, "tomorrow": 0.95, "rainbow-local": 0.9, "rainbow-global": 0.85, "open-meteo": 0.8}
             data = {
                 "total_queries": 1,
                 "false_alarms": 0,

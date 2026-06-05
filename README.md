@@ -3,10 +3,11 @@
 Privacy-first short-term rain forecasting (Nowcasting) system using Thai Meteorological Department (TMD) radar data and global weather APIs.
 
 ## Overview
-FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-Meteo, RainViewer, Rainbow API) to predict incoming rain within the next 15-30 minutes. The system operates on a privacy-first principle: no continuous background location tracking. Users opt-in by sharing their current location via Telegram, and the system evaluates the coarse location against the predicted rain vectors.
+FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-Meteo, RainViewer, Rainbow API, TMD Radar) to predict incoming rain within the next 15-30 minutes. The system operates on a privacy-first principle: no continuous background location tracking. Users opt-in by sharing their current location via Telegram, and the system evaluates the coarse location against the predicted rain vectors.
 
 ## Features
 - **Pluggable Architecture**: Easily switch between or combine weather providers (Xweather, Tomorrow.io, Open-Meteo, RainViewer, Rainbow, TMD Radar) with an automated fallback mechanism based on user feedback and reliability scoring.
+- **Automated TMD Radar Processing**: Real-time extraction of rain intensity directly from TMD radar imagery, fully integrated as a highly accurate data source in the automated fallback system.
 - **Natural Hazard Alerts**: Proactive monitoring for severe natural disasters including Earthquakes (via real-time EMSC WebSockets & USGS polling), Tropical Cyclones, and Wildfires, complete with broad geofencing and grouped notifications for users with multiple locations.
 - **Advanced Weather Alerts**: Proactively warns users about nearby severe weather, including convective stormcells and lightning strikes, using Xweather's premium data and Open-Meteo contingency data.
 - **Privacy-First Notifications**: On-demand location sharing via Telegram without background tracking.
@@ -25,7 +26,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 - **Xweather API**: [xweather.com](https://www.xweather.com/)
 - **Tomorrow.io API**: [tomorrow.io](https://www.tomorrow.io/)
 - **Open-Meteo API**: [open-meteo.com](https://open-meteo.com/)
-- **TMD Radar (Sakon Nakhon)**: [weather.tmd.go.th/sknLoop.php](https://weather.tmd.go.th/sknLoop.php)
+- **TMD Radar (Khon Kaen, Sakon Nakhon)**: [weather.tmd.go.th](https://weather.tmd.go.th/)
 - **RainViewer API**: [api.rainviewer.com/public/weather-maps.json](https://api.rainviewer.com/public/weather-maps.json)
 - **Rainbow Weather API**: [api.rainbow.ai](https://api.rainbow.ai/)
 - **EMSC Seismic Portal**: [seismicportal.eu](https://www.seismicportal.eu/)
