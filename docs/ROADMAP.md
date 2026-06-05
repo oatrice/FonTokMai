@@ -41,7 +41,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #45 - Feature: Batch H - Disasters & Natural Hazards Alerts
 - **GitHub:** [#45](https://gitlab.com/oatricedev/FonMaYang/-/issues/45)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.17.0)
 
 ### Issue #44 - Feature: Batch G - Comprehensive Weather & Air Quality (Daily, AQI)
 - **GitHub:** [#44](https://gitlab.com/oatricedev/FonMaYang/-/issues/44)

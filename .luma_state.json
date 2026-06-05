@@ -18,16 +18,18 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
         "backend/app/main.py",
         "backend/app/models.py",
         "backend/app/repositories/base.py",
@@ -52,6 +54,8 @@
         "docs/features/17_issue-45_feature-batch-h-disasters-natural-hazards-alerts-3669c0e7/manual_verification.md",
         "docs/features/17_issue-45_feature-batch-h-disasters-natural-hazards-alerts-3669c0e7/task.md",
         "docs/features/17_issue-45_feature-batch-h-disasters-natural-hazards-alerts-3669c0e7/walkthrough.md",
+        "luma/prompts/prompt_20260605_134859_7c7c03fb.md",
+        "luma/prompts/prompt_20260605_134904_02224933.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -145,5 +149,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-05T20:43:14.714052"
+  "last_updated": "2026-06-05T20:49:28.378846"
 }
