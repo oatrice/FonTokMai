@@ -15,16 +15,16 @@ async def test_latlng_to_pixel():
     px_x, px_y = processor.latlng_to_pixel(center_lat, center_lng)
     
     # It should be exactly at the center of the crop
-    expected_x = config.crop_width // 2
-    expected_y = config.crop_height // 2
+    expected_x = config.crop_x + (config.crop_width // 2)
+    expected_y = config.crop_y + (config.crop_height // 2)
     
     assert px_x == expected_x
     assert px_y == expected_y
 
     # Test Top Left
     tl_x, tl_y = processor.latlng_to_pixel(config.bbox.lat_max, config.bbox.lng_min)
-    assert tl_x == 0
-    assert tl_y == 0
+    assert tl_x == config.crop_x
+    assert tl_y == config.crop_y
     
     # Test Out of Bounds
     out_x, out_y = processor.latlng_to_pixel(10.0, 100.0) # Somewhere far
@@ -39,14 +39,13 @@ async def test_extract_dbz_from_image():
     # Let's make it a 100x100 RGB image filled with black
     img = np.zeros((100, 100, 3), dtype=np.uint8)
     
-    # Draw a 50 dBZ red box in the middle (BGR format in OpenCV usually, but we use RGB for mapping)
-    red_color = (255, 0, 0) # R,G,B
-    # Actually OpenCV uses BGR by default when reading, we should ensure processor converts it to RGB or handles it.
-    # Let's assume the processor works in RGB space.
+    # Draw a 50 dBZ red box in the middle (BGR format in OpenCV)
+    red_color = (0, 0, 255) # B,G,R for Red
+    # OpenCV uses BGR by default when reading, and processor unpacks as b,g,r
     img[40:60, 40:60] = red_color
     
     # Draw a 20 dBZ green box
-    green_color = (0, 255, 0)
+    green_color = (0, 255, 0) # B,G,R for Green
     img[10:30, 10:30] = green_color
     
     # Test coordinate mapping to DBZ
