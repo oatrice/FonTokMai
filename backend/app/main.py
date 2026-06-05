@@ -15,11 +15,24 @@ from app.database import engine, Base
 from app.scheduler_tasks import check_rain_and_alert
 import os
 
+import asyncio
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        
+    from app.services.earthquake import start_emsc_websocket
+    from app.services.disaster_manager import process_disaster_event
+    from app.dependencies import get_repo_context
+    
+    async def ws_callback(event):
+        async with get_repo_context() as repo:
+            await process_disaster_event(repo.session, "earthquake", event)
+            
+    # Start the websocket in the background
+    asyncio.create_task(start_emsc_websocket(ws_callback))
         
     yield
 

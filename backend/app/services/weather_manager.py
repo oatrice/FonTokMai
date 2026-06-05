@@ -139,5 +139,8 @@ class WeatherManager:
         try:
             return await self.xweather_svc.get_advanced_alerts(lat, lng, mock_state=mock_state)
         except Exception as e:
+            # TODO(Contingency): หาก Xweather หมดอายุ/ใช้งานไม่ได้ถาวร ระบบจะสูญเสียการคำนวณทิศทางพายุ (Stormcells)
+            # โปรดดู Issue ใหม่ในบอร์ด (Contingency: Implement Manual Wind Vector Trajectory)
+            # หรือรื้อฟื้นแนวคิดจาก Issue #16 และ #31 กลับมาทำ (ดึงลมจาก Open-Meteo มาคำนวณ Advection เอง)
             logger.warning(f"Failed to fetch advanced alerts from Xweather: {e}")
             return {"advisories": [], "lightning": None, "stormcell": None}

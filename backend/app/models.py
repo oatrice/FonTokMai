@@ -31,3 +31,12 @@ class UserFeedback(Base):
     timestamp = Column(DateTime, nullable=False)
     feedback_type = Column(String, nullable=False) # e.g. 'false_alarm'
     prediction_context = Column(String, nullable=True) # e.g. "max_rain: 1.5 mm/hr"
+
+class DisasterAlertHistory(Base):
+    __tablename__ = "disaster_alert_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(BigInteger, index=True, nullable=False)
+    event_id = Column(String, index=True, nullable=False)
+    event_type = Column(String, nullable=False) # e.g. 'earthquake', 'cyclone', 'fire'
+    alerted_at = Column(DateTime, nullable=False)

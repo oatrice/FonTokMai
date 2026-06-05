@@ -1,15 +1,115 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "idle",
-  "active_issues": [],
-  "active_branch": null,
-  "started_at": null,
-  "checklist": {},
-  "context": {},
+  "phase": "reviewing",
+  "active_issues": [
+    {
+      "number": 45,
+      "title": "Feature: Batch H - Disasters & Natural Hazards Alerts",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/45",
+      "body": null,
+      "project_item_id": "GLAB_45",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    }
+  ],
+  "active_branch": "feat/45-feature-batch-h-disasters-natu",
+  "started_at": "2026-06-04T22:38:21.200064",
+  "checklist": {
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
+  },
+  "context": {
+    "pending_doc_updates": {
+      "pending": [
+        "CHANGELOG.md",
+        "README.md",
+        "VERSION"
+      ],
+      "changed_files": [
+        "backend/app/services/weather_manager.py",
+        "docs/ROADMAP.md",
+        "docs/architecture_decisions/002_issue_batching_strategy.md",
+        "docs/architecture_decisions/004_xweather_migration_and_contingency.md",
+        "docs/architecture_decisions/006_infrastructure_as_code_terraform.md",
+        "luma/prompts/prompt_20260604_153818_ae776c62.md",
+        "luma_state.json"
+      ],
+      "meaningful_files": [
+        "backend/app/services/weather_manager.py",
+        "luma_state.json"
+      ],
+      "version_file": "VERSION",
+      "has_meaningful_changes": true
+    },
+    "target_planning_repos": [
+      {
+        "name": "FonMaYang",
+        "path": "/Users/oatrice/Software-projects/FonMaYang",
+        "repo": "oatricedev/FonMaYang",
+        "kanban_number": 1,
+        "kanban_id": "",
+        "status_workflow": {
+          "selectable_statuses": [
+            "Ready",
+            "In Progress",
+            "Todo"
+          ],
+          "selection_order": [
+            "In Progress",
+            "Ready",
+            "Todo"
+          ],
+          "active_statuses": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review"
+          ],
+          "active_sort_order": [
+            "In Progress",
+            "Ready",
+            "Todo",
+            "In Review",
+            "Backlog"
+          ],
+          "board_order": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review",
+            "Done",
+            "Closed"
+          ],
+          "done_statuses": [
+            "Done",
+            "Closed"
+          ],
+          "status_icons": {
+            "Backlog": "📥 ",
+            "Ready": "✅ ",
+            "Todo": "📝 ",
+            "In Progress": "🔥 ",
+            "In Review": "👀 ",
+            "Done": "✅ ",
+            "Closed": "✅ "
+          },
+          "action_status_map": {
+            "select_issue": "In Progress",
+            "create_pr": "In Review",
+            "pr_merged": "Done"
+          }
+        }
+      }
+    ],
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/17_issue-45_feature-batch-h-disasters-natural-hazards-alerts-3669c0e7"
+  },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-04T22:04:18.540552"
+  "last_updated": "2026-06-05T18:57:01.913620"
 }
