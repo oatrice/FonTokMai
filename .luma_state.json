@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 50,
@@ -44,8 +44,6 @@
         "docs/features/19_issue-50_feature-automated-tmd-radar-image-processing/manual_verification.md",
         "docs/features/19_issue-50_feature-automated-tmd-radar-image-processing/task.md",
         "docs/features/19_issue-50_feature-automated-tmd-radar-image-processing/walkthrough.md",
-        "luma/prompts/prompt_20260605_174132_6ae3e1c9.md",
-        "luma/prompts/prompt_20260605_174135_c31fa95a.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -129,7 +127,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/19",
   "pr_number": null,
-  "last_updated": "2026-06-06T00:41:58.490664"
+  "last_updated": "2026-06-06T00:47:28.106829"
 }
