@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 48,
@@ -59,11 +59,8 @@
         "docs/features/18_issue-48-49_contingency-implement-manual-wind-vector-trajectory-ope-9d29354d/manual_verification.md",
         "docs/features/18_issue-48-49_contingency-implement-manual-wind-vector-trajectory-ope-9d29354d/task.md",
         "docs/features/18_issue-48-49_contingency-implement-manual-wind-vector-trajectory-ope-9d29354d/walkthrough.md",
-        "luma/prompts/prompt_20260605_152745_218cb94c.md",
-        "luma/prompts/prompt_20260605_152750_ec16efdd.md",
         "luma_metrics.json",
-        "luma_state.json",
-        "result.json"
+        "luma_state.json"
       ],
       "meaningful_files": [
         "backend/app/models.py",
@@ -76,8 +73,7 @@
         "backend/app/services/open_meteo.py",
         "backend/app/services/weather_manager.py",
         "luma_metrics.json",
-        "luma_state.json",
-        "result.json"
+        "luma_state.json"
       ],
       "version_file": "VERSION",
       "has_meaningful_changes": true
@@ -148,7 +144,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/18",
   "pr_number": null,
-  "last_updated": "2026-06-05T22:28:17.265507"
+  "last_updated": "2026-06-05T22:37:47.597486"
 }
