@@ -196,8 +196,21 @@ class WeatherManager:
                     flow = processor.calculate_optical_flow(frames)
                     latest_frame = frames[-1]
                     
-                    # Calculate Growth/Decay rate
-                    percent_change = processor.calculate_growth_decay(frames[-2], latest_frame, px, py, radius=10)
+                    # 1st Pass: Find which future step will bring the heaviest rain
+                    max_raw_dbz = 0.0
+                    max_step = 0
+                    for steps in range(5):
+                        dbz = processor.extrapolate_rain_at_pixel(latest_frame, flow, px, py, steps, rate=0.0)
+                        if dbz > max_raw_dbz:
+                            max_raw_dbz = dbz
+                            max_step = steps
+                            
+                    # Calculate true Lagrangian Growth based on the heaviest incoming cloud
+                    if max_raw_dbz > 0:
+                        percent_change = processor.calculate_lagrangian_growth(frames, flow, px, py, max_step)
+                    else:
+                        percent_change = 0.0
+                        
                     rate = percent_change / 100.0
                     
                     predictions = []
@@ -213,6 +226,7 @@ class WeatherManager:
                     from datetime import datetime, timedelta, timezone
                     now_utc = datetime.now(timezone.utc)
                     
+                    # 2nd Pass: Calculate predictions with the applied growth rate
                     for steps in range(5):
                         dbz = processor.extrapolate_rain_at_pixel(latest_frame, flow, px, py, steps, rate=rate)
                         

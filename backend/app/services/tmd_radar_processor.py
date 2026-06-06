@@ -338,6 +338,45 @@ class TMDRadarProcessor:
         percent_change = ((curr_sum - prev_sum) / prev_sum) * 100.0
         return percent_change
 
+    def calculate_lagrangian_growth(self, frames: list, flow: np.ndarray, target_x: int, target_y: int, steps_ahead: int) -> float:
+        """
+        Calculates the true growth of the specific air mass that will hit target_x, target_y in `steps_ahead` frames.
+        It tracks the air mass backwards in time to compare its current intensity with its past intensity.
+        """
+        if len(frames) < 3:
+            return 0.0
+            
+        vx, vy = self.get_flow_vector_at(flow, target_x, target_y)
+        
+        # Where is the cloud that will hit the target located CURRENTLY?
+        curr_src_x = int(round(target_x - vx * steps_ahead))
+        curr_src_y = int(round(target_y - vy * steps_ahead))
+        
+        curr_dbz = self.get_dbz_at_pixel(frames[-1], curr_src_x, curr_src_y)
+        
+        # Where was this same cloud 15 minutes ago? (1 frame back)
+        prev1_x = int(round(curr_src_x - vx))
+        prev1_y = int(round(curr_src_y - vy))
+        prev1_dbz = self.get_dbz_at_pixel(frames[-2], prev1_x, prev1_y)
+        
+        # Where was this same cloud 30 minutes ago? (2 frames back)
+        prev2_x = int(round(curr_src_x - 2 * vx))
+        prev2_y = int(round(curr_src_y - 2 * vy))
+        prev2_dbz = self.get_dbz_at_pixel(frames[-3], prev2_x, prev2_y)
+        
+        # Use the oldest valid dBZ as the baseline
+        past_dbz = prev2_dbz if prev2_dbz > 0 else prev1_dbz
+        
+        if curr_dbz == 0 and past_dbz == 0:
+            return 0.0
+        elif curr_dbz > 0 and past_dbz == 0:
+            return 50.0  # Formed
+        elif curr_dbz == 0 and past_dbz > 0:
+            return -100.0 # Dissipated
+            
+        growth_pct = ((curr_dbz - past_dbz) / past_dbz) * 100.0
+        return max(-100.0, min(100.0, growth_pct))
+
     async def fetch_latest_image_bytes(self) -> Optional[bytes]:
         """Fetches the latest static radar image (Polling method)."""
         import httpx
