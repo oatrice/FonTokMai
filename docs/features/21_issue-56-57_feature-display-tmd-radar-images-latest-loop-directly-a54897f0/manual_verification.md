@@ -113,3 +113,28 @@
 - **รูปแบบเวลา** = `~27m`, `~2h14m` (แทนตัวเลขนาทีล้วน)
 ![Rain Timeline](rain_timeline.png)
 
+---
+
+### 🔍 Additional Analyses & Visualizations
+
+ภาพการทดสอบและการวิเคราะห์เพิ่มเติมระหว่างการพัฒนาระบบ:
+
+#### Cloud Trajectory
+แสดงวิถีการเคลื่อนที่ของกลุ่มเมฆฝน (Trajectory)
+![Cloud Trajectory](cloud_trajectory.png)
+
+#### Flow Method Comparison
+เปรียบเทียบความแม่นยำของ Optical Flow ระหว่างวิธีต่างๆ
+![Flow Method Comparison](flow_method_comparison.png)
+
+#### Grid Overlay
+แสดงพิกัดกริดทับลงบนภาพเรดาร์เพื่อทดสอบความแม่นยำของพิกัด
+![Grid Overlay](grid_overlay.png)
+
+#### Tracked Rain Only (GIF)
+ภาพเคลื่อนไหวแสดงเฉพาะมวลฝนที่ถูกแยกออกมาติดตามการเติบโต/หดตัว
+![Tracked Rain Only](tracked_rain_only.gif)
+
+#### Vector Comparison
+เปรียบเทียบเวกเตอร์ทิศทางลมในหลากหลายมุมและเทคนิค
+![Vector Comparison](vector_comparison.png)
