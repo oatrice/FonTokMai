@@ -76,3 +76,40 @@
 #### 7. Multi-User Processing — Flow คำนวณครั้งเดียว ใช้กับทุก User
 ภาพแสดงการประมวลผลพร้อมกัน 2 พิกัด บน optical flow ชุดเดียวกัน แต่ละก้อนเมฆได้รับ ETA แยกกันตามระยะห่างจริงของแต่ละ user
 ![Multi User Cloud Tracking](multi_user_cloud_tracking.png)
+
+---
+
+### ✅ Production Integration
+
+#### สิ่งที่ integrate เข้า production แล้ว
+
+| ไฟล์ | Method | หน้าที่ |
+|---|---|---|
+| `tmd_radar_processor.py` | `find_approaching_clouds()` | Dot-product scan + cluster + growth rate |
+| `tmd_radar_processor.py` | `render_rain_summary()` | Smart summary text (3 cases, ไม่ซ้ำซ้อน) |
+| `weather_manager.py` | `_get_tmd_prediction()` | ใช้ algorithm ใหม่ทั้งหมด, return `rain_summary` field |
+| `webhook.py` | message formatter | ใช้ `rain_summary` แทน growth_rate_pct เดิม |
+| `scheduler_tasks.py` | message formatter | ใช้ `rain_summary` แทน growth_rate_pct เดิม |
+
+#### Rain Summary Output (3 กรณี)
+
+```
+# กรณีที่ 1: ก้อนแรก = ก้อนหนักสุด (merge เป็น 1 บรรทัด)
+⚡ ฝนกำลังจะมาใน ~27m (25 dBZ — ฝนปานกลาง)
+
+# กรณีที่ 2: มีก้อนหนักกว่าตามมา (2 บรรทัด คนละความหมาย)
+⏱ ฝนก้อนแรกใน ~27m (25 dBZ — ฝนปานกลาง)
+⚡ ก้อนหนักกว่ามาทีหลัง ~45m (55 dBZ — ฝนหนักมาก)
+
+# กรณีที่ 3: ไม่มีฝนในโซนเชื่อถือได้ (90 นาที)
+ℹ️ ไม่พบฝนในระยะ 90 นาทีข้างหน้า
+```
+
+#### Timeline Image (rain_timeline.png)
+- แสดงก้อนเมฆทุกก้อนที่กำลังเข้าหา user เรียงตาม ETA
+- **เส้นประสีน้ำเงิน** = confidence boundary ที่ 90 นาที (หลังจากนี้ไม่น่าเชื่อถือ)
+- **โซนสีเข้ม** = ช่วงเวลาที่ไม่แน่นอน (bar จะซีดลง)
+- **ความสูง bar** = DBZ ที่คาดว่าจะถึงเมื่อมาถึง (รวม growth/decay rate แล้ว)
+- **รูปแบบเวลา** = `~27m`, `~2h14m` (แทนตัวเลขนาทีล้วน)
+![Rain Timeline](rain_timeline.png)
+

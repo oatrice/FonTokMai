@@ -180,14 +180,19 @@ async def check_rain_and_alert():
                     if eta_minutes > 0 and wind_speed_kmh > 0:
                         text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\n"
                         
-                    growth_rate = result.get("growth_rate_pct")
-                    if growth_rate is not None:
-                        if growth_rate > 5.0:
-                            text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%)\n"
-                        elif growth_rate < -5.0:
-                            text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%)\n"
-                        else:
-                            text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
+                    # Use smart rain_summary from new approaching-cloud detector if available
+                    rain_summary = result.get("rain_summary")
+                    if rain_summary:
+                        text += f"{rain_summary}\n"
+                    else:
+                        growth_rate = result.get("growth_rate_pct")
+                        if growth_rate is not None:
+                            if growth_rate > 5.0:
+                                text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%)\n"
+                            elif growth_rate < -5.0:
+                                text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%)\n"
+                            else:
+                                text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
                             
                     text += f"📡 แหล่งข้อมูล: {source_name}\n"
                     

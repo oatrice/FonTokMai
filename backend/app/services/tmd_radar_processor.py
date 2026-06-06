@@ -350,6 +350,138 @@ class TMDRadarProcessor:
                         max_dbz = d
         return max_dbz
 
+    def find_approaching_clouds(
+        self,
+        curr_frame: np.ndarray,
+        prev_frame: np.ndarray,
+        flow: np.ndarray,
+        user_x: int,
+        user_y: int,
+        search_radius: int = 80,
+        min_dbz: float = 20.0,
+        cluster_dist: int = 20,
+    ) -> list:
+        """
+        Scans all rain pixels within search_radius of (user_x, user_y).
+        Keeps only pixels whose flow vector points TOWARD the user (dot product > 0).
+        Clusters nearby pixels (weighted by dBZ) into distinct cloud groups.
+        Returns a list of dicts sorted by ETA (soonest first), each containing:
+          cx, cy, dbz_now, dbz_prev, growth_rate, predicted_dbz, dist, eta_min
+        """
+        import math
+        candidates = []
+        for dy in range(-search_radius, search_radius + 1, 2):
+            for dx in range(-search_radius, search_radius + 1, 2):
+                sx = user_x + dx
+                sy = user_y + dy
+                if not (0 <= sx < curr_frame.shape[1] and 0 <= sy < curr_frame.shape[0]):
+                    continue
+                d = self.get_dbz_at_pixel(curr_frame, sx, sy)
+                if d < min_dbz:
+                    continue
+                cvx, cvy = self.get_flow_vector_at(flow, sx, sy)
+                to_x = user_x - sx
+                to_y = user_y - sy
+                dist = math.sqrt(to_x ** 2 + to_y ** 2)
+                if dist == 0:
+                    continue
+                dot = (cvx * to_x + cvy * to_y) / dist
+                if dot <= 0:
+                    continue
+                # Previous DBZ at the backward-traced position
+                prev_x = int(round(sx - cvx))
+                prev_y = int(round(sy - cvy))
+                d_prev = self.get_dbz_at_pixel(prev_frame, prev_x, prev_y) if prev_frame is not None else d
+                candidates.append((sx, sy, cvx, cvy, d, d_prev, dist, dot))
+
+        if not candidates:
+            return []
+
+        clusters = []
+        used = [False] * len(candidates)
+        for i, c in enumerate(candidates):
+            if used[i]:
+                continue
+            group = [c]
+            used[i] = True
+            for j, c2 in enumerate(candidates):
+                if used[j]:
+                    continue
+                if math.sqrt((c[0] - c2[0]) ** 2 + (c[1] - c2[1]) ** 2) < cluster_dist:
+                    group.append(c2)
+                    used[j] = True
+
+            total_w = sum(g[4] for g in group)
+            cx = int(sum(g[0] * g[4] for g in group) / total_w)
+            cy = int(sum(g[1] * g[4] for g in group) / total_w)
+            avg_vx = sum(g[2] for g in group) / len(group)
+            avg_vy = sum(g[3] for g in group) / len(group)
+            dbz_now  = max(g[4] for g in group)
+            dbz_prev = max(g[5] for g in group)
+            dist_c   = math.sqrt((cx - user_x) ** 2 + (cy - user_y) ** 2)
+            dot_c    = sum(g[7] for g in group) / len(group)
+            eta_min  = (dist_c / max(0.1, dot_c)) * 15.0
+
+            growth_rate   = (dbz_now - dbz_prev) / dbz_prev if dbz_prev > 0 else 0.0
+            eta_steps     = eta_min / 15.0
+            predicted_dbz = max(0.0, min(75.0, dbz_now * ((1 + growth_rate) ** eta_steps)))
+
+            clusters.append({
+                "cx": cx, "cy": cy,
+                "vx": avg_vx, "vy": avg_vy,
+                "dbz_now": dbz_now,
+                "dbz_prev": dbz_prev,
+                "growth_rate": growth_rate,
+                "predicted_dbz": predicted_dbz,
+                "dist": dist_c,
+                "eta_min": eta_min,
+            })
+
+        clusters.sort(key=lambda c: c["eta_min"])
+        return clusters
+
+    @staticmethod
+    def render_rain_summary(clouds: list, confidence_cutoff_min: int = 90) -> str:
+        """
+        Generates a smart, non-redundant rain summary line for Telegram.
+
+        - If no reliable clouds: returns a 'no rain' message.
+        - If first cloud = strongest: merges into one line.
+        - If a stronger cloud follows: shows two distinct lines.
+        """
+        def fmt_eta(minutes: float) -> str:
+            m = int(round(minutes))
+            if m < 60:
+                return f"~{m}m"
+            h = m // 60
+            r = m % 60
+            return f"~{h}h{r}m" if r else f"~{h}hr"
+
+        def dbz_label(dbz: float) -> str:
+            if dbz >= 55: return "ฝนหนักมาก"
+            if dbz >= 40: return "ฝนหนัก"
+            if dbz >= 25: return "ฝนปานกลาง"
+            return "ฝนเบา"
+
+        reliable = [c for c in clouds if c["predicted_dbz"] >= 15 and c["eta_min"] <= confidence_cutoff_min]
+
+        if not reliable:
+            return "ℹ️ ไม่พบฝนในระยะ 90 นาทีข้างหน้า"
+
+        first    = reliable[0]
+        strongest = max(reliable, key=lambda c: c["predicted_dbz"])
+
+        if first is strongest:
+            lbl = dbz_label(first["predicted_dbz"])
+            return f"⚡ ฝนกำลังจะมาใน {fmt_eta(first['eta_min'])} ({int(first['predicted_dbz'])} dBZ — {lbl})"
+        else:
+            lbl_f = dbz_label(first["predicted_dbz"])
+            lbl_s = dbz_label(strongest["predicted_dbz"])
+            return (
+                f"⏱ ฝนก้อนแรกใน {fmt_eta(first['eta_min'])} ({int(first['predicted_dbz'])} dBZ — {lbl_f})\n"
+                f"⚡ ก้อนหนักกว่ามาทีหลัง {fmt_eta(strongest['eta_min'])} ({int(strongest['predicted_dbz'])} dBZ — {lbl_s})"
+            )
+
     def calculate_lagrangian_growth(self, frames: list, flow: np.ndarray, target_x: int, target_y: int, steps_ahead: int, max_lookback_frames: int = 2) -> float:
         """
         Calculates the true growth of the specific air mass that will hit target_x, target_y in `steps_ahead` frames.

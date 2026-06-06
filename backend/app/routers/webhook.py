@@ -91,15 +91,21 @@ def _build_forecast_text(result: dict) -> str:
         wind_dir = result.get("wind_dir_text", "ไม่ทราบ")
         if wind_kmh > 0:
             text += f"🌬️ สภาพลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
-            
-        growth_rate = result.get("growth_rate_pct")
-        if growth_rate is not None:
-            if growth_rate > 5.0:
-                text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%)\n"
-            elif growth_rate < -5.0:
-                text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%)\n"
-            else:
-                text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
+
+        # Use smart rain_summary from new approaching-cloud detector if available
+        rain_summary = result.get("rain_summary")
+        if rain_summary:
+            text += f"{rain_summary}\n"
+        else:
+            # Fallback: legacy growth_rate_pct display
+            growth_rate = result.get("growth_rate_pct")
+            if growth_rate is not None:
+                if growth_rate > 5.0:
+                    text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%)\n"
+                elif growth_rate < -5.0:
+                    text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%)\n"
+                else:
+                    text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
     else:
         text = f"ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
 

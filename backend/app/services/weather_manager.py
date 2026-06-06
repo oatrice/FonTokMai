@@ -179,6 +179,8 @@ class WeatherManager:
     async def _get_tmd_prediction(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
         """
         Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
+        Uses dot-product approach vector filter to find approaching cloud clusters,
+        then ranks by ETA and generates a smart summary with growth/decay rates.
         """
         import cv2
         import numpy as np
@@ -187,112 +189,128 @@ class WeatherManager:
             try:
                 processor = TMDRadarProcessor(station_code)
                 px, py = processor.latlng_to_pixel(lat, lng)
-                if px is not None and py is not None:
-                    frames = await processor.fetch_loop_gif_and_extract_frames()
-                    if not frames or len(frames) < 2:
-                        continue
-                        
-                    # Calculate optical flow from the last two frames
-                    flow = processor.calculate_optical_flow(frames)
-                    latest_frame = frames[-1]
-                    
-                    # 1st Pass: Find which future step will bring the heaviest rain
-                    max_raw_dbz = 0.0
+                if px is None or py is None:
+                    continue
+
+                frames = await processor.fetch_loop_gif_and_extract_frames()
+                if not frames or len(frames) < 2:
+                    continue
+
+                flow = processor.calculate_optical_flow(frames)
+                curr_frame = frames[-1]
+                prev_frame = frames[-2]
+
+                # Find all cloud clusters approaching the user
+                clouds = processor.find_approaching_clouds(
+                    curr_frame, prev_frame, flow, px, py,
+                    search_radius=80, min_dbz=20.0, cluster_dist=20,
+                )
+
+                # Apply mock overrides
+                if mock_state == "rain":
+                    if not clouds:
+                        clouds = [{"eta_min": 10, "dbz_now": 40, "dbz_prev": 35,
+                                   "growth_rate": 0.14, "predicted_dbz": 40,
+                                   "dist": 10, "cx": px, "cy": py, "vx": 0, "vy": 0}]
+                    else:
+                        for c in clouds:
+                            c["dbz_now"]       = max(c["dbz_now"], 40.0)
+                            c["predicted_dbz"] = max(c["predicted_dbz"], 40.0)
+                elif mock_state == "clear":
+                    clouds = []
+
+                # Generate smart summary text
+                summary_line = processor.render_rain_summary(clouds, confidence_cutoff_min=90)
+
+                # Build predictions array (keep legacy format for downstream consumers)
+                def dbz_to_intensity(d: float) -> str:
+                    if d >= 55: return "ฝนตกหนักมาก"
+                    if d >= 35: return "ฝนตกหนัก"
+                    if d >= 20: return "ฝนตกปานกลาง"
+                    if d > 0:   return "ฝนตกเล็กน้อย"
+                    return "ไม่มีฝน"
+
+                from datetime import datetime, timedelta, timezone
+                now_utc = datetime.now(timezone.utc)
+
+                # Use closest approaching cloud for step-by-step predictions
+                if clouds:
+                    first_cloud = clouds[0]
+                    rate = first_cloud["growth_rate"]
                     max_step = 0
+                    max_raw_dbz = 0.0
                     for steps in range(5):
-                        dbz = processor.extrapolate_rain_at_pixel(latest_frame, flow, px, py, steps, rate=0.0)
+                        dbz = processor.extrapolate_rain_at_pixel(curr_frame, flow, px, py, steps, rate=0.0)
                         if dbz > max_raw_dbz:
                             max_raw_dbz = dbz
                             max_step = steps
-                            
-                    # Calculate true Lagrangian Growth based on the heaviest incoming cloud
-                    if max_raw_dbz > 0:
-                        percent_change = processor.calculate_lagrangian_growth(frames, flow, px, py, max_step)
-                    else:
-                        percent_change = 0.0
-                        
-                    rate = percent_change / 100.0
-                    
-                    predictions = []
-                    max_dbz = 0.0
-                    
-                    def dbz_to_intensity(d: float) -> str:
-                        if d >= 55: return "ฝนตกหนักมาก"
-                        elif d >= 35: return "ฝนตกหนัก"
-                        elif d >= 20: return "ฝนตกปานกลาง"
-                        elif d > 0:  return "ฝนตกเล็กน้อย"
-                        else: return "ไม่มีฝน"
-                    
-                    from datetime import datetime, timedelta, timezone
-                    now_utc = datetime.now(timezone.utc)
-                    
-                    # 2nd Pass: Calculate predictions with the applied growth rate
-                    for steps in range(5):
-                        dbz = processor.extrapolate_rain_at_pixel(latest_frame, flow, px, py, steps, rate=rate)
-                        
-                        if mock_state == "rain":
-                            dbz = max(dbz, 40.0)
-                        elif mock_state == "clear":
-                            dbz = 0.0
-                            
-                        if dbz > max_dbz:
-                            max_dbz = dbz
-                            
-                        pred_time = now_utc + timedelta(minutes=steps * 15)
-                        
-                        # Convert dBZ to mm/hr using standard Marshall-Palmer: Z = 200 * R^1.6
-                        z_value = 10 ** (dbz / 10.0)
-                        rain_mmhr = (z_value / 200.0) ** (1.0 / 1.6) if dbz > 0 else 0.0
-                            
-                        predictions.append({
-                            "time": pred_time.isoformat().replace("+00:00", "Z"),
-                            "time_offset": steps * 15,
-                            "intensity": dbz_to_intensity(dbz),
-                            "dbz": float(dbz),
-                            "rain": float(rain_mmhr)
-                        })
-                        
-                    current_dbz = predictions[0]["dbz"]
-                    intensity = predictions[0]["intensity"]
-                    wind_speed = processor.get_wind_speed_kmh(flow, px, py)
+                else:
+                    rate = 0.0
 
-                    # Draw pins on all frames and generate GIF bytes
-                    gif_bytes = None
-                    static_bytes = None
-                    try:
-                        import io
-                        from PIL import Image
-                        pil_frames = []
-                        for frame in frames:
-                            processor.draw_pin_on_frame(frame, px, py)
-                            pil_frames.append(Image.fromarray(frame))
-                            
-                        if pil_frames:
-                            buffer = io.BytesIO()
-                            # Increase duration to 500ms to slow down the animation
-                            pil_frames[0].save(buffer, save_all=True, append_images=pil_frames[1:], format='GIF', loop=0, duration=500)
-                            gif_bytes = buffer.getvalue()
-                            
-                            static_buffer = io.BytesIO()
-                            pil_frames[-1].save(static_buffer, format='PNG')
-                            static_bytes = static_buffer.getvalue()
-                    except Exception as e:
-                        logger.error(f"Failed to generate radar GIF: {e}")
+                predictions = []
+                max_dbz = 0.0
+                for steps in range(5):
+                    dbz = processor.extrapolate_rain_at_pixel(curr_frame, flow, px, py, steps, rate=rate)
+                    if mock_state == "rain":
+                        dbz = max(dbz, 40.0)
+                    elif mock_state == "clear":
+                        dbz = 0.0
+                    if dbz > max_dbz:
+                        max_dbz = dbz
+                    pred_time  = now_utc + timedelta(minutes=steps * 15)
+                    z_value    = 10 ** (dbz / 10.0)
+                    rain_mmhr  = (z_value / 200.0) ** (1.0 / 1.6) if dbz > 0 else 0.0
+                    predictions.append({
+                        "time":        pred_time.isoformat().replace("+00:00", "Z"),
+                        "time_offset": steps * 15,
+                        "intensity":   dbz_to_intensity(dbz),
+                        "dbz":         float(dbz),
+                        "rain":        float(rain_mmhr),
+                    })
 
-                    return {
-                        "predictions": predictions,
-                        "intensity": intensity,
-                        "max_rain": max(p["rain"] for p in predictions) if predictions else 0.0,
-                        "max_dbz": float(max_dbz),
-                        "duration_minutes": sum(15 for p in predictions if p["dbz"] > 0),
-                        "wind_speed_kmh": round(wind_speed, 1),
-                        "endpoint": f"tmd-radar ({station_code})",
-                        "growth_rate_pct": percent_change,
-                        "radar_gif_bytes": gif_bytes,
-                        "radar_static_bytes": static_bytes
-                    }
+                current_dbz = predictions[0]["dbz"]
+                intensity   = predictions[0]["intensity"]
+                wind_speed  = processor.get_wind_speed_kmh(flow, px, py)
+                percent_change = (clouds[0]["growth_rate"] * 100.0) if clouds else 0.0
+
+                # Draw pins on all frames and generate GIF bytes
+                gif_bytes    = None
+                static_bytes = None
+                try:
+                    import io
+                    from PIL import Image
+                    pil_frames = []
+                    for frame in frames:
+                        processor.draw_pin_on_frame(frame, px, py)
+                        pil_frames.append(Image.fromarray(frame))
+                    if pil_frames:
+                        buffer = io.BytesIO()
+                        pil_frames[0].save(buffer, save_all=True, append_images=pil_frames[1:],
+                                           format='GIF', loop=0, duration=500)
+                        gif_bytes = buffer.getvalue()
+                        static_buffer = io.BytesIO()
+                        pil_frames[-1].save(static_buffer, format='PNG')
+                        static_bytes = static_buffer.getvalue()
+                except Exception as e:
+                    logger.error(f"Failed to generate radar GIF: {e}")
+
+                return {
+                    "predictions":       predictions,
+                    "intensity":         intensity,
+                    "max_rain":          max(p["rain"] for p in predictions) if predictions else 0.0,
+                    "max_dbz":           float(max_dbz),
+                    "duration_minutes":  sum(15 for p in predictions if p["dbz"] > 0),
+                    "wind_speed_kmh":    round(wind_speed, 1),
+                    "endpoint":          f"tmd-radar ({station_code})",
+                    "growth_rate_pct":   percent_change,
+                    "approaching_clouds": clouds,
+                    "rain_summary":      summary_line,
+                    "radar_gif_bytes":   gif_bytes,
+                    "radar_static_bytes": static_bytes,
+                }
             except Exception as e:
                 logger.warning(f"Failed to process TMD radar {station_code}: {e}")
                 pass
-                
+
         raise Exception("Location out of bounds for active TMD Radars.")
+
