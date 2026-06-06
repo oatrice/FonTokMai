@@ -59,7 +59,7 @@ async def test_fetch_loop_gif_and_extract_frames():
                 mock_np_array.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
                 mock_iterator.return_value = [mock_frame] * 6
                 
-                frames = await processor.fetch_loop_gif_and_extract_frames()
+                frames, dt = await processor.fetch_loop_gif_and_extract_frames()
                 
                 assert len(frames) == 6
                 assert frames[0].shape == (100, 100, 3)
@@ -209,7 +209,8 @@ def test_extrapolate_rain_at_pixel():
         assert dbz_future == 35.0
         
         # After 1 step, it should be at (25, 25), so target (30, 30) should have 0 dBZ.
-        dbz_1step = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=1)
+        # We pass radius=0 because the new default radius=5 would still find the pixel at (20, 20).
+        dbz_1step = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=1, radius=0)
         assert dbz_1step == 0.0
 
 def test_draw_pin_on_frame():
