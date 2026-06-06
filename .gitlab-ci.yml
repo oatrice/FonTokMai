@@ -74,7 +74,8 @@ deploy_cloud_run:
       DEVELOPER_CHAT_IDS=${DEVELOPER_CHAT_IDS},\
       ENVIRONMENT=production,\
       CRON_SECRET=${CRON_SECRET},\
-      STORAGE_BACKEND=firestore"
+      STORAGE_BACKEND=firestore,\
+      FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}"
     # Update Telegram Webhook
     - |
       CLOUD_RUN_URL=$(gcloud run services describe fontokmai-api \
