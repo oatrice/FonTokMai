@@ -435,12 +435,17 @@ class TMDRadarProcessor:
                 continue
             group = [c]
             used[i] = True
-            for j, c2 in enumerate(candidates):
-                if used[j]:
-                    continue
-                if math.sqrt((c[0] - c2[0]) ** 2 + (c[1] - c2[1]) ** 2) < cluster_dist:
-                    group.append(c2)
-                    used[j] = True
+            
+            # Use BFS to find all connected pixels (Connected Components)
+            queue = [c]
+            while queue:
+                curr = queue.pop(0)
+                for j, c2 in enumerate(candidates):
+                    if not used[j]:
+                        if math.sqrt((curr[0] - c2[0]) ** 2 + (curr[1] - c2[1]) ** 2) < cluster_dist:
+                            group.append(c2)
+                            used[j] = True
+                            queue.append(c2)
 
             total_w = sum(g[4] for g in group)
             cx = int(sum(g[0] * g[4] for g in group) / total_w)

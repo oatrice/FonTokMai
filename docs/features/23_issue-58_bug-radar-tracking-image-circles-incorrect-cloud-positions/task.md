@@ -1,0 +1,5 @@
+- [x] Write a failing test for `find_approaching_clouds` demonstrating the single-pass clustering bug (Red).
+- [x] Implement BFS-based Connected Components clustering in `tmd_radar_processor.py` (Green).
+- [x] Verify test passes and visual output looks correct.
+- [x] Refactor code if needed and write `walkthrough.md`.
+- [x] Notify task completion.
