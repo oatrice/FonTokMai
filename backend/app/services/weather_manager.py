@@ -251,8 +251,9 @@ class WeatherManager:
                             steps_ago = num_frames - 1 - i
                             cx_i = int(cx - steps_ago * vx)
                             cy_i = int(cy - steps_ago * vy)
-                            # Make the blobs slightly larger so they merge into a solid wall
-                            cv2.circle(f, (cx_i, cy_i), 22, mc["color"], -1)
+                            if mock_state == "storm":
+                                # Make the blobs slightly larger so they merge into a solid wall
+                                cv2.circle(f, (cx_i, cy_i), 22, mc["color"], -1)
                     else:
                         # If there ARE real clouds and mock_state == "rain", we just boost their intensity
                         # to simulate heavier rain without injecting fake clouds.
