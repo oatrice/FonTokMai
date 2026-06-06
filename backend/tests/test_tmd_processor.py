@@ -98,23 +98,22 @@ async def test_latlng_to_pixel():
 async def test_extract_dbz_from_image():
     processor = TMDRadarProcessor(station_code="kkn120")
     
-    # Create a dummy image array (Height, Width, Channels) - BGR for OpenCV
-    # Let's make it a 100x100 RGB image filled with black
+    # Frames from PIL are in RGB format (not BGR).
+    # DBZ_COLOR_MAPPING keys are also RGB tuples.
     img = np.zeros((100, 100, 3), dtype=np.uint8)
     
-    # Draw a 50 dBZ red box in the middle (BGR format in OpenCV)
-    red_color = (0, 0, 255) # B,G,R for Red
-    # OpenCV uses BGR by default when reading, and processor unpacks as b,g,r
+    # 50 dBZ = Red in RGB: (255, 0, 0)
+    red_color = (255, 0, 0)  # R, G, B — pure red = 50 dBZ
     img[40:60, 40:60] = red_color
     
-    # Draw a 20 dBZ green box
-    green_color = (0, 255, 0) # B,G,R for Green
+    # 20 dBZ = Green in RGB: (0, 255, 0)
+    green_color = (0, 255, 0)  # R, G, B — pure green = 20 dBZ
     img[10:30, 10:30] = green_color
     
     # Test coordinate mapping to DBZ
     # For a red pixel
     dbz_red = processor.get_dbz_at_pixel(img, x=50, y=50)
-    assert dbz_red == 50.0 # Red maps to 50 dBZ
+    assert dbz_red == 50.0  # Red maps to 50 dBZ
     
     # For a green pixel
     dbz_green = processor.get_dbz_at_pixel(img, x=20, y=20)
@@ -123,6 +122,7 @@ async def test_extract_dbz_from_image():
     # For a black background pixel
     dbz_black = processor.get_dbz_at_pixel(img, x=5, y=5)
     assert dbz_black == 0.0
+
 
 @pytest.mark.asyncio
 async def test_optical_flow_motion_prediction():

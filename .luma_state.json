@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 58,
@@ -16,7 +16,9 @@
   "active_branch": "feat/58-bug-radar-tracking-image-circl",
   "started_at": "2026-06-06T20:24:40.477697",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -131,5 +133,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-06T20:24:43.412015"
+  "last_updated": "2026-06-06T21:06:24.934362"
 }
