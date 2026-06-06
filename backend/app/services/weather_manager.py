@@ -208,13 +208,22 @@ class WeatherManager:
                             clouds = []  # Forcefully clear real clouds to ensure mock storm always shows
                         mock_configs = []
                         if mock_state == "storm":
-                            # 5-color huge broad front
+                            # 5-color huge broad front (randomized for testing)
+                            import random
+                            intensities = [
+                                ((46, 204, 113), 25.0),  # Green
+                                ((241, 196, 15), 35.0),  # Yellow
+                                ((243, 156, 18), 45.0),  # Orange
+                                ((231, 76, 60),  55.0),  # Red
+                                ((155, 89, 182), 65.0),  # Purple
+                            ]
+                            random.shuffle(intensities)
                             bands = [
-                                {"color": (46, 204, 113),  "dbz": 25.0, "base_offset": (-5, 5),   "eta": 0},  # Green
-                                {"color": (241, 196, 15),  "dbz": 35.0, "base_offset": (-20, 20), "eta": 5},  # Yellow
-                                {"color": (243, 156, 18),  "dbz": 45.0, "base_offset": (-35, 35), "eta": 10}, # Orange
-                                {"color": (231, 76, 60),   "dbz": 55.0, "base_offset": (-50, 50), "eta": 15}, # Red
-                                {"color": (155, 89, 182),  "dbz": 65.0, "base_offset": (-65, 65), "eta": 20}, # Purple
+                                {"color": intensities[0][0], "dbz": intensities[0][1], "base_offset": (-5, 5),   "eta": 0},
+                                {"color": intensities[1][0], "dbz": intensities[1][1], "base_offset": (-20, 20), "eta": 5},
+                                {"color": intensities[2][0], "dbz": intensities[2][1], "base_offset": (-35, 35), "eta": 10},
+                                {"color": intensities[3][0], "dbz": intensities[3][1], "base_offset": (-50, 50), "eta": 15},
+                                {"color": intensities[4][0], "dbz": intensities[4][1], "base_offset": (-65, 65), "eta": 20},
                             ]
                         else:
                             # Just a simple rain cell for normal testing when sky is clear
