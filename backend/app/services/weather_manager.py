@@ -278,6 +278,7 @@ class WeatherManager:
 
                 # Draw pins on all frames and generate GIF bytes
                 gif_bytes    = None
+                hq_gif_bytes = None
                 static_bytes = None
                 try:
                     import io
@@ -319,6 +320,7 @@ class WeatherManager:
                         pil_frames.append(img)
                     if pil_frames:
                         buffer = io.BytesIO()
+                        hq_buffer = io.BytesIO()
                         # Telegram converts GIFs to MP4 and ignores variable durations.
                         # To freeze the last frame for 2 seconds (4 * 500ms), we duplicate it 4 times.
                         if len(pil_frames) > 0:
@@ -329,6 +331,10 @@ class WeatherManager:
                         pil_frames[0].save(buffer, save_all=True, append_images=pil_frames[1:],
                                            format='GIF', loop=0, duration=500, optimize=True)
                         gif_bytes = buffer.getvalue()
+                        
+                        pil_frames[0].save(hq_buffer, save_all=True, append_images=pil_frames[1:],
+                                           format='GIF', loop=0, duration=500, optimize=False)
+                        hq_gif_bytes = hq_buffer.getvalue()
                         static_buffer = io.BytesIO()
                         pil_frames[-1].save(static_buffer, format='PNG')
                         static_bytes = static_buffer.getvalue()
@@ -353,6 +359,7 @@ class WeatherManager:
                     "approaching_clouds": clouds,
                     "rain_summary":      summary_line,
                     "radar_gif_bytes":   gif_bytes,
+                    "radar_hq_gif_bytes": hq_gif_bytes,
                     "radar_static_bytes": static_bytes,
                     "radar_tracking_bytes": tracking_bytes,
                     "rain_timeline_bytes": timeline_bytes,
