@@ -1,144 +1,15 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
-  "active_issues": [
-    {
-      "number": 58,
-      "title": "Bug: Radar tracking image circles incorrect cloud positions",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/58",
-      "body": null,
-      "project_item_id": "GLAB_58",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    }
-  ],
-  "active_branch": "feat/58-bug-radar-tracking-image-circl",
-  "started_at": "2026-06-06T20:24:40.477697",
-  "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
-  },
-  "context": {
-    "pending_doc_updates": {
-      "pending": [
-        "README.md"
-      ],
-      "changed_files": [
-        "CHANGELOG.md",
-        "VERSION",
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/ocr_service.py",
-        "backend/app/services/tmd_radar_processor.py",
-        "backend/app/services/weather_manager.py",
-        "backend/test_tracking_image.py",
-        "backend/tests/analyze_image.py",
-        "backend/tests/analyze_image2.py",
-        "backend/tests/debug_rain_final.png",
-        "backend/tests/fetch_background_colors.py",
-        "backend/tests/fetch_real_radar.py",
-        "backend/tests/test_clustering.py",
-        "backend/tests/test_tmd_processor.py",
-        "backend/tests/test_visual_bug.py",
-        "backend/tests/test_visualize.py",
-        "docs/ROADMAP.md",
-        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/comparison_before_after.png",
-        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/debug_rain_pixels.png",
-        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/debug_rain_pixels_fixed.png",
-        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/implementation_plan.md",
-        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/manual_verification.md",
-        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/synthetic_tracking_result.png",
-        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/task.md",
-        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/walkthrough.md",
-        "gitlab-ci.yml",
-        "luma_metrics.json",
-        "luma_state.json"
-      ],
-      "meaningful_files": [
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/ocr_service.py",
-        "backend/app/services/tmd_radar_processor.py",
-        "backend/app/services/weather_manager.py",
-        "gitlab-ci.yml",
-        "luma_metrics.json",
-        "luma_state.json"
-      ],
-      "version_file": "VERSION",
-      "has_meaningful_changes": true
-    },
-    "target_planning_repos": [
-      {
-        "name": "FonMaYang",
-        "path": "/Users/oatrice/Software-projects/FonMaYang",
-        "repo": "oatricedev/FonMaYang",
-        "kanban_number": 1,
-        "kanban_id": "",
-        "status_workflow": {
-          "selectable_statuses": [
-            "Ready",
-            "In Progress",
-            "Todo"
-          ],
-          "selection_order": [
-            "In Progress",
-            "Ready",
-            "Todo"
-          ],
-          "active_statuses": [
-            "Backlog",
-            "Ready",
-            "Todo",
-            "In Progress",
-            "In Review"
-          ],
-          "active_sort_order": [
-            "In Progress",
-            "Ready",
-            "Todo",
-            "In Review",
-            "Backlog"
-          ],
-          "board_order": [
-            "Backlog",
-            "Ready",
-            "Todo",
-            "In Progress",
-            "In Review",
-            "Done",
-            "Closed"
-          ],
-          "done_statuses": [
-            "Done",
-            "Closed"
-          ],
-          "status_icons": {
-            "Backlog": "📥 ",
-            "Ready": "✅ ",
-            "Todo": "📝 ",
-            "In Progress": "🔥 ",
-            "In Review": "👀 ",
-            "Done": "✅ ",
-            "Closed": "✅ "
-          },
-          "action_status_map": {
-            "select_issue": "In Progress",
-            "create_pr": "In Review",
-            "pr_merged": "Done"
-          }
-        }
-      }
-    ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions"
-  },
+  "phase": "idle",
+  "active_issues": [],
+  "active_branch": null,
+  "started_at": null,
+  "checklist": {},
+  "context": {},
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/23",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-07T00:49:42.732331"
+  "last_updated": "2026-06-07T00:56:18.790093"
 }
