@@ -581,8 +581,6 @@ class TMDRadarProcessor:
         draw.text((x_90 + 5, 60), "Confidence\nBoundary", fill=(74, 144, 226, 200), font=font_small)
         
         base_x = time_to_x(0)
-        draw.text((time_to_x(-30)-20, baseline_y + 15), "◀ PAST", fill=(150, 150, 150, 255), font=font_small)
-        draw.text((time_to_x(30)-20, baseline_y + 15), "FUTURE ▶", fill=(150, 150, 150, 255), font=font_small)
         draw.line([(base_x, 40), (base_x, height - 20)], fill=(255, 255, 255, 200), width=2)
         draw.text((base_x - 15, 25), "NOW", font=font, fill=(255, 255, 255, 255))
 

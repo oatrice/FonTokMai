@@ -295,8 +295,8 @@ class WeatherManager:
                         processor.draw_pin_on_frame(frame, px, py)
                         img = Image.fromarray(frame)
                         
-                        # Upscale slightly (1.5x) for Telegram visibility without making file size huge
-                        img = img.resize((int(img.width * 1.5), int(img.height * 1.5)), Image.Resampling.LANCZOS)
+                        # Upscale (1.9x) for Telegram visibility without exceeding 10MB
+                        img = img.resize((int(img.width * 1.9), int(img.height * 1.9)), Image.Resampling.LANCZOS)
                         
                         # Calculate time for this frame
                         frames_ago = num_frames - 1 - i
