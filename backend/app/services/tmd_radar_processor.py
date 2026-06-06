@@ -659,15 +659,23 @@ class TMDRadarProcessor:
         draw.line([(base_x, 40), (base_x, height - 20)], fill=(255, 255, 255, 200), width=2)
         draw.text((base_x - 15, 25), "NOW", font=font, fill=(255, 255, 255, 255))
 
+        # Bin clouds by X coordinate to prevent overlapping exact same ETA
+        binned_clouds = {}
+        for c in clouds:
+            eta = c["eta_min"]
+            dbz = c["predicted_dbz"]
+            x = time_to_x(eta)
+            x = max(20, min(780, x))
+            if x not in binned_clouds or dbz > binned_clouds[x]["dbz"]:
+                binned_clouds[x] = {"eta": eta, "dbz": dbz}
+
         last_x = -999
         y_offsets = {}
         
-        for c in sorted(clouds, key=lambda x: x["eta_min"]):
-            eta = c["eta_min"]
-            dbz = c["predicted_dbz"]
+        for x in sorted(binned_clouds.keys()):
+            eta = binned_clouds[x]["eta"]
+            dbz = binned_clouds[x]["dbz"]
             
-            x = time_to_x(eta)
-            x = max(20, min(780, x))
             h = int(dbz * 4)
             
             if dbz >= 60: color = (155, 89, 182, 230) # Purple
@@ -682,9 +690,12 @@ class TMDRadarProcessor:
             draw.rectangle([(x-10, baseline_y-h), (x+10, baseline_y)], fill=color)
             draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=(255, 255, 255, 255), font=font)
             
+            # Smart text offset to avoid overlapping labels
             y_off = 20
             if x - last_x < 40:
-                y_off = y_offsets.get(last_x, 20) + 20
+                # Cycle through 20, 35, 50 to prevent cascading off screen
+                prev_off = y_offsets.get(last_x, 50)
+                y_off = 35 if prev_off == 20 else (50 if prev_off == 35 else 20)
             y_offsets[x] = y_off
             last_x = x
             
