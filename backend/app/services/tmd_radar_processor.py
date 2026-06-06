@@ -583,8 +583,8 @@ class TMDRadarProcessor:
         base_x = time_to_x(0)
         draw.text((time_to_x(-30)-20, baseline_y + 15), "◀ PAST", fill=(150, 150, 150, 255), font=font_small)
         draw.text((time_to_x(30)-20, baseline_y + 15), "FUTURE ▶", fill=(150, 150, 150, 255), font=font_small)
-        draw.line([(base_x, padding_top - 10), (base_x, height - padding_bottom)], fill=(255, 255, 255, 200), width=2)
-        draw.text((base_x - 15, padding_top - 25), "NOW", font=font, fill=(255, 255, 255, 255))
+        draw.line([(base_x, 40), (base_x, height - 20)], fill=(255, 255, 255, 200), width=2)
+        draw.text((base_x - 15, 25), "NOW", font=font, fill=(255, 255, 255, 255))
 
         last_x = -999
         y_offsets = {}
