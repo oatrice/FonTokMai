@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-06-06
+### Added
+- Implemented an approaching cloud detector with an ETA timeline to track multi-user cloud movement.
+- Added visual radar animations (GIFs) and tracking images directly into Telegram webhook and scheduler alerts.
+- Added human-readable timestamps and visual growth/decay modeling on the radar loop frames.
+- Implemented spatial max dBZ search and lagrangian growth tracking for more robust rain intensity prediction.
+- Added various debugging and visualization scripts for flow tracking analysis.
+
+### Changed
+- Improved optical flow accuracy via rain masking and densification techniques.
+- Enhanced radar GIF visibility by extracting exact timestamps from HTML metadata, increasing font sizes, and adjusting upscale factors.
+- Sent separate unoptimized high-quality GIFs as Telegram documents alongside optimized animations for better user experience.
+
+### Fixed
+- Fixed Telegram text API and GIF upload timeouts by increasing request limits and correcting MIME types.
+- Fixed UI clutter on radar tracking images by removing unnecessary search radii, zooming into user locations, and limiting displayed clouds.
+- Fixed `NameError` and frame-freezing bugs during timeline and radar generation.
+
 ## [0.20.0] - 2026-06-06
 ### Added
 - Implemented optical flow nowcasting and rain extrapolation for TMD radar to predict rain cell movement.

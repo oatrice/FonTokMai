@@ -8,6 +8,8 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 ## Features
 - **Pluggable Architecture**: Easily switch between or combine weather providers (Xweather, Tomorrow.io, Open-Meteo, RainViewer, Rainbow, TMD Radar) with an automated fallback mechanism based on user feedback and reliability scoring.
 - **Automated TMD Radar Processing & Nowcasting**: Real-time extraction of rain intensity directly from TMD radar imagery, fully integrated as a highly accurate data source in the automated fallback system. Includes optical flow extrapolation and azimuthal projection for precise rain cell tracking and forecasting.
+- **Visual Radar Tracking & ETA Timelines**: Generates and sends high-quality radar animation loops (GIFs), tracked cloud visualizations, and human-readable ETA confidence timelines directly to users via Telegram webhooks and scheduled alerts.
+- **Advanced Lagrangian Cloud Modeling**: Employs spatial max dBZ search and lagrangian tracking to model rain cell growth, decay, and precise movement paths across multi-user environments.
 - **Natural Hazard Alerts**: Proactive monitoring for severe natural disasters including Earthquakes (via real-time EMSC WebSockets & USGS polling), Tropical Cyclones, and Wildfires, complete with broad geofencing and grouped notifications for users with multiple locations.
 - **Advanced Weather Alerts**: Proactively warns users about nearby severe weather, including convective stormcells and lightning strikes, using Xweather's premium data and Open-Meteo contingency data.
 - **Privacy-First Notifications**: On-demand location sharing via Telegram without background tracking.
@@ -54,9 +56,9 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
    ```
 5. Run the FastAPI development server:
    ```bash
-   uvicorn app.main:app --reload --port 8080
+   uvicorn app.main:app --reload --port 8081
    ```
-   *For local Telegram webhook testing, use [localtunnel](https://github.com/localtunnel/localtunnel) to expose port 8080. See `docs/development_guide.md` for details on the Two Bots Strategy.*
+   *For local Telegram webhook testing, use [localtunnel](https://github.com/localtunnel/localtunnel) to expose port 8081. See `docs/development_guide.md` for details on the Two Bots Strategy.*
 
 ### Deployment (GitLab CI -> Google Cloud Run)
 Deployment is handled automatically by GitLab CI. Pushing to the `main` branch triggers a build and deploy process using the `Dockerfile` in the `backend/` directory, updating the Telegram Webhook automatically to the new Cloud Run URL.
