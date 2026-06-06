@@ -10,7 +10,9 @@ logger = logging.getLogger(__name__)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "mock_token")
 DEVELOPER_CHAT_IDS = os.getenv("DEVELOPER_CHAT_IDS", "").split(",")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+TELEGRAM_SEND_ANIMATION_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendAnimation"
 TELEGRAM_SEND_DOC_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendDocument"
+TELEGRAM_SEND_PHOTO_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
 TELEGRAM_EDIT_MESSAGE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
 
 async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
@@ -26,14 +28,14 @@ async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_
         payload["reply_markup"] = reply_markup
         
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(TELEGRAM_EDIT_MESSAGE_URL, json=payload)
             if response.status_code != 200:
                 logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
                 return False
             return True
     except Exception as e:
-        logger.error(f"Failed to edit telegram message {message_id} in {chat_id}: {e}")
+        logger.error(f"Failed to edit telegram message {message_id} in {chat_id}: {type(e).__name__} - {e}")
         return False
 async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
     """
@@ -47,14 +49,14 @@ async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[
         payload["reply_markup"] = reply_markup
         
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(TELEGRAM_API_URL, json=payload)
             if response.status_code != 200:
                 logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
                 return False
             return True
     except Exception as e:
-        logger.error(f"Failed to send telegram message to {chat_id}: {e}")
+        logger.error(f"Failed to send telegram message to {chat_id}: {type(e).__name__} - {e}")
         return False
 
 async def send_telegram_message_return_id(chat_id: int, text: str) -> Optional[int]:
@@ -68,7 +70,7 @@ async def send_telegram_message_return_id(chat_id: int, text: str) -> Optional[i
         "text": text,
     }
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(TELEGRAM_API_URL, json=payload)
             if response.status_code != 200:
                 logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
@@ -76,18 +78,35 @@ async def send_telegram_message_return_id(chat_id: int, text: str) -> Optional[i
             data = response.json()
             return data.get("result", {}).get("message_id")
     except Exception as e:
-        logger.error(f"Failed to send telegram loading message to {chat_id}: {e}")
+        logger.error(f"Failed to send telegram loading message to {chat_id}: {type(e).__name__} - {e}")
         return None
 
 
 
 async def send_telegram_document(chat_id: int, file_data: bytes, filename: str) -> bool:
     """
-    Sends a document to a specific Telegram chat_id.
+    Sends a document/animation to a specific Telegram chat_id.
     """
     try:
-        async with httpx.AsyncClient() as client:
-            files = {"document": (filename, file_data, "application/json")}
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            files = {"animation": (filename, file_data, "image/gif")}
+            data = {"chat_id": chat_id}
+            response = await client.post(TELEGRAM_SEND_ANIMATION_URL, data=data, files=files)
+            if response.status_code != 200:
+                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+                return False
+            return True
+    except Exception as e:
+        logger.error(f"Failed to send telegram animation to {chat_id}: {e}")
+        return False
+
+async def send_telegram_raw_document(chat_id: int, file_data: bytes, filename: str) -> bool:
+    """
+    Sends a file as an uncompressed document to a specific Telegram chat_id.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            files = {"document": (filename, file_data, "image/gif")}
             data = {"chat_id": chat_id}
             response = await client.post(TELEGRAM_SEND_DOC_URL, data=data, files=files)
             if response.status_code != 200:
@@ -95,7 +114,24 @@ async def send_telegram_document(chat_id: int, file_data: bytes, filename: str) 
                 return False
             return True
     except Exception as e:
-        logger.error(f"Failed to send telegram document to {chat_id}: {e}")
+        logger.error(f"Failed to send telegram raw document to {chat_id}: {e}")
+        return False
+
+async def send_telegram_photo(chat_id: int, photo_data: bytes, filename: str) -> bool:
+    """
+    Sends a photo to a specific Telegram chat_id.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            files = {"photo": (filename, photo_data, "image/png")}
+            data = {"chat_id": chat_id}
+            response = await client.post(TELEGRAM_SEND_PHOTO_URL, data=data, files=files)
+            if response.status_code != 200:
+                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+                return False
+            return True
+    except Exception as e:
+        logger.error(f"Failed to send telegram photo to {chat_id}: {e}")
         return False
 
 def get_radar_inline_keyboard(lat: float, lng: float, is_developer: bool = False) -> dict:

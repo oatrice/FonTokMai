@@ -10,7 +10,7 @@
 1. พิมพ์คำสั่ง `/devmock rain` ใน Telegram Bot เพื่อเปิดโหมดจำลองพายุ
 2. รันคำสั่งยิงแจ้งเตือนผ่าน Terminal ของคุณ:
    ```bash
-   curl -X POST http://localhost:8000/api/v1/cron/check-rain -H "X-Cron-Secret: default_secret_for_local_testing"
+   curl -X POST http://localhost:8001/api/v1/cron/check-rain -H "X-Cron-Secret: default_secret_for_local_testing"
    ```
 3. **ผลลัพธ์ที่คาดหวังใน Telegram:**
    - ได้รับ **กล่องแรก** แจ้งเตือนฝนตกหนัก (สังเกตเครดิตด้านล่างจะเป็น `Xweather`)
@@ -26,7 +26,7 @@
 3. **สำคัญ:** ต้อง **Restart ตัว Backend Server (FastAPI/Uvicorn)** เพื่อให้ระบบอ่านค่า `.env` ใหม่
 4. รันคำสั่งยิงแจ้งเตือนผ่าน Terminal ของคุณ:
    ```bash
-   curl -X POST http://localhost:8000/api/v1/cron/check-rain -H "X-Cron-Secret: default_secret_for_local_testing"
+   curl -X POST http://localhost:8001/api/v1/cron/check-rain -H "X-Cron-Secret: default_secret_for_local_testing"
    ```
 5. **ผลลัพธ์ที่คาดหวัง:**
    - **ในหน้าจอ Console Backend:** คุณจะเห็น Log สีแดงแจ้งว่า 

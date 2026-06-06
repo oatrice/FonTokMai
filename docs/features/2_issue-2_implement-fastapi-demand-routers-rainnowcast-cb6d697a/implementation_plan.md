@@ -47,4 +47,4 @@
 
 ### Manual Verification
 - รันเซิร์ฟเวอร์ด้วย `uvicorn app.main:app --reload`
-- เข้าไปที่ `http://127.0.0.1:8000/docs` (Swagger UI) ลองกรอก `lat=17.1664` และ `lng=104.1486` และดูผลลัพธ์
+- เข้าไปที่ `http://127.0.0.1:8001/docs` (Swagger UI) ลองกรอก `lat=17.1664` และ `lng=104.1486` และดูผลลัพธ์

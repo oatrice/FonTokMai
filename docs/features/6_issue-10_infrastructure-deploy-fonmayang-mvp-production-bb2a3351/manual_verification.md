@@ -7,7 +7,7 @@ This document records the results of the manual verification performed on the lo
 ### Authorized Trigger Test
 **Command Executed:**
 ```bash
-curl -X POST "http://localhost:8000/api/v1/internal/trigger-rain-check" \
+curl -X POST "http://localhost:8001/api/v1/internal/trigger-rain-check" \
      -H "X-Cron-Secret: my-secret-key" \
      -H "Content-Length: 0"
 ```
@@ -20,7 +20,7 @@ curl -X POST "http://localhost:8000/api/v1/internal/trigger-rain-check" \
 ### Unauthorized Trigger Test (Wrong Secret)
 **Command Executed:**
 ```bash
-curl -X POST "http://localhost:8000/api/v1/internal/trigger-rain-check" \
+curl -X POST "http://localhost:8001/api/v1/internal/trigger-rain-check" \
      -H "X-Cron-Secret: wrong-secret" \
      -H "Content-Length: 0"
 ```
@@ -37,7 +37,7 @@ curl -X POST "http://localhost:8000/api/v1/internal/trigger-rain-check" \
 ### Location Persistence via Telegram Webhook
 **Command Executed:**
 ```bash
-curl -X POST "http://localhost:8000/api/v1/telegram/webhook" \
+curl -X POST "http://localhost:8001/api/v1/telegram/webhook" \
      -H "Content-Type: application/json" \
      -d '{"update_id": 1, "message": {"message_id": 1, "chat": {"id": 12345}, "location": {"latitude": 13.0, "longitude": 100.0}}}'
 ```

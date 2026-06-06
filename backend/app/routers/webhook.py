@@ -91,6 +91,21 @@ def _build_forecast_text(result: dict) -> str:
         wind_dir = result.get("wind_dir_text", "ไม่ทราบ")
         if wind_kmh > 0:
             text += f"🌬️ สภาพลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+
+        # Use smart rain_summary from new approaching-cloud detector if available
+        rain_summary = result.get("rain_summary")
+        if rain_summary:
+            text += f"{rain_summary}\n"
+        else:
+            # Fallback: legacy growth_rate_pct display
+            growth_rate = result.get("growth_rate_pct")
+            if growth_rate is not None:
+                if growth_rate > 5.0:
+                    text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%)\n"
+                elif growth_rate < -5.0:
+                    text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%)\n"
+                else:
+                    text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
     else:
         text = f"ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
 
@@ -194,6 +209,25 @@ async def process_telegram_location(
             await edit_telegram_message(chat_id, message_id_to_edit, text, reply_markup)
         else:
             await send_telegram_message(chat_id, text, reply_markup)
+            
+        gif_bytes = result.get("radar_gif_bytes")
+        hq_gif_bytes = result.get("radar_hq_gif_bytes")
+        static_bytes = result.get("radar_static_bytes")
+        tracking_bytes = result.get("radar_tracking_bytes")
+        timeline_bytes = result.get("rain_timeline_bytes")
+        
+        from app.services.telegram import send_telegram_photo, send_telegram_document, send_telegram_raw_document
+        
+        if static_bytes:
+            await send_telegram_photo(chat_id, static_bytes, "radar_latest.png")
+            
+        if timeline_bytes:
+            await send_telegram_photo(chat_id, timeline_bytes, "rain_timeline.png")
+            
+        if gif_bytes:
+            await send_telegram_document(chat_id, gif_bytes, "radar_nowcast.gif")
+        if hq_gif_bytes:
+            await send_telegram_raw_document(chat_id, hq_gif_bytes, "radar_nowcast_full.gif")
 
     except Exception as e:
         logger.error(f"Error processing telegram location: {e}")

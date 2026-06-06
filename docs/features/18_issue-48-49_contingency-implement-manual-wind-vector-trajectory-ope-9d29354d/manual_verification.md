@@ -2,7 +2,7 @@
 
 **Test 1: Verify API Comparison Endpoint**
 - **Step 1:** Start your local FastAPI backend server (e.g., `uvicorn app.main:app --reload`).
-- **Step 2:** Open a terminal or Postman and send a GET request to the comparison endpoint, for example: `curl "http://localhost:8000/api/v1/weather/compare?lat=13.7563&lng=100.5018"` (adjust path/query according to your router).
+- **Step 2:** Open a terminal or Postman and send a GET request to the comparison endpoint, for example: `curl "http://localhost:8001/api/v1/weather/compare?lat=13.7563&lng=100.5018"` (adjust path/query according to your router).
 - **Expected Result:** The JSON response should contain a dictionary of results from multiple providers, and you should see an `"open-meteo"` key in the result containing its respective weather prediction data (`predictions`, `max_rain`, etc.).
 
 **Test 2: Verify Open-Meteo Contingency (Fallback)**
@@ -55,7 +55,7 @@
 **Test 4: E2E Telegram Verification (Issue #48 & #49)**
 - **Step 1:** Start your FastAPI server with Xweather disabled to trigger the fallback:
   ```bash
-  XWEATHER_ENABLED=false uvicorn app.main:app --host 127.0.0.1 --port 8000
+  XWEATHER_ENABLED=false uvicorn app.main:app --host 127.0.0.1 --port 8001
   ```
 - **Step 2:** Ensure your webhook is connected (e.g. via `localtunnel` or `ngrok` matching your Telegram bot webhook URL).
 - **Step 3:** Open your Telegram app, go to your bot, and type:
@@ -74,7 +74,7 @@
 - **Expected Result (Issue #49):** The bot will edit the message to display a complete comparison of all APIs (Tomorrow.io, Rainbow, Open-Meteo, Xweather) natively inside the Telegram chat, showing `max_rain`, `intensity`, and `wind_speed_kmh` from Open-Meteo properly integrated into the comparison view.
 
 **Test 5: Verify API Accuracy Evaluation (False Alarm & Auto-Sort Fallback)**
-- **Step 1:** Start your FastAPI server (e.g., `uvicorn app.main:app --host 127.0.0.1 --port 8000`) and ensure your Telegram Webhook is connected.
+- **Step 1:** Start your FastAPI server (e.g., `uvicorn app.main:app --host 127.0.0.1 --port 8001`) and ensure your Telegram Webhook is connected.
 - **Step 2:** Open your Telegram app, go to your bot, and type:
   ```text
   /devmock rain

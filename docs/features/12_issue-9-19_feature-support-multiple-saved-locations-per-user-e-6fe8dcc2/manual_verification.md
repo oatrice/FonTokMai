@@ -3,7 +3,7 @@
 Follow these steps to manually verify the multiple saved locations feature locally:
 
 - Step 1: Start your local FastAPI backend server (e.g., `uvicorn app.main:app --reload`).
-- Step 2: Set up a tunneling service like Ngrok (`ngrok http 8000`) and configure your Telegram bot webhook to point to the Ngrok URL (`/api/v1/telegram/webhook`).
+- Step 2: Set up a tunneling service like Ngrok (`ngrok http 8001`) and configure your Telegram bot webhook to point to the Ngrok URL (`/api/v1/telegram/webhook`).
 - Step 3: Open Telegram and navigate to your FonMaYang bot chat. Send your current location using the attachment menu (paperclip icon -> Location).
 - Expected Result: The bot should reply with inline buttons asking what to save the location as (e.g., `🏠 บ้าน (2 ด.)`, `💼 ที่ทำงาน (ตป.)`, `📍 ทั่วไป (2 ด.)`).
 
@@ -26,5 +26,5 @@ Follow these steps to manually verify the multiple saved locations feature local
 - Expected Result: The list should now only display the 💼 Work location. The 🏠 Home location should be gone.
 
 - Step 10: Trigger the manual rain check scheduler by sending a POST request to your backend:
-  `curl -X POST http://localhost:8000/api/v1/cron/check-rain -H "X-Cron-Secret: <YOUR_SECRET>"`
+  `curl -X POST http://localhost:8001/api/v1/cron/check-rain -H "X-Cron-Secret: <YOUR_SECRET>"`
 - Expected Result: If it is going to rain at your saved 'Work' location within 60 minutes, you should receive a Telegram message that explicitly mentions the location name: `🌧️ ฝนกำลังเคลื่อนมาทางพิกัด 'Work' ของคุณ จะเริ่มตกในอีก ... นาที`. (If it is not raining, check the backend logs to ensure it queried the `get_active_locations` successfully).

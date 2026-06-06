@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from app.dependencies import get_repo_context
 from app.services.weather_manager import WeatherManager
-from app.services.telegram import send_telegram_message, get_radar_inline_keyboard, DEVELOPER_CHAT_IDS
+from app.services.telegram import send_telegram_message, send_telegram_document, send_telegram_photo, get_radar_inline_keyboard, DEVELOPER_CHAT_IDS
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +180,20 @@ async def check_rain_and_alert():
                     if eta_minutes > 0 and wind_speed_kmh > 0:
                         text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\n"
                         
+                    # Use smart rain_summary from new approaching-cloud detector if available
+                    rain_summary = result.get("rain_summary")
+                    if rain_summary:
+                        text += f"{rain_summary}\n"
+                    else:
+                        growth_rate = result.get("growth_rate_pct")
+                        if growth_rate is not None:
+                            if growth_rate > 5.0:
+                                text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%)\n"
+                            elif growth_rate < -5.0:
+                                text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%)\n"
+                            else:
+                                text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
+                            
                     text += f"📡 แหล่งข้อมูล: {source_name}\n"
                     
                     # Add Last Updated Time
@@ -209,6 +223,20 @@ async def check_rain_and_alert():
                     
                     # Call Telegram Service
                     await send_telegram_message(loc.chat_id, text, reply_markup=reply_markup)
+                    
+                    gif_bytes = result.get("radar_gif_bytes")
+                    static_bytes = result.get("radar_static_bytes")
+                    tracking_bytes = result.get("radar_tracking_bytes")
+                    timeline_bytes = result.get("rain_timeline_bytes")
+                    
+                    if static_bytes:
+                        await send_telegram_photo(loc.chat_id, static_bytes, "radar_latest.png")
+                        
+                    if timeline_bytes:
+                        await send_telegram_photo(loc.chat_id, timeline_bytes, "rain_timeline.png")
+                        
+                    if gif_bytes:
+                        await send_telegram_document(loc.chat_id, gif_bytes, "radar_nowcast.gif")
                     
                     # Update DB (บันทึกทั้งเวลาและความรุนแรงของฝน)
                     await repo.update_last_alerted(loc, now, max_rain=max_rain)

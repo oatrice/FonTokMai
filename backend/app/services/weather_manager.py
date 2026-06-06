@@ -64,7 +64,7 @@ class WeatherManager:
             "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
             "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
             "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng)
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state)
         }
         
         for ep in sorted_endpoints:
@@ -136,7 +136,7 @@ class WeatherManager:
             safe_call("rainbow-local", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state)),
             safe_call("rainbow-global", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state)),
             safe_call("open-meteo", self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)),
-            safe_call("tmd-radar", self._get_tmd_prediction(lat, lng))
+            safe_call("tmd-radar", self._get_tmd_prediction(lat, lng, mock_state=mock_state))
         ]
         
         results = await asyncio.gather(*tasks)
@@ -176,9 +176,11 @@ class WeatherManager:
                 logger.error(f"Open-Meteo Contingency failed: {e_meteo}")
                 return {"advisories": [], "lightning": None, "stormcell": None}
 
-    async def _get_tmd_prediction(self, lat: float, lng: float) -> dict:
+    async def _get_tmd_prediction(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
         """
         Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
+        Uses dot-product approach vector filter to find approaching cloud clusters,
+        then ranks by ETA and generates a smart summary with growth/decay rates.
         """
         import cv2
         import numpy as np
@@ -187,51 +189,200 @@ class WeatherManager:
             try:
                 processor = TMDRadarProcessor(station_code)
                 px, py = processor.latlng_to_pixel(lat, lng)
-                if px is not None and py is not None:
-                    frames = await processor.fetch_loop_gif_and_extract_frames()
-                    if not frames or len(frames) < 2:
-                        continue
-                        
-                    # Calculate optical flow from the last two frames
-                    flow = processor.calculate_optical_flow(frames)
-                    latest_frame = frames[-1]
-                    
-                    predictions = []
-                    max_dbz = 0.0
-                    
-                    def dbz_to_intensity(d: float) -> str:
-                        if d >= 55: return "ฝนตกหนักมาก"
-                        elif d >= 35: return "ฝนตกหนัก"
-                        elif d >= 20: return "ฝนตกปานกลาง"
-                        elif d > 0:  return "ฝนตกเล็กน้อย"
-                        else: return "ไม่มีฝน"
-                    
-                    # Generate predictions for +0m, +15m, +30m, +45m, +60m
-                    for steps in range(5):
-                        dbz = processor.extrapolate_rain_at_pixel(latest_frame, flow, px, py, steps)
-                        if dbz > max_dbz:
-                            max_dbz = dbz
-                            
-                        predictions.append({
-                            "time_offset": steps * 15,
-                            "intensity": dbz_to_intensity(dbz),
-                            "dbz": float(dbz)
-                        })
-                        
-                    current_dbz = predictions[0]["dbz"]
-                    intensity = predictions[0]["intensity"]
-                    wind_speed = processor.get_wind_speed_kmh(flow, px, py)
+                if px is None or py is None:
+                    continue
 
-                    return {
-                        "predictions": predictions,
-                        "intensity": intensity,
-                        "max_rain": float(max_dbz),
-                        "duration_minutes": sum(15 for p in predictions if p["dbz"] > 0),
-                        "wind_speed_kmh": round(wind_speed, 1),
-                        "endpoint": f"tmd-radar ({station_code})"
-                    }
+                frames, last_modified_dt = await processor.fetch_loop_gif_and_extract_frames()
+                if not frames or len(frames) < 2:
+                    continue
+
+                flow = processor.calculate_optical_flow(frames)
+                curr_frame = frames[-1]
+                prev_frame = frames[-2]
+
+                # Find all cloud clusters approaching the user
+                clouds = processor.find_approaching_clouds(
+                    curr_frame, prev_frame, flow, px, py,
+                    search_radius=80, min_dbz=20.0, cluster_dist=20,
+                )
+
+                # Apply mock overrides
+                if mock_state == "rain":
+                    if not clouds:
+                        clouds = [{"eta_min": 10, "dbz_now": 40, "dbz_prev": 35,
+                                   "growth_rate": 0.14, "predicted_dbz": 40,
+                                   "dist": 10, "cx": px, "cy": py, "vx": 0, "vy": 0}]
+                    else:
+                        for c in clouds:
+                            c["dbz_now"]       = max(c["dbz_now"], 40.0)
+                            c["predicted_dbz"] = max(c["predicted_dbz"], 40.0)
+                elif mock_state == "clear":
+                    clouds = []
+
+                # Generate smart summary text
+                summary_line = processor.render_rain_summary(clouds, confidence_cutoff_min=90)
+
+                # Build predictions array (keep legacy format for downstream consumers)
+                def dbz_to_intensity(d: float) -> str:
+                    if d >= 55: return "ฝนตกหนักมาก"
+                    if d >= 35: return "ฝนตกหนัก"
+                    if d >= 20: return "ฝนตกปานกลาง"
+                    if d > 0:   return "ฝนตกเล็กน้อย"
+                    return "ไม่มีฝน"
+
+                from datetime import datetime, timedelta, timezone
+                if last_modified_dt:
+                    now_utc = last_modified_dt
+                else:
+                    now_utc = datetime.now(timezone.utc)
+
+                # Use closest approaching cloud for step-by-step predictions
+                if clouds:
+                    first_cloud = clouds[0]
+                    rate = first_cloud["growth_rate"]
+                    max_step = 0
+                    max_raw_dbz = 0.0
+                    for steps in range(5):
+                        dbz = processor.extrapolate_rain_at_pixel(curr_frame, flow, px, py, steps, rate=0.0)
+                        if dbz > max_raw_dbz:
+                            max_raw_dbz = dbz
+                            max_step = steps
+                else:
+                    rate = 0.0
+
+                predictions = []
+                max_dbz = 0.0
+                for steps in range(5):
+                    dbz = processor.extrapolate_rain_at_pixel(curr_frame, flow, px, py, steps, rate=rate)
+                    if mock_state == "rain":
+                        dbz = max(dbz, 40.0)
+                    elif mock_state == "clear":
+                        dbz = 0.0
+                    if dbz > max_dbz:
+                        max_dbz = dbz
+                    pred_time  = now_utc + timedelta(minutes=steps * 15)
+                    z_value    = 10 ** (dbz / 10.0)
+                    rain_mmhr  = (z_value / 200.0) ** (1.0 / 1.6) if dbz > 0 else 0.0
+                    predictions.append({
+                        "time":        pred_time.isoformat().replace("+00:00", "Z"),
+                        "time_offset": steps * 15,
+                        "intensity":   dbz_to_intensity(dbz),
+                        "dbz":         float(dbz),
+                        "rain":        float(rain_mmhr),
+                    })
+
+                current_dbz = predictions[0]["dbz"]
+                intensity   = predictions[0]["intensity"]
+                wind_speed  = processor.get_wind_speed_kmh(flow, px, py)
+                percent_change = (clouds[0]["growth_rate"] * 100.0) if clouds else 0.0
+
+                # Draw pins on all frames and generate GIF bytes
+                gif_bytes    = None
+                hq_gif_bytes = None
+                static_bytes = None
+                try:
+                    import io
+                    from PIL import Image, ImageDraw, ImageFont
+                    from zoneinfo import ZoneInfo
+                    
+                    try:
+                        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 48)
+                    except:
+                        font = ImageFont.load_default()
+                        
+                    pil_frames_std = []
+                    pil_frames_hq = []
+                    num_frames = len(frames)
+                    for i, frame in enumerate(frames):
+                        processor.draw_pin_on_frame(frame, px, py)
+                        img_orig = Image.fromarray(frame)
+                        
+                        # Upscale 1.5x for standard animation
+                        img_std = img_orig.resize((int(img_orig.width * 1.5), int(img_orig.height * 1.5)), Image.Resampling.NEAREST)
+                        # Upscale 3.0x for HQ document
+                        img_hq = img_orig.resize((int(img_orig.width * 3.0), int(img_orig.height * 3.0)), Image.Resampling.NEAREST)
+                        
+                        # Calculate time for this frame
+                        frames_ago = num_frames - 1 - i
+                        frame_time_utc = now_utc - timedelta(minutes=15 * frames_ago)
+                        frame_time_bkk = frame_time_utc.astimezone(ZoneInfo('Asia/Bangkok'))
+                        time_str = frame_time_bkk.strftime('%d %b %H:%M')
+                        
+                        # Helper to draw timestamp
+                        def draw_timestamp(img, scale_factor):
+                            # Scale font size roughly
+                            fnt = font
+                            try:
+                                fnt = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(32 * scale_factor))
+                            except:
+                                fnt = ImageFont.load_default()
+                                
+                            draw = ImageDraw.Draw(img, "RGBA")
+                            left, top, right, bottom = draw.textbbox((0, 0), time_str, font=fnt)
+                            text_w = right - left
+                            text_h = bottom - top
+                            
+                            x_pos = img.width - text_w - int(10 * scale_factor)
+                            y_pos = int(10 * scale_factor)
+                            
+                            pad = int(5 * scale_factor)
+                            draw.rectangle([x_pos-pad, y_pos-pad, x_pos+text_w+pad, y_pos+text_h+pad], fill=(0, 0, 0, 200))
+                            draw.text((x_pos, y_pos), time_str, fill=(255, 255, 255, 255), font=fnt)
+                            return img
+                            
+                        pil_frames_std.append(draw_timestamp(img_std, 1.5))
+                        pil_frames_hq.append(draw_timestamp(img_hq, 3.0))
+                    if pil_frames_std and pil_frames_hq:
+                        buffer = io.BytesIO()
+                        hq_buffer = io.BytesIO()
+                        
+                        # Freeze last frame
+                        last_frame_std = pil_frames_std[-1]
+                        last_frame_hq = pil_frames_hq[-1]
+                        for _ in range(4):
+                            pil_frames_std.append(last_frame_std.copy())
+                            pil_frames_hq.append(last_frame_hq.copy())
+                                
+                        pil_frames_std[0].save(buffer, save_all=True, append_images=pil_frames_std[1:],
+                                               format='GIF', loop=0, duration=500, optimize=True)
+                        gif_bytes = buffer.getvalue()
+                        
+                        pil_frames_hq[0].save(hq_buffer, save_all=True, append_images=pil_frames_hq[1:],
+                                              format='GIF', loop=0, duration=500, optimize=False)
+                        hq_gif_bytes = hq_buffer.getvalue()
+                        
+                        static_buffer = io.BytesIO()
+                        pil_frames_hq[-1].save(static_buffer, format='PNG')
+                        static_bytes = static_buffer.getvalue()
+                        
+                    # Also generate tracking and timeline images
+                    tracking_bytes = processor.generate_radar_tracking_image(curr_frame, px, py, clouds)
+                    timeline_bytes = processor.generate_timeline_image(clouds)
+                except Exception as e:
+                    logger.error(f"Failed to generate radar GIF/images: {e}")
+                    tracking_bytes = None
+                    timeline_bytes = None
+
+                return {
+                    "predictions":       predictions,
+                    "intensity":         intensity,
+                    "max_rain":          max(p["rain"] for p in predictions) if predictions else 0.0,
+                    "max_dbz":           float(max_dbz),
+                    "duration_minutes":  sum(15 for p in predictions if p["dbz"] > 0),
+                    "wind_speed_kmh":    round(wind_speed, 1),
+                    "endpoint":          f"tmd-radar ({station_code})",
+                    "growth_rate_pct":   percent_change,
+                    "approaching_clouds": clouds,
+                    "rain_summary":      summary_line,
+                    "radar_gif_bytes":   gif_bytes,
+                    "radar_hq_gif_bytes": hq_gif_bytes,
+                    "radar_static_bytes": static_bytes,
+                    "radar_tracking_bytes": tracking_bytes,
+                    "rain_timeline_bytes": timeline_bytes,
+                }
             except Exception as e:
                 logger.warning(f"Failed to process TMD radar {station_code}: {e}")
                 pass
-                
+
         raise Exception("Location out of bounds for active TMD Radars.")
+

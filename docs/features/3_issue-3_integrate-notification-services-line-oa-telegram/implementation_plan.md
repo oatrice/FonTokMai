@@ -44,4 +44,4 @@
 - ระบบจะต้องไม่มีการเรียกใช้ API จริง ๆ ของ Telegram หรือ Rainbow ในขณะรันเทสต์ (ใช้ Mock 100%)
 
 ### Manual Verification
-- สามารถทดลองยิง `curl` POST request หน้าตาเหมือน Telegram Webhook มายัง `http://localhost:8000/api/v1/webhook/telegram` เพื่อดู response หรือตรวจสอบ log ว่าฝั่ง Backend ดำเนินการถูกต้องหรือไม่
+- สามารถทดลองยิง `curl` POST request หน้าตาเหมือน Telegram Webhook มายัง `http://localhost:8001/api/v1/webhook/telegram` เพื่อดู response หรือตรวจสอบ log ว่าฝั่ง Backend ดำเนินการถูกต้องหรือไม่

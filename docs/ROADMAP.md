@@ -27,9 +27,13 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #57 - Feature: Implement Cloud Growth and Decay Rate Model for TMD Nowcasting
+- **GitHub:** [#57](https://gitlab.com/oatricedev/FonMaYang/-/issues/57)
+    - ✅ **Done** (0.21.0)
+
 ### Issue #56 - Feature: Display TMD Radar images (Latest & Loop) directly in Telegram
 - **GitHub:** [#56](https://gitlab.com/oatricedev/FonMaYang/-/issues/56)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.21.0)
 
 ### Issue #55 - Enhancement: Fine-tune TMD Radar Location Mapping Accuracy
 - **GitHub:** [#55](https://gitlab.com/oatricedev/FonMaYang/-/issues/55)

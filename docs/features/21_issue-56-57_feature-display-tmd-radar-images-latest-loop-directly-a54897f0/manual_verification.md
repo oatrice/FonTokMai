@@ -1,0 +1,140 @@
+**Manual Verification Guide**
+
+- **Step 1:** เปิดแอป Telegram และส่งคำสั่ง `/devmock rain` (หากคุณเป็น Developer) หรือเลือกพิมพ์/ส่ง Location (พิกัด) ไปยังบอท โดยเลือกพิกัดที่อยู่ในเขตครอบคลุมของเรดาร์ TMD (เช่น พื้นที่ขอนแก่นหรือสกลนคร) 
+- **Step 2:** รอให้บอทประมวลผลข้อความพยากรณ์ฝน สังเกตที่ข้อความตอบกลับ ว่ามีบรรทัด "แนวโน้มกลุ่มฝน" (Growth/Decay Trend) แสดงผลอัตราเปอร์เซ็นต์อย่างชัดเจนหรือไม่ (เช่น 📈 กำลังก่อตัวแรงขึ้น หรือ 📉 อ่อนกำลังลง)
+- **Step 3:** ตรวจสอบว่ามีไฟล์ `radar_nowcast.gif` ถูกส่งกลับมาด้วยหรือไม่ ให้เปิดดูภาพเคลื่อนไหวนั้น
+- **Expected Result:** ข้อความต้องแสดง % แนวโน้มฝนได้อย่างถูกต้อง (ไม่เป็น None หรือ Error) และไฟล์ GIF ต้องแสดงผลภาพเรดาร์เคลื่อนไหว พร้อมกับมี "หมุดกากบาทวงกลมสีแดง" (Red Pin) ปักอยู่ตรงตำแหน่งที่คุณส่งพิกัดไปอย่างชัดเจนและถูกต้องตามตำแหน่งบนแผนที่
+
+### Optical Flow Validation
+การคำนวณความเร็วและทิศทางลมถูกปรับปรุงให้ใช้เฉพาะพิกเซลเมฆฝน (Rain Mask) เพื่อลดสัญญาณรบกวนจากแผนที่พื้นหลัง และใช้ Normalized Convolution ขยายขอบเขตความเร็วลมเพื่อพยากรณ์เมฆที่กำลังเคลื่อนที่เข้าหาพิกัดเป้าหมาย
+
+- **ภาพถ่ายเรดาร์ต้นฉบับ:**
+  ![Original Loop](original_loop.gif)
+
+- **การประมวลผลเมฆฝน (Rain Only Mask):**
+  แสดงพิกเซลเมฆฝนที่ผ่านการสกัดสี และทำแอนิเมชันเพื่อตรวจสอบการเคลื่อนไหว
+  ![Rain Only Loop](rain_only_loop.gif)
+
+- **การคำนวณทิศทางลมและจัดกลุ่มเมฆฝน:**
+  แสดงการตีกรอบ (Bounding Box) และลูกศรทิศทางลมที่ได้จากการคำนวณ Optical Flow ของเมฆแต่ละก้อน
+  ![Cloud Analysis](cloud_analysis.png)
+
+### 🌧️ Lagrangian Growth vs Eulerian Growth (Important Physics Fix)
+จากการทำ User Verification อย่างละเอียด พบว่าการประเมินการเติบโต/หดตัวของเมฆ (Growth/Decay Trend) เดิมที่ใช้ **Eulerian Approach** (การตีกล่องขนาดคงที่รอบๆ พิกัดเป้าหมายแล้วหาผลรวมมวลน้ำในสองช่วงเวลา) ทำให้เกิดข้อผิดพลาดรุนแรง (False Positive) กล่าวคือ เมื่อเมฆฝนถูกลมพัดเข้ามาในเขตกล่อง ระบบจะคำนวณว่า "มวลน้ำเพิ่มขึ้น = เมฆกำลังเติบโต (Growth)" ทั้งที่จริงๆ แล้วเมฆก้อนนั้นความแรงเท่าเดิม แค่เคลื่อนที่ (Advection) เข้ามาในพื้นที่
+
+**การแก้ไขทางฟิสิกส์ (Physics Fix):**
+ระบบจึงถูกออกแบบสมการใหม่ให้ใช้ **Lagrangian Approach** (การติดตามมวลอากาศเป้าหมายข้ามเวลา) โดย:
+1. คำนวณหาว่ามวลอากาศก้อนไหน (พิกเซลไหน) ที่จะพัดมาโดนพิกัดของผู้ใช้ในอนาคต (แกะรอยไปตาม Optical Flow Vector)
+2. แกะรอยพิกเซลเป้าหมายนั้นย้อนหลัง (Back-tracking) ว่ามวลอากาศกลุ่มนี้อยู่ที่ไหนบนภาพเมื่อ 15 นาที และ 30 นาทีที่แล้ว
+3. นำค่าความแรงฝน (dBZ) ของมวลอากาศกลุ่มเดิมมาเปรียบเทียบกันข้ามเวลา เพื่อดูว่าก้อนนี้เติบโต (Intensification) หรือหดตัว (Dissipation) จริงๆ อย่างแม่นยำ
+
+#### 1. การเปรียบเทียบภาพเรดาร์ดิบ (Raw Comparison)
+![Raw Comparison](raw_comparison.png)
+
+#### 2. การวิเคราะห์มวลน้ำและความรุนแรงในเชิงลึก (Pixel-by-pixel Analysis)
+การวิเคราะห์อย่างละเอียด (ในภาพ) พบว่าขนาดของเมฆขยายใหญ่ขึ้นก็จริง (+50.6%) แต่แกนกลางความรุนแรงสีเหลืองกลับมีพื้นที่ลดลง (-68.2%) บ่งชี้ให้เห็นชัดเจนว่าพายุมีการกระจายวงกว้างแต่อ่อนกำลังลง (Decay) ไม่ใช่แข็งแกร่งขึ้น
+![Annotated Evidence](annotated_evidence.png)
+
+#### 3. การประเมินพื้นที่เติบโตของเมฆแบบภาพรวม (Global Cloud Growth)
+ภาพแสดงพื้นที่ที่เมฆมีการก่อตัวเพิ่มขึ้น (สีเขียว) และอ่อนกำลังลง (สีแดง) ทั่วทั้งเฟรมเรดาร์
+![Cloud Growth](cloud_growth.png)
+
+#### 4. หลักฐานการประเมินแบบแกะรอยมวลอากาศ (Lagrangian Tracking Evidence)
+วงกลมสีเขียว (Lagrangian) ชี้ให้เห็นว่ามวลอากาศก้อนเป้าหมายที่จะพัดมาโดนพิกัดผู้ใช้ มีการเติบโตที่ระดับ 0.0% (คงที่) ตลอดช่วง 15 นาที ในขณะที่กล่องสีฟ้า (Eulerian) ถูกทัศนวิสัยหลอกว่าเติบโตถึง 91.7%
+![Lagrangian Tracking Evidence](lagrangian_evidence.png)
+
+#### 5. การแกะรอยย้อนหลังแบบ 6 เฟรม (Historical Multi-Frame Tracking)
+หลังจาก Refactor ระบบให้รองรับการตั้งค่า `max_lookback_frames` แบบไดนามิก ภาพด้านล่างนี้คือหลักฐานการแกะรอยมวลอากาศก้อนเป้าหมายย้อนหลังกลับไปไกลถึง 75 นาที (6 เฟรม) จะสังเกตได้ว่าวงกลมสีเขียวล็อกเป้าอยู่ที่มวลเมฆฝนสีเขียว 25 dBZ ก้อนเดิมได้อย่างแม่นยำตลอด 75 นาทีเต็ม!
+![Multi Frame Tracking](multi_lagrangian_evidence.png)
+
+---
+
+### 🎯 Approaching Cloud Detector (New Algorithm)
+
+#### ปัญหาของ Backward Track เดิม
+การแกะรอยแบบ backward track ตาม flow vector เส้นตรง (Linear) มีข้อจำกัดสำคัญ:
+- **Flow vector อาจเบี่ยงเบนเกินจริง**: `Farneback` ประมาณค่าต่ำกว่าความเป็นจริง ~5x เมื่อเมฆขยับเร็ว
+- **Snap to max DBZ radius=30 สร้าง Bug**: ระบบกระโดดไปล็อกเมฆก้อนอื่นที่สว่างกว่าแต่ไม่ใช่ก้อนที่กำลังเข้าหาผู้ใช้
+
+#### แนวทางใหม่: Dot-Product Approach Vector Filter
+แทนที่จะ backward track ออกไปก่อน ระบบใหม่ทำงานดังนี้:
+1. **Scan** rain pixels ทั้งหมดในรัศมี 80px รอบพิกัดผู้ใช้
+2. **Filter** เฉพาะ pixel ที่ flow vector ชี้ **เข้าหา** ผู้ใช้ (dot product > 0)
+3. **Cluster** pixel ที่ใกล้กันภายใน 20px เป็นก้อนเมฆเดียวกัน (weighted by dBZ)
+4. **Rank** ตามระยะห่าง — ก้อนใกล้ที่สุดที่กำลังเข้ามา = ความเสี่ยงสูงสุด
+5. **ETA** คำนวณจาก `distance / dot_product × 15 min/step`
+
+#### ข้อดี
+- จัดการเมฆได้หลายก้อนพร้อมกันใน 1 query
+- ไม่ขึ้นกับความแม่นยำของทิศทาง flow ที่พิกัดผู้ใช้
+- Scale ได้ดีสำหรับหลาย user: Flow คำนวณ **ครั้งเดียว** แล้ว reuse ทุก user
+
+#### 6. Approaching Cloud Detection — Single User (New Coord: 16.121°N 101.875°E)
+วงกลมสีเขียวคือก้อนเมฆที่ใกล้ที่สุดและกำลังเข้าหาผู้ใช้ ลูกศรชี้ทิศทางเคลื่อนที่ ตัวเลขคือ ETA เป็นนาที
+![Approaching Cloud Detection](tracked_cloud_new_coord.png)
+
+#### 7. Multi-User Processing — Flow คำนวณครั้งเดียว ใช้กับทุก User
+ภาพแสดงการประมวลผลพร้อมกัน 2 พิกัด บน optical flow ชุดเดียวกัน แต่ละก้อนเมฆได้รับ ETA แยกกันตามระยะห่างจริงของแต่ละ user
+![Multi User Cloud Tracking](multi_user_cloud_tracking.png)
+
+---
+
+### ✅ Production Integration
+
+#### สิ่งที่ integrate เข้า production แล้ว
+
+| ไฟล์ | Method | หน้าที่ |
+|---|---|---|
+| `tmd_radar_processor.py` | `find_approaching_clouds()` | Dot-product scan + cluster + growth rate |
+| `tmd_radar_processor.py` | `render_rain_summary()` | Smart summary text (3 cases, ไม่ซ้ำซ้อน) |
+| `weather_manager.py` | `_get_tmd_prediction()` | ใช้ algorithm ใหม่ทั้งหมด, return `rain_summary` field |
+| `webhook.py` | message formatter | ใช้ `rain_summary` แทน growth_rate_pct เดิม |
+| `scheduler_tasks.py` | message formatter | ใช้ `rain_summary` แทน growth_rate_pct เดิม |
+
+#### Rain Summary Output (3 กรณี)
+
+```
+# กรณีที่ 1: ก้อนแรก = ก้อนหนักสุด (merge เป็น 1 บรรทัด)
+⚡ ฝนกำลังจะมาใน ~27m (25 dBZ — ฝนปานกลาง)
+
+# กรณีที่ 2: มีก้อนหนักกว่าตามมา (2 บรรทัด คนละความหมาย)
+⏱ ฝนก้อนแรกใน ~27m (25 dBZ — ฝนปานกลาง)
+⚡ ก้อนหนักกว่ามาทีหลัง ~45m (55 dBZ — ฝนหนักมาก)
+
+# กรณีที่ 3: ไม่มีฝนในโซนเชื่อถือได้ (90 นาที)
+ℹ️ ไม่พบฝนในระยะ 90 นาทีข้างหน้า
+```
+
+#### Timeline Image (rain_timeline.png)
+- แสดงก้อนเมฆทุกก้อนที่กำลังเข้าหา user เรียงตาม ETA
+- **เส้นประสีน้ำเงิน** = confidence boundary ที่ 90 นาที (หลังจากนี้ไม่น่าเชื่อถือ)
+- **โซนสีเข้ม** = ช่วงเวลาที่ไม่แน่นอน (bar จะซีดลง)
+- **ความสูง bar** = DBZ ที่คาดว่าจะถึงเมื่อมาถึง (รวม growth/decay rate แล้ว)
+- **รูปแบบเวลา** = `~27m`, `~2h14m` (แทนตัวเลขนาทีล้วน)
+![Rain Timeline](rain_timeline.png)
+
+---
+
+### 🔍 Additional Analyses & Visualizations
+
+ภาพการทดสอบและการวิเคราะห์เพิ่มเติมระหว่างการพัฒนาระบบ:
+
+#### Cloud Trajectory
+แสดงวิถีการเคลื่อนที่ของกลุ่มเมฆฝน (Trajectory)
+![Cloud Trajectory](cloud_trajectory.png)
+
+#### Flow Method Comparison
+เปรียบเทียบความแม่นยำของ Optical Flow ระหว่างวิธีต่างๆ
+![Flow Method Comparison](flow_method_comparison.png)
+
+#### Grid Overlay
+แสดงพิกัดกริดทับลงบนภาพเรดาร์เพื่อทดสอบความแม่นยำของพิกัด
+![Grid Overlay](grid_overlay.png)
+
+#### Tracked Rain Only (GIF)
+ภาพเคลื่อนไหวแสดงเฉพาะมวลฝนที่ถูกแยกออกมาติดตามการเติบโต/หดตัว
+![Tracked Rain Only](tracked_rain_only.gif)
+
+#### Vector Comparison
+เปรียบเทียบเวกเตอร์ทิศทางลมในหลากหลายมุมและเทคนิค
+![Vector Comparison](vector_comparison.png)
