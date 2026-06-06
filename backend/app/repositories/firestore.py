@@ -238,3 +238,18 @@ class FirestoreLocationRepository(LocationRepository):
             "total_queries": total,
             "accuracy_score": acc
         })
+
+    async def get_radar_timestamp_cache(self, frame_hash: str) -> Optional[int]:
+        doc_ref = self.db.collection('radar_frame_cache').document(frame_hash)
+        doc = await doc_ref.get()
+        if doc.exists:
+            data = doc.to_dict()
+            return data.get("timestamp")
+        return None
+
+    async def set_radar_timestamp_cache(self, frame_hash: str, timestamp: int) -> None:
+        doc_ref = self.db.collection('radar_frame_cache').document(frame_hash)
+        await doc_ref.set({
+            "timestamp": timestamp,
+            "created_at": datetime.now(timezone.utc)
+        })

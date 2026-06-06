@@ -342,7 +342,22 @@ async def handle_callback_query(callback_query: dict):
                 logger.error(f"Error handling switch endpoint: {e}")
                 answer_text = "เกิดข้อผิดพลาดในการสลับแหล่งข้อมูล"
 
-    # Handle Compare API (Issue #42)
+    # Handle Force API
+    elif data.startswith("force_api_"):
+        parts = data.split("_")
+        if len(parts) >= 5:
+            provider = parts[2]
+            try:
+                lat = float(parts[3])
+                lng = float(parts[4])
+                
+                loading_msg_id = await send_telegram_message_return_id(chat_id, f"⏳ กำลังประมวลผลสภาพอากาศด้วย {provider}...")
+                await process_telegram_location(chat_id, lat, lng, force_endpoint=provider, message_id_to_edit=loading_msg_id)
+                await answer_callback_query(query_id)
+            except ValueError:
+                logger.error("Invalid lat/lng in force_api")
+
+    # Handle View Insights (Issue #42)
     if data.startswith("compare_api_"):
         parts = data.split("_")
         if len(parts) >= 4:
@@ -426,7 +441,20 @@ async def handle_callback_query(callback_query: dict):
                                 
                         text += "\n"
                 
-                await edit_telegram_message(chat_id, message_id, text)
+                keyboard = []
+                row = []
+                for ep in results.keys():
+                    row.append({"text": f"✅ {display_names.get(ep, ep)}", "callback_data": f"force_api_{ep}_{lat}_{lng}"})
+                    if len(row) == 2:
+                        keyboard.append(row)
+                        row = []
+                if row:
+                    keyboard.append(row)
+                reply_markup = {"inline_keyboard": keyboard}
+                
+                await edit_telegram_message(chat_id, message_id, text, reply_markup=reply_markup)
+                
+                await answer_callback_query(query_id)
                 
             except Exception as e:
                 logger.error(f"Error handling compare_api: {e}")
@@ -526,6 +554,28 @@ async def handle_devmock_command(chat_id: int, command: str):
             await send_telegram_message(chat_id, "🛠️ [DEV MOCK] ปิดใช้งานโหมดจำลองเรียบร้อยแล้ว")
 
 
+async def handle_rain_command(chat_id: int, command: str):
+    parts = command.strip().split()
+    force_provider = None
+    if len(parts) > 1:
+        force_provider = parts[1]
+    
+    async with get_repo_context() as repo:
+        locs = await repo.get_user_locations(chat_id)
+        
+    if not locs:
+        await send_telegram_message(chat_id, "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")
+        return
+        
+    loc = locs[0]
+    loading_msg_id = await send_telegram_message_return_id(
+        chat_id,
+        f"⏳ กำลังตรวจสอบสภาพอากาศจาก {force_provider or 'ระบบอัตโนมัติ'}..."
+    )
+    
+    await process_telegram_location(chat_id, loc.latitude, loc.longitude, force_endpoint=force_provider, message_id_to_edit=loading_msg_id)
+
+
 @router.post("/webhook")
 async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     payload = await request.json()
@@ -564,6 +614,10 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
 
         if text.startswith("/radar") and chat_id:
             background_tasks.add_task(handle_radar_command, chat_id)
+            return {"status": "ok"}
+
+        if text.startswith("/rain") and chat_id:
+            background_tasks.add_task(handle_rain_command, chat_id, text)
             return {"status": "ok"}
 
         if text.startswith("/devmock") and chat_id:

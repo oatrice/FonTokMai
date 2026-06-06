@@ -24,24 +24,26 @@ class WeatherManager:
     ) -> dict:
         """
         ดึงข้อมูลพยากรณ์ฝนโดยผ่านระบบ Fallback อัตโนมัติ:
-          Tomorrow.io → Rainbow Local → Rainbow Global
-
-        พารามิเตอร์:
-          force_endpoint: ถ้าระบุ ("global" หรือ "local") จะเรียก Rainbow endpoint นั้นโดยตรง
-                          โดยไม่ผ่าน fallback chain (ใช้สำหรับ user สลับ endpoint เอง)
+        หรือบังคับ API ตาม force_endpoint
         """
+        service_map = {
+            "xweather": lambda: self.xweather_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
+            "tomorrow": lambda: self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
+            "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
+            "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
+            "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state)
+        }
+
         # --- โหมดบังคับ endpoint (ไม่ผ่าน fallback) ---
-        if force_endpoint in ("global", "local"):
+        if force_endpoint and force_endpoint in service_map:
             try:
-                result = await self.rainbow_svc.predict_rain_by_location(
-                    lat, lng, endpoint_type=force_endpoint, mock_state=mock_state
-                )
-                endpoint_label = "rainbow-global" if force_endpoint == "global" else "rainbow-local"
-                result["endpoint"] = endpoint_label
-                logger.info(f"Successfully fetched weather from Rainbow ({force_endpoint}) [forced]")
+                result = await service_map[force_endpoint]()
+                result["endpoint"] = force_endpoint
+                logger.info(f"Successfully fetched weather from {force_endpoint} [forced]")
                 return result
             except Exception as e:
-                logger.error(f"Rainbow ({force_endpoint}) failed (forced mode): {e}")
+                logger.error(f"{force_endpoint} failed (forced mode): {e}")
                 return {
                     "predictions": [],
                     "intensity": "ไม่ทราบ",
@@ -57,15 +59,6 @@ class WeatherManager:
             reliabilities = await repo.get_all_api_reliability()
             
         sorted_endpoints = sorted(reliabilities.keys(), key=lambda k: reliabilities[k], reverse=True)
-        
-        service_map = {
-            "xweather": lambda: self.xweather_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "tomorrow": lambda: self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
-            "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
-            "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state)
-        }
         
         for ep in sorted_endpoints:
             if ep not in service_map:

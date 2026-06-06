@@ -27,6 +27,22 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #61 - Feature: Digitize and Re-render Radar Images for Higher Sharpness
+- **GitHub:** [#61](https://gitlab.com/oatricedev/FonMaYang/-/issues/61)
+- **Status:** 🟢 **Ready**
+
+### Issue #60 - Feature: Implement Pre-fetch & Caching for Radar Frame OCR
+- **GitHub:** [#60](https://gitlab.com/oatricedev/FonMaYang/-/issues/60)
+- **Status:** 🟢 **Ready**
+
+### Issue #59 - Feature: Relate timeline bar graphs to specific rain clouds in radar image
+- **GitHub:** [#59](https://gitlab.com/oatricedev/FonMaYang/-/issues/59)
+- **Status:** 🟢 **Ready**
+
+### Issue #58 - Bug: Radar tracking image circles incorrect cloud positions
+- **GitHub:** [#58](https://gitlab.com/oatricedev/FonMaYang/-/issues/58)
+- **Status:** 🟢 **Ready**
+
 ### Issue #57 - Feature: Implement Cloud Growth and Decay Rate Model for TMD Nowcasting
 - **GitHub:** [#57](https://gitlab.com/oatricedev/FonMaYang/-/issues/57)
     - ✅ **Done** (0.21.0)

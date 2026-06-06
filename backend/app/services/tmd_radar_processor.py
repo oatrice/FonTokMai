@@ -728,6 +728,17 @@ class TMDRadarProcessor:
                     # PIL handles GIF frame disposal properly (coalescing delta frames)
                     for frame in ImageSequence.Iterator(img):
                         frames.append(np.array(frame.copy().convert("RGB")))
+                        
+                    try:
+                        from app.services.ocr_service import OCRService
+                        ocr_svc = OCRService()
+                        if len(frames) > 0:
+                            ts = await ocr_svc.get_frame_timestamp(frames[-1])
+                            if ts is not None:
+                                dt = datetime.fromtimestamp(ts, timezone.utc)
+                    except Exception as e:
+                        print(f"Error in OCR: {e}")
+
                     return frames, dt
         except Exception as e:
             print(f"Error fetching loop gif: {e}")
