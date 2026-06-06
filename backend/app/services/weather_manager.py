@@ -200,11 +200,14 @@ class WeatherManager:
                 )
 
                 # Apply mock overrides
-                if mock_state == "rain":
+                if mock_state in ("rain", "storm"):
                     import cv2
-                    clouds = []  # Forcefully clear real clouds to ensure mock always shows
                     
-                    # Create a mock storm system moving as a "broad front" (หน้ากระดาน)
+                    if mock_state == "storm" or not clouds:
+                        if mock_state == "storm":
+                            clouds = []  # Forcefully clear real clouds to ensure mock storm always shows
+                            
+                        # Create a mock storm system moving as a "broad front" (หน้ากระดาน)
                     # Moving towards NE means vx > 0, vy < 0 (e.g. 3.0, -3.0)
                     # To form a front, the clouds are spread perpendicular to NE (along the NW-SE axis)
                     mock_configs = []
@@ -247,6 +250,12 @@ class WeatherManager:
                             cy_i = int(cy - steps_ago * vy)
                             # Make the blobs slightly larger so they merge into a solid wall
                             cv2.circle(f, (cx_i, cy_i), 22, mc["color"], -1)
+                    else:
+                        # If there ARE real clouds and mock_state == "rain", we just boost their intensity
+                        # to simulate heavier rain without injecting fake clouds.
+                        for c in clouds:
+                            c["dbz_now"]       = max(c["dbz_now"], 40.0)
+                            c["predicted_dbz"] = max(c["predicted_dbz"], 40.0)
                 elif mock_state == "clear":
                     clouds = []
 
