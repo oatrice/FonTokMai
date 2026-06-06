@@ -338,6 +338,18 @@ class TMDRadarProcessor:
         percent_change = ((curr_sum - prev_sum) / prev_sum) * 100.0
         return percent_change
 
+    def _get_max_dbz_in_radius(self, img: np.ndarray, x: int, y: int, radius: int = 5) -> float:
+        max_dbz = 0.0
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                sx = x + dx
+                sy = y + dy
+                if 0 <= sx < img.shape[1] and 0 <= sy < img.shape[0]:
+                    d = self.get_dbz_at_pixel(img, sx, sy)
+                    if d > max_dbz:
+                        max_dbz = d
+        return max_dbz
+
     def calculate_lagrangian_growth(self, frames: list, flow: np.ndarray, target_x: int, target_y: int, steps_ahead: int, max_lookback_frames: int = 2) -> float:
         """
         Calculates the true growth of the specific air mass that will hit target_x, target_y in `steps_ahead` frames.
@@ -353,7 +365,9 @@ class TMDRadarProcessor:
         curr_src_x = int(round(target_x - vx * steps_ahead))
         curr_src_y = int(round(target_y - vy * steps_ahead))
         
-        curr_dbz = self.get_dbz_at_pixel(frames[-1], curr_src_x, curr_src_y)
+        # Search in a 30-pixel radius (~30km) to lock onto the MACRO storm cell
+        # rather than tracking a micro air parcel which may disperse or shift.
+        curr_dbz = self._get_max_dbz_in_radius(frames[-1], curr_src_x, curr_src_y, radius=30)
         
         past_dbz = 0.0
         
@@ -363,7 +377,7 @@ class TMDRadarProcessor:
             prev_x = int(round(curr_src_x - i * vx))
             prev_y = int(round(curr_src_y - i * vy))
             # Index offset: i=1 -> frames[-2]
-            dbz = self.get_dbz_at_pixel(frames[-(i + 1)], prev_x, prev_y)
+            dbz = self._get_max_dbz_in_radius(frames[-(i + 1)], prev_x, prev_y, radius=30)
             if dbz > 0:
                 past_dbz = dbz # Keep overwriting to get the OLDEST available > 0
                 
