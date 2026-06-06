@@ -588,9 +588,9 @@ class TMDRadarProcessor:
             eta = c["eta_min"]
             dbz = c["predicted_dbz"]
             
-            color = (0, 255, 0)
-            if dbz >= 55: color = (0, 0, 255)
-            elif dbz >= 40: color = (0, 165, 255)
+            color = (0, 255, 0)  # RGB Green
+            if dbz >= 55: color = (255, 0, 0)  # RGB Red
+            elif dbz >= 40: color = (255, 165, 0)  # RGB Orange
             
             cv2.circle(img, (cx, cy), int(12 * scale), color, int(1.5 * scale))
             
@@ -600,11 +600,11 @@ class TMDRadarProcessor:
             
             # If there's no movement, just point to user as fallback
             if vx_scaled == 0 and vy_scaled == 0:
-                cv2.arrowedLine(img, (cx, cy), (ux, uy), (0, 255, 255), int(1.5 * scale), tipLength=0.1)
+                cv2.arrowedLine(img, (cx, cy), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.1)  # RGB Yellow
             else:
                 target_x = cx + vx_scaled
                 target_y = cy + vy_scaled
-                cv2.arrowedLine(img, (cx, cy), (target_x, target_y), (0, 255, 255), int(1.5 * scale), tipLength=0.3)
+                cv2.arrowedLine(img, (cx, cy), (target_x, target_y), (255, 255, 0), int(1.5 * scale), tipLength=0.3)  # RGB Yellow
             
             sign = "-" if eta < 0 else "~"
             abs_eta = int(abs(eta))
@@ -616,7 +616,9 @@ class TMDRadarProcessor:
             cv2.putText(img, f"{sign}{time_str}", (cx + int(15 * scale), cy), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, (255, 255, 255), int(1.5 * scale))
 
-        is_success, buffer = cv2.imencode(".png", img)
+        # Convert RGB back to BGR for cv2.imencode
+        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        is_success, buffer = cv2.imencode(".png", img_bgr)
         return buffer.tobytes() if is_success else None
 
     @staticmethod
