@@ -8,6 +8,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 ## Features
 - **Pluggable Architecture**: Easily switch between or combine weather providers (Xweather, Tomorrow.io, Open-Meteo, RainViewer, Rainbow, TMD Radar) with an automated fallback mechanism based on user feedback and reliability scoring.
 - **Automated TMD Radar Processing & Nowcasting**: Real-time extraction of rain intensity directly from TMD radar imagery, fully integrated as a highly accurate data source in the automated fallback system. Includes optical flow extrapolation and azimuthal projection for precise rain cell tracking and forecasting.
+- **Resilient Radar OCR Pipeline**: Utilizes an automated fallback chain (Google Cloud Vision -> Gemini -> OCR.space) for reliable radar timestamp extraction, safeguarded by a Firestore-based quota management system.
 - **Visual Radar Tracking & ETA Timelines**: Generates and sends high-quality radar animation loops (GIFs), tracked cloud visualizations, and human-readable ETA confidence timelines directly to users via Telegram webhooks and scheduled alerts.
 - **Advanced Lagrangian Cloud Modeling**: Employs spatial max dBZ search and lagrangian tracking to model rain cell growth, decay, and precise movement paths across multi-user environments.
 - **Natural Hazard Alerts**: Proactive monitoring for severe natural disasters including Earthquakes (via real-time EMSC WebSockets & USGS polling), Tropical Cyclones, and Wildfires, complete with broad geofencing and grouped notifications for users with multiple locations.
@@ -33,6 +34,8 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 - **Rainbow Weather API**: [api.rainbow.ai](https://api.rainbow.ai/)
 - **EMSC Seismic Portal**: [seismicportal.eu](https://www.seismicportal.eu/)
 - **USGS Earthquake Hazards Program**: [earthquake.usgs.gov](https://earthquake.usgs.gov/)
+- **Google Cloud Vision / Gemini APIs**: [cloud.google.com](https://cloud.google.com/)
+- **OCR.space API**: [ocr.space](https://ocr.space/)
 
 ## Getting Started
 
@@ -49,7 +52,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
    source .venv/bin/activate
    pip install -r requirements.txt
    ```
-3. Set up your `.env` file with your `TELEGRAM_BOT_TOKEN`, `TOMORROW_API_KEY`, `RAINBOW_API_KEY`, `XWEATHER_CLIENT_ID`, `XWEATHER_CLIENT_SECRET`, `CRON_SECRET`, etc.
+3. Set up your `.env` file with your `TELEGRAM_BOT_TOKEN`, `TOMORROW_API_KEY`, `RAINBOW_API_KEY`, `XWEATHER_CLIENT_ID`, `XWEATHER_CLIENT_SECRET`, `CRON_SECRET`, `GEMINI_API_KEY`, `OCR_SPACE_API_KEY`, etc.
 4. Run unit tests:
    ```bash
    pytest tests/
