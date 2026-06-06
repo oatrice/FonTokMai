@@ -7,12 +7,12 @@ Follow these steps to manually test the Telegram Webhook integration locally:
   ```bash
   uvicorn app.main:app --reload
   ```
-  *Ensure the server starts without errors and is listening on `http://127.0.0.1:8000`.*
+  *Ensure the server starts without errors and is listening on `http://127.0.0.1:8001`.*
 
 - **Step 2:** Simulate a Telegram Location Message via `curl`.
   Open a new terminal window and execute the following `curl` command to send a mocked Telegram payload containing a location:
   ```bash
-  curl -X POST "http://127.0.0.1:8000/api/v1/webhook/telegram" \
+  curl -X POST "http://127.0.0.1:8001/api/v1/webhook/telegram" \
        -H "Content-Type: application/json" \
        -d '{
          "update_id": 123456789,
@@ -37,7 +37,7 @@ Follow these steps to manually test the Telegram Webhook integration locally:
 - **Step 5 (Optional):** Simulate an Irrelevant Telegram Message.
   Run the following `curl` to simulate a message without location data:
   ```bash
-  curl -X POST "http://127.0.0.1:8000/api/v1/webhook/telegram" \
+  curl -X POST "http://127.0.0.1:8001/api/v1/webhook/telegram" \
        -H "Content-Type: application/json" \
        -d '{
          "update_id": 123456789,

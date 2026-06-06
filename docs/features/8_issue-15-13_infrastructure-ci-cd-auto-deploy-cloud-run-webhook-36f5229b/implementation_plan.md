@@ -25,7 +25,7 @@
 - หลังจาก deploy สำเร็จ จะมีการรัน `curl` ไปยัง Telegram API เพื่ออัปเดต Webhook ของ Production Bot ให้ชี้ไปที่ URL ของ Cloud Run ทันที (ป้องกันปัญหา Webhook ตีกันระหว่าง Local กับ Production)
 
 #### [NEW] [docs/development_guide.md](file:///Users/oatrice/Software-projects/FonMaYang/docs/development_guide.md)
-- เขียนคู่มือ "Two Bots Strategy" สั้นๆ อธิบายวิธีใช้ Dev Bot ควบคู่กับ `localtunnel` (เช่น `lt --port 8000 --subdomain fontokmaidev`) ในการทดสอบ Local แบบไม่ให้กระทบ Production
+- เขียนคู่มือ "Two Bots Strategy" สั้นๆ อธิบายวิธีใช้ Dev Bot ควบคู่กับ `localtunnel` (เช่น `lt --port 8001 --subdomain fontokmaidev`) ในการทดสอบ Local แบบไม่ให้กระทบ Production
 
 ---
 

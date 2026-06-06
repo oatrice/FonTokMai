@@ -2,8 +2,8 @@
 
 ## Step 1: Set up Local Development Environment (Two Bots Strategy)
 - Ensure your `.env` has `TELEGRAM_BOT_TOKEN` set to your **DevBot** token, and `ENVIRONMENT=development`.
-- Run the FastAPI server locally: `cd backend && uvicorn app.main:app --reload --port 8000`
-- Open a LocalTunnel to expose port 8000: `npx localtunnel --port 8000 --subdomain fontokmaidev` (or use your custom subdomain).
+- Run the FastAPI server locally: `cd backend && uvicorn app.main:app --reload --port 8001`
+- Open a LocalTunnel to expose port 8001: `npx localtunnel --port 8001 --subdomain fontokmaidev` (or use your custom subdomain).
 - Set the DevBot webhook to your local tunnel URL: 
   ```bash
   curl -s -X POST "https://api.telegram.org/bot<DEV_BOT_TOKEN>/setWebhook" -d url="https://fontokmaidev.loca.lt/api/v1/telegram/webhook"

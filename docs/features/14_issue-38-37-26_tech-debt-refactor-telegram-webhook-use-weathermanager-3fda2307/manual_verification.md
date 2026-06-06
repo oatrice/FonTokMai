@@ -103,7 +103,7 @@ Expected Result:
 ให้ทดสอบโดยจำลองการทำงานของ Cron Job แทน เปิด Terminal แล้วพิมพ์:
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/cron/check-rain -H "X-Cron-Secret: default_secret_for_local_testing"
+curl -X POST http://localhost:8001/api/v1/cron/check-rain -H "X-Cron-Secret: default_secret_for_local_testing"
 ```
 
 ```
@@ -131,7 +131,7 @@ sqlite3 backend/fonmayang.db \
 จากนั้นสั่งรัน Cron จำลองอีกครั้ง:
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/cron/check-rain -H "X-Cron-Secret: default_secret_for_local_testing"
+curl -X POST http://localhost:8001/api/v1/cron/check-rain -H "X-Cron-Secret: default_secret_for_local_testing"
 ```
 
 ```
@@ -151,7 +151,7 @@ Expected Result (Log + Telegram):
 
 ```bash
 # จำลอง Webhook location event
-curl -X POST http://localhost:8000/api/v1/telegram/webhook \
+curl -X POST http://localhost:8001/api/v1/telegram/webhook \
   -H "Content-Type: application/json" \
   -d '{
     "update_id": 99999,
