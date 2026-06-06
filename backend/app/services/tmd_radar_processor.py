@@ -338,12 +338,13 @@ class TMDRadarProcessor:
         percent_change = ((curr_sum - prev_sum) / prev_sum) * 100.0
         return percent_change
 
-    def calculate_lagrangian_growth(self, frames: list, flow: np.ndarray, target_x: int, target_y: int, steps_ahead: int) -> float:
+    def calculate_lagrangian_growth(self, frames: list, flow: np.ndarray, target_x: int, target_y: int, steps_ahead: int, max_lookback_frames: int = 2) -> float:
         """
         Calculates the true growth of the specific air mass that will hit target_x, target_y in `steps_ahead` frames.
         It tracks the air mass backwards in time to compare its current intensity with its past intensity.
+        `max_lookback_frames` determines how far back to trace (e.g. 2 = 30 mins).
         """
-        if len(frames) < 3:
+        if len(frames) < 2:
             return 0.0
             
         vx, vy = self.get_flow_vector_at(flow, target_x, target_y)
@@ -354,19 +355,18 @@ class TMDRadarProcessor:
         
         curr_dbz = self.get_dbz_at_pixel(frames[-1], curr_src_x, curr_src_y)
         
-        # Where was this same cloud 15 minutes ago? (1 frame back)
-        prev1_x = int(round(curr_src_x - vx))
-        prev1_y = int(round(curr_src_y - vy))
-        prev1_dbz = self.get_dbz_at_pixel(frames[-2], prev1_x, prev1_y)
+        past_dbz = 0.0
         
-        # Where was this same cloud 30 minutes ago? (2 frames back)
-        prev2_x = int(round(curr_src_x - 2 * vx))
-        prev2_y = int(round(curr_src_y - 2 * vy))
-        prev2_dbz = self.get_dbz_at_pixel(frames[-3], prev2_x, prev2_y)
-        
-        # Use the oldest valid dBZ as the baseline
-        past_dbz = prev2_dbz if prev2_dbz > 0 else prev1_dbz
-        
+        # Look backwards through frames to find the oldest valid dBZ
+        max_lookback = min(max_lookback_frames, len(frames) - 1)
+        for i in range(1, max_lookback + 1):
+            prev_x = int(round(curr_src_x - i * vx))
+            prev_y = int(round(curr_src_y - i * vy))
+            # Index offset: i=1 -> frames[-2]
+            dbz = self.get_dbz_at_pixel(frames[-(i + 1)], prev_x, prev_y)
+            if dbz > 0:
+                past_dbz = dbz # Keep overwriting to get the OLDEST available > 0
+                
         if curr_dbz == 0 and past_dbz == 0:
             return 0.0
         elif curr_dbz > 0 and past_dbz == 0:
