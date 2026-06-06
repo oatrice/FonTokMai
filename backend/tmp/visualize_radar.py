@@ -39,10 +39,19 @@ async def main():
                 
                 # Draw landmarks on every frame
                 for name, (lat, lng) in landmarks.items():
-                    px, py = processor.latlng_to_pixel(lat, lng, is_loop=True)
+                    # Draw Flat (Linear)
+                    px, py = processor.latlng_to_pixel(lat, lng, is_loop=True, projection="linear")
                     if px is not None and py is not None:
-                        cv2.circle(out_frame, (px, py), 5, (255, 0, 0), -1)
-                        cv2.putText(out_frame, name, (px + 7, py + 3), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 2)
+                        cv2.circle(out_frame, (px, py), 5, (0, 0, 255), -1)  # Red for Flat
+                        cv2.putText(out_frame, name, (px + 8, py + 4), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+
+                    # Draw Curvature (Azimuthal)
+                    px2, py2 = processor.latlng_to_pixel(lat, lng, is_loop=True, projection="azimuthal")
+                    if px2 is not None and py2 is not None:
+                        cv2.circle(out_frame, (px2, py2), 4, (255, 0, 0), -1)  # Blue for Azimuthal
+                        # Draw a line connecting them to show the difference
+                        if px is not None and py is not None:
+                            cv2.line(out_frame, (px, py), (px2, py2), (255, 255, 255), 1)
                         cv2.putText(out_frame, name, (px + 7, py + 3), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
                 
                 # Draw arrows only on the last frame
@@ -83,11 +92,18 @@ async def main():
         print(f"Static image shape: {static_frame.shape}")
         print("Plotting landmarks for Mapping Verification on Static...")
         for name, (lat, lng) in landmarks.items():
-            px, py = processor.latlng_to_pixel(lat, lng, is_loop=False)
+            # Draw Flat (Linear)
+            px, py = processor.latlng_to_pixel(lat, lng, is_loop=False, projection="linear")
             if px is not None and py is not None:
-                cv2.circle(static_frame, (px, py), 5, (255, 0, 0), -1)
-                cv2.putText(static_frame, name, (px + 7, py + 3), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 2)
-                cv2.putText(static_frame, name, (px + 7, py + 3), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+                cv2.circle(static_frame, (px, py), 5, (0, 0, 255), -1)  # Red for Flat
+                cv2.putText(static_frame, name, (px + 8, py + 4), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+
+            # Draw Curvature (Azimuthal)
+            px2, py2 = processor.latlng_to_pixel(lat, lng, is_loop=False, projection="azimuthal")
+            if px2 is not None and py2 is not None:
+                cv2.circle(static_frame, (px2, py2), 4, (255, 0, 0), -1)  # Blue for Azimuthal
+                if px is not None and py is not None:
+                    cv2.line(static_frame, (px, py), (px2, py2), (255, 255, 255), 1)
 
         static_frame_bgr = cv2.cvtColor(static_frame, cv2.COLOR_RGB2BGR)
         cv2.imwrite("backend/tmp/radar_verification_static.png", static_frame_bgr)

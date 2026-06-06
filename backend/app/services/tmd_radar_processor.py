@@ -12,11 +12,15 @@ class TMDRadarProcessor:
         import os
         self.storage_dir = os.path.join(os.getcwd(), "backend", "tmp")
 
-    def latlng_to_pixel(self, lat: float, lng: float, is_loop: bool = True) -> Tuple[Optional[int], Optional[int]]:
+    def latlng_to_pixel(self, lat: float, lng: float, is_loop: bool = True, projection: str = None) -> Tuple[Optional[int], Optional[int]]:
         """Converts geographical coordinates to image pixel coordinates based on bounding box."""
         bbox = self.config.bbox
         if lat > bbox.lat_max or lat < bbox.lat_min or lng < bbox.lng_min or lng > bbox.lng_max:
             return None, None
+            
+        # Use config's projection if not explicitly provided
+        if projection is None:
+            projection = getattr(self.config, 'projection_type', 'linear')
             
         # Select crop parameters based on image type
         crop_x = self.config.loop_crop_x if is_loop else self.config.static_crop_x
@@ -24,20 +28,52 @@ class TMDRadarProcessor:
         crop_width = self.config.loop_crop_width if is_loop else self.config.static_crop_width
         crop_height = self.config.loop_crop_height if is_loop else self.config.static_crop_height
         
-        # Check if we have affine calibration points
-        if self.config.calibration_points and len(self.config.calibration_points) >= 3:
-            # Full affine transformation (implemented in future PRs if needed)
-            pass
+        if projection == "azimuthal" and hasattr(self.config, 'center_lat') and self.config.radius_km > 0:
+            import math
+            # Haversine distance
+            R = 6371.0 # Earth radius in km
+            lat1 = math.radians(self.config.center_lat)
+            lon1 = math.radians(self.config.center_lng)
+            lat2 = math.radians(lat)
+            lon2 = math.radians(lng)
             
-        # Fallback to standard linear interpolation using bounding box
-        x_pct = (lng - bbox.lng_min) / (bbox.lng_max - bbox.lng_min)
-        y_pct = (bbox.lat_max - lat) / (bbox.lat_max - bbox.lat_min)
-        
-        # Crop offsets
-        x = int(x_pct * crop_width) + crop_x
-        y = int(y_pct * crop_height) + crop_y
-        
-        return x, y
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+            
+            a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            distance_km = R * c
+            
+            # Bearing
+            y = math.sin(dlon) * math.cos(lat2)
+            x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+            bearing = math.atan2(y, x)
+            
+            # Pixel mapping (center of crop area is center of radar)
+            pixel_radius = crop_width / 2.0
+            r_px = (distance_km / self.config.radius_km) * pixel_radius
+            
+            # Note: bearing is from North (0), rotating clockwise.
+            # In image coordinates, y goes down.
+            dx = r_px * math.sin(bearing)
+            dy = -r_px * math.cos(bearing)
+            
+            # Center of the crop area
+            center_x = crop_width / 2.0
+            center_y = crop_height / 2.0
+            
+            px = int(center_x + dx) + crop_x
+            py = int(center_y + dy) + crop_y
+            return px, py
+        else:
+            # Fallback to standard linear interpolation using bounding box (Flat)
+            x_pct = (lng - bbox.lng_min) / (bbox.lng_max - bbox.lng_min)
+            y_pct = (bbox.lat_max - lat) / (bbox.lat_max - bbox.lat_min)
+            
+            # Crop offsets
+            px = int(x_pct * crop_width) + crop_x
+            py = int(y_pct * crop_height) + crop_y
+            return px, py
 
     def get_dbz_at_pixel(self, img: np.ndarray, x: int, y: int) -> float:
         """Reads the color at (x,y) and returns the corresponding dBZ value."""
@@ -161,7 +197,7 @@ class TMDRadarProcessor:
         # Calculate km per pixel (approx 1 degree = 111 km)
         lon_diff = self.config.bbox.lng_max - self.config.bbox.lng_min
         width_km = lon_diff * 111.0
-        km_per_pixel = width_km / max(1, self.config.crop_width)
+        km_per_pixel = width_km / max(1, self.config.loop_crop_width)
         
         km_per_15m = pixel_speed_15m * km_per_pixel
         km_per_h = km_per_15m * 4.0

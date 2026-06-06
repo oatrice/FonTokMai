@@ -31,7 +31,10 @@ class StationConfig:
     loop_crop_y: int = 0
     loop_crop_width: int = 680
     loop_crop_height: int = 680
-    projection_type: str = "linear"  # "linear" or "mercator" or "equirectangular"
+    projection_type: str = "linear"  # "linear" or "azimuthal"
+    center_lat: float = 0.0
+    center_lng: float = 0.0
+    radius_km: float = 0.0
     # dict mapping "lat,lng" to "pixel_x,pixel_y" for affine calibration
     calibration_points: Dict[Tuple[float, float], Tuple[float, float]] = None
 
@@ -68,6 +71,9 @@ STATIONS = {
         static_image_url="https://weather.tmd.go.th/kkn/kkn120_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
         bbox=KKN_BBOX,
+        center_lat=16.4322,
+        center_lng=102.8236,
+        radius_km=120.0,
         static_crop_x=80,
         static_crop_y=40,
         static_crop_width=720,
@@ -83,6 +89,9 @@ STATIONS = {
         static_image_url="https://weather.tmd.go.th/kkn/kkn240_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
         bbox=KKN240_BBOX,
+        center_lat=16.4322,
+        center_lng=102.8236,
+        radius_km=240.0,
         # Image is 680x680. Legend on left is approx 80px.
         # Radar circle is approx 600x600, vertically centered.
         static_crop_x=80,
@@ -99,7 +108,10 @@ STATIONS = {
         name="Sakon Nakhon (240km)",
         static_image_url="https://weather.tmd.go.th/skn/skn240_latest.jpg",
         loop_page_url="https://weather.tmd.go.th/sknLoop.php",
-        bbox=SKN_BBOX
+        bbox=SKN_BBOX,
+        center_lat=17.1607,
+        center_lng=104.1486,
+        radius_km=240.0
     )
 }
 
