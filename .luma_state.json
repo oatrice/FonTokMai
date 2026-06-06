@@ -1,45 +1,22 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 60,
-      "title": "Feature: Implement Pre-fetch & Caching for Radar Frame OCR",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/60",
+      "number": 58,
+      "title": "Bug: Radar tracking image circles incorrect cloud positions",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/58",
       "body": null,
-      "project_item_id": "GLAB_60",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 53,
-      "title": "Feature: Include TMD Radar in the Telegram Compare API results",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/53",
-      "body": null,
-      "project_item_id": "GLAB_53",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 51,
-      "title": "Feature: Telegram command for forcing specific weather data source",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/51",
-      "body": null,
-      "project_item_id": "GLAB_51",
+      "project_item_id": "GLAB_58",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/60-53-51-feature-implement-pre-fetch-ca",
-  "started_at": "2026-06-06T18:05:08.710097",
+  "active_branch": "feat/58-bug-radar-tracking-image-circl",
+  "started_at": "2026-06-06T20:24:40.477697",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
@@ -68,6 +45,7 @@
         "luma/prompts/prompt_20260606_111137_059ef3e0.md",
         "luma/prompts/prompt_20260606_111137_a9e61c16.md",
         "luma/prompts/prompt_20260606_111137_a9e61c16.md.response.md",
+        "luma/prompts/prompt_20260606_132438_cfba71df.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -147,11 +125,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/23_issue-60-53-51_feature-implement-pre-fetch-caching-radar-frame-ocr-fb45b2e1"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/22",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-06T20:21:52.320093"
+  "last_updated": "2026-06-06T20:24:43.412015"
 }
