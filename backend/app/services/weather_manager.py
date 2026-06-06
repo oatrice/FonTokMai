@@ -266,6 +266,17 @@ class WeatherManager:
 
                 current_dbz = predictions[0]["dbz"]
                 intensity   = predictions[0]["intensity"]
+                
+                # [Issue 58] Inject a synthetic cloud for dev testing if none exist
+                if mock_state == "rain" and not clouds:
+                    clouds = [{
+                        "cx": px - 20, "cy": py - 20,
+                        "vx": 2.0, "vy": 2.0,
+                        "predicted_dbz": 45.0,
+                        "eta_min": 15,
+                        "growth_rate": 0.0
+                    }]
+                
                 if clouds:
                     wind_speed = processor.get_wind_speed_kmh_from_vector(clouds[0]["vx"], clouds[0]["vy"])
                     wind_dir = processor.get_wind_direction_text_from_vector(clouds[0]["vx"], clouds[0]["vy"])
