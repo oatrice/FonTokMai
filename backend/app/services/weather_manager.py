@@ -281,13 +281,35 @@ class WeatherManager:
                 static_bytes = None
                 try:
                     import io
-                    from PIL import Image
+                    from PIL import Image, ImageDraw, ImageFont
+                    from zoneinfo import ZoneInfo
+                    
+                    try:
+                        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 24)
+                    except:
+                        font = ImageFont.load_default()
+                        
                     pil_frames = []
-                    for frame in frames:
+                    num_frames = len(frames)
+                    for i, frame in enumerate(frames):
                         processor.draw_pin_on_frame(frame, px, py)
                         img = Image.fromarray(frame)
+                        
                         # Upscale slightly (1.5x) for Telegram visibility without making file size huge
                         img = img.resize((int(img.width * 1.5), int(img.height * 1.5)), Image.Resampling.LANCZOS)
+                        
+                        # Calculate time for this frame
+                        frames_ago = num_frames - 1 - i
+                        frame_time_utc = now_utc - timedelta(minutes=15 * frames_ago)
+                        frame_time_bkk = frame_time_utc.astimezone(ZoneInfo('Asia/Bangkok'))
+                        time_str = frame_time_bkk.strftime('%d %b %H:%M')
+                        
+                        # Draw timestamp text on top-left of the image
+                        draw = ImageDraw.Draw(img, "RGBA")
+                        left, top, right, bottom = draw.textbbox((10, 10), time_str, font=font)
+                        draw.rectangle([left-5, top-5, right+5, bottom+5], fill=(0, 0, 0, 180))
+                        draw.text((10, 10), time_str, fill=(255, 255, 255, 255), font=font)
+                        
                         pil_frames.append(img)
                     if pil_frames:
                         buffer = io.BytesIO()
