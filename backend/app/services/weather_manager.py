@@ -285,8 +285,10 @@ class WeatherManager:
                         pil_frames.append(Image.fromarray(frame))
                     if pil_frames:
                         buffer = io.BytesIO()
+                        # Pause the last frame for 2 seconds (2000ms), others for 500ms
+                        durations = [500] * (len(pil_frames) - 1) + [2000] if len(pil_frames) > 1 else 500
                         pil_frames[0].save(buffer, save_all=True, append_images=pil_frames[1:],
-                                           format='GIF', loop=0, duration=500)
+                                           format='GIF', loop=0, duration=durations)
                         gif_bytes = buffer.getvalue()
                         static_buffer = io.BytesIO()
                         pil_frames[-1].save(static_buffer, format='PNG')
