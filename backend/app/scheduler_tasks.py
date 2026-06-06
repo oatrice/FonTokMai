@@ -235,6 +235,9 @@ async def check_rain_and_alert():
                     if timeline_bytes:
                         await send_telegram_photo(loc.chat_id, timeline_bytes, "rain_timeline.png")
                         
+                    if tracking_bytes:
+                        await send_telegram_photo(loc.chat_id, tracking_bytes, "radar_tracking.png")
+                        
                     if gif_bytes:
                         await send_telegram_document(loc.chat_id, gif_bytes, "radar_nowcast.gif")
                     
