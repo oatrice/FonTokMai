@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 60,
@@ -34,7 +34,9 @@
   "active_branch": "feat/60-53-51-feature-implement-pre-fetch-ca",
   "started_at": "2026-06-06T18:05:08.710097",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -135,5 +137,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-06T18:05:12.609826"
+  "last_updated": "2026-06-06T18:11:37.910252"
 }
