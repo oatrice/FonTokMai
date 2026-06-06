@@ -99,9 +99,10 @@ open tests/debug_rain_final.png
    - A rain summary line (Thai text)
 
 **Expected Result:**
-- Tracking circles sit **on top of the green/yellow/red cloud blobs** in the radar image
-- No phantom circles appear on empty sky or rivers
-- ETAs and wind arrows point in physically plausible directions
+- **If it is raining:** Tracking circles sit **on top of the green/yellow/red cloud blobs** in the radar image. ETAs and wind arrows point in physically plausible directions. No phantom circles appear on empty sky or rivers.
+- **If the weather is clear:** The bot will say "ยังไม่มีแนวโน้มฝนตก" and the tracking image will show the map and your pin, but **no circles** will be drawn.
+- **⚠️ Note on Rate Limits:** If you send commands too rapidly, Telegram may block the GIF with a `429 Too Many Requests` error. If this happens, wait 10-20 seconds before trying again.
+
 
 ---
 
