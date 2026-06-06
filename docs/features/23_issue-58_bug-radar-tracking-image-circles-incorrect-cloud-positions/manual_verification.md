@@ -86,7 +86,12 @@ open tests/debug_rain_final.png
    PYTHONPATH=. venv/bin/python -m uvicorn app.main:app --reload --port 8080
    ```
 
-2. Send `/check` command to the Telegram bot
+2. **Important Pre-requisite:** The bot requires a known location to process radar. 
+   - **Option A (Real test):** Send your Live Location or Pinned Location via Telegram attachment first.
+   - **Option B (Dev mode):** Send `/devmock rain` to use a simulated state without needing a real location.
+
+3. Send the command to the Telegram bot:
+   - Send `/rain tmd-radar` (or the shorthand `/check` which we just added in the webhook router).
 
 3. The bot should respond with:
    - A radar GIF (animated) with the user pin visible

@@ -673,6 +673,8 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
                 return {"status": "ok"}
 
         text = message.get("text", "")
+        logger.info(f"[WEBHOOK] Received text='{text}' chat_id={chat_id}")
+
         if text.startswith("/mylocation") and chat_id:
             background_tasks.add_task(handle_mylocation_command, chat_id)
             return {"status": "ok"}
@@ -689,4 +691,13 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
             background_tasks.add_task(handle_devmock_command, chat_id, text.strip())
             return {"status": "ok"}
 
+        # /check — shorthand alias for /rain tmd-radar (for manual testing)
+        if text.strip() == "/check" and chat_id:
+            logger.info(f"[WEBHOOK] /check received from chat_id={chat_id}, routing to handle_rain_command with 'tmd-radar'")
+            background_tasks.add_task(handle_rain_command, chat_id, "/rain tmd-radar")
+            return {"status": "ok"}
+
+        logger.debug(f"[WEBHOOK] Unrecognized command or text, returning ignored. text='{text}'")
+
     return {"status": "ignored"}
+
