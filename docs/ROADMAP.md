@@ -27,6 +27,30 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #56 - Feature: Display TMD Radar images (Latest & Loop) directly in Telegram
+- **GitHub:** [#56](https://gitlab.com/oatricedev/FonMaYang/-/issues/56)
+- **Status:** 🟢 **Ready**
+
+### Issue #55 - Enhancement: Fine-tune TMD Radar Location Mapping Accuracy
+- **GitHub:** [#55](https://gitlab.com/oatricedev/FonMaYang/-/issues/55)
+- **Status:** 🟢 **Ready**
+
+### Issue #54 - Feature: Implement Radar Animation Loop and Polling
+- **GitHub:** [#54](https://gitlab.com/oatricedev/FonMaYang/-/issues/54)
+- **Status:** 🟢 **Ready**
+
+### Issue #53 - Feature: Include TMD Radar in the Telegram Compare API results
+- **GitHub:** [#53](https://gitlab.com/oatricedev/FonMaYang/-/issues/53)
+- **Status:** 🟢 **Ready**
+
+### Issue #52 - Feature: Expand TMD Radar integration to nationwide coverage
+- **GitHub:** [#52](https://gitlab.com/oatricedev/FonMaYang/-/issues/52)
+- **Status:** 🟢 **Ready**
+
+### Issue #51 - Feature: Telegram command for forcing specific weather data source
+- **GitHub:** [#51](https://gitlab.com/oatricedev/FonMaYang/-/issues/51)
+- **Status:** 🟢 **Ready**
+
 ### Issue #50 - Feature: Automated TMD Radar Image Processing
 - **GitHub:** [#50](https://gitlab.com/oatricedev/FonMaYang/-/issues/50)
     - ✅ **Done** (0.19.0)

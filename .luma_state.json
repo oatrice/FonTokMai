@@ -1,61 +1,54 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 50,
-      "title": "Feature: Automated TMD Radar Image Processing",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/50",
+      "number": 54,
+      "title": "Feature: Implement Radar Animation Loop and Polling",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/54",
       "body": null,
-      "project_item_id": "GLAB_50",
+      "project_item_id": "GLAB_54",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 55,
+      "title": "Enhancement: Fine-tune TMD Radar Location Mapping Accuracy",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/55",
+      "body": null,
+      "project_item_id": "GLAB_55",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/50-feature-automated-tmd-radar-im",
-  "started_at": "2026-06-05T22:44:01.911664",
+  "active_branch": "feat/54-55-feature-implement-radar-animat",
+  "started_at": "2026-06-06T10:58:29.124366",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/webhook.py",
+        "VERSION"
+      ],
+      "changed_files": [
+        "backend/app/models.py",
         "backend/app/scheduler_tasks.py",
         "backend/app/services/tmd_radar_config.py",
         "backend/app/services/tmd_radar_processor.py",
-        "backend/app/services/weather_manager.py",
-        "backend/requirements.txt",
         "backend/tests/test_tmd_processor.py",
         "docs/ROADMAP.md",
-        "docs/features/19_issue-50_feature-automated-tmd-radar-image-processing/implementation_plan.md",
-        "docs/features/19_issue-50_feature-automated-tmd-radar-image-processing/manual_verification.md",
-        "docs/features/19_issue-50_feature-automated-tmd-radar-image-processing/task.md",
-        "docs/features/19_issue-50_feature-automated-tmd-radar-image-processing/walkthrough.md",
-        "luma_metrics.json",
+        "luma/prompts/prompt_20260606_035815_cfa26441.md",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/webhook.py",
+        "backend/app/models.py",
         "backend/app/scheduler_tasks.py",
         "backend/app/services/tmd_radar_config.py",
         "backend/app/services/tmd_radar_processor.py",
-        "backend/app/services/weather_manager.py",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -123,11 +116,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/19_issue-50_feature-automated-tmd-radar-image-processing"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/20_issue-54-55_feature-implement-radar-animation-loop-polling-enhancem-a2ce8e1e"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/19",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-06T00:47:28.106829"
+  "last_updated": "2026-06-06T10:58:32.230865"
 }

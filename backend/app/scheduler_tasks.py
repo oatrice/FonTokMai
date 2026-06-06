@@ -296,13 +296,15 @@ async def fetch_tmd_radar_routine():
     for station in stations_to_update:
         try:
             processor = TMDRadarProcessor(station_code=station)
-            # In a real app, we would check if history is empty in DB/Cache
-            # and call fetch_loop_history_bytes if so.
-            # Otherwise, just poll the latest static image.
             latest_bytes = await processor.fetch_latest_image_bytes()
             if latest_bytes:
                 logger.info(f"Successfully fetched latest radar image for {station} (Size: {len(latest_bytes)} bytes)")
-                # TODO: Save to cache/DB or process immediately
+                saved_filename = await processor.save_polled_frame(latest_bytes)
+                logger.info(f"Saved radar frame to {saved_filename}")
+                
+                deleted = await processor.cleanup_old_frames(max_age_hours=3)
+                if deleted > 0:
+                    logger.info(f"Cleaned up {deleted} old frames for {station}")
         except Exception as e:
             logger.error(f"Failed to fetch TMD radar for {station}: {e}")
 

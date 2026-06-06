@@ -24,6 +24,9 @@ class StationConfig:
     crop_y: int = 0
     crop_width: int = 800
     crop_height: int = 800
+    projection_type: str = "linear"  # "linear" or "mercator" or "equirectangular"
+    # dict mapping "lat,lng" to "pixel_x,pixel_y" for affine calibration
+    calibration_points: Dict[Tuple[float, float], Tuple[float, float]] = None
 
 # Approximate bounding boxes for 120km radius.
 # 1 degree is roughly 111km. 120km is ~1.08 degrees.

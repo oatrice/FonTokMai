@@ -9,6 +9,8 @@ class TMDRadarProcessor:
         if station_code not in STATIONS:
             raise ValueError(f"Unknown station code: {station_code}")
         self.config = STATIONS[station_code]
+        import os
+        self.storage_dir = os.path.join(os.getcwd(), "backend", "tmp")
 
     def latlng_to_pixel(self, lat: float, lng: float) -> Tuple[Optional[int], Optional[int]]:
         """Converts geographical coordinates to image pixel coordinates based on bounding box."""
@@ -17,7 +19,21 @@ class TMDRadarProcessor:
         if not (bbox.lat_min <= lat <= bbox.lat_max and bbox.lng_min <= lng <= bbox.lng_max):
             return None, None
             
-        # Linear interpolation
+        # Check if we have calibration points (currently assuming 2 points for affine scale/translate)
+        if hasattr(self.config, 'calibration_points') and self.config.calibration_points and len(self.config.calibration_points) >= 2:
+            pts = list(self.config.calibration_points.items())
+            (lat1, lng1), (px1, py1) = pts[0]
+            (lat2, lng2), (px2, py2) = pts[1]
+            
+            # Calculate interpolated X
+            x = px1 + (lng - lng1) * (px2 - px1) / (lng2 - lng1) if lng1 != lng2 else px1
+            
+            # Calculate interpolated Y (assuming lat decreases as Y increases)
+            y = py1 + (lat1 - lat) * (py2 - py1) / (lat1 - lat2) if lat1 != lat2 else py1
+            
+            return int(x), int(y)
+
+        # Fallback to standard linear interpolation using bounding box
         x_pct = (lng - bbox.lng_min) / (bbox.lng_max - bbox.lng_min)
         y_pct = (bbox.lat_max - lat) / (bbox.lat_max - bbox.lat_min)
         
@@ -163,6 +179,23 @@ class TMDRadarProcessor:
             pass
         return None
 
+    async def fetch_loop_gif_and_extract_frames(self) -> List[np.ndarray]:
+        """Fetches the Loop.gif and extracts all frames as numpy arrays."""
+        import httpx
+        import imageio.v3 as iio
+        
+        url = getattr(self.config, 'loop_gif_url', self.config.static_image_url.replace('_latest.gif', 'Loop.gif').replace('_latest.jpg', 'Loop.gif'))
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url)
+                if response.status_code == 200:
+                    frames = iio.imread(response.content, index=None)
+                    # iio.imread returns an array of shape (N, H, W, C), convert to list
+                    return list(frames)
+        except Exception as e:
+            print(f"Error fetching loop gif: {e}")
+        return []
+
     async def fetch_loop_history_bytes(self) -> List[bytes]:
         """
         Fetches the history of images from the loop page.
@@ -172,4 +205,55 @@ class TMDRadarProcessor:
         # TODO: Implement actual HTML scraping of self.config.loop_page_url
         # For now, return an empty list to fallback to polling
         return []
+
+    async def save_polled_frame(self, image_bytes: bytes) -> str:
+        """Saves a polled image byte sequence to Google Cloud Storage with a timestamp."""
+        import time
+        import os
+        from google.cloud import storage
+        
+        timestamp = int(time.time())
+        filename = f"radar/{self.station_code}/{self.station_code}_{timestamp}.gif"
+        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+        
+        # Use sync GCS upload (in a real high-throughput app we might use asyncio wrapper or threadpool)
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(filename)
+        
+        blob.upload_from_string(image_bytes, content_type="image/gif")
+        
+        return filename
+        
+    async def cleanup_old_frames(self, max_age_hours: int = 3) -> int:
+        """Deletes files in GCS that are older than max_age_hours."""
+        import time
+        import os
+        from google.cloud import storage
+        
+        now = time.time()
+        max_age_seconds = max_age_hours * 3600
+        cutoff_time = now - max_age_seconds
+        
+        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        prefix = f"radar/{self.station_code}/"
+        
+        blobs = bucket.list_blobs(prefix=prefix)
+        deleted_count = 0
+        
+        for blob in blobs:
+            # We parse the timestamp from the filename "radar/kkn120/kkn120_1234567890.gif"
+            try:
+                base_name = blob.name.split("/")[-1]
+                ts_str = base_name.replace(f"{self.station_code}_", "").replace(".gif", "")
+                blob_ts = int(ts_str)
+                if blob_ts < cutoff_time:
+                    blob.delete()
+                    deleted_count += 1
+            except Exception:
+                pass
+                
+        return deleted_count
 
