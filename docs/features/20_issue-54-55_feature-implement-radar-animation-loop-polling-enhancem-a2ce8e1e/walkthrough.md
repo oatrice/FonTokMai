@@ -21,3 +21,9 @@
 ## Validation Results
 - ยืนยันการทำงานด้วย `pytest backend/tests/test_tmd_processor.py` สำเร็จ 100% (6/6 tests passed) 
 - ติดตั้ง `imageio` เรียบร้อยและเตรียมพร้อมสำหรับการต่อยอดไปยังกระบวนการ **Optical Flow (Nowcasting)** ในก้าวถัดไปครับ!
+
+## 4. Optical Flow Nowcasting (Semi-Lagrangian Advection)
+- พัฒนาระบบประเมินสถานการณ์ฝนล่วงหน้า (Nowcasting) แบบ Real-time โดยใช้อัลกอริทึม **Optical Flow (Farneback)** จาก OpenCV
+- **Backward Tracking:** สร้างสมการ `extrapolate_rain_at_pixel()` เพื่อถอยหลังพิกัดเป้าหมาย (px, py) กลับไปตาม Vector ลม (dx, dy) เพื่อดูว่า "ฝนต้นทาง" จะพัดมาถึงในอีก X นาทีหรือไม่
+- อัปเดต `weather_manager.py` ให้ทำงานแบบ Nowcast สร้างการพยากรณ์ล่วงหน้า `+0m, +15m, +30m, +45m, +60m` เพื่อให้ระบบนำไปใช้ส่งต่อเป็น Array ของ Predictions ใน API Response ได้ทันที
+- **TDD Flow:** เพิ่ม `test_extrapolate_rain_at_pixel` เพื่อทดสอบพฤติกรรมการเคลื่อนที่ของฝนจำลองบน Vector Array ทดสอบผ่านฉลุย 100% (7/7 tests passed)

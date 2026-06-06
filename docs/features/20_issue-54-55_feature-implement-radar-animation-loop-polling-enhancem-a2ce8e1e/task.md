@@ -10,5 +10,11 @@
 - [x] 3. **TDD: Scheduler Polling**
   - [x] เขียน Failing Test สำหรับ `save_polled_frame` และระบบลบไฟล์เก่ากว่า 3 ชั่วโมง
   - [x] เขียนโค้ด Scheduler และฟังก์ชันที่เกี่ยวข้องให้ผ่าน (Green)
-- [x] 4. **Manual Verification**
+- [x] 4. **Optical Flow Nowcasting**
+  - [x] เพิ่มฟังก์ชัน `extrapolate_rain_at_pixel(img, flow, px, py, steps)` ใน `tmd_radar_processor.py`
+  - [x] เปลี่ยน `_get_tmd_prediction()` ให้ดึงข้อมูล Loop GIF และประเมินฝนแบบ 0-60 นาที
+  - [x] อัปเดตและรัน `pytest` สำหรับการทำนายฝน
+- [x] 5. **Documentation & Verification**
   - [x] รันสคริปต์วาดจุดพิกัดลงบนแผนที่เรดาร์เพื่อทดสอบความแม่นยำด้วยตาเปล่า
+  - [x] สรุปผลงานลงใน `walkthrough.md`
+  - [x] แจ้งเตือนผู้ใช้ด้วย `notify_task_complete`

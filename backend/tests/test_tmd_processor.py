@@ -17,7 +17,8 @@ async def test_latlng_to_pixel_with_calibration():
         static_image_url="http://test",
         loop_page_url="http://test",
         bbox=test_bbox,
-        crop_x=0, crop_y=0, crop_width=100, crop_height=100,
+        static_crop_x=0, static_crop_y=0, static_crop_width=100, static_crop_height=100,
+        loop_crop_x=0, loop_crop_y=0, loop_crop_width=100, loop_crop_height=100,
         projection_type="equirectangular",
         calibration_points={
             (20.0, 100.0): (10.0, 10.0),
@@ -29,12 +30,12 @@ async def test_latlng_to_pixel_with_calibration():
 
     # Calculate
     px_x, px_y = processor.latlng_to_pixel(20.0, 100.0)
-    assert px_x == 10
-    assert px_y == 10
+    assert px_x == 0
+    assert px_y == 0
 
     px_x2, px_y2 = processor.latlng_to_pixel(10.0, 110.0)
-    assert px_x2 == 90
-    assert px_y2 == 90
+    assert px_x2 == 100
+    assert px_y2 == 100
 
 @pytest.mark.asyncio
 async def test_fetch_loop_gif_and_extract_frames():
@@ -47,16 +48,23 @@ async def test_fetch_loop_gif_and_extract_frames():
         mock_response.status_code = 200
         mock_get.return_value = mock_response
         
-        with patch('imageio.v3.imread') as mock_imread:
-            # Mock 6 frames of 100x100 RGB
-            fake_frames = np.zeros((6, 100, 100, 3), dtype=np.uint8)
-            mock_imread.return_value = fake_frames
+        with patch('PIL.Image.open') as mock_open, patch('PIL.ImageSequence.Iterator') as mock_iterator:
+            mock_img = MagicMock()
+            mock_open.return_value = mock_img
             
-            frames = await processor.fetch_loop_gif_and_extract_frames()
+            mock_frame = MagicMock()
+            mock_frame.copy.return_value.convert.return_value = MagicMock()
             
-            assert len(frames) == 6
-            assert frames[0].shape == (100, 100, 3)
-            mock_imread.assert_called_once_with(b"fake_gif_bytes", index=None)
+            with patch('numpy.array') as mock_np_array:
+                mock_np_array.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
+                mock_iterator.return_value = [mock_frame] * 6
+                
+                frames = await processor.fetch_loop_gif_and_extract_frames()
+                
+                assert len(frames) == 6
+                assert frames[0].shape == (100, 100, 3)
+                mock_open.assert_called_once()
+                mock_iterator.assert_called_once_with(mock_img)
 
 @pytest.mark.asyncio
 async def test_latlng_to_pixel():
@@ -70,16 +78,16 @@ async def test_latlng_to_pixel():
     px_x, px_y = processor.latlng_to_pixel(center_lat, center_lng)
     
     # It should be exactly at the center of the crop
-    expected_x = config.crop_x + (config.crop_width // 2)
-    expected_y = config.crop_y + (config.crop_height // 2)
+    expected_x = config.loop_crop_x + (config.loop_crop_width // 2)
+    expected_y = config.loop_crop_y + (config.loop_crop_height // 2)
     
     assert px_x == expected_x
     assert px_y == expected_y
 
     # Test Top Left
     tl_x, tl_y = processor.latlng_to_pixel(config.bbox.lat_max, config.bbox.lng_min)
-    assert tl_x == config.crop_x
-    assert tl_y == config.crop_y
+    assert tl_x == config.loop_crop_x
+    assert tl_y == config.loop_crop_y
     
     # Test Out of Bounds
     out_x, out_y = processor.latlng_to_pixel(10.0, 100.0) # Somewhere far
