@@ -276,9 +276,14 @@ class TMDRadarProcessor:
         """Draws a red marker on the image at the specified pixel coordinates."""
         if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
             return
+        # Draw thick white shadow/border first for high contrast
+        cv2.circle(img, (x, y), radius=6, color=(255, 255, 255), thickness=4)
+        cv2.drawMarker(img, (x, y), color=(255, 255, 255), markerType=cv2.MARKER_CROSS, markerSize=14, thickness=4)
+        
+        # Draw the red pin inside the white border
         color = (0, 0, 255) # BGR Red
         cv2.circle(img, (x, y), radius=6, color=color, thickness=2)
-        cv2.drawMarker(img, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=10, thickness=2)
+        cv2.drawMarker(img, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=14, thickness=2)
 
     def get_wind_speed_kmh(self, flow: np.ndarray, px: int, py: int) -> float:
         """
