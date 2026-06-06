@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 56,
@@ -25,7 +25,9 @@
   "active_branch": "feat/56-57-feature-display-tmd-radar-imag",
   "started_at": "2026-06-06T13:09:56.064185",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -113,5 +115,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-06T13:10:39.467269"
+  "last_updated": "2026-06-06T13:15:33.804134"
 }

@@ -64,7 +64,7 @@ class WeatherManager:
             "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
             "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
             "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng)
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state)
         }
         
         for ep in sorted_endpoints:
@@ -136,7 +136,7 @@ class WeatherManager:
             safe_call("rainbow-local", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state)),
             safe_call("rainbow-global", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state)),
             safe_call("open-meteo", self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)),
-            safe_call("tmd-radar", self._get_tmd_prediction(lat, lng))
+            safe_call("tmd-radar", self._get_tmd_prediction(lat, lng, mock_state=mock_state))
         ]
         
         results = await asyncio.gather(*tasks)
@@ -176,7 +176,7 @@ class WeatherManager:
                 logger.error(f"Open-Meteo Contingency failed: {e_meteo}")
                 return {"advisories": [], "lightning": None, "stormcell": None}
 
-    async def _get_tmd_prediction(self, lat: float, lng: float) -> dict:
+    async def _get_tmd_prediction(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
         """
         Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
         """
@@ -210,16 +210,32 @@ class WeatherManager:
                         elif d > 0:  return "ฝนตกเล็กน้อย"
                         else: return "ไม่มีฝน"
                     
-                    # Generate predictions for +0m, +15m, +30m, +45m, +60m
+                    from datetime import datetime, timedelta, timezone
+                    now_utc = datetime.now(timezone.utc)
+                    
                     for steps in range(5):
                         dbz = processor.extrapolate_rain_at_pixel(latest_frame, flow, px, py, steps, rate=rate)
+                        
+                        if mock_state == "rain":
+                            dbz = max(dbz, 40.0)
+                        elif mock_state == "clear":
+                            dbz = 0.0
+                            
                         if dbz > max_dbz:
                             max_dbz = dbz
                             
+                        pred_time = now_utc + timedelta(minutes=steps * 15)
+                        
+                        # Convert dBZ to mm/hr using standard Marshall-Palmer: Z = 200 * R^1.6
+                        z_value = 10 ** (dbz / 10.0)
+                        rain_mmhr = (z_value / 200.0) ** (1.0 / 1.6) if dbz > 0 else 0.0
+                            
                         predictions.append({
+                            "time": pred_time.isoformat().replace("+00:00", "Z"),
                             "time_offset": steps * 15,
                             "intensity": dbz_to_intensity(dbz),
-                            "dbz": float(dbz)
+                            "dbz": float(dbz),
+                            "rain": float(rain_mmhr)
                         })
                         
                     current_dbz = predictions[0]["dbz"]
@@ -228,6 +244,7 @@ class WeatherManager:
 
                     # Draw pins on all frames and generate GIF bytes
                     gif_bytes = None
+                    static_bytes = None
                     try:
                         import io
                         from PIL import Image
@@ -238,20 +255,27 @@ class WeatherManager:
                             
                         if pil_frames:
                             buffer = io.BytesIO()
-                            pil_frames[0].save(buffer, save_all=True, append_images=pil_frames[1:], format='GIF', loop=0, duration=100)
+                            # Increase duration to 500ms to slow down the animation
+                            pil_frames[0].save(buffer, save_all=True, append_images=pil_frames[1:], format='GIF', loop=0, duration=500)
                             gif_bytes = buffer.getvalue()
+                            
+                            static_buffer = io.BytesIO()
+                            pil_frames[-1].save(static_buffer, format='PNG')
+                            static_bytes = static_buffer.getvalue()
                     except Exception as e:
                         logger.error(f"Failed to generate radar GIF: {e}")
 
                     return {
                         "predictions": predictions,
                         "intensity": intensity,
-                        "max_rain": float(max_dbz),
+                        "max_rain": max(p["rain"] for p in predictions) if predictions else 0.0,
+                        "max_dbz": float(max_dbz),
                         "duration_minutes": sum(15 for p in predictions if p["dbz"] > 0),
                         "wind_speed_kmh": round(wind_speed, 1),
                         "endpoint": f"tmd-radar ({station_code})",
                         "growth_rate_pct": percent_change,
-                        "radar_gif_bytes": gif_bytes
+                        "radar_gif_bytes": gif_bytes,
+                        "radar_static_bytes": static_bytes
                     }
             except Exception as e:
                 logger.warning(f"Failed to process TMD radar {station_code}: {e}")
