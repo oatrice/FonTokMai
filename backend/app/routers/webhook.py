@@ -217,9 +217,7 @@ async def process_telegram_location(
         
         from app.services.telegram import send_telegram_photo, send_telegram_document
         
-        if tracking_bytes:
-            await send_telegram_photo(chat_id, tracking_bytes, "radar_tracking.png")
-        elif static_bytes:
+        if static_bytes:
             await send_telegram_photo(chat_id, static_bytes, "radar_latest.png")
             
         if timeline_bytes:

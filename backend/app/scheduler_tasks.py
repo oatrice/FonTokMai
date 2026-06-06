@@ -229,9 +229,7 @@ async def check_rain_and_alert():
                     tracking_bytes = result.get("radar_tracking_bytes")
                     timeline_bytes = result.get("rain_timeline_bytes")
                     
-                    if tracking_bytes:
-                        await send_telegram_photo(loc.chat_id, tracking_bytes, "radar_tracking.png")
-                    elif static_bytes:
+                    if static_bytes:
                         await send_telegram_photo(loc.chat_id, static_bytes, "radar_latest.png")
                         
                     if timeline_bytes:
