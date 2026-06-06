@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 56,
@@ -91,8 +91,6 @@
         "docs/features/7_issue-12_feature-add-multiple-radar-sources-tmd-etc-telegram-33a25a9b/manual_verification.md",
         "docs/features/8_issue-15-13_infrastructure-ci-cd-auto-deploy-cloud-run-webhook-36f5229b/implementation_plan.md",
         "docs/features/8_issue-15-13_infrastructure-ci-cd-auto-deploy-cloud-run-webhook-36f5229b/manual_verification.md",
-        "luma/prompts/prompt_20260606_102938_190f8d98.md",
-        "luma/prompts/prompt_20260606_102941_540e3c52.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -183,7 +181,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/21",
   "pr_number": null,
-  "last_updated": "2026-06-06T17:30:07.979079"
+  "last_updated": "2026-06-06T17:52:56.663093"
 }
