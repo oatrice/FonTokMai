@@ -76,20 +76,23 @@ class TMDRadarProcessor:
             return px, py
 
     def get_dbz_at_pixel(self, img: np.ndarray, x: int, y: int) -> float:
-        """Reads the color at (x,y) and returns the corresponding dBZ value."""
+        """Reads the color at (x,y) and returns the corresponding dBZ value.
+        
+        Frames are in RGB format (from PIL). DBZ_COLOR_MAPPING keys are RGB tuples.
+        """
         if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
             return 0.0
             
-        # OpenCV defaults to BGR
+        # Frames from PIL are RGB: pixel[0]=R, pixel[1]=G, pixel[2]=B
         pixel = img[y, x]
         if len(pixel) >= 3:
-            b, g, r = int(pixel[0]), int(pixel[1]), int(pixel[2])
+            r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
         else:
             return 0.0
             
         color_tuple = (r, g, b)
         
-        # Check ignored (perfect black)
+        # Check ignored colors
         if color_tuple in IGNORED_COLORS:
             return 0.0
             
@@ -104,8 +107,8 @@ class TMDRadarProcessor:
                 min_dist = dist
                 best_dbz = dbz
                 
-        # If the closest color is within a reasonable Euclidean distance (e.g., 90)
-        if min_dist < 90:
+        # Tighter threshold (80) reduces false positives from map features (rivers, terrain)
+        if min_dist < 80:
             return best_dbz
             
         return 0.0
@@ -400,11 +403,25 @@ class TMDRadarProcessor:
           cx, cy, dbz_now, dbz_prev, growth_rate, predicted_dbz, dist, eta_min
         """
         import math
+        # Restrict search to the valid radar crop area to exclude legend strips
+        is_loop = flow.shape[0] <= self.config.loop_crop_height + self.config.loop_crop_y + 10
+        crop_x0 = self.config.loop_crop_x if is_loop else self.config.static_crop_x
+        crop_y0 = self.config.loop_crop_y if is_loop else self.config.static_crop_y
+        crop_w  = self.config.loop_crop_width if is_loop else self.config.static_crop_width
+        crop_h  = self.config.loop_crop_height if is_loop else self.config.static_crop_height
+        valid_x_min = crop_x0
+        valid_x_max = crop_x0 + crop_w
+        valid_y_min = crop_y0
+        valid_y_max = crop_y0 + crop_h
+
         candidates = []
         for dy in range(-search_radius, search_radius + 1, 2):
             for dx in range(-search_radius, search_radius + 1, 2):
                 sx = user_x + dx
                 sy = user_y + dy
+                # Skip pixels outside the valid radar area (legend, borders)
+                if not (valid_x_min <= sx < valid_x_max and valid_y_min <= sy < valid_y_max):
+                    continue
                 if not (0 <= sx < curr_frame.shape[1] and 0 <= sy < curr_frame.shape[0]):
                     continue
                 d = self.get_dbz_at_pixel(curr_frame, sx, sy)
@@ -417,7 +434,8 @@ class TMDRadarProcessor:
                 if dist == 0:
                     continue
                 dot = (cvx * to_x + cvy * to_y) / dist
-                if abs(dot) < 0.1:
+                # Only keep pixels whose flow APPROACHES the user (dot > 0)
+                if dot < 0.1:
                     continue
                 # Previous DBZ at the backward-traced position
                 prev_x = int(round(sx - cvx))
