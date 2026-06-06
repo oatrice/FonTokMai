@@ -266,8 +266,14 @@ class WeatherManager:
 
                 current_dbz = predictions[0]["dbz"]
                 intensity   = predictions[0]["intensity"]
-                wind_speed  = processor.get_wind_speed_kmh(flow, px, py)
-                percent_change = (clouds[0]["growth_rate"] * 100.0) if clouds else 0.0
+                if clouds:
+                    wind_speed = processor.get_wind_speed_kmh_from_vector(clouds[0]["vx"], clouds[0]["vy"])
+                    wind_dir = processor.get_wind_direction_text_from_vector(clouds[0]["vx"], clouds[0]["vy"])
+                    percent_change = clouds[0]["growth_rate"] * 100.0
+                else:
+                    wind_speed = processor.get_wind_speed_kmh(flow, px, py)
+                    wind_dir = processor.get_wind_direction_text(flow, px, py)
+                    percent_change = 0.0
 
                 # Draw pins on all frames and generate GIF bytes
                 gif_bytes    = None
@@ -363,6 +369,7 @@ class WeatherManager:
                     "max_dbz":           float(max_dbz),
                     "duration_minutes":  sum(15 for p in predictions if p["dbz"] > 0),
                     "wind_speed_kmh":    round(wind_speed, 1),
+                    "wind_dir_text":     wind_dir,
                     "endpoint":          f"tmd-radar ({station_code})",
                     "growth_rate_pct":   percent_change,
                     "approaching_clouds": clouds,

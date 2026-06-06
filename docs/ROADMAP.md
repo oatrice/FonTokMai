@@ -33,7 +33,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #60 - Feature: Implement Pre-fetch & Caching for Radar Frame OCR
 - **GitHub:** [#60](https://gitlab.com/oatricedev/FonMaYang/-/issues/60)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.22.0)
 
 ### Issue #59 - Feature: Relate timeline bar graphs to specific rain clouds in radar image
 - **GitHub:** [#59](https://gitlab.com/oatricedev/FonMaYang/-/issues/59)
@@ -61,7 +61,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #53 - Feature: Include TMD Radar in the Telegram Compare API results
 - **GitHub:** [#53](https://gitlab.com/oatricedev/FonMaYang/-/issues/53)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.22.0)
 
 ### Issue #52 - Feature: Expand TMD Radar integration to nationwide coverage
 - **GitHub:** [#52](https://gitlab.com/oatricedev/FonMaYang/-/issues/52)
@@ -69,7 +69,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #51 - Feature: Telegram command for forcing specific weather data source
 - **GitHub:** [#51](https://gitlab.com/oatricedev/FonMaYang/-/issues/51)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.22.0)
 
 ### Issue #50 - Feature: Automated TMD Radar Image Processing
 - **GitHub:** [#50](https://gitlab.com/oatricedev/FonMaYang/-/issues/50)

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2026-06-06
+### Added
+- Implemented a resilient OCR fallback chain (Cloud Vision -> Gemini -> OCR.space) for robust TMD radar frame timestamp extraction.
+- Added Firestore-based monthly quota management for Google Cloud Vision API to prevent exceeding free tier limits.
+- Added radar wind analysis to evaluate weather system vectors directly from radar metadata.
+
+### Changed
+- Reorganized feature documentation and cleaned up the workspace for better maintainability.
+- Updated the manual verification guide to reflect the new OCR fallback chain architecture.
+
+### Fixed
+- Made Google API imports optional to prevent the server from crashing when dependencies are missing.
+- Cached fallback timestamps when OCR fails to read radar frames, preventing repeated failures.
+
 ## [0.21.0] - 2026-06-06
 ### Added
 - Implemented an approaching cloud detector with an ETA timeline to track multi-user cloud movement.

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 60,
@@ -36,16 +36,19 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
+        "backend/.env.example",
         "backend/Dockerfile",
         "backend/app/repositories/firestore.py",
         "backend/app/routers/webhook.py",
@@ -53,17 +56,30 @@
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
         "backend/requirements.txt",
+        "backend/tests/test_firestore.py",
+        "backend/tests/test_ocr_service.py",
+        "code_review.md",
         "docs/ROADMAP.md",
-        "luma/prompts/prompt_20260606_110506_6b35a423.md",
+        "docs/features/22_issue-60-53-51_feature-implement-pre-fetch-caching-radar-frame-ocr-fb45b2e1/implementation_plan.md",
+        "docs/features/22_issue-60-53-51_feature-implement-pre-fetch-caching-radar-frame-ocr-fb45b2e1/manual_verification.md",
+        "docs/features/22_issue-60-53-51_feature-implement-pre-fetch-caching-radar-frame-ocr-fb45b2e1/task.md",
+        "docs/features/22_issue-60-53-51_feature-implement-pre-fetch-caching-radar-frame-ocr-fb45b2e1/walkthrough.md",
+        "draft_code_review.md",
+        "luma/prompts/prompt_20260606_111137_059ef3e0.md",
+        "luma/prompts/prompt_20260606_111137_a9e61c16.md",
+        "luma/prompts/prompt_20260606_111137_a9e61c16.md.response.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/.env.example",
         "backend/Dockerfile",
         "backend/app/repositories/firestore.py",
         "backend/app/routers/webhook.py",
         "backend/app/services/ocr_service.py",
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -135,7 +151,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/22",
   "pr_number": null,
-  "last_updated": "2026-06-06T18:11:37.910252"
+  "last_updated": "2026-06-06T20:21:52.320093"
 }

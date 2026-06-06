@@ -285,13 +285,8 @@ class TMDRadarProcessor:
         cv2.circle(img, (x, y), radius=6, color=color, thickness=2)
         cv2.drawMarker(img, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=14, thickness=2)
 
-    def get_wind_speed_kmh(self, flow: np.ndarray, px: int, py: int) -> float:
-        """
-        Converts the optical flow vector (px/15min) into wind speed (km/h) 
-        based on the geographic bounding box size.
-        """
+    def get_wind_speed_kmh_from_vector(self, vx: float, vy: float) -> float:
         import math
-        vx, vy = self.get_flow_vector_at(flow, px, py)
         pixel_speed_15m = math.sqrt(vx**2 + vy**2)
         
         # Calculate km per pixel (approx 1 degree = 111 km)
@@ -303,6 +298,37 @@ class TMDRadarProcessor:
         km_per_h = km_per_15m * 4.0
         
         return float(km_per_h)
+
+    def get_wind_speed_kmh(self, flow: np.ndarray, px: int, py: int) -> float:
+        """
+        Converts the optical flow vector (px/15min) into wind speed (km/h) 
+        based on the geographic bounding box size.
+        """
+        vx, vy = self.get_flow_vector_at(flow, px, py)
+        return self.get_wind_speed_kmh_from_vector(vx, vy)
+
+    def get_wind_direction_text_from_vector(self, vx: float, vy: float) -> str:
+        import math
+        if abs(vx) < 0.5 and abs(vy) < 0.5:
+            return "ไม่ทราบ"
+            
+        # Map image vector to standard compass heading (North=0, East=90, South=180, West=270)
+        # In image coords: North is vy < 0. East is vx > 0.
+        # math.atan2(y, x): using vx as y and -vy as x gives:
+        # North (vx=0, vy=-1) -> atan2(0, 1) = 0 deg
+        # East (vx=1, vy=0) -> atan2(1, 0) = 90 deg
+        # Wind direction for radar should be where it's heading TO (for easier user understanding)
+        # instead of the meteorological standard (where it's coming FROM)
+        to_angle = math.degrees(math.atan2(vx, -vy)) % 360
+        
+        # Convert to 16 compass points
+        val = int((to_angle / 22.5) + .5)
+        arr = ["N","NNE","NE","ENE","E","ESE", "SE", "SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]
+        return f"{arr[(val % 16)]} ({int(to_angle)}°)"
+
+    def get_wind_direction_text(self, flow: np.ndarray, px: int, py: int) -> str:
+        vx, vy = self.get_flow_vector_at(flow, px, py)
+        return self.get_wind_direction_text_from_vector(vx, vy)
 
     def calculate_growth_decay(self, prev_img: np.ndarray, curr_img: np.ndarray, x: int, y: int, radius: int = 10) -> float:
         """
@@ -544,10 +570,27 @@ class TMDRadarProcessor:
             elif dbz >= 40: color = (0, 165, 255)
             
             cv2.circle(img, (cx, cy), int(12 * scale), color, int(1.5 * scale))
-            cv2.arrowedLine(img, (cx, cy), (ux, uy), (0, 255, 255), int(1.5 * scale), tipLength=0.1)
+            
+            # Draw wind direction arrow (vx, vy are pixels per 15 mins)
+            vx_scaled = int(c.get("vx", 0) * scale * 3.0)  # Show ~45 min trajectory
+            vy_scaled = int(c.get("vy", 0) * scale * 3.0)
+            
+            # If there's no movement, just point to user as fallback
+            if vx_scaled == 0 and vy_scaled == 0:
+                cv2.arrowedLine(img, (cx, cy), (ux, uy), (0, 255, 255), int(1.5 * scale), tipLength=0.1)
+            else:
+                target_x = cx + vx_scaled
+                target_y = cy + vy_scaled
+                cv2.arrowedLine(img, (cx, cy), (target_x, target_y), (0, 255, 255), int(1.5 * scale), tipLength=0.3)
             
             sign = "-" if eta < 0 else "~"
-            cv2.putText(img, f"{sign}{int(abs(eta))}m", (cx + int(15 * scale), cy), 
+            abs_eta = int(abs(eta))
+            if abs_eta < 60:
+                time_str = f"{abs_eta} m"
+            else:
+                time_str = f"{abs_eta // 60} hr {abs_eta % 60} m"
+                
+            cv2.putText(img, f"{sign}{time_str}", (cx + int(15 * scale), cy), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, (255, 255, 255), int(1.5 * scale))
 
         is_success, buffer = cv2.imencode(".png", img)
@@ -733,7 +776,9 @@ class TMDRadarProcessor:
                         from app.services.ocr_service import OCRService
                         ocr_svc = OCRService()
                         if len(frames) > 0:
-                            ts = await ocr_svc.get_frame_timestamp(frames[-1])
+                            import time
+                            fallback_ts = int(dt.timestamp()) if dt else int(time.time())
+                            ts = await ocr_svc.get_frame_timestamp(frames[-1], fallback_ts=fallback_ts)
                             if ts is not None:
                                 dt = datetime.fromtimestamp(ts, timezone.utc)
                     except Exception as e:

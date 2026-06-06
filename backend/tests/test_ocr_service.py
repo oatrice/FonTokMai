@@ -2,8 +2,12 @@ import pytest
 import numpy as np
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 import cv2
+import sys
+from unittest.mock import MagicMock
+sys.modules['google.cloud.vision'] = MagicMock()
+sys.modules['google.generativeai'] = MagicMock()
 
 from app.services.ocr_service import OCRService
 
@@ -14,18 +18,15 @@ def ocr_service():
         mock_repo_instance = MockRepo.return_value
         mock_repo_instance.get_radar_timestamp_cache = AsyncMock(return_value=None)
         mock_repo_instance.set_radar_timestamp_cache = AsyncMock()
+        mock_repo_instance.check_and_increment_vision_quota = AsyncMock(return_value=True)
         service = OCRService()
         return service
 
-def test_preprocess_image(ocr_service):
-    # Create a dummy image 500x500 RGB
-    img = np.zeros((500, 500, 3), dtype=np.uint8)
-    
-    processed = ocr_service._preprocess_image(img)
-    # Ensure it cropped bottom 50px (since 500*0.1 = 50)
-    assert processed.shape == (50, 500)
-    # Ensure it's single channel (grayscale/thresh)
-    assert len(processed.shape) == 2
+def test_frame_to_png_bytes(ocr_service):
+    img = np.zeros((10, 10, 3), dtype=np.uint8)
+    png_bytes = ocr_service._frame_to_png_bytes(img)
+    assert isinstance(png_bytes, bytes)
+    assert len(png_bytes) > 0
 
 def test_extract_timestamp_from_text(ocr_service):
     # Test DD/MM/YYYY HH:MM
@@ -46,32 +47,99 @@ def test_extract_timestamp_from_text(ocr_service):
     assert ocr_service._extract_timestamp_from_text("no date here") is None
 
 @pytest.mark.asyncio
-@patch('app.services.ocr_service.pytesseract.image_to_string')
-async def test_get_frame_timestamp_cache_miss(mock_tesseract, ocr_service):
-    mock_tesseract.return_value = "06/06/2026 10:00"
-    
-    frame = np.zeros((500, 500, 3), dtype=np.uint8)
-    ts = await ocr_service.get_frame_timestamp(frame)
-    
-    bkk_tz = ZoneInfo('Asia/Bangkok')
-    expected_dt = datetime(2026, 6, 6, 10, 0, 0, tzinfo=bkk_tz)
-    assert ts == int(expected_dt.astimezone(timezone.utc).timestamp())
-    
-    # Verify tesseract was called
-    mock_tesseract.assert_called_once()
-    # Verify cache was set
-    ocr_service.repo.set_radar_timestamp_cache.assert_called_once()
+async def test_get_frame_timestamp_cloud_vision_success(ocr_service):
+    with patch.object(ocr_service, '_call_cloud_vision', new_callable=AsyncMock) as mock_vision:
+        mock_vision.return_value = "06/06/2026 10:00"
+        
+        frame = np.zeros((10, 10, 3), dtype=np.uint8)
+        ts = await ocr_service.get_frame_timestamp(frame)
+        
+        bkk_tz = ZoneInfo('Asia/Bangkok')
+        expected_dt = datetime(2026, 6, 6, 10, 0, 0, tzinfo=bkk_tz)
+        assert ts == int(expected_dt.astimezone(timezone.utc).timestamp())
+        
+        mock_vision.assert_called_once()
+        ocr_service.repo.set_radar_timestamp_cache.assert_called_once()
 
 @pytest.mark.asyncio
-async def test_get_frame_timestamp_cache_hit(ocr_service):
-    # Mock that cache returns a timestamp
-    expected_ts = 1234567890
-    ocr_service.repo.get_radar_timestamp_cache.return_value = expected_ts
+async def test_get_frame_timestamp_gemini_fallback(ocr_service):
+    with patch.object(ocr_service, '_call_cloud_vision', new_callable=AsyncMock) as mock_vision, \
+         patch.object(ocr_service, '_call_gemini', new_callable=AsyncMock) as mock_gemini:
+        
+        # Vision fails
+        mock_vision.return_value = "no text"
+        # Gemini succeeds
+        mock_gemini.return_value = "06/06/2026 11:00"
+        
+        frame = np.zeros((10, 10, 3), dtype=np.uint8)
+        ts = await ocr_service.get_frame_timestamp(frame)
+        
+        bkk_tz = ZoneInfo('Asia/Bangkok')
+        expected_dt = datetime(2026, 6, 6, 11, 0, 0, tzinfo=bkk_tz)
+        assert ts == int(expected_dt.astimezone(timezone.utc).timestamp())
+        
+        mock_vision.assert_called_once()
+        mock_gemini.assert_called_once()
+        ocr_service.repo.set_radar_timestamp_cache.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_get_frame_timestamp_ocr_space_fallback(ocr_service):
+    with patch.object(ocr_service, '_call_cloud_vision', new_callable=AsyncMock) as mock_vision, \
+         patch.object(ocr_service, '_call_gemini', new_callable=AsyncMock) as mock_gemini, \
+         patch.object(ocr_service, '_call_ocr_space', new_callable=AsyncMock) as mock_ocr_space:
+        
+        mock_vision.return_value = None
+        mock_gemini.return_value = None
+        mock_ocr_space.return_value = "06/06/2026 12:00"
+        
+        frame = np.zeros((10, 10, 3), dtype=np.uint8)
+        ts = await ocr_service.get_frame_timestamp(frame)
+        
+        bkk_tz = ZoneInfo('Asia/Bangkok')
+        expected_dt = datetime(2026, 6, 6, 12, 0, 0, tzinfo=bkk_tz)
+        assert ts == int(expected_dt.astimezone(timezone.utc).timestamp())
+        
+        mock_vision.assert_called_once()
+        mock_gemini.assert_called_once()
+        mock_ocr_space.assert_called_once()
+        ocr_service.repo.set_radar_timestamp_cache.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_get_frame_timestamp_fallback_ts(ocr_service):
+    with patch.object(ocr_service, '_call_cloud_vision', new_callable=AsyncMock) as mock_vision, \
+         patch.object(ocr_service, '_call_gemini', new_callable=AsyncMock) as mock_gemini, \
+         patch.object(ocr_service, '_call_ocr_space', new_callable=AsyncMock) as mock_ocr_space:
+        
+        mock_vision.return_value = None
+        mock_gemini.return_value = None
+        mock_ocr_space.return_value = None
+        
+        frame = np.zeros((10, 10, 3), dtype=np.uint8)
+        fallback = 1717671600
+        ts = await ocr_service.get_frame_timestamp(frame, fallback_ts=fallback)
+        assert ts == fallback
+        ocr_service.repo.set_radar_timestamp_cache.assert_called_once_with(ocr_service._hash_frame(frame), fallback)
+
+@pytest.mark.asyncio
+async def test_get_frame_timestamp_cloud_vision_quota_exceeded(ocr_service):
+    # Mock quota to return False (exceeded)
+    ocr_service.repo.check_and_increment_vision_quota = AsyncMock(return_value=False)
     
-    frame = np.zeros((500, 500, 3), dtype=np.uint8)
-    ts = await ocr_service.get_frame_timestamp(frame)
-    
-    assert ts == expected_ts
-    # Verify tesseract was NOT called
-    with patch('app.services.ocr_service.pytesseract.image_to_string') as mock_tesseract:
-        mock_tesseract.assert_not_called()
+    with patch.object(ocr_service, '_call_cloud_vision', new_callable=AsyncMock) as mock_vision, \
+         patch.object(ocr_service, '_call_gemini', new_callable=AsyncMock) as mock_gemini:
+        
+        mock_gemini.return_value = "06/06/2026 13:00"
+        
+        frame = np.zeros((10, 10, 3), dtype=np.uint8)
+        ts = await ocr_service.get_frame_timestamp(frame)
+        
+        bkk_tz = ZoneInfo('Asia/Bangkok')
+        expected_dt = datetime(2026, 6, 6, 13, 0, 0, tzinfo=bkk_tz)
+        assert ts == int(expected_dt.astimezone(timezone.utc).timestamp())
+        
+        # Cloud vision should NOT be called
+        mock_vision.assert_not_called()
+        # Gemini should be called
+        mock_gemini.assert_called_once()
+        # Quota check should have been called
+        ocr_service.repo.check_and_increment_vision_quota.assert_called_once()

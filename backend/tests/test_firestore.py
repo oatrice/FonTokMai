@@ -252,3 +252,37 @@ async def test_record_api_query_success_firestore(firestore_repo):
     assert set_args["total_queries"] == 1
     assert set_args["false_alarms"] == 0
     assert set_args["accuracy_score"] == 0.8  # Default for open-meteo
+
+@pytest.mark.asyncio
+async def test_check_and_increment_vision_quota_allowed(firestore_repo):
+    mock_doc_ref = MagicMock()
+    firestore_repo.db.collection.return_value.document.return_value = mock_doc_ref
+    
+    mock_doc = MagicMock()
+    mock_doc.exists = True
+    mock_doc.to_dict.return_value = {"count": 999}
+    
+    async def mock_get(): return mock_doc
+    mock_doc_ref.get = mock_get
+    mock_doc_ref.update = AsyncMock()
+    
+    result = await firestore_repo.check_and_increment_vision_quota(1000)
+    assert result is True
+    mock_doc_ref.update.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_check_and_increment_vision_quota_exceeded(firestore_repo):
+    mock_doc_ref = MagicMock()
+    firestore_repo.db.collection.return_value.document.return_value = mock_doc_ref
+    
+    mock_doc = MagicMock()
+    mock_doc.exists = True
+    mock_doc.to_dict.return_value = {"count": 1000}
+    
+    async def mock_get(): return mock_doc
+    mock_doc_ref.get = mock_get
+    mock_doc_ref.update = AsyncMock()
+    
+    result = await firestore_repo.check_and_increment_vision_quota(1000)
+    assert result is False
+    mock_doc_ref.update.assert_not_called()
