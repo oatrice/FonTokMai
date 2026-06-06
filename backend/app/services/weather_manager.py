@@ -203,17 +203,33 @@ class WeatherManager:
                 if mock_state == "rain":
                     import cv2
                     clouds = []  # Forcefully clear real clouds to ensure mock always shows
-                    # Create a mock storm system with different colored clouds
-                    mock_configs = [
-                        {"color": (0, 255, 0),     "dbz": 25.0, "offset": (-50, -50), "eta": 20}, # Green
-                        {"color": (255, 255, 0),   "dbz": 35.0, "offset": (-35, -35), "eta": 15}, # Yellow
-                        {"color": (255, 153, 0),   "dbz": 45.0, "offset": (-20, -20), "eta": 10}, # Orange
-                        {"color": (255, 0, 0),     "dbz": 55.0, "offset": (-5, -5),   "eta": 5},  # Red
-                        {"color": (204, 0, 204),   "dbz": 65.0, "offset": (10, 10),   "eta": 0},  # Purple
+                    
+                    # Create a mock storm system moving as a "broad front" (หน้ากระดาน)
+                    # Moving towards NE means vx > 0, vy < 0 (e.g. 3.0, -3.0)
+                    # To form a front, the clouds are spread perpendicular to NE (along the NW-SE axis)
+                    mock_configs = []
+                    bands = [
+                        {"color": (0, 255, 0),     "dbz": 25.0, "base_offset": (-5, 5),   "eta": 0},  # Green (Leading edge)
+                        {"color": (255, 255, 0),   "dbz": 35.0, "base_offset": (-20, 20), "eta": 5},  # Yellow
+                        {"color": (255, 153, 0),   "dbz": 45.0, "base_offset": (-35, 35), "eta": 10}, # Orange
+                        {"color": (255, 0, 0),     "dbz": 55.0, "base_offset": (-50, 50), "eta": 15}, # Red
+                        {"color": (204, 0, 204),   "dbz": 65.0, "base_offset": (-65, 65), "eta": 20}, # Purple (Trailing core)
                     ]
+                    
+                    for band in bands:
+                        bx, by = band["base_offset"]
+                        # Spread clouds along the NW-SE axis (dx=spread, dy=spread)
+                        for spread in [-60, -30, 0, 30, 60]:
+                            mock_configs.append({
+                                "color": band["color"],
+                                "dbz": band["dbz"],
+                                "offset": (bx + spread, by + spread),
+                                "eta": band["eta"]
+                            })
+
                     for mc in mock_configs:
                         cx, cy = px + mc["offset"][0], py + mc["offset"][1]
-                        vx, vy = 3.0, 3.0
+                        vx, vy = 3.0, -3.0  # Move towards NE
                         clouds.append({
                             "cx": cx, "cy": cy,
                             "vx": vx, "vy": vy,
@@ -229,7 +245,8 @@ class WeatherManager:
                             steps_ago = num_frames - 1 - i
                             cx_i = int(cx - steps_ago * vx)
                             cy_i = int(cy - steps_ago * vy)
-                            cv2.circle(f, (cx_i, cy_i), 15, mc["color"], -1)
+                            # Make the blobs slightly larger so they merge into a solid wall
+                            cv2.circle(f, (cx_i, cy_i), 22, mc["color"], -1)
                 elif mock_state == "clear":
                     clouds = []
 
