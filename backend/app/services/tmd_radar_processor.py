@@ -633,7 +633,7 @@ class TMDRadarProcessor:
         except ImportError:
             return None
             
-        width, height = 800, 400
+        width, height = 800, 430
         img = Image.new("RGBA", (width, height), (30, 30, 30, 255))
         draw = ImageDraw.Draw(img, "RGBA")
         
@@ -652,7 +652,7 @@ class TMDRadarProcessor:
             return int(50 + (t - (-60)) * (700 / 210.0))
             
         x_90 = time_to_x(90)
-        draw.line([(x_90, 50), (x_90, 380)], fill=(74, 144, 226, 128), width=2)
+        draw.line([(x_90, 50), (x_90, height - 20)], fill=(74, 144, 226, 128), width=2)
         draw.text((x_90 + 5, 60), "Confidence\nBoundary", fill=(74, 144, 226, 200), font=font_small)
         
         base_x = time_to_x(0)
