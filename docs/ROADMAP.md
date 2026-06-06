@@ -33,11 +33,11 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #55 - Enhancement: Fine-tune TMD Radar Location Mapping Accuracy
 - **GitHub:** [#55](https://gitlab.com/oatricedev/FonMaYang/-/issues/55)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.20.0)
 
 ### Issue #54 - Feature: Implement Radar Animation Loop and Polling
 - **GitHub:** [#54](https://gitlab.com/oatricedev/FonMaYang/-/issues/54)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.20.0)
 
 ### Issue #53 - Feature: Include TMD Radar in the Telegram Compare API results
 - **GitHub:** [#53](https://gitlab.com/oatricedev/FonMaYang/-/issues/53)
