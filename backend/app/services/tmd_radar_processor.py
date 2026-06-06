@@ -495,17 +495,38 @@ class TMDRadarProcessor:
         if frame is None or not clouds:
             return None
         import cv2
-        # Scale up by 2x for sharper image in Telegram
-        img = cv2.resize(frame.copy(), None, fx=2.0, fy=2.0, interpolation=cv2.INTER_LANCZOS4)
-        ux = int(user_x * 2.0)
-        uy = int(user_y * 2.0)
+        
+        # Crop a 240x240 region around the user
+        crop_r = 120
+        h, w = frame.shape[:2]
+        
+        x1 = max(0, user_x - crop_r)
+        y1 = max(0, user_y - crop_r)
+        x2 = min(w, user_x + crop_r)
+        y2 = min(h, user_y + crop_r)
+        
+        crop_img = frame[y1:y2, x1:x2].copy()
+        
+        # Scale up by 3x for sharp, zoomed-in image in Telegram
+        scale = 3.0
+        img = cv2.resize(crop_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
+        
+        ux = int((user_x - x1) * scale)
+        uy = int((user_y - y1) * scale)
         
         # Draw user pin and search radius
-        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, 40, 4)
-        cv2.circle(img, (ux, uy), 160, (255, 255, 255), 2)
+        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(20 * scale), int(2 * scale))
+        cv2.circle(img, (ux, uy), int(80 * scale), (255, 255, 255), int(1 * scale))
         
         for c in clouds:
-            cx, cy = int(c["cx"] * 2.0), int(c["cy"] * 2.0)
+            cx_orig, cy_orig = c["cx"], c["cy"]
+            
+            # Only draw if the cloud is within or near the crop
+            if cx_orig < x1 - 50 or cx_orig > x2 + 50 or cy_orig < y1 - 50 or cy_orig > y2 + 50:
+                continue
+                
+            cx = int((cx_orig - x1) * scale)
+            cy = int((cy_orig - y1) * scale)
             eta = c["eta_min"]
             dbz = c["predicted_dbz"]
             
@@ -513,11 +534,12 @@ class TMDRadarProcessor:
             if dbz >= 55: color = (0, 0, 255)
             elif dbz >= 40: color = (0, 165, 255)
             
-            cv2.circle(img, (cx, cy), 30, color, 4)
-            cv2.arrowedLine(img, (cx, cy), (ux, uy), (0, 255, 255), 4, tipLength=0.1)
+            cv2.circle(img, (cx, cy), int(15 * scale), color, int(2 * scale))
+            cv2.arrowedLine(img, (cx, cy), (ux, uy), (0, 255, 255), int(2 * scale), tipLength=0.1)
             
             sign = "-" if eta < 0 else "~"
-            cv2.putText(img, f"{sign}{int(abs(eta))}m", (cx+40, cy), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 4)
+            cv2.putText(img, f"{sign}{int(abs(eta))}m", (cx + int(20 * scale), cy), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6 * scale, (255, 255, 255), int(2 * scale))
 
         is_success, buffer = cv2.imencode(".png", img)
         return buffer.tobytes() if is_success else None
