@@ -386,7 +386,7 @@ class TMDRadarProcessor:
                 if dist == 0:
                     continue
                 dot = (cvx * to_x + cvy * to_y) / dist
-                if dot <= 0:
+                if abs(dot) < 0.1:
                     continue
                 # Previous DBZ at the backward-traced position
                 prev_x = int(round(sx - cvx))
@@ -420,10 +420,17 @@ class TMDRadarProcessor:
             dbz_prev = max(g[5] for g in group)
             dist_c   = math.sqrt((cx - user_x) ** 2 + (cy - user_y) ** 2)
             dot_c    = sum(g[7] for g in group) / len(group)
-            eta_min  = (dist_c / max(0.1, dot_c)) * 15.0
+            
+            # Avoid division by zero
+            if abs(dot_c) < 0.1:
+                dot_c = 0.1 if dot_c >= 0 else -0.1
+                
+            eta_min  = (dist_c / dot_c) * 15.0
 
             growth_rate   = (dbz_now - dbz_prev) / dbz_prev if dbz_prev > 0 else 0.0
-            eta_steps     = eta_min / 15.0
+            
+            # Predict future intensity only if incoming, otherwise use current
+            eta_steps = max(0.0, eta_min / 15.0)
             predicted_dbz = max(0.0, min(75.0, dbz_now * ((1 + growth_rate) ** eta_steps)))
 
             clusters.append({
@@ -463,7 +470,8 @@ class TMDRadarProcessor:
             if dbz >= 25: return "ฝนปานกลาง"
             return "ฝนเบา"
 
-        reliable = [c for c in clouds if c["predicted_dbz"] >= 15 and c["eta_min"] <= confidence_cutoff_min]
+        # Filter for incoming or currently active rain only (-10 to confidence cutoff)
+        reliable = [c for c in clouds if c["predicted_dbz"] >= 15 and -10 <= c["eta_min"] <= confidence_cutoff_min]
 
         if not reliable:
             return "ℹ️ ไม่พบฝนในระยะ 90 นาทีข้างหน้า"
@@ -487,14 +495,17 @@ class TMDRadarProcessor:
         if frame is None or not clouds:
             return None
         import cv2
-        img = frame.copy()
+        # Scale up by 2x for sharper image in Telegram
+        img = cv2.resize(frame.copy(), None, fx=2.0, fy=2.0, interpolation=cv2.INTER_LANCZOS4)
+        ux = int(user_x * 2.0)
+        uy = int(user_y * 2.0)
         
         # Draw user pin and search radius
-        cv2.drawMarker(img, (user_x, user_y), (0, 0, 255), cv2.MARKER_CROSS, 20, 2)
-        cv2.circle(img, (user_x, user_y), 80, (255, 255, 255), 1)
+        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, 40, 4)
+        cv2.circle(img, (ux, uy), 160, (255, 255, 255), 2)
         
         for c in clouds:
-            cx, cy = c["cx"], c["cy"]
+            cx, cy = int(c["cx"] * 2.0), int(c["cy"] * 2.0)
             eta = c["eta_min"]
             dbz = c["predicted_dbz"]
             
@@ -502,9 +513,11 @@ class TMDRadarProcessor:
             if dbz >= 55: color = (0, 0, 255)
             elif dbz >= 40: color = (0, 165, 255)
             
-            cv2.circle(img, (cx, cy), 15, color, 2)
-            cv2.arrowedLine(img, (cx, cy), (user_x, user_y), (0, 255, 255), 2, tipLength=0.1)
-            cv2.putText(img, f"~{int(eta)}m", (cx+20, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            cv2.circle(img, (cx, cy), 30, color, 4)
+            cv2.arrowedLine(img, (cx, cy), (ux, uy), (0, 255, 255), 4, tipLength=0.1)
+            
+            sign = "-" if eta < 0 else "~"
+            cv2.putText(img, f"{sign}{int(abs(eta))}m", (cx+40, cy), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 4)
 
         is_success, buffer = cv2.imencode(".png", img)
         return buffer.tobytes() if is_success else None
@@ -513,49 +526,75 @@ class TMDRadarProcessor:
     def generate_timeline_image(clouds: list) -> Optional[bytes]:
         if not clouds:
             return None
-        import cv2
-        img = np.zeros((400, 800, 3), dtype=np.uint8)
+        import io
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+        except ImportError:
+            return None
+            
+        width, height = 800, 400
+        img = Image.new("RGBA", (width, height), (30, 30, 30, 255))
+        draw = ImageDraw.Draw(img, "RGBA")
         
-        cv2.line(img, (0, 350), (800, 350), (100, 100, 100), 2)
+        try:
+            # Fallback for systems that don't have Helvetica
+            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 16)
+            font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
+        except:
+            font = ImageFont.load_default()
+            font_small = font
+            
+        baseline_y = 350
+        draw.line([(0, baseline_y), (width, baseline_y)], fill=(100, 100, 100, 255), width=2)
         
-        # 90-min confidence boundary
-        x_90 = int((90 / 120) * 700) + 50
-        cv2.line(img, (x_90, 50), (x_90, 380), (255, 100, 100), 2, cv2.LINE_AA)
+        def time_to_x(t):
+            return int(50 + (t - (-60)) * (700 / 210.0))
+            
+        x_90 = time_to_x(90)
+        draw.line([(x_90, 50), (x_90, 380)], fill=(74, 144, 226, 128), width=2)
+        draw.text((x_90 + 5, 60), "Confidence\nBoundary", fill=(74, 144, 226, 200), font=font_small)
         
-        for c in clouds:
+        x_0 = time_to_x(0)
+        draw.text((time_to_x(-30)-20, baseline_y + 15), "◀ PAST", fill=(150, 150, 150, 255), font=font_small)
+        draw.text((time_to_x(30)-20, baseline_y + 15), "FUTURE ▶", fill=(150, 150, 150, 255), font=font_small)
+        draw.line([(x_0, baseline_y-5), (x_0, baseline_y+5)], fill=(200, 200, 200, 255), width=2)
+        draw.text((x_0-15, baseline_y+15), "NOW", fill=(200, 200, 200, 255), font=font_small)
+
+        last_x = -999
+        y_offsets = {}
+        
+        for c in sorted(clouds, key=lambda x: x["eta_min"]):
             eta = c["eta_min"]
             dbz = c["predicted_dbz"]
             
-            x = int((eta / 120) * 700) + 50
-            x = max(50, min(750, x))
-            h = int(dbz * 4) # 55 dBZ -> 220px
+            x = time_to_x(eta)
+            x = max(20, min(780, x))
+            h = int(dbz * 4)
             
-            color = (0, 200, 0)
-            if dbz >= 55: color = (0, 0, 200)
-            elif dbz >= 40: color = (0, 100, 255)
+            if dbz >= 55: color = (231, 76, 60, 230)
+            elif dbz >= 40: color = (243, 156, 18, 230)
+            else: color = (46, 204, 113, 230)
             
             if eta > 90:
-                color = (int(color[0]*0.4), int(color[1]*0.4), int(color[2]*0.4))
-            
-            cv2.rectangle(img, (x-15, 350-h), (x+15, 350), color, -1)
-            cv2.putText(img, f"{int(dbz)}", (x-10, 350-h-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-            
-            # Format ETA
-            m = int(round(eta))
-            if m < 60:
-                time_str = f"~{m}m"
-            else:
-                h_val = m // 60
-                r_val = m % 60
-                time_str = f"~{h_val}h{r_val}m" if r_val else f"~{h_val}hr"
+                color = (color[0], color[1], color[2], 100)
                 
-            cv2.putText(img, time_str, (x-20, 370), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+            draw.rectangle([(x-10, baseline_y-h), (x+10, baseline_y)], fill=color)
+            draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=(255, 255, 255, 255), font=font)
             
-        # Add legend
-        cv2.putText(img, "Confidence Boundary (90m)", (x_90 + 10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 100, 100), 1)
+            y_off = 20
+            if x - last_x < 40:
+                y_off = y_offsets.get(last_x, 20) + 20
+            y_offsets[x] = y_off
+            last_x = x
             
-        is_success, buffer = cv2.imencode(".png", img)
-        return buffer.tobytes() if is_success else None
+            m = int(round(abs(eta)))
+            t_str = f"~{m}m" if m < 60 else f"~{m//60}h{m%60}m"
+            sign = "-" if eta < 0 else ""
+            draw.text((x-15, baseline_y+y_off), f"{sign}{t_str}", fill=(200, 200, 200, 255), font=font_small)
+            
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
 
     def calculate_lagrangian_growth(self, frames: list, flow: np.ndarray, target_x: int, target_y: int, steps_ahead: int, max_lookback_frames: int = 2) -> float:
         """
