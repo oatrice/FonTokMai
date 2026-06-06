@@ -46,3 +46,33 @@
 #### 5. การแกะรอยย้อนหลังแบบ 6 เฟรม (Historical Multi-Frame Tracking)
 หลังจาก Refactor ระบบให้รองรับการตั้งค่า `max_lookback_frames` แบบไดนามิก ภาพด้านล่างนี้คือหลักฐานการแกะรอยมวลอากาศก้อนเป้าหมายย้อนหลังกลับไปไกลถึง 75 นาที (6 เฟรม) จะสังเกตได้ว่าวงกลมสีเขียวล็อกเป้าอยู่ที่มวลเมฆฝนสีเขียว 25 dBZ ก้อนเดิมได้อย่างแม่นยำตลอด 75 นาทีเต็ม!
 ![Multi Frame Tracking](multi_lagrangian_evidence.png)
+
+---
+
+### 🎯 Approaching Cloud Detector (New Algorithm)
+
+#### ปัญหาของ Backward Track เดิม
+การแกะรอยแบบ backward track ตาม flow vector เส้นตรง (Linear) มีข้อจำกัดสำคัญ:
+- **Flow vector อาจเบี่ยงเบนเกินจริง**: `Farneback` ประมาณค่าต่ำกว่าความเป็นจริง ~5x เมื่อเมฆขยับเร็ว
+- **Snap to max DBZ radius=30 สร้าง Bug**: ระบบกระโดดไปล็อกเมฆก้อนอื่นที่สว่างกว่าแต่ไม่ใช่ก้อนที่กำลังเข้าหาผู้ใช้
+
+#### แนวทางใหม่: Dot-Product Approach Vector Filter
+แทนที่จะ backward track ออกไปก่อน ระบบใหม่ทำงานดังนี้:
+1. **Scan** rain pixels ทั้งหมดในรัศมี 80px รอบพิกัดผู้ใช้
+2. **Filter** เฉพาะ pixel ที่ flow vector ชี้ **เข้าหา** ผู้ใช้ (dot product > 0)
+3. **Cluster** pixel ที่ใกล้กันภายใน 20px เป็นก้อนเมฆเดียวกัน (weighted by dBZ)
+4. **Rank** ตามระยะห่าง — ก้อนใกล้ที่สุดที่กำลังเข้ามา = ความเสี่ยงสูงสุด
+5. **ETA** คำนวณจาก `distance / dot_product × 15 min/step`
+
+#### ข้อดี
+- จัดการเมฆได้หลายก้อนพร้อมกันใน 1 query
+- ไม่ขึ้นกับความแม่นยำของทิศทาง flow ที่พิกัดผู้ใช้
+- Scale ได้ดีสำหรับหลาย user: Flow คำนวณ **ครั้งเดียว** แล้ว reuse ทุก user
+
+#### 6. Approaching Cloud Detection — Single User (New Coord: 16.121°N 101.875°E)
+วงกลมสีเขียวคือก้อนเมฆที่ใกล้ที่สุดและกำลังเข้าหาผู้ใช้ ลูกศรชี้ทิศทางเคลื่อนที่ ตัวเลขคือ ETA เป็นนาที
+![Approaching Cloud Detection](tracked_cloud_new_coord.png)
+
+#### 7. Multi-User Processing — Flow คำนวณครั้งเดียว ใช้กับทุก User
+ภาพแสดงการประมวลผลพร้อมกัน 2 พิกัด บน optical flow ชุดเดียวกัน แต่ละก้อนเมฆได้รับ ETA แยกกันตามระยะห่างจริงของแต่ละ user
+![Multi User Cloud Tracking](multi_user_cloud_tracking.png)
