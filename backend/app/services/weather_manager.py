@@ -211,11 +211,11 @@ class WeatherManager:
                             # 5-color huge broad front (randomized for testing)
                             import random
                             intensities = [
-                                ((46, 204, 113), 25.0),  # Green
-                                ((241, 196, 15), 35.0),  # Yellow
-                                ((243, 156, 18), 45.0),  # Orange
-                                ((231, 76, 60),  55.0),  # Red
-                                ((155, 89, 182), 65.0),  # Purple
+                                ((0, 128, 0), 25.0),    # Green exact
+                                ((255, 255, 0), 35.0),  # Yellow exact
+                                ((255, 128, 0), 45.0),  # Orange exact
+                                ((128, 0, 0), 55.0),    # Dark Red exact
+                                ((255, 0, 255), 65.0),  # Magenta/Purple exact
                             ]
                             random.shuffle(intensities)
                             bands = [
