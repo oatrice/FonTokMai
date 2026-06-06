@@ -201,40 +201,35 @@ class WeatherManager:
 
                 # Apply mock overrides
                 if mock_state == "rain":
-                    if not clouds:
-                        import cv2
-                        clouds = []
-                        # Create a mock storm system with different colored clouds
-                        mock_configs = [
-                            {"color": (0, 255, 0),     "dbz": 25.0, "offset": (-50, -50), "eta": 20}, # Green
-                            {"color": (255, 255, 0),   "dbz": 35.0, "offset": (-35, -35), "eta": 15}, # Yellow
-                            {"color": (255, 153, 0),   "dbz": 45.0, "offset": (-20, -20), "eta": 10}, # Orange
-                            {"color": (255, 0, 0),     "dbz": 55.0, "offset": (-5, -5),   "eta": 5},  # Red
-                            {"color": (204, 0, 204),   "dbz": 65.0, "offset": (10, 10),   "eta": 0},  # Purple
-                        ]
-                        for mc in mock_configs:
-                            cx, cy = px + mc["offset"][0], py + mc["offset"][1]
-                            vx, vy = 3.0, 3.0
-                            clouds.append({
-                                "cx": cx, "cy": cy,
-                                "vx": vx, "vy": vy,
-                                "dbz_now": mc["dbz"], "dbz_prev": mc["dbz"] - 2.0,
-                                "predicted_dbz": mc["dbz"],
-                                "eta_min": mc["eta"],
-                                "growth_rate": 0.05,
-                                "dist": max(1, abs(mc["offset"][0]))
-                            })
-                            # Draw fake cloud blobs moving across the frames
-                            num_frames = len(frames)
-                            for i, f in enumerate(frames):
-                                steps_ago = num_frames - 1 - i
-                                cx_i = int(cx - steps_ago * vx)
-                                cy_i = int(cy - steps_ago * vy)
-                                cv2.circle(f, (cx_i, cy_i), 15, mc["color"], -1)
-                    else:
-                        for c in clouds:
-                            c["dbz_now"]       = max(c["dbz_now"], 40.0)
-                            c["predicted_dbz"] = max(c["predicted_dbz"], 40.0)
+                    import cv2
+                    clouds = []  # Forcefully clear real clouds to ensure mock always shows
+                    # Create a mock storm system with different colored clouds
+                    mock_configs = [
+                        {"color": (0, 255, 0),     "dbz": 25.0, "offset": (-50, -50), "eta": 20}, # Green
+                        {"color": (255, 255, 0),   "dbz": 35.0, "offset": (-35, -35), "eta": 15}, # Yellow
+                        {"color": (255, 153, 0),   "dbz": 45.0, "offset": (-20, -20), "eta": 10}, # Orange
+                        {"color": (255, 0, 0),     "dbz": 55.0, "offset": (-5, -5),   "eta": 5},  # Red
+                        {"color": (204, 0, 204),   "dbz": 65.0, "offset": (10, 10),   "eta": 0},  # Purple
+                    ]
+                    for mc in mock_configs:
+                        cx, cy = px + mc["offset"][0], py + mc["offset"][1]
+                        vx, vy = 3.0, 3.0
+                        clouds.append({
+                            "cx": cx, "cy": cy,
+                            "vx": vx, "vy": vy,
+                            "dbz_now": mc["dbz"], "dbz_prev": mc["dbz"] - 2.0,
+                            "predicted_dbz": mc["dbz"],
+                            "eta_min": mc["eta"],
+                            "growth_rate": 0.05,
+                            "dist": max(1, abs(mc["offset"][0]))
+                        })
+                        # Draw fake cloud blobs moving across the frames
+                        num_frames = len(frames)
+                        for i, f in enumerate(frames):
+                            steps_ago = num_frames - 1 - i
+                            cx_i = int(cx - steps_ago * vx)
+                            cy_i = int(cy - steps_ago * vy)
+                            cv2.circle(f, (cx_i, cy_i), 15, mc["color"], -1)
                 elif mock_state == "clear":
                     clouds = []
 
