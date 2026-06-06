@@ -11,6 +11,7 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "mock_token")
 DEVELOPER_CHAT_IDS = os.getenv("DEVELOPER_CHAT_IDS", "").split(",")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 TELEGRAM_SEND_ANIMATION_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendAnimation"
+TELEGRAM_SEND_DOC_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendDocument"
 TELEGRAM_SEND_PHOTO_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
 TELEGRAM_EDIT_MESSAGE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
 
@@ -97,6 +98,23 @@ async def send_telegram_document(chat_id: int, file_data: bytes, filename: str) 
             return True
     except Exception as e:
         logger.error(f"Failed to send telegram animation to {chat_id}: {e}")
+        return False
+
+async def send_telegram_raw_document(chat_id: int, file_data: bytes, filename: str) -> bool:
+    """
+    Sends a file as an uncompressed document to a specific Telegram chat_id.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            files = {"document": (filename, file_data, "image/gif")}
+            data = {"chat_id": chat_id}
+            response = await client.post(TELEGRAM_SEND_DOC_URL, data=data, files=files)
+            if response.status_code != 200:
+                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+                return False
+            return True
+    except Exception as e:
+        logger.error(f"Failed to send telegram raw document to {chat_id}: {e}")
         return False
 
 async def send_telegram_photo(chat_id: int, photo_data: bytes, filename: str) -> bool:

@@ -215,7 +215,7 @@ async def process_telegram_location(
         tracking_bytes = result.get("radar_tracking_bytes")
         timeline_bytes = result.get("rain_timeline_bytes")
         
-        from app.services.telegram import send_telegram_photo, send_telegram_document
+        from app.services.telegram import send_telegram_photo, send_telegram_document, send_telegram_raw_document
         
         if static_bytes:
             await send_telegram_photo(chat_id, static_bytes, "radar_latest.png")
@@ -225,6 +225,7 @@ async def process_telegram_location(
             
         if gif_bytes:
             await send_telegram_document(chat_id, gif_bytes, "radar_nowcast.gif")
+            await send_telegram_raw_document(chat_id, gif_bytes, "radar_nowcast_full.gif")
 
     except Exception as e:
         logger.error(f"Error processing telegram location: {e}")

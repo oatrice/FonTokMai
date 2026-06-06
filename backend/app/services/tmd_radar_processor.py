@@ -688,7 +688,30 @@ class TMDRadarProcessor:
                 if response.status_code == 200:
                     last_modified = response.headers.get("last-modified")
                     dt = None
-                    if last_modified:
+                    
+                    # Try to fetch exact time from the HTML og:image first (more accurate than Last-Modified)
+                    try:
+                        php_url = f"https://weather.tmd.go.th/{self.station_code[:3]}.php"
+                        php_resp = await client.get(php_url)
+                        if php_resp.status_code == 200:
+                            import re
+                            from zoneinfo import ZoneInfo
+                            match = re.search(r'v=(\d{6})_(\d{4})', php_resp.text)
+                            if match:
+                                date_str = match.group(1)
+                                time_str = match.group(2)
+                                year = int('20' + date_str[0:2])
+                                month = int(date_str[2:4])
+                                day = int(date_str[4:6])
+                                hour = int(time_str[0:2])
+                                minute = int(time_str[2:4])
+                                bkk_tz = ZoneInfo('Asia/Bangkok')
+                                dt_bkk = datetime(year, month, day, hour, minute, tzinfo=bkk_tz)
+                                dt = dt_bkk.astimezone(timezone.utc)
+                    except Exception as e:
+                        print(f"Error fetching exact timestamp from HTML: {e}")
+                        
+                    if dt is None and last_modified:
                         try:
                             # format: Sat, 06 Jun 2026 09:35:43 GMT
                             dt = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
