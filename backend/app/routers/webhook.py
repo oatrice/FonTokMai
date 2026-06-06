@@ -572,16 +572,31 @@ async def handle_devmock_command(chat_id: int, command: str):
             for loc in locs:
                 await repo.update_last_alerted(loc, None)
 
-            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌧️ ฝนตกหนัก\n⏳ กำลังสร้างแจ้งเตือน...")
+            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌧️ ฝนตกหนัก (Boost เมฆจริง)\n⏳ กำลังสร้างแจ้งเตือน...")
 
             from app.scheduler_tasks import check_rain_and_alert
             await check_rain_and_alert()
+            
+        elif command == "/devmock storm":
+            await repo.set_mock_state(chat_id, "storm")
+
+            # Reset cooldown สำหรับทุก location ของ user นี้ เพื่อให้ alert ยิงทันที
+            locs = await repo.get_user_locations(chat_id)
+            for loc in locs:
+                await repo.update_last_alerted(loc, None)
+
+            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌪️ พายุจำลอง (สร้างเมฆปลอม 5 สี)\n⏳ กำลังสร้างแจ้งเตือน...")
+
+            from app.scheduler_tasks import check_rain_and_alert
+            await check_rain_and_alert()
+            
         elif command == "/devmock clear":
             await repo.set_mock_state(chat_id, "clear")
             await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: ☀️ ท้องฟ้าแจ่มใส\n⏳ กำลังตรวจสอบสภาพอากาศ...")
             
             from app.scheduler_tasks import check_rain_and_alert
             await check_rain_and_alert()
+            
         elif command == "/devmock off":
             await repo.set_mock_state(chat_id, None)
             await send_telegram_message(chat_id, "🛠️ [DEV MOCK] ปิดใช้งานโหมดจำลองเรียบร้อยแล้ว")

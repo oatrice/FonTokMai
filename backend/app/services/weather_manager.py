@@ -206,19 +206,22 @@ class WeatherManager:
                     if mock_state == "storm" or not clouds:
                         if mock_state == "storm":
                             clouds = []  # Forcefully clear real clouds to ensure mock storm always shows
-                            
-                        # Create a mock storm system moving as a "broad front" (หน้ากระดาน)
-                    # Moving towards NE means vx > 0, vy < 0 (e.g. 3.0, -3.0)
-                    # To form a front, the clouds are spread perpendicular to NE (along the NW-SE axis)
-                    mock_configs = []
-                    bands = [
-                        {"color": (46, 204, 113),  "dbz": 25.0, "base_offset": (-5, 5),   "eta": 0},  # Green (Leading edge)
-                        {"color": (241, 196, 15),  "dbz": 35.0, "base_offset": (-20, 20), "eta": 5},  # Yellow
-                        {"color": (243, 156, 18),  "dbz": 45.0, "base_offset": (-35, 35), "eta": 10}, # Orange
-                        {"color": (231, 76, 60),   "dbz": 55.0, "base_offset": (-50, 50), "eta": 15}, # Red
-                        {"color": (155, 89, 182),  "dbz": 65.0, "base_offset": (-65, 65), "eta": 20}, # Purple (Trailing core)
-                    ]
-                    
+                        mock_configs = []
+                        if mock_state == "storm":
+                            # 5-color huge broad front
+                            bands = [
+                                {"color": (46, 204, 113),  "dbz": 25.0, "base_offset": (-5, 5),   "eta": 0},  # Green
+                                {"color": (241, 196, 15),  "dbz": 35.0, "base_offset": (-20, 20), "eta": 5},  # Yellow
+                                {"color": (243, 156, 18),  "dbz": 45.0, "base_offset": (-35, 35), "eta": 10}, # Orange
+                                {"color": (231, 76, 60),   "dbz": 55.0, "base_offset": (-50, 50), "eta": 15}, # Red
+                                {"color": (155, 89, 182),  "dbz": 65.0, "base_offset": (-65, 65), "eta": 20}, # Purple
+                            ]
+                        else:
+                            # Just a simple rain cell for normal testing when sky is clear
+                            bands = [
+                                {"color": (46, 204, 113),  "dbz": 25.0, "base_offset": (-5, 5),   "eta": 0},  # Green
+                                {"color": (241, 196, 15),  "dbz": 35.0, "base_offset": (-15, 15), "eta": 5},  # Yellow
+                            ]
                     for band in bands:
                         bx, by = band["base_offset"]
                         # Spread clouds along the NW-SE axis (dx=spread, dy=spread)
