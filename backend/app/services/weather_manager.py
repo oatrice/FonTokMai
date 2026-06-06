@@ -209,11 +209,11 @@ class WeatherManager:
                     # To form a front, the clouds are spread perpendicular to NE (along the NW-SE axis)
                     mock_configs = []
                     bands = [
-                        {"color": (0, 255, 0),     "dbz": 25.0, "base_offset": (-5, 5),   "eta": 0},  # Green (Leading edge)
-                        {"color": (255, 255, 0),   "dbz": 35.0, "base_offset": (-20, 20), "eta": 5},  # Yellow
-                        {"color": (255, 153, 0),   "dbz": 45.0, "base_offset": (-35, 35), "eta": 10}, # Orange
-                        {"color": (255, 0, 0),     "dbz": 55.0, "base_offset": (-50, 50), "eta": 15}, # Red
-                        {"color": (204, 0, 204),   "dbz": 65.0, "base_offset": (-65, 65), "eta": 20}, # Purple (Trailing core)
+                        {"color": (46, 204, 113),  "dbz": 25.0, "base_offset": (-5, 5),   "eta": 0},  # Green (Leading edge)
+                        {"color": (241, 196, 15),  "dbz": 35.0, "base_offset": (-20, 20), "eta": 5},  # Yellow
+                        {"color": (243, 156, 18),  "dbz": 45.0, "base_offset": (-35, 35), "eta": 10}, # Orange
+                        {"color": (231, 76, 60),   "dbz": 55.0, "base_offset": (-50, 50), "eta": 15}, # Red
+                        {"color": (155, 89, 182),  "dbz": 65.0, "base_offset": (-65, 65), "eta": 20}, # Purple (Trailing core)
                     ]
                     
                     for band in bands:

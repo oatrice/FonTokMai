@@ -588,9 +588,11 @@ class TMDRadarProcessor:
             eta = c["eta_min"]
             dbz = c["predicted_dbz"]
             
-            color = (0, 255, 0)  # RGB Green
-            if dbz >= 55: color = (255, 0, 0)  # RGB Red
-            elif dbz >= 40: color = (255, 165, 0)  # RGB Orange
+            if dbz >= 60: color = (155, 89, 182) # Purple
+            elif dbz >= 50: color = (231, 76, 60) # Red
+            elif dbz >= 40: color = (243, 156, 18) # Orange
+            elif dbz >= 30: color = (241, 196, 15) # Yellow
+            else: color = (46, 204, 113) # Green
             
             cv2.circle(img, (cx, cy), int(12 * scale), color, int(1.5 * scale))
             
@@ -668,9 +670,11 @@ class TMDRadarProcessor:
             x = max(20, min(780, x))
             h = int(dbz * 4)
             
-            if dbz >= 55: color = (231, 76, 60, 230)
-            elif dbz >= 40: color = (243, 156, 18, 230)
-            else: color = (46, 204, 113, 230)
+            if dbz >= 60: color = (155, 89, 182, 230) # Purple
+            elif dbz >= 50: color = (231, 76, 60, 230) # Red
+            elif dbz >= 40: color = (243, 156, 18, 230) # Orange
+            elif dbz >= 30: color = (241, 196, 15, 230) # Yellow
+            else: color = (46, 204, 113, 230) # Green
             
             if eta > 90:
                 color = (color[0], color[1], color[2], 100)
