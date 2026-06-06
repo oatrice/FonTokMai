@@ -54,13 +54,10 @@ class OCRService:
             return None
             
         try:
-            # We use synchronous client wrapped in a way or just synchronous block 
-            # since Cloud Vision python client has async support in some versions,
-            # but standard `vision.ImageAnnotatorClient()` might be sync.
-            # Using ImageAnnotatorAsyncClient if available:
-            client = vision.ImageAnnotatorAsyncClient()
+            import asyncio
+            client = vision.ImageAnnotatorClient()
             image = vision.Image(content=content)
-            response = await client.text_detection(image=image)
+            response = await asyncio.to_thread(client.text_detection, image=image)
             
             if response.error.message:
                 print(f"Cloud Vision API Error: {response.error.message}")
@@ -85,13 +82,13 @@ class OCRService:
             return None
             
         try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             # Create a dictionary suitable for gemini inputs
             image_part = {
                 "mime_type": "image/png",
                 "data": content
             }
-            prompt = "Extract all the text you can see in this radar image. Pay special attention to timestamps or dates."
+            prompt = "Extract all the text you can see in this radar image exactly as it appears. Do not format as markdown. Keep the date and time together on the same line."
             
             # Since genai sdk is mostly sync, we could run it in an executor or use generate_content_async
             # Newer SDK supports generate_content_async
@@ -177,10 +174,16 @@ class OCRService:
         png_bytes = self._frame_to_png_bytes(frame)
         ts = None
         
+        # Check quota for Cloud Vision
+        vision_allowed = await self.repo.check_and_increment_vision_quota(1000)
+        
         # Fallback Chain 1: Google Cloud Vision
-        print("Running OCR: Cloud Vision")
-        text = await self._call_cloud_vision(png_bytes)
-        ts = self._extract_timestamp_from_text(text)
+        if vision_allowed:
+            print("Running OCR: Cloud Vision")
+            text = await self._call_cloud_vision(png_bytes)
+            ts = self._extract_timestamp_from_text(text)
+        else:
+            print("Cloud Vision quota exceeded. Skipping to Gemini.")
         
         # Fallback Chain 2: Gemini
         if ts is None:

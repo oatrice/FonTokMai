@@ -78,26 +78,34 @@ def _build_forecast_text(result: dict) -> str:
     if eta_minutes is not None or result.get("max_rain", 0) > 0:
         intensity_str = result.get("intensity", "ไม่ทราบ")
         duration_min = result.get("duration_minutes", 0)
+        rain_summary = result.get("rain_summary")
 
-        if eta_minutes == 0 or (eta_minutes is None and result.get("max_rain", 0) > 0):
-            text = f"🌧️ ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
+        if rain_summary:
+            text = f"🌧️ ข้อมูลพยากรณ์ฝน (ตรวจสอบด้วย: {endpoint_label})\n"
+            text += f"{rain_summary}\n"
         else:
-            text = f"🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก {eta_minutes} นาที (ตรวจสอบด้วย: {endpoint_label})\n"
+            if eta_minutes == 0 or (eta_minutes is None and result.get("max_rain", 0) > 0):
+                text = f"🌧️ ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
+            else:
+                text = f"🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก {eta_minutes} นาที (ตรวจสอบด้วย: {endpoint_label})\n"
+            
+            if intensity_str == "ไม่มีฝน" and eta_minutes and eta_minutes > 0:
+                text += f"💧 ความรุนแรง (คาดการณ์): ฝนกำลังจะมา\n"
+            else:
+                text += f"💧 ความรุนแรง: {intensity_str}\n"
 
-        text += f"💧 ความรุนแรง: {intensity_str}\n"
-        text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {format_duration_text(duration_min)}\n"
+            if duration_min > 0:
+                text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {format_duration_text(duration_min)}\n"
         
         wind_kmh = result.get("wind_speed_kmh", 0)
         wind_dir = result.get("wind_dir_text", "ไม่ทราบ")
         if wind_kmh > 0:
-            text += f"🌬️ สภาพลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+            if "tmd-radar" in actual_endpoint:
+                text += f"🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+            else:
+                text += f"🌬️ สภาพลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
 
-        # Use smart rain_summary from new approaching-cloud detector if available
-        rain_summary = result.get("rain_summary")
-        if rain_summary:
-            text += f"{rain_summary}\n"
-        else:
-            # Fallback: legacy growth_rate_pct display
+        if not rain_summary:
             growth_rate = result.get("growth_rate_pct")
             if growth_rate is not None:
                 if growth_rate > 5.0:
@@ -195,8 +203,11 @@ async def process_telegram_location(
             ])
             keyboard.append([{"text": "❌ ไม่เป็นไร", "callback_data": "loc_no"}])
 
+        # ปุ่มเปรียบเทียบข้อมูล (Issue #53)
+        keyboard.append([{"text": "📊 เปรียบเทียบข้อมูล 4 API", "callback_data": f"compare_api_{r_lat}_{r_lng}"}])
+
         # ปุ่มสลับ Endpoint
-        if actual_endpoint in ("rainbow-local", "local"):
+        if actual_endpoint in ("rainbow-local", "local", "tmd-radar", "tmd-radar (kkn120)", "tmd-radar (kkn240)", "tmd-radar (skn240)"):
             keyboard.append([{"text": "🔄 สลับไปใช้ Global", "callback_data": f"switch_global_{r_lat}_{r_lng}"}])
         else:
             keyboard.append([{"text": "🔄 สลับไปใช้ Local Radar", "callback_data": f"switch_radar_{r_lat}_{r_lng}"}])
@@ -223,6 +234,9 @@ async def process_telegram_location(
             
         if timeline_bytes:
             await send_telegram_photo(chat_id, timeline_bytes, "rain_timeline.png")
+            
+        if tracking_bytes:
+            await send_telegram_photo(chat_id, tracking_bytes, "radar_tracking.png")
             
         if gif_bytes:
             await send_telegram_document(chat_id, gif_bytes, "radar_nowcast.gif")
@@ -396,50 +410,69 @@ async def handle_callback_query(callback_query: dict):
                     else:
                         max_rain = v.get('max_rain', 0)
                         text += f"🔹 {disp_k} (ความแม่นยำ: {acc_percent:.1f}%):\n"
-                        text += f"  💧 ปริมาณฝนสูงสุด: {max_rain} mm/hr\n"
-                        text += f"  🌧️ ความรุนแรง: {v.get('intensity', 'ไม่ทราบ')}\n"
                         
-                        wind_kmh = v.get("wind_speed_kmh", 0)
-                        wind_dir = v.get("wind_dir_text", "ไม่ทราบ")
-                        if wind_kmh > 0:
-                            text += f"  🌬️ ลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+                        rain_summary = v.get("rain_summary")
+                        if rain_summary:
+                            # Replace newlines with indent
+                            indented_summary = rain_summary.replace("\n", "\n  ")
+                            text += f"  {indented_summary}\n"
                             
-                        storm_distance = v.get("storm_distance_km")
-                        if storm_distance is not None:
-                            text += f"  🌪️ ระยะห่างพายุ: {storm_distance} กม.\n"
-                        
-                        if max_rain > 0:
-                            # Calculate ETA
-                            eta_minutes = None
-                            predictions = v.get("predictions", [])
-                            if predictions:
-                                try:
-                                    base_time = datetime.fromisoformat(predictions[0].get("time", "").replace("Z", "+00:00"))
-                                    for pred in predictions:
-                                        if pred.get("rain", 0) > 0:
-                                            pred_time = datetime.fromisoformat(pred.get("time", "").replace("Z", "+00:00"))
-                                            eta_minutes = int((pred_time - base_time).total_seconds() / 60)
-                                            break
-                                except Exception:
-                                    pass
-                                    
-                            duration = v.get("duration_minutes", 0)
-                            
-                            if eta_minutes is not None:
-                                start_dt = datetime.now(bkk_tz) + timedelta(minutes=eta_minutes)
-                                end_dt = start_dt + timedelta(minutes=duration)
-                                start_str = start_dt.strftime("%H:%M")
-                                end_str = end_dt.strftime("%H:%M")
-                                
-                                if eta_minutes == 0:
-                                    text += f"  ⏱️ เริ่มตก: ขณะนี้ ({start_str} น.)\n"
+                            wind_kmh = v.get("wind_speed_kmh", 0)
+                            wind_dir = v.get("wind_dir_text", "ไม่ทราบ")
+                            if wind_kmh > 0:
+                                if "tmd-radar" in disp_k.lower() or "tmd-radar" in k.lower():
+                                    text += f"  🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
                                 else:
-                                    text += f"  ⏱️ เริ่มตกในอีก: {eta_minutes} นาที ({start_str} น.)\n"
-                                    
-                                if duration > 0:
-                                    text += f"  ⏳ ตกต่อเนื่อง: {format_duration_text(duration)} (จนถึง {end_str} น.)\n"
+                                    text += f"  🌬️ ลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+                            text += "\n"
+                        else:
+                            text += f"  💧 ปริมาณฝนสูงสุด: {max_rain:.2f} mm/hr\n"
+                            text += f"  🌧️ ความรุนแรง: {v.get('intensity', 'ไม่ทราบ')}\n"
+                            
+                            wind_kmh = v.get("wind_speed_kmh", 0)
+                            wind_dir = v.get("wind_dir_text", "ไม่ทราบ")
+                            if wind_kmh > 0:
+                                if "tmd-radar" in disp_k.lower() or "tmd-radar" in k.lower():
+                                    text += f"  🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+                                else:
+                                    text += f"  🌬️ ลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
                                 
-                        text += "\n"
+                            storm_distance = v.get("storm_distance_km")
+                            if storm_distance is not None:
+                                text += f"  🌪️ ระยะห่างพายุ: {storm_distance} กม.\n"
+                            
+                            if max_rain > 0:
+                                # Calculate ETA
+                                eta_minutes = None
+                                predictions = v.get("predictions", [])
+                                if predictions:
+                                    try:
+                                        base_time = datetime.fromisoformat(predictions[0].get("time", "").replace("Z", "+00:00"))
+                                        for pred in predictions:
+                                            if pred.get("rain", 0) > 0:
+                                                pred_time = datetime.fromisoformat(pred.get("time", "").replace("Z", "+00:00"))
+                                                eta_minutes = int((pred_time - base_time).total_seconds() / 60)
+                                                break
+                                    except Exception:
+                                        pass
+                                        
+                                duration = v.get("duration_minutes", 0)
+                                
+                                if eta_minutes is not None:
+                                    start_dt = datetime.now(bkk_tz) + timedelta(minutes=eta_minutes)
+                                    end_dt = start_dt + timedelta(minutes=duration)
+                                    start_str = start_dt.strftime("%H:%M")
+                                    end_str = end_dt.strftime("%H:%M")
+                                    
+                                    if eta_minutes == 0:
+                                        text += f"  ⏱️ เริ่มตก: ขณะนี้ ({start_str} น.)\n"
+                                    else:
+                                        text += f"  ⏱️ เริ่มตกในอีก: {eta_minutes} นาที ({start_str} น.)\n"
+                                        
+                                    if duration > 0:
+                                        text += f"  ⏳ ตกต่อเนื่อง: {format_duration_text(duration)} (จนถึง {end_str} น.)\n"
+                                    
+                            text += "\n"
                 
                 keyboard = []
                 row = []
@@ -557,8 +590,24 @@ async def handle_devmock_command(chat_id: int, command: str):
 async def handle_rain_command(chat_id: int, command: str):
     parts = command.strip().split()
     force_provider = None
+    target_location_name = None
+    
+    known_providers = ["tmd-radar", "tomorrow", "rainbow-local", "rainbow-global", "xweather", "open-meteo", "tmd"]
+    provider_aliases = {"tmd": "tmd-radar"}
+    
     if len(parts) > 1:
-        force_provider = parts[1]
+        part1 = parts[1].lower()
+        if part1 in known_providers:
+            force_provider = part1
+            if len(parts) > 2:
+                target_location_name = parts[2].lower()
+        else:
+            target_location_name = part1
+            if len(parts) > 2 and parts[2].lower() in known_providers:
+                force_provider = parts[2].lower()
+                
+    if force_provider in provider_aliases:
+        force_provider = provider_aliases[force_provider]
     
     async with get_repo_context() as repo:
         locs = await repo.get_user_locations(chat_id)
@@ -567,11 +616,27 @@ async def handle_rain_command(chat_id: int, command: str):
         await send_telegram_message(chat_id, "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")
         return
         
-    loc = locs[0]
-    loading_msg_id = await send_telegram_message_return_id(
-        chat_id,
-        f"⏳ กำลังตรวจสอบสภาพอากาศจาก {force_provider or 'ระบบอัตโนมัติ'}..."
-    )
+    loc = None
+    if target_location_name:
+        for l in locs:
+            if (l.name and l.name.lower() == target_location_name) or (target_location_name == "default" and l.name is None):
+                loc = l
+                break
+        if not loc:
+            available_locs = ", ".join([l.name for l in locs if l.name])
+            await send_telegram_message(chat_id, f"⚠️ ไม่พบพิกัดชื่อ '{target_location_name}'\nพิกัดที่มี: {available_locs or 'default'}")
+            return
+    else:
+        loc = locs[0]
+        
+    loc_display = loc.name.capitalize() if loc.name else "ระบบอัตโนมัติ"
+    msg_text = f"⏳ กำลังตรวจสอบสภาพอากาศที่ '{loc_display}' "
+    if force_provider:
+        msg_text += f"จาก {force_provider}..."
+    else:
+        msg_text += "..."
+        
+    loading_msg_id = await send_telegram_message_return_id(chat_id, msg_text)
     
     await process_telegram_location(chat_id, loc.latitude, loc.longitude, force_endpoint=force_provider, message_id_to_edit=loading_msg_id)
 

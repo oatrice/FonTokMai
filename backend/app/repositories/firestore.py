@@ -253,3 +253,28 @@ class FirestoreLocationRepository(LocationRepository):
             "timestamp": timestamp,
             "created_at": datetime.now(timezone.utc)
         })
+
+    async def check_and_increment_vision_quota(self, limit: int = 1000) -> bool:
+        """Check if monthly Cloud Vision quota is exceeded. If not, increment and return True."""
+        # Get current month in YYYY-MM format using Pacific Time (Google Cloud Billing cycle)
+        from zoneinfo import ZoneInfo
+        month_key = datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m")
+        doc_ref = self.db.collection('api_quotas').document(f'vision_{month_key}')
+        
+        doc = await doc_ref.get()
+        if not doc.exists:
+            # First request of the month
+            await doc_ref.set({'count': 1})
+            return True
+            
+        data = doc.to_dict()
+        count = data.get('count', 0)
+        
+        if count >= limit:
+            return False
+            
+        # Increment quota
+        from google.cloud import firestore
+        await doc_ref.update({'count': firestore.Increment(1)})
+        return True
+
