@@ -12,34 +12,30 @@ class TMDRadarProcessor:
         import os
         self.storage_dir = os.path.join(os.getcwd(), "backend", "tmp")
 
-    def latlng_to_pixel(self, lat: float, lng: float) -> Tuple[Optional[int], Optional[int]]:
+    def latlng_to_pixel(self, lat: float, lng: float, is_loop: bool = True) -> Tuple[Optional[int], Optional[int]]:
         """Converts geographical coordinates to image pixel coordinates based on bounding box."""
         bbox = self.config.bbox
-        
-        if not (bbox.lat_min <= lat <= bbox.lat_max and bbox.lng_min <= lng <= bbox.lng_max):
+        if lat > bbox.lat_max or lat < bbox.lat_min or lng < bbox.lng_min or lng > bbox.lng_max:
             return None, None
             
-        # Check if we have calibration points (currently assuming 2 points for affine scale/translate)
-        if hasattr(self.config, 'calibration_points') and self.config.calibration_points and len(self.config.calibration_points) >= 2:
-            pts = list(self.config.calibration_points.items())
-            (lat1, lng1), (px1, py1) = pts[0]
-            (lat2, lng2), (px2, py2) = pts[1]
+        # Select crop parameters based on image type
+        crop_x = self.config.loop_crop_x if is_loop else self.config.static_crop_x
+        crop_y = self.config.loop_crop_y if is_loop else self.config.static_crop_y
+        crop_width = self.config.loop_crop_width if is_loop else self.config.static_crop_width
+        crop_height = self.config.loop_crop_height if is_loop else self.config.static_crop_height
+        
+        # Check if we have affine calibration points
+        if self.config.calibration_points and len(self.config.calibration_points) >= 3:
+            # Full affine transformation (implemented in future PRs if needed)
+            pass
             
-            # Calculate interpolated X
-            x = px1 + (lng - lng1) * (px2 - px1) / (lng2 - lng1) if lng1 != lng2 else px1
-            
-            # Calculate interpolated Y (assuming lat decreases as Y increases)
-            y = py1 + (lat1 - lat) * (py2 - py1) / (lat1 - lat2) if lat1 != lat2 else py1
-            
-            return int(x), int(y)
-
         # Fallback to standard linear interpolation using bounding box
         x_pct = (lng - bbox.lng_min) / (bbox.lng_max - bbox.lng_min)
         y_pct = (bbox.lat_max - lat) / (bbox.lat_max - bbox.lat_min)
         
         # Crop offsets
-        x = int(x_pct * self.config.crop_width) + self.config.crop_x
-        y = int(y_pct * self.config.crop_height) + self.config.crop_y
+        x = int(x_pct * crop_width) + crop_x
+        y = int(y_pct * crop_height) + crop_y
         
         return x, y
 
@@ -225,18 +221,22 @@ class TMDRadarProcessor:
         return None
 
     async def fetch_loop_gif_and_extract_frames(self) -> List[np.ndarray]:
-        """Fetches the Loop.gif and extracts all frames as numpy arrays."""
+        """Fetches the Loop.gif and extracts all frames as numpy arrays using PIL for proper GIF coalescing."""
         import httpx
-        import imageio.v3 as iio
+        from PIL import Image, ImageSequence
+        import io
         
         url = getattr(self.config, 'loop_gif_url', self.config.static_image_url.replace('_latest.gif', 'Loop.gif').replace('_latest.jpg', 'Loop.gif'))
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.get(url)
                 if response.status_code == 200:
-                    frames = iio.imread(response.content, index=None)
-                    # iio.imread returns an array of shape (N, H, W, C), convert to list
-                    return list(frames)
+                    img = Image.open(io.BytesIO(response.content))
+                    frames = []
+                    # PIL handles GIF frame disposal properly (coalescing delta frames)
+                    for frame in ImageSequence.Iterator(img):
+                        frames.append(np.array(frame.copy().convert("RGB")))
+                    return frames
         except Exception as e:
             print(f"Error fetching loop gif: {e}")
         return []
