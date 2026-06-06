@@ -176,3 +176,30 @@ async def test_save_and_cleanup_polled_frames():
         assert deleted_count == 1
         mock_blob_old.delete.assert_called_once()
         mock_blob_new.delete.assert_not_called()
+
+def test_extrapolate_rain_at_pixel():
+    processor = TMDRadarProcessor(station_code="kkn120")
+    
+    # Create a dummy image 100x100
+    img = np.zeros((100, 100, 3), dtype=np.uint8)
+    
+    # Put a "rain" pixel at (20, 20) with color (0, 255, 0) -> dBZ > 0
+    # Let's say (0, 255, 0) maps to some dBZ.
+    # To be safe, we'll mock `get_dbz_at_pixel` to just return 35.0 for (20, 20) and 0.0 elsewhere.
+    with patch.object(processor, 'get_dbz_at_pixel', side_effect=lambda i, x, y: 35.0 if x == 20 and y == 20 else 0.0):
+        # Create a dummy flow field
+        flow = np.zeros((100, 100, 2), dtype=np.float32)
+        # Rain is moving right (+dx) and down (+dy) at 5 pixels per step
+        flow[:, :, 0] = 5.0
+        flow[:, :, 1] = 5.0
+        
+        # We want to know what happens at target pixel (30, 30) after 2 steps.
+        # Rain currently at (20, 20).
+        # In 2 steps, rain moves 2 * 5 = +10 in x and y. So it will reach (30, 30).
+        # Backward tracking from (30, 30) with 2 steps: src = 30 - 2*5 = 20.
+        dbz_future = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2)
+        assert dbz_future == 35.0
+        
+        # After 1 step, it should be at (25, 25), so target (30, 30) should have 0 dBZ.
+        dbz_1step = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=1)
+        assert dbz_1step == 0.0

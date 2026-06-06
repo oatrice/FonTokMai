@@ -127,6 +127,51 @@ class TMDRadarProcessor:
         vy = float(flow[y, x, 1])
         return vx, vy
 
+    def extrapolate_rain_at_pixel(self, img: np.ndarray, flow: np.ndarray, px: int, py: int, steps: int) -> float:
+        """
+        Uses Semi-Lagrangian backward tracking to find the dBZ value that will arrive at (px, py) in 'steps' time intervals.
+        Each step corresponds to the time difference between the frames used to compute the optical flow (e.g. 15 mins).
+        Positive steps mean predicting into the future.
+        """
+        if steps == 0:
+            return self.get_dbz_at_pixel(img, px, py)
+            
+        # Get the flow vector at the target pixel
+        vx, vy = self.get_flow_vector_at(flow, px, py)
+        
+        # Calculate source pixel (backward tracking)
+        # Assuming linear constant velocity over the steps
+        src_x = int(round(px - (vx * steps)))
+        src_y = int(round(py - (vy * steps)))
+        
+        # Clamp to image boundaries
+        src_x = max(0, min(img.shape[1] - 1, src_x))
+        src_y = max(0, min(img.shape[0] - 1, src_y))
+        
+        # Get the dbz from the source pixel in the current image
+        dbz = self.get_dbz_at_pixel(img, src_x, src_y)
+        
+        return float(dbz)
+
+    def get_wind_speed_kmh(self, flow: np.ndarray, px: int, py: int) -> float:
+        """
+        Converts the optical flow vector (px/15min) into wind speed (km/h) 
+        based on the geographic bounding box size.
+        """
+        import math
+        vx, vy = self.get_flow_vector_at(flow, px, py)
+        pixel_speed_15m = math.sqrt(vx**2 + vy**2)
+        
+        # Calculate km per pixel (approx 1 degree = 111 km)
+        lon_diff = self.config.bbox.lng_max - self.config.bbox.lng_min
+        width_km = lon_diff * 111.0
+        km_per_pixel = width_km / max(1, self.config.crop_width)
+        
+        km_per_15m = pixel_speed_15m * km_per_pixel
+        km_per_h = km_per_15m * 4.0
+        
+        return float(km_per_h)
+
     def calculate_growth_decay(self, prev_img: np.ndarray, curr_img: np.ndarray, x: int, y: int, radius: int = 10) -> float:
         """
         Calculates the growth or decay percentage of a rain cell around (x, y).

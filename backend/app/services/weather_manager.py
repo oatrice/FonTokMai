@@ -177,7 +177,7 @@ class WeatherManager:
 
     async def _get_tmd_prediction(self, lat: float, lng: float) -> dict:
         """
-        Wrapper for TMD Radar predictions.
+        Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
         """
         import cv2
         import numpy as np
@@ -187,31 +187,50 @@ class WeatherManager:
                 processor = TMDRadarProcessor(station_code)
                 px, py = processor.latlng_to_pixel(lat, lng)
                 if px is not None and py is not None:
-                    # Fetch real image and get dBZ for Telegram testing
-                    img_bytes = await processor.fetch_latest_image_bytes()
-                    dbz = 0.0
-                    intensity = "ไม่ทราบ"
+                    frames = await processor.fetch_loop_gif_and_extract_frames()
+                    if not frames or len(frames) < 2:
+                        continue
+                        
+                    # Calculate optical flow from the last two frames
+                    flow = processor.calculate_optical_flow(frames)
+                    latest_frame = frames[-1]
                     
-                    if img_bytes:
-                        img_array = np.frombuffer(img_bytes, np.uint8)
-                        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-                        if img is not None:
-                            dbz = processor.get_dbz_at_pixel(img, px, py)
-                            if dbz >= 55: intensity = "ฝนตกหนักมาก"
-                            elif dbz >= 35: intensity = "ฝนตกหนัก"
-                            elif dbz >= 20: intensity = "ฝนตกปานกลาง"
-                            elif dbz > 0:  intensity = "ฝนตกเล็กน้อย"
-                            else: intensity = "ไม่มีฝน"
+                    predictions = []
+                    max_dbz = 0.0
+                    
+                    def dbz_to_intensity(d: float) -> str:
+                        if d >= 55: return "ฝนตกหนักมาก"
+                        elif d >= 35: return "ฝนตกหนัก"
+                        elif d >= 20: return "ฝนตกปานกลาง"
+                        elif d > 0:  return "ฝนตกเล็กน้อย"
+                        else: return "ไม่มีฝน"
+                    
+                    # Generate predictions for +0m, +15m, +30m, +45m, +60m
+                    for steps in range(5):
+                        dbz = processor.extrapolate_rain_at_pixel(latest_frame, flow, px, py, steps)
+                        if dbz > max_dbz:
+                            max_dbz = dbz
+                            
+                        predictions.append({
+                            "time_offset": steps * 15,
+                            "intensity": dbz_to_intensity(dbz),
+                            "dbz": float(dbz)
+                        })
+                        
+                    current_dbz = predictions[0]["dbz"]
+                    intensity = predictions[0]["intensity"]
+                    wind_speed = processor.get_wind_speed_kmh(flow, px, py)
 
                     return {
-                        "predictions": [],
+                        "predictions": predictions,
                         "intensity": intensity,
-                        "max_rain": float(dbz),
-                        "duration_minutes": 0,
-                        "wind_speed_kmh": 0.0,
+                        "max_rain": float(max_dbz),
+                        "duration_minutes": sum(15 for p in predictions if p["dbz"] > 0),
+                        "wind_speed_kmh": round(wind_speed, 1),
                         "endpoint": f"tmd-radar ({station_code})"
                     }
             except Exception as e:
+                logger.warning(f"Failed to process TMD radar {station_code}: {e}")
                 pass
                 
         raise Exception("Location out of bounds for active TMD Radars.")
