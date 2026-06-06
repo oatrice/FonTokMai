@@ -14,5 +14,6 @@ websockets
 numpy
 opencv-python-headless
 google-cloud-storage
+google-cloud-vision
+google-generativeai
 Pillow
-pytesseract
