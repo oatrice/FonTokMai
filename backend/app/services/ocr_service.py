@@ -36,7 +36,7 @@ class OCRService:
 
     def _hash_frame(self, frame: np.ndarray) -> str:
         """Create a fast MD5 hash of the numpy frame."""
-        return hashlib.md5(frame.tobytes()).hexdigest()
+        return hashlib.md5(frame.tobytes() + b"v2").hexdigest()
 
     def _frame_to_png_bytes(self, frame: np.ndarray) -> bytes:
         """Convert a numpy frame to PNG bytes."""
