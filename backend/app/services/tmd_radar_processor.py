@@ -514,11 +514,15 @@ class TMDRadarProcessor:
         ux = int((user_x - x1) * scale)
         uy = int((user_y - y1) * scale)
         
-        # Draw user pin and search radius
+        # Draw user pin (but remove the large search radius circle to reduce clutter)
         cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(20 * scale), int(2 * scale))
-        cv2.circle(img, (ux, uy), int(80 * scale), (255, 255, 255), int(1 * scale))
         
-        for c in clouds:
+        # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest to avoid overlap
+        incoming = [c for c in clouds if c["eta_min"] >= -5]
+        incoming.sort(key=lambda c: c["predicted_dbz"], reverse=True)
+        top_clouds = incoming[:3]
+        
+        for c in top_clouds:
             cx_orig, cy_orig = c["cx"], c["cy"]
             
             # Only draw if the cloud is within or near the crop
@@ -534,12 +538,12 @@ class TMDRadarProcessor:
             if dbz >= 55: color = (0, 0, 255)
             elif dbz >= 40: color = (0, 165, 255)
             
-            cv2.circle(img, (cx, cy), int(15 * scale), color, int(2 * scale))
-            cv2.arrowedLine(img, (cx, cy), (ux, uy), (0, 255, 255), int(2 * scale), tipLength=0.1)
+            cv2.circle(img, (cx, cy), int(12 * scale), color, int(1.5 * scale))
+            cv2.arrowedLine(img, (cx, cy), (ux, uy), (0, 255, 255), int(1.5 * scale), tipLength=0.1)
             
             sign = "-" if eta < 0 else "~"
-            cv2.putText(img, f"{sign}{int(abs(eta))}m", (cx + int(20 * scale), cy), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6 * scale, (255, 255, 255), int(2 * scale))
+            cv2.putText(img, f"{sign}{int(abs(eta))}m", (cx + int(15 * scale), cy), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, (255, 255, 255), int(1.5 * scale))
 
         is_success, buffer = cv2.imencode(".png", img)
         return buffer.tobytes() if is_success else None
