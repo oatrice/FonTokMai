@@ -11,8 +11,15 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from typing import Optional
 
-from google.cloud import vision
-import google.generativeai as genai
+try:
+    from google.cloud import vision
+except ImportError:
+    vision = None
+
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
 
 from app.repositories.firestore import FirestoreLocationRepository
 
@@ -20,9 +27,9 @@ class OCRService:
     def __init__(self):
         self.repo = FirestoreLocationRepository()
         
-        # Initialize Gemini API if key is present
+        # Initialize Gemini API if key is present and package is installed
         self.gemini_key = os.environ.get("GEMINI_API_KEY")
-        if self.gemini_key:
+        if self.gemini_key and genai is not None:
             genai.configure(api_key=self.gemini_key)
             
         self.ocr_space_key = os.environ.get("OCR_SPACE_API_KEY")
@@ -42,6 +49,10 @@ class OCRService:
 
     async def _call_cloud_vision(self, content: bytes) -> Optional[str]:
         """Call Google Cloud Vision API to extract text."""
+        if vision is None:
+            print("Cloud Vision API package not installed. Skipping.")
+            return None
+            
         try:
             # We use synchronous client wrapped in a way or just synchronous block 
             # since Cloud Vision python client has async support in some versions,
@@ -65,6 +76,10 @@ class OCRService:
 
     async def _call_gemini(self, content: bytes) -> Optional[str]:
         """Call Gemini 1.5 Flash to extract text."""
+        if genai is None:
+            print("Gemini API package not installed. Skipping.")
+            return None
+            
         if not self.gemini_key:
             print("Gemini API key not found.")
             return None
