@@ -1,9 +1,9 @@
 # Manual Verification Guide
 
 **Issue 60: OCR & Firestore Caching**
-- Step 1: Start the local server ensuring Tesseract OCR is installed (e.g. `brew install tesseract` on macOS).
+- Step 1: Ensure that `GEMINI_API_KEY` and `OCR_SPACE_API_KEY` are configured in your `.env` file (or `GOOGLE_APPLICATION_CREDENTIALS` is set for Cloud Vision) before starting the local server.
 - Step 2: Trigger a radar fetch via Telegram (by sending a location and waiting for TMD Radar data).
-- Expected Result: The system should extract the timestamp via OCR successfully. Open Firestore and verify that a new document with the frame's MD5 hash is created in the `radar_frame_cache` collection.
+- Expected Result: The system should extract the timestamp via the OCR Fallback Chain (Cloud Vision -> Gemini -> OCR.space) successfully. Open Firestore and verify that a new document with the frame's MD5 hash is created in the `radar_frame_cache` collection.
 - Step 3: Trigger the radar fetch again for the same frame.
 - Expected Result: The system should retrieve the timestamp from the Firestore cache, skipping the OCR step.
 
