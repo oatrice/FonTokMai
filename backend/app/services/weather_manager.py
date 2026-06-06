@@ -202,9 +202,30 @@ class WeatherManager:
                 # Apply mock overrides
                 if mock_state == "rain":
                     if not clouds:
-                        clouds = [{"eta_min": 10, "dbz_now": 40, "dbz_prev": 35,
-                                   "growth_rate": 0.14, "predicted_dbz": 40,
-                                   "dist": 10, "cx": px, "cy": py, "vx": 0, "vy": 0}]
+                        import cv2
+                        clouds = []
+                        # Create a mock storm system with different colored clouds
+                        mock_configs = [
+                            {"color": (0, 255, 0),     "dbz": 25.0, "offset": (-50, -50), "eta": 20}, # Green
+                            {"color": (255, 255, 0),   "dbz": 35.0, "offset": (-35, -35), "eta": 15}, # Yellow
+                            {"color": (255, 153, 0),   "dbz": 45.0, "offset": (-20, -20), "eta": 10}, # Orange
+                            {"color": (255, 0, 0),     "dbz": 55.0, "offset": (-5, -5),   "eta": 5},  # Red
+                            {"color": (204, 0, 204),   "dbz": 65.0, "offset": (10, 10),   "eta": 0},  # Purple
+                        ]
+                        for mc in mock_configs:
+                            cx, cy = px + mc["offset"][0], py + mc["offset"][1]
+                            clouds.append({
+                                "cx": cx, "cy": cy,
+                                "vx": 3.0, "vy": 3.0,
+                                "dbz_now": mc["dbz"], "dbz_prev": mc["dbz"] - 2.0,
+                                "predicted_dbz": mc["dbz"],
+                                "eta_min": mc["eta"],
+                                "growth_rate": 0.05,
+                                "dist": max(1, abs(mc["offset"][0]))
+                            })
+                            # Draw fake cloud blobs on all frames so it shows up visually
+                            for f in frames:
+                                cv2.circle(f, (cx, cy), 15, mc["color"], -1)
                     else:
                         for c in clouds:
                             c["dbz_now"]       = max(c["dbz_now"], 40.0)
@@ -266,21 +287,6 @@ class WeatherManager:
 
                 current_dbz = predictions[0]["dbz"]
                 intensity   = predictions[0]["intensity"]
-                
-                # [Issue 58] Inject a synthetic cloud for dev testing if none exist
-                if mock_state == "rain" and not clouds:
-                    cx, cy = px - 20, py - 20
-                    clouds = [{
-                        "cx": cx, "cy": cy,
-                        "vx": 2.0, "vy": 2.0,
-                        "predicted_dbz": 45.0,
-                        "eta_min": 10,
-                        "growth_rate": 0.0
-                    }]
-                    # Draw a fake orange rain blob (45 dBZ) on all frames so it shows up visually
-                    import cv2
-                    for f in frames:
-                        cv2.circle(f, (cx, cy), 15, (255, 153, 0), -1)  # RGB orange
                 
                 if clouds:
                     wind_speed = processor.get_wind_speed_kmh_from_vector(clouds[0]["vx"], clouds[0]["vy"])
