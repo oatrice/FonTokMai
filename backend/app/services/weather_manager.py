@@ -285,7 +285,7 @@ class WeatherManager:
                     from zoneinfo import ZoneInfo
                     
                     try:
-                        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 24)
+                        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 48)
                     except:
                         font = ImageFont.load_default()
                         
@@ -304,11 +304,17 @@ class WeatherManager:
                         frame_time_bkk = frame_time_utc.astimezone(ZoneInfo('Asia/Bangkok'))
                         time_str = frame_time_bkk.strftime('%d %b %H:%M')
                         
-                        # Draw timestamp text on top-left of the image
+                        # Draw timestamp text on top-right of the image
                         draw = ImageDraw.Draw(img, "RGBA")
-                        left, top, right, bottom = draw.textbbox((10, 10), time_str, font=font)
-                        draw.rectangle([left-5, top-5, right+5, bottom+5], fill=(0, 0, 0, 180))
-                        draw.text((10, 10), time_str, fill=(255, 255, 255, 255), font=font)
+                        left, top, right, bottom = draw.textbbox((0, 0), time_str, font=font)
+                        text_w = right - left
+                        text_h = bottom - top
+                        
+                        x_pos = img.width - text_w - 20
+                        y_pos = 20
+                        
+                        draw.rectangle([x_pos-10, y_pos-10, x_pos+text_w+10, y_pos+text_h+15], fill=(0, 0, 0, 200))
+                        draw.text((x_pos, y_pos), time_str, fill=(255, 255, 255, 255), font=font)
                         
                         pil_frames.append(img)
                     if pil_frames:
