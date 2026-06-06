@@ -4,35 +4,17 @@
   "phase": "pr_pending",
   "active_issues": [
     {
-      "number": 60,
-      "title": "Feature: Implement Pre-fetch & Caching for Radar Frame OCR",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/60",
+      "number": 58,
+      "title": "Bug: Radar tracking image circles incorrect cloud positions",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/58",
       "body": null,
-      "project_item_id": "GLAB_60",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 53,
-      "title": "Feature: Include TMD Radar in the Telegram Compare API results",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/53",
-      "body": null,
-      "project_item_id": "GLAB_53",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 51,
-      "title": "Feature: Telegram command for forcing specific weather data source",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/51",
-      "body": null,
-      "project_item_id": "GLAB_51",
+      "project_item_id": "GLAB_58",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/60-53-51-feature-implement-pre-fetch-ca",
-  "started_at": "2026-06-06T18:05:08.710097",
+  "active_branch": "feat/58-bug-radar-tracking-image-circl",
+  "started_at": "2026-06-06T20:24:40.477697",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -43,42 +25,47 @@
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
+      "pending": [
+        "README.md"
+      ],
       "changed_files": [
         "CHANGELOG.md",
-        "README.md",
         "VERSION",
-        "backend/.env.example",
-        "backend/Dockerfile",
-        "backend/app/repositories/firestore.py",
         "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
         "backend/app/services/ocr_service.py",
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
-        "backend/requirements.txt",
-        "backend/tests/test_firestore.py",
-        "backend/tests/test_ocr_service.py",
-        "code_review.md",
+        "backend/test_tracking_image.py",
+        "backend/tests/analyze_image.py",
+        "backend/tests/analyze_image2.py",
+        "backend/tests/debug_rain_final.png",
+        "backend/tests/fetch_background_colors.py",
+        "backend/tests/fetch_real_radar.py",
+        "backend/tests/test_clustering.py",
+        "backend/tests/test_tmd_processor.py",
+        "backend/tests/test_visual_bug.py",
+        "backend/tests/test_visualize.py",
         "docs/ROADMAP.md",
-        "docs/features/22_issue-60-53-51_feature-implement-pre-fetch-caching-radar-frame-ocr-fb45b2e1/implementation_plan.md",
-        "docs/features/22_issue-60-53-51_feature-implement-pre-fetch-caching-radar-frame-ocr-fb45b2e1/manual_verification.md",
-        "docs/features/22_issue-60-53-51_feature-implement-pre-fetch-caching-radar-frame-ocr-fb45b2e1/task.md",
-        "docs/features/22_issue-60-53-51_feature-implement-pre-fetch-caching-radar-frame-ocr-fb45b2e1/walkthrough.md",
-        "draft_code_review.md",
-        "luma/prompts/prompt_20260606_111137_059ef3e0.md",
-        "luma/prompts/prompt_20260606_111137_a9e61c16.md",
-        "luma/prompts/prompt_20260606_111137_a9e61c16.md.response.md",
+        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/comparison_before_after.png",
+        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/debug_rain_pixels.png",
+        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/debug_rain_pixels_fixed.png",
+        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/implementation_plan.md",
+        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/manual_verification.md",
+        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/synthetic_tracking_result.png",
+        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/task.md",
+        "docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions/walkthrough.md",
+        "gitlab-ci.yml",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/.env.example",
-        "backend/Dockerfile",
-        "backend/app/repositories/firestore.py",
         "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
         "backend/app/services/ocr_service.py",
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
+        "gitlab-ci.yml",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -147,11 +134,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/23_issue-60-53-51_feature-implement-pre-fetch-caching-radar-frame-ocr-fb45b2e1"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/23_issue-58_bug-radar-tracking-image-circles-incorrect-cloud-positions"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/22",
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/23",
   "pr_number": null,
-  "last_updated": "2026-06-06T20:21:52.320093"
+  "last_updated": "2026-06-07T00:49:42.732331"
 }

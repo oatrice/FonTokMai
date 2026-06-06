@@ -200,12 +200,73 @@ class WeatherManager:
                 )
 
                 # Apply mock overrides
-                if mock_state == "rain":
-                    if not clouds:
-                        clouds = [{"eta_min": 10, "dbz_now": 40, "dbz_prev": 35,
-                                   "growth_rate": 0.14, "predicted_dbz": 40,
-                                   "dist": 10, "cx": px, "cy": py, "vx": 0, "vy": 0}]
+                if mock_state in ("rain", "storm"):
+                    import cv2
+                    
+                    if mock_state == "storm" or not clouds:
+                        if mock_state == "storm":
+                            clouds = []  # Forcefully clear real clouds to ensure mock storm always shows
+                        mock_configs = []
+                        if mock_state == "storm":
+                            # 5-color huge broad front (randomized for testing)
+                            import random
+                            intensities = [
+                                ((0, 128, 0), 25.0),    # Green exact
+                                ((255, 255, 0), 35.0),  # Yellow exact
+                                ((255, 128, 0), 45.0),  # Orange exact
+                                ((128, 0, 0), 55.0),    # Dark Red exact
+                                ((255, 0, 255), 65.0),  # Magenta/Purple exact
+                            ]
+                            random.shuffle(intensities)
+                            bands = [
+                                {"color": intensities[0][0], "dbz": intensities[0][1], "base_offset": (-5, 5),   "eta": 0},
+                                {"color": intensities[1][0], "dbz": intensities[1][1], "base_offset": (-20, 20), "eta": 5},
+                                {"color": intensities[2][0], "dbz": intensities[2][1], "base_offset": (-35, 35), "eta": 10},
+                                {"color": intensities[3][0], "dbz": intensities[3][1], "base_offset": (-50, 50), "eta": 15},
+                                {"color": intensities[4][0], "dbz": intensities[4][1], "base_offset": (-65, 65), "eta": 20},
+                            ]
+                        else:
+                            # Just a simple rain cell for normal testing when sky is clear
+                            bands = [
+                                {"color": (46, 204, 113),  "dbz": 25.0, "base_offset": (-5, 5),   "eta": 0},  # Green
+                                {"color": (241, 196, 15),  "dbz": 35.0, "base_offset": (-15, 15), "eta": 5},  # Yellow
+                            ]
+                            
+                        for band in bands:
+                            bx, by = band["base_offset"]
+                            # Spread clouds along the NW-SE axis (dx=spread, dy=spread)
+                            for spread in [-60, -30, 0, 30, 60]:
+                                mock_configs.append({
+                                    "color": band["color"],
+                                    "dbz": band["dbz"],
+                                    "offset": (bx + spread, by + spread),
+                                    "eta": band["eta"]
+                                })
+
+                        for mc in mock_configs:
+                            cx, cy = px + mc["offset"][0], py + mc["offset"][1]
+                            vx, vy = 3.0, -3.0  # Move towards NE
+                            clouds.append({
+                                "cx": cx, "cy": cy,
+                                "vx": vx, "vy": vy,
+                                "dbz_now": mc["dbz"], "dbz_prev": mc["dbz"] - 2.0,
+                                "predicted_dbz": mc["dbz"],
+                                "eta_min": mc["eta"],
+                                "growth_rate": 0.05,
+                                "dist": max(1, abs(mc["offset"][0]))
+                            })
+                            # Draw fake cloud blobs moving across the frames
+                            num_frames = len(frames)
+                            for i, f in enumerate(frames):
+                                steps_ago = num_frames - 1 - i
+                                cx_i = int(cx - steps_ago * vx)
+                                cy_i = int(cy - steps_ago * vy)
+                                if mock_state == "storm":
+                                    # Make the blobs slightly larger so they merge into a solid wall
+                                    cv2.circle(f, (cx_i, cy_i), 22, mc["color"], -1)
                     else:
+                        # If there ARE real clouds and mock_state == "rain", we just boost their intensity
+                        # to simulate heavier rain without injecting fake clouds.
                         for c in clouds:
                             c["dbz_now"]       = max(c["dbz_now"], 40.0)
                             c["predicted_dbz"] = max(c["predicted_dbz"], 40.0)
@@ -266,6 +327,7 @@ class WeatherManager:
 
                 current_dbz = predictions[0]["dbz"]
                 intensity   = predictions[0]["intensity"]
+                
                 if clouds:
                     wind_speed = processor.get_wind_speed_kmh_from_vector(clouds[0]["vx"], clouds[0]["vy"])
                     wind_dir = processor.get_wind_direction_text_from_vector(clouds[0]["vx"], clouds[0]["vy"])
@@ -335,19 +397,15 @@ class WeatherManager:
                         buffer = io.BytesIO()
                         hq_buffer = io.BytesIO()
                         
-                        # Freeze last frame
-                        last_frame_std = pil_frames_std[-1]
-                        last_frame_hq = pil_frames_hq[-1]
-                        for _ in range(4):
-                            pil_frames_std.append(last_frame_std.copy())
-                            pil_frames_hq.append(last_frame_hq.copy())
-                                
+                        durations = [500] * len(pil_frames_std)
+                        durations[-1] = 3000  # Freeze last frame for 3 seconds
+                        
                         pil_frames_std[0].save(buffer, save_all=True, append_images=pil_frames_std[1:],
-                                               format='GIF', loop=0, duration=500, optimize=True)
+                                               format='GIF', loop=0, duration=durations, optimize=True)
                         gif_bytes = buffer.getvalue()
                         
                         pil_frames_hq[0].save(hq_buffer, save_all=True, append_images=pil_frames_hq[1:],
-                                              format='GIF', loop=0, duration=500, optimize=False)
+                                              format='GIF', loop=0, duration=durations, optimize=True)
                         hq_gif_bytes = hq_buffer.getvalue()
                         
                         static_buffer = io.BytesIO()

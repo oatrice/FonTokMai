@@ -572,16 +572,31 @@ async def handle_devmock_command(chat_id: int, command: str):
             for loc in locs:
                 await repo.update_last_alerted(loc, None)
 
-            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌧️ ฝนตกหนัก\n⏳ กำลังสร้างแจ้งเตือน...")
+            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌧️ ฝนตกหนัก (Boost เมฆจริง)\n⏳ กำลังสร้างแจ้งเตือน...")
 
             from app.scheduler_tasks import check_rain_and_alert
             await check_rain_and_alert()
+            
+        elif command == "/devmock storm":
+            await repo.set_mock_state(chat_id, "storm")
+
+            # Reset cooldown สำหรับทุก location ของ user นี้ เพื่อให้ alert ยิงทันที
+            locs = await repo.get_user_locations(chat_id)
+            for loc in locs:
+                await repo.update_last_alerted(loc, None)
+
+            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌪️ พายุจำลอง (สร้างเมฆปลอม 5 สี)\n⏳ กำลังสร้างแจ้งเตือน...")
+
+            from app.scheduler_tasks import check_rain_and_alert
+            await check_rain_and_alert()
+            
         elif command == "/devmock clear":
             await repo.set_mock_state(chat_id, "clear")
             await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: ☀️ ท้องฟ้าแจ่มใส\n⏳ กำลังตรวจสอบสภาพอากาศ...")
             
             from app.scheduler_tasks import check_rain_and_alert
             await check_rain_and_alert()
+            
         elif command == "/devmock off":
             await repo.set_mock_state(chat_id, None)
             await send_telegram_message(chat_id, "🛠️ [DEV MOCK] ปิดใช้งานโหมดจำลองเรียบร้อยแล้ว")
@@ -673,6 +688,8 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
                 return {"status": "ok"}
 
         text = message.get("text", "")
+        logger.info(f"[WEBHOOK] Received text='{text}' chat_id={chat_id}")
+
         if text.startswith("/mylocation") and chat_id:
             background_tasks.add_task(handle_mylocation_command, chat_id)
             return {"status": "ok"}
@@ -689,4 +706,13 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
             background_tasks.add_task(handle_devmock_command, chat_id, text.strip())
             return {"status": "ok"}
 
+        # /check — shorthand alias for /rain tmd-radar (for manual testing)
+        if text.strip() == "/check" and chat_id:
+            logger.info(f"[WEBHOOK] /check received from chat_id={chat_id}, routing to handle_rain_command with 'tmd-radar'")
+            background_tasks.add_task(handle_rain_command, chat_id, "/rain tmd-radar")
+            return {"status": "ok"}
+
+        logger.debug(f"[WEBHOOK] Unrecognized command or text, returning ignored. text='{text}'")
+
     return {"status": "ignored"}
+

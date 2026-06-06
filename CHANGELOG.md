@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0] - 2026-06-07
+### Added
+- Implemented synthetic mock cloud injection for `/devmock storm` and `/devmock rain` to force tracking image generation and test alert workflows even during clear skies.
+- Added animated multi-colored mock clouds that sweep across radar frames to verify Lagrangian tracking consistency.
+- Added `/check` command alias for manual rain checks.
+
+### Changed
+- Separated `rain` and `storm` mock states to allow `/devmock rain` to test real cloud intensity boosting while `/devmock storm` overrides everything with a synthetic broad storm front.
+- Synchronized the 5-color intensity bands (Green, Yellow, Orange, Red, Purple) across the timeline graph, tracking images, and the mock storm generator.
+
+### Fixed
+- Fixed an issue where the ETA timeline graph's X-axis labels would overlap and cascade off the canvas when multiple clouds arrived simultaneously.
+- Fixed TMD radar noise rejection by ensuring synthetic mock clouds use exact TMD RGB color signatures.
+- Fixed an indentation bug that caused mock clouds to be unintentionally boosted to 40 dBZ.
+- Fixed OCR timezone logic to correctly interpret TMD radar timestamps as UTC, and added OCR cache invalidation.
+- Fixed RGB to BGR color space conversions and channel swap issues that caused visual glitches and legend bleed-through in tracking images.
+- Fixed tracking circle positioning by upgrading the cloud clustering algorithm to use Breadth-First Search (BFS).
+- Fixed proactive rain notifications to properly include wind direction and attach tracking images.
+- Fixed a bug where fake colored blobs were inappropriately visible during `/devmock rain`.
+
 ## [0.22.0] - 2026-06-06
 ### Added
 - Implemented a resilient OCR fallback chain (Cloud Vision -> Gemini -> OCR.space) for robust TMD radar frame timestamp extraction.

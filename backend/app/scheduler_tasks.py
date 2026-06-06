@@ -173,9 +173,10 @@ async def check_rain_and_alert():
                         text += "\n"
                         
                     text += f"💧 ความรุนแรง: {intensity_str} ({max_rain:.1f} mm/hr)\n"
+                    wind_dir_text = result.get("wind_dir_text", "ไม่ทราบ")
                     
                     if wind_speed_kmh > 0:
-                        text += f"🌬️ สภาพลม: {wind_speed_kmh:.1f} km/h\n"
+                        text += f"🌬️ สภาพลม: {wind_speed_kmh:.1f} km/h (พัดไปทางทิศ {wind_dir_text})\n"
                         
                     if eta_minutes > 0 and wind_speed_kmh > 0:
                         text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\n"
@@ -234,6 +235,9 @@ async def check_rain_and_alert():
                         
                     if timeline_bytes:
                         await send_telegram_photo(loc.chat_id, timeline_bytes, "rain_timeline.png")
+                        
+                    if tracking_bytes:
+                        await send_telegram_photo(loc.chat_id, tracking_bytes, "radar_tracking.png")
                         
                     if gif_bytes:
                         await send_telegram_document(loc.chat_id, gif_bytes, "radar_nowcast.gif")

@@ -76,20 +76,23 @@ class TMDRadarProcessor:
             return px, py
 
     def get_dbz_at_pixel(self, img: np.ndarray, x: int, y: int) -> float:
-        """Reads the color at (x,y) and returns the corresponding dBZ value."""
+        """Reads the color at (x,y) and returns the corresponding dBZ value.
+        
+        Frames are in RGB format (from PIL). DBZ_COLOR_MAPPING keys are RGB tuples.
+        """
         if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
             return 0.0
             
-        # OpenCV defaults to BGR
+        # Frames from PIL are RGB: pixel[0]=R, pixel[1]=G, pixel[2]=B
         pixel = img[y, x]
         if len(pixel) >= 3:
-            b, g, r = int(pixel[0]), int(pixel[1]), int(pixel[2])
+            r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
         else:
             return 0.0
             
         color_tuple = (r, g, b)
         
-        # Check ignored (perfect black)
+        # Check ignored colors
         if color_tuple in IGNORED_COLORS:
             return 0.0
             
@@ -104,8 +107,8 @@ class TMDRadarProcessor:
                 min_dist = dist
                 best_dbz = dbz
                 
-        # If the closest color is within a reasonable Euclidean distance (e.g., 90)
-        if min_dist < 90:
+        # Tighter threshold (80) reduces false positives from map features (rivers, terrain)
+        if min_dist < 80:
             return best_dbz
             
         return 0.0
@@ -400,11 +403,25 @@ class TMDRadarProcessor:
           cx, cy, dbz_now, dbz_prev, growth_rate, predicted_dbz, dist, eta_min
         """
         import math
+        # Restrict search to the valid radar crop area to exclude legend strips
+        is_loop = flow.shape[0] <= self.config.loop_crop_height + self.config.loop_crop_y + 10
+        crop_x0 = self.config.loop_crop_x if is_loop else self.config.static_crop_x
+        crop_y0 = self.config.loop_crop_y if is_loop else self.config.static_crop_y
+        crop_w  = self.config.loop_crop_width if is_loop else self.config.static_crop_width
+        crop_h  = self.config.loop_crop_height if is_loop else self.config.static_crop_height
+        valid_x_min = crop_x0
+        valid_x_max = crop_x0 + crop_w
+        valid_y_min = crop_y0
+        valid_y_max = crop_y0 + crop_h
+
         candidates = []
         for dy in range(-search_radius, search_radius + 1, 2):
             for dx in range(-search_radius, search_radius + 1, 2):
                 sx = user_x + dx
                 sy = user_y + dy
+                # Skip pixels outside the valid radar area (legend, borders)
+                if not (valid_x_min <= sx < valid_x_max and valid_y_min <= sy < valid_y_max):
+                    continue
                 if not (0 <= sx < curr_frame.shape[1] and 0 <= sy < curr_frame.shape[0]):
                     continue
                 d = self.get_dbz_at_pixel(curr_frame, sx, sy)
@@ -417,7 +434,8 @@ class TMDRadarProcessor:
                 if dist == 0:
                     continue
                 dot = (cvx * to_x + cvy * to_y) / dist
-                if abs(dot) < 0.1:
+                # Only keep pixels whose flow APPROACHES the user (dot > 0)
+                if dot < 0.1:
                     continue
                 # Previous DBZ at the backward-traced position
                 prev_x = int(round(sx - cvx))
@@ -435,12 +453,17 @@ class TMDRadarProcessor:
                 continue
             group = [c]
             used[i] = True
-            for j, c2 in enumerate(candidates):
-                if used[j]:
-                    continue
-                if math.sqrt((c[0] - c2[0]) ** 2 + (c[1] - c2[1]) ** 2) < cluster_dist:
-                    group.append(c2)
-                    used[j] = True
+            
+            # Use BFS to find all connected pixels (Connected Components)
+            queue = [c]
+            while queue:
+                curr = queue.pop(0)
+                for j, c2 in enumerate(candidates):
+                    if not used[j]:
+                        if math.sqrt((curr[0] - c2[0]) ** 2 + (curr[1] - c2[1]) ** 2) < cluster_dist:
+                            group.append(c2)
+                            used[j] = True
+                            queue.append(c2)
 
             total_w = sum(g[4] for g in group)
             cx = int(sum(g[0] * g[4] for g in group) / total_w)
@@ -565,9 +588,11 @@ class TMDRadarProcessor:
             eta = c["eta_min"]
             dbz = c["predicted_dbz"]
             
-            color = (0, 255, 0)
-            if dbz >= 55: color = (0, 0, 255)
-            elif dbz >= 40: color = (0, 165, 255)
+            if dbz >= 60: color = (155, 89, 182) # Purple
+            elif dbz >= 50: color = (231, 76, 60) # Red
+            elif dbz >= 40: color = (243, 156, 18) # Orange
+            elif dbz >= 30: color = (241, 196, 15) # Yellow
+            else: color = (46, 204, 113) # Green
             
             cv2.circle(img, (cx, cy), int(12 * scale), color, int(1.5 * scale))
             
@@ -577,11 +602,11 @@ class TMDRadarProcessor:
             
             # If there's no movement, just point to user as fallback
             if vx_scaled == 0 and vy_scaled == 0:
-                cv2.arrowedLine(img, (cx, cy), (ux, uy), (0, 255, 255), int(1.5 * scale), tipLength=0.1)
+                cv2.arrowedLine(img, (cx, cy), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.1)  # RGB Yellow
             else:
                 target_x = cx + vx_scaled
                 target_y = cy + vy_scaled
-                cv2.arrowedLine(img, (cx, cy), (target_x, target_y), (0, 255, 255), int(1.5 * scale), tipLength=0.3)
+                cv2.arrowedLine(img, (cx, cy), (target_x, target_y), (255, 255, 0), int(1.5 * scale), tipLength=0.3)  # RGB Yellow
             
             sign = "-" if eta < 0 else "~"
             abs_eta = int(abs(eta))
@@ -593,7 +618,9 @@ class TMDRadarProcessor:
             cv2.putText(img, f"{sign}{time_str}", (cx + int(15 * scale), cy), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, (255, 255, 255), int(1.5 * scale))
 
-        is_success, buffer = cv2.imencode(".png", img)
+        # Convert RGB back to BGR for cv2.imencode
+        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        is_success, buffer = cv2.imencode(".png", img_bgr)
         return buffer.tobytes() if is_success else None
 
     @staticmethod
@@ -606,7 +633,7 @@ class TMDRadarProcessor:
         except ImportError:
             return None
             
-        width, height = 800, 400
+        width, height = 800, 430
         img = Image.new("RGBA", (width, height), (30, 30, 30, 255))
         draw = ImageDraw.Draw(img, "RGBA")
         
@@ -625,27 +652,37 @@ class TMDRadarProcessor:
             return int(50 + (t - (-60)) * (700 / 210.0))
             
         x_90 = time_to_x(90)
-        draw.line([(x_90, 50), (x_90, 380)], fill=(74, 144, 226, 128), width=2)
+        draw.line([(x_90, 50), (x_90, height - 20)], fill=(74, 144, 226, 128), width=2)
         draw.text((x_90 + 5, 60), "Confidence\nBoundary", fill=(74, 144, 226, 200), font=font_small)
         
         base_x = time_to_x(0)
         draw.line([(base_x, 40), (base_x, height - 20)], fill=(255, 255, 255, 200), width=2)
         draw.text((base_x - 15, 25), "NOW", font=font, fill=(255, 255, 255, 255))
 
+        # Bin clouds by X coordinate to prevent overlapping exact same ETA
+        binned_clouds = {}
+        for c in clouds:
+            eta = c["eta_min"]
+            dbz = c["predicted_dbz"]
+            x = time_to_x(eta)
+            x = max(20, min(780, x))
+            if x not in binned_clouds or dbz > binned_clouds[x]["dbz"]:
+                binned_clouds[x] = {"eta": eta, "dbz": dbz}
+
         last_x = -999
         y_offsets = {}
         
-        for c in sorted(clouds, key=lambda x: x["eta_min"]):
-            eta = c["eta_min"]
-            dbz = c["predicted_dbz"]
+        for x in sorted(binned_clouds.keys()):
+            eta = binned_clouds[x]["eta"]
+            dbz = binned_clouds[x]["dbz"]
             
-            x = time_to_x(eta)
-            x = max(20, min(780, x))
             h = int(dbz * 4)
             
-            if dbz >= 55: color = (231, 76, 60, 230)
-            elif dbz >= 40: color = (243, 156, 18, 230)
-            else: color = (46, 204, 113, 230)
+            if dbz >= 60: color = (155, 89, 182, 230) # Purple
+            elif dbz >= 50: color = (231, 76, 60, 230) # Red
+            elif dbz >= 40: color = (243, 156, 18, 230) # Orange
+            elif dbz >= 30: color = (241, 196, 15, 230) # Yellow
+            else: color = (46, 204, 113, 230) # Green
             
             if eta > 90:
                 color = (color[0], color[1], color[2], 100)
@@ -653,9 +690,12 @@ class TMDRadarProcessor:
             draw.rectangle([(x-10, baseline_y-h), (x+10, baseline_y)], fill=color)
             draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=(255, 255, 255, 255), font=font)
             
+            # Smart text offset to avoid overlapping labels
             y_off = 20
             if x - last_x < 40:
-                y_off = y_offsets.get(last_x, 20) + 20
+                # Cycle through 20, 35, 50 to prevent cascading off screen
+                prev_off = y_offsets.get(last_x, 50)
+                y_off = 35 if prev_off == 20 else (50 if prev_off == 35 else 20)
             y_offsets[x] = y_off
             last_x = x
             

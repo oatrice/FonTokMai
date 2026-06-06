@@ -41,7 +41,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #58 - Bug: Radar tracking image circles incorrect cloud positions
 - **GitHub:** [#58](https://gitlab.com/oatricedev/FonMaYang/-/issues/58)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.23.0)
 
 ### Issue #57 - Feature: Implement Cloud Growth and Decay Rate Model for TMD Nowcasting
 - **GitHub:** [#57](https://gitlab.com/oatricedev/FonMaYang/-/issues/57)
