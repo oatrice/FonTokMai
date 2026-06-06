@@ -286,8 +286,8 @@ class WeatherManager:
                     for frame in frames:
                         processor.draw_pin_on_frame(frame, px, py)
                         img = Image.fromarray(frame)
-                        # Upscale 2x for Telegram visibility
-                        img = img.resize((img.width * 2, img.height * 2), Image.Resampling.LANCZOS)
+                        # Upscale slightly (1.5x) for Telegram visibility without making file size huge
+                        img = img.resize((int(img.width * 1.5), int(img.height * 1.5)), Image.Resampling.LANCZOS)
                         pil_frames.append(img)
                     if pil_frames:
                         buffer = io.BytesIO()
@@ -299,7 +299,7 @@ class WeatherManager:
                                 pil_frames.append(last_frame.copy())
                                 
                         pil_frames[0].save(buffer, save_all=True, append_images=pil_frames[1:],
-                                           format='GIF', loop=0, duration=500)
+                                           format='GIF', loop=0, duration=500, optimize=True)
                         gif_bytes = buffer.getvalue()
                         static_buffer = io.BytesIO()
                         pil_frames[-1].save(static_buffer, format='PNG')
