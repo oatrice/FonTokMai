@@ -580,11 +580,11 @@ class TMDRadarProcessor:
         draw.line([(x_90, 50), (x_90, 380)], fill=(74, 144, 226, 128), width=2)
         draw.text((x_90 + 5, 60), "Confidence\nBoundary", fill=(74, 144, 226, 200), font=font_small)
         
-        x_0 = time_to_x(0)
+        base_x = time_to_x(0)
         draw.text((time_to_x(-30)-20, baseline_y + 15), "◀ PAST", fill=(150, 150, 150, 255), font=font_small)
         draw.text((time_to_x(30)-20, baseline_y + 15), "FUTURE ▶", fill=(150, 150, 150, 255), font=font_small)
-        draw.line([(x_0, baseline_y-5), (x_0, baseline_y+5)], fill=(200, 200, 200, 255), width=2)
-        draw.text((x_0-15, baseline_y+15), "NOW", fill=(200, 200, 200, 255), font=font_small)
+        draw.line([(base_x, padding_top - 10), (base_x, height - padding_bottom)], fill=(255, 255, 255, 200), width=2)
+        draw.text((base_x - 15, padding_top - 25), "NOW", font=font, fill=(255, 255, 255, 255))
 
         last_x = -999
         y_offsets = {}
@@ -676,26 +676,36 @@ class TMDRadarProcessor:
             pass
         return None
 
-    async def fetch_loop_gif_and_extract_frames(self) -> List[np.ndarray]:
-        """Fetches the Loop.gif and extracts all frames as numpy arrays using PIL for proper GIF coalescing."""
+    async def fetch_loop_gif_and_extract_frames(self) -> Tuple[List[np.ndarray], Optional['datetime']]:
+        """Fetches the Loop.gif and extracts frames and the Last-Modified datetime."""
         import httpx
         from PIL import Image, ImageSequence
         import io
+        from datetime import datetime, timezone
         
         url = getattr(self.config, 'loop_gif_url', self.config.static_image_url.replace('_latest.gif', 'Loop.gif').replace('_latest.jpg', 'Loop.gif'))
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.get(url)
                 if response.status_code == 200:
+                    last_modified = response.headers.get("last-modified")
+                    dt = None
+                    if last_modified:
+                        try:
+                            # format: Sat, 06 Jun 2026 09:35:43 GMT
+                            dt = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
+                        except Exception as e:
+                            print(f"Error parsing date: {e}")
+                            
                     img = Image.open(io.BytesIO(response.content))
                     frames = []
                     # PIL handles GIF frame disposal properly (coalescing delta frames)
                     for frame in ImageSequence.Iterator(img):
                         frames.append(np.array(frame.copy().convert("RGB")))
-                    return frames
+                    return frames, dt
         except Exception as e:
             print(f"Error fetching loop gif: {e}")
-        return []
+        return [], None
 
     async def fetch_loop_history_bytes(self) -> List[bytes]:
         """

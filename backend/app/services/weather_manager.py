@@ -192,7 +192,7 @@ class WeatherManager:
                 if px is None or py is None:
                     continue
 
-                frames = await processor.fetch_loop_gif_and_extract_frames()
+                frames, last_modified_dt = await processor.fetch_loop_gif_and_extract_frames()
                 if not frames or len(frames) < 2:
                     continue
 
@@ -231,7 +231,10 @@ class WeatherManager:
                     return "ไม่มีฝน"
 
                 from datetime import datetime, timedelta, timezone
-                now_utc = datetime.now(timezone.utc)
+                if last_modified_dt:
+                    now_utc = last_modified_dt
+                else:
+                    now_utc = datetime.now(timezone.utc)
 
                 # Use closest approaching cloud for step-by-step predictions
                 if clouds:
@@ -282,13 +285,21 @@ class WeatherManager:
                     pil_frames = []
                     for frame in frames:
                         processor.draw_pin_on_frame(frame, px, py)
-                        pil_frames.append(Image.fromarray(frame))
+                        img = Image.fromarray(frame)
+                        # Upscale 2x for Telegram visibility
+                        img = img.resize((img.width * 2, img.height * 2), Image.Resampling.LANCZOS)
+                        pil_frames.append(img)
                     if pil_frames:
                         buffer = io.BytesIO()
-                        # Pause the last frame for 2 seconds (2000ms), others for 500ms
-                        durations = [500] * (len(pil_frames) - 1) + [2000] if len(pil_frames) > 1 else 500
+                        # Telegram converts GIFs to MP4 and ignores variable durations.
+                        # To freeze the last frame for 2 seconds (4 * 500ms), we duplicate it 4 times.
+                        if len(pil_frames) > 0:
+                            last_frame = pil_frames[-1]
+                            for _ in range(4):
+                                pil_frames.append(last_frame.copy())
+                                
                         pil_frames[0].save(buffer, save_all=True, append_images=pil_frames[1:],
-                                           format='GIF', loop=0, duration=durations)
+                                           format='GIF', loop=0, duration=500)
                         gif_bytes = buffer.getvalue()
                         static_buffer = io.BytesIO()
                         pil_frames[-1].save(static_buffer, format='PNG')
