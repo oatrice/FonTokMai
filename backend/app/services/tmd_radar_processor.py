@@ -110,11 +110,81 @@ class TMDRadarProcessor:
             
         return 0.0
 
+    def extract_rain_mask(self, img: np.ndarray) -> np.ndarray:
+        """Converts an RGB radar frame into a grayscale mask representing rain intensity."""
+        img_float = img.astype(np.float32)
+        
+        min_dists = np.full(img.shape[:2], 90.0, dtype=np.float32)
+        best_intensity = np.zeros(img.shape[:2], dtype=np.uint8)
+        
+        for color, dbz in DBZ_COLOR_MAPPING.items():
+            c_arr = np.array(color, dtype=np.float32)
+            dist = np.sqrt(np.sum((img_float - c_arr)**2, axis=-1))
+            
+            better_mask = dist < min_dists
+            min_dists[better_mask] = dist[better_mask]
+            
+            intensity = int(min(255, max(50, dbz * 4)))
+            best_intensity[better_mask] = intensity
+            
+        # Ignore exact IGNORED_COLORS
+        for ignored_color in IGNORED_COLORS:
+            ic_arr = np.array(ignored_color, dtype=np.float32)
+            exact_match = np.all(img_float == ic_arr, axis=-1)
+            best_intensity[exact_match] = 0
+            
+        # Apply a small median blur to remove single-pixel noise which confuses optical flow
+        mask = cv2.medianBlur(best_intensity, 3)
+        return mask
+
+    def densify_optical_flow(self, flow: np.ndarray) -> np.ndarray:
+        """
+        Interpolates optical flow vectors from cloudy regions into empty regions 
+        using Normalized Convolution.
+        """
+        # Calculate magnitude of flow vectors
+        mag = np.sqrt(flow[..., 0]**2 + flow[..., 1]**2)
+        
+        # Create a mask where flow is significant (e.g. moving more than 0.1 pixels)
+        mask = (mag > 0.1).astype(np.float32)
+        
+        if np.sum(mask) < 10:
+            return flow  # Too little movement to extrapolate safely
+            
+        # Global average of valid flow vectors
+        global_dx = np.sum(flow[..., 0] * mask) / np.sum(mask)
+        global_dy = np.sum(flow[..., 1] * mask) / np.sum(mask)
+        
+        # 1. Mask the flow
+        flow_masked = flow * mask[..., np.newaxis]
+        
+        # 2. Blur the masked flow and the mask (large kernel to spread wind widely)
+        ksize = (101, 101)
+        flow_blurred = cv2.blur(flow_masked, ksize)
+        mask_blurred = cv2.blur(mask, ksize)
+        
+        # 3. Divide to get local average (Normalized Convolution)
+        mask_blurred_expanded = mask_blurred[..., np.newaxis]
+        valid_areas = mask_blurred_expanded > 0.001
+        
+        dense_flow = np.zeros_like(flow)
+        
+        # Where blur reached, use local average. Otherwise use global average.
+        dense_flow = np.where(
+            valid_areas, 
+            flow_blurred / (mask_blurred_expanded + 1e-6), 
+            np.array([global_dx, global_dy], dtype=np.float32)
+        )
+        
+        # Blend original flow where we had confident data
+        dense_flow = np.where(mask[..., np.newaxis] > 0, flow, dense_flow)
+        
+        return dense_flow
+
     def calculate_optical_flow(self, frames: List[np.ndarray]) -> np.ndarray:
         """
         Calculates dense optical flow using Farneback algorithm between the last two frames.
-        frames: List of image arrays in RGB or Grayscale.
-        Returns: Flow vector array of shape (H, W, 2)
+        Frames must be isolated for rain to prevent the map background from anchoring the flow.
         """
         if len(frames) < 2:
             raise ValueError("At least 2 frames required for optical flow")
@@ -122,16 +192,9 @@ class TMDRadarProcessor:
         prev_img = frames[-2]
         curr_img = frames[-1]
         
-        # Convert to Grayscale if they are color
-        if len(prev_img.shape) == 3:
-            prev_gray = cv2.cvtColor(prev_img, cv2.COLOR_RGB2GRAY)
-        else:
-            prev_gray = prev_img
-            
-        if len(curr_img.shape) == 3:
-            curr_gray = cv2.cvtColor(curr_img, cv2.COLOR_RGB2GRAY)
-        else:
-            curr_gray = curr_img
+        # Isolate the rain pixels into a grayscale intensity map
+        prev_gray = self.extract_rain_mask(prev_img)
+        curr_gray = self.extract_rain_mask(curr_img)
             
         # Calculate dense optical flow by Farneback method
         # flow[y, x, 0] = dx
@@ -148,6 +211,10 @@ class TMDRadarProcessor:
             poly_sigma=1.2,
             flags=0
         )
+        
+        # Extrapolate wind into empty regions so tracking works everywhere
+        flow = self.densify_optical_flow(flow)
+        
         return flow
         
     def get_flow_vector_at(self, flow: np.ndarray, x: int, y: int) -> Tuple[float, float]:
@@ -159,12 +226,13 @@ class TMDRadarProcessor:
         vy = float(flow[y, x, 1])
         return vx, vy
 
-    def extrapolate_rain_at_pixel(self, img: np.ndarray, flow: np.ndarray, px: int, py: int, steps: int, rate: float = 0.0) -> float:
+    def extrapolate_rain_at_pixel(self, img: np.ndarray, flow: np.ndarray, px: int, py: int, steps: int, rate: float = 0.0, radius: int = 5) -> float:
         """
         Uses Semi-Lagrangian backward tracking to find the dBZ value that will arrive at (px, py) in 'steps' time intervals.
         Each step corresponds to the time difference between the frames used to compute the optical flow (e.g. 15 mins).
         Positive steps mean predicting into the future.
         If 'rate' is provided, it applies an exponential growth/decay factor per step.
+        'radius' is used to search a local neighborhood (e.g. +/- 5 pixels) to account for slight movement inaccuracies and cloud edges.
         """
         if steps == 0:
             return self.get_dbz_at_pixel(img, px, py)
@@ -177,12 +245,18 @@ class TMDRadarProcessor:
         src_x = int(round(px - (vx * steps)))
         src_y = int(round(py - (vy * steps)))
         
-        # Clamp to image boundaries
-        src_x = max(0, min(img.shape[1] - 1, src_x))
-        src_y = max(0, min(img.shape[0] - 1, src_y))
-        
-        # Get the dbz from the source pixel in the current image
-        dbz = self.get_dbz_at_pixel(img, src_x, src_y)
+        max_dbz = 0.0
+        # Check a bounding box of +/- radius around the source pixel
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                sx = src_x + dx
+                sy = src_y + dy
+                if 0 <= sx < img.shape[1] and 0 <= sy < img.shape[0]:
+                    d = self.get_dbz_at_pixel(img, sx, sy)
+                    if d > max_dbz:
+                        max_dbz = d
+                        
+        dbz = max_dbz
         
         if rate != 0.0 and dbz > 0:
             factor = 1.0 + rate
