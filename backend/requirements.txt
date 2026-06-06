@@ -13,3 +13,5 @@ firebase-admin
 websockets
 numpy
 opencv-python-headless
+google-cloud-storage
+Pillow

@@ -1,7 +1,70 @@
 import pytest
 import numpy as np
-from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING
+from unittest.mock import patch, AsyncMock, MagicMock
+from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING, StationConfig, BoundingBox
 from app.services.tmd_radar_processor import TMDRadarProcessor
+
+@pytest.mark.asyncio
+async def test_latlng_to_pixel_with_calibration():
+    # Setup mock station with calibration points and projection
+    test_bbox = BoundingBox(lat_max=20.0, lng_min=100.0, lat_min=10.0, lng_max=110.0)
+    # Define exact points
+    # Let's say top-left (20.0, 100.0) should map to (10, 10) instead of (0, 0)
+    # Bottom-right (10.0, 110.0) should map to (90, 90) instead of (100, 100)
+    test_config = StationConfig(
+        code="test_calib",
+        name="Test Calibration",
+        static_image_url="http://test",
+        loop_page_url="http://test",
+        bbox=test_bbox,
+        static_crop_x=0, static_crop_y=0, static_crop_width=100, static_crop_height=100,
+        loop_crop_x=0, loop_crop_y=0, loop_crop_width=100, loop_crop_height=100,
+        projection_type="equirectangular",
+        calibration_points={
+            (20.0, 100.0): (10.0, 10.0),
+            (10.0, 110.0): (90.0, 90.0)
+        }
+    )
+    STATIONS["test_calib"] = test_config
+    processor = TMDRadarProcessor(station_code="test_calib")
+
+    # Calculate
+    px_x, px_y = processor.latlng_to_pixel(20.0, 100.0)
+    assert px_x == 0
+    assert px_y == 0
+
+    px_x2, px_y2 = processor.latlng_to_pixel(10.0, 110.0)
+    assert px_x2 == 100
+    assert px_y2 == 100
+
+@pytest.mark.asyncio
+async def test_fetch_loop_gif_and_extract_frames():
+    processor = TMDRadarProcessor(station_code="kkn120")
+    
+    # Mock httpx and imageio
+    with patch('httpx.AsyncClient.get', new_callable=AsyncMock) as mock_get:
+        mock_response = AsyncMock()
+        mock_response.content = b"fake_gif_bytes"
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+        
+        with patch('PIL.Image.open') as mock_open, patch('PIL.ImageSequence.Iterator') as mock_iterator:
+            mock_img = MagicMock()
+            mock_open.return_value = mock_img
+            
+            mock_frame = MagicMock()
+            mock_frame.copy.return_value.convert.return_value = MagicMock()
+            
+            with patch('numpy.array') as mock_np_array:
+                mock_np_array.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
+                mock_iterator.return_value = [mock_frame] * 6
+                
+                frames = await processor.fetch_loop_gif_and_extract_frames()
+                
+                assert len(frames) == 6
+                assert frames[0].shape == (100, 100, 3)
+                mock_open.assert_called_once()
+                mock_iterator.assert_called_once_with(mock_img)
 
 @pytest.mark.asyncio
 async def test_latlng_to_pixel():
@@ -15,16 +78,16 @@ async def test_latlng_to_pixel():
     px_x, px_y = processor.latlng_to_pixel(center_lat, center_lng)
     
     # It should be exactly at the center of the crop
-    expected_x = config.crop_x + (config.crop_width // 2)
-    expected_y = config.crop_y + (config.crop_height // 2)
+    expected_x = config.loop_crop_x + (config.loop_crop_width // 2)
+    expected_y = config.loop_crop_y + (config.loop_crop_height // 2)
     
     assert px_x == expected_x
     assert px_y == expected_y
 
     # Test Top Left
     tl_x, tl_y = processor.latlng_to_pixel(config.bbox.lat_max, config.bbox.lng_min)
-    assert tl_x == config.crop_x
-    assert tl_y == config.crop_y
+    assert tl_x == config.loop_crop_x
+    assert tl_y == config.loop_crop_y
     
     # Test Out of Bounds
     out_x, out_y = processor.latlng_to_pixel(10.0, 100.0) # Somewhere far
@@ -81,3 +144,70 @@ async def test_optical_flow_motion_prediction():
     # Since it moved from 20 to 30, velocity vector should be positive in x and y
     assert velocity_x > 0
     assert velocity_y > 0
+
+@pytest.mark.asyncio
+async def test_save_and_cleanup_polled_frames():
+    processor = TMDRadarProcessor(station_code="kkn120")
+    
+    # Fake image bytes
+    fake_img = b"GIF89a..."
+    
+    with patch('google.cloud.storage.Client') as mock_storage_client:
+        mock_client_instance = MagicMock()
+        mock_storage_client.return_value = mock_client_instance
+        
+        mock_bucket = MagicMock()
+        mock_client_instance.bucket.return_value = mock_bucket
+        
+        mock_blob = MagicMock()
+        mock_bucket.blob.return_value = mock_blob
+        
+        # Test Save
+        filename = await processor.save_polled_frame(fake_img)
+        assert filename.startswith("radar/kkn120/kkn120_")
+        assert filename.endswith(".gif")
+        mock_blob.upload_from_string.assert_called_once_with(fake_img, content_type="image/gif")
+        
+        # Test Cleanup
+        import time
+        now = int(time.time())
+        # Mock blobs: one old, one new
+        mock_blob_old = MagicMock()
+        mock_blob_old.name = f"radar/kkn120/kkn120_{now - 4 * 3600}.gif"
+        
+        mock_blob_new = MagicMock()
+        mock_blob_new.name = f"radar/kkn120/kkn120_{now - 3600}.gif"
+        
+        mock_bucket.list_blobs.return_value = [mock_blob_old, mock_blob_new]
+        
+        deleted_count = await processor.cleanup_old_frames(max_age_hours=3)
+        assert deleted_count == 1
+        mock_blob_old.delete.assert_called_once()
+        mock_blob_new.delete.assert_not_called()
+
+def test_extrapolate_rain_at_pixel():
+    processor = TMDRadarProcessor(station_code="kkn120")
+    
+    # Create a dummy image 100x100
+    img = np.zeros((100, 100, 3), dtype=np.uint8)
+    
+    # Put a "rain" pixel at (20, 20) with color (0, 255, 0) -> dBZ > 0
+    # Let's say (0, 255, 0) maps to some dBZ.
+    # To be safe, we'll mock `get_dbz_at_pixel` to just return 35.0 for (20, 20) and 0.0 elsewhere.
+    with patch.object(processor, 'get_dbz_at_pixel', side_effect=lambda i, x, y: 35.0 if x == 20 and y == 20 else 0.0):
+        # Create a dummy flow field
+        flow = np.zeros((100, 100, 2), dtype=np.float32)
+        # Rain is moving right (+dx) and down (+dy) at 5 pixels per step
+        flow[:, :, 0] = 5.0
+        flow[:, :, 1] = 5.0
+        
+        # We want to know what happens at target pixel (30, 30) after 2 steps.
+        # Rain currently at (20, 20).
+        # In 2 steps, rain moves 2 * 5 = +10 in x and y. So it will reach (30, 30).
+        # Backward tracking from (30, 30) with 2 steps: src = 30 - 2*5 = 20.
+        dbz_future = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2)
+        assert dbz_future == 35.0
+        
+        # After 1 step, it should be at (25, 25), so target (30, 30) should have 0 dBZ.
+        dbz_1step = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=1)
+        assert dbz_1step == 0.0

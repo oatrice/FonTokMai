@@ -9,23 +9,71 @@ class TMDRadarProcessor:
         if station_code not in STATIONS:
             raise ValueError(f"Unknown station code: {station_code}")
         self.config = STATIONS[station_code]
+        import os
+        self.storage_dir = os.path.join(os.getcwd(), "backend", "tmp")
 
-    def latlng_to_pixel(self, lat: float, lng: float) -> Tuple[Optional[int], Optional[int]]:
+    def latlng_to_pixel(self, lat: float, lng: float, is_loop: bool = True, projection: str = None) -> Tuple[Optional[int], Optional[int]]:
         """Converts geographical coordinates to image pixel coordinates based on bounding box."""
         bbox = self.config.bbox
-        
-        if not (bbox.lat_min <= lat <= bbox.lat_max and bbox.lng_min <= lng <= bbox.lng_max):
+        if lat > bbox.lat_max or lat < bbox.lat_min or lng < bbox.lng_min or lng > bbox.lng_max:
             return None, None
             
-        # Linear interpolation
-        x_pct = (lng - bbox.lng_min) / (bbox.lng_max - bbox.lng_min)
-        y_pct = (bbox.lat_max - lat) / (bbox.lat_max - bbox.lat_min)
+        # Use config's projection if not explicitly provided
+        if projection is None:
+            projection = getattr(self.config, 'projection_type', 'linear')
+            
+        # Select crop parameters based on image type
+        crop_x = self.config.loop_crop_x if is_loop else self.config.static_crop_x
+        crop_y = self.config.loop_crop_y if is_loop else self.config.static_crop_y
+        crop_width = self.config.loop_crop_width if is_loop else self.config.static_crop_width
+        crop_height = self.config.loop_crop_height if is_loop else self.config.static_crop_height
         
-        # Crop offsets
-        x = int(x_pct * self.config.crop_width) + self.config.crop_x
-        y = int(y_pct * self.config.crop_height) + self.config.crop_y
-        
-        return x, y
+        if projection == "azimuthal" and hasattr(self.config, 'center_lat') and self.config.radius_km > 0:
+            import math
+            # Haversine distance
+            R = 6371.0 # Earth radius in km
+            lat1 = math.radians(self.config.center_lat)
+            lon1 = math.radians(self.config.center_lng)
+            lat2 = math.radians(lat)
+            lon2 = math.radians(lng)
+            
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+            
+            a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            distance_km = R * c
+            
+            # Bearing
+            y = math.sin(dlon) * math.cos(lat2)
+            x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+            bearing = math.atan2(y, x)
+            
+            # Pixel mapping (center of crop area is center of radar)
+            pixel_radius = crop_width / 2.0
+            r_px = (distance_km / self.config.radius_km) * pixel_radius
+            
+            # Note: bearing is from North (0), rotating clockwise.
+            # In image coordinates, y goes down.
+            dx = r_px * math.sin(bearing)
+            dy = -r_px * math.cos(bearing)
+            
+            # Center of the crop area
+            center_x = crop_width / 2.0
+            center_y = crop_height / 2.0
+            
+            px = int(center_x + dx) + crop_x
+            py = int(center_y + dy) + crop_y
+            return px, py
+        else:
+            # Fallback to standard linear interpolation using bounding box (Flat)
+            x_pct = (lng - bbox.lng_min) / (bbox.lng_max - bbox.lng_min)
+            y_pct = (bbox.lat_max - lat) / (bbox.lat_max - bbox.lat_min)
+            
+            # Crop offsets
+            px = int(x_pct * crop_width) + crop_x
+            py = int(y_pct * crop_height) + crop_y
+            return px, py
 
     def get_dbz_at_pixel(self, img: np.ndarray, x: int, y: int) -> float:
         """Reads the color at (x,y) and returns the corresponding dBZ value."""
@@ -111,6 +159,51 @@ class TMDRadarProcessor:
         vy = float(flow[y, x, 1])
         return vx, vy
 
+    def extrapolate_rain_at_pixel(self, img: np.ndarray, flow: np.ndarray, px: int, py: int, steps: int) -> float:
+        """
+        Uses Semi-Lagrangian backward tracking to find the dBZ value that will arrive at (px, py) in 'steps' time intervals.
+        Each step corresponds to the time difference between the frames used to compute the optical flow (e.g. 15 mins).
+        Positive steps mean predicting into the future.
+        """
+        if steps == 0:
+            return self.get_dbz_at_pixel(img, px, py)
+            
+        # Get the flow vector at the target pixel
+        vx, vy = self.get_flow_vector_at(flow, px, py)
+        
+        # Calculate source pixel (backward tracking)
+        # Assuming linear constant velocity over the steps
+        src_x = int(round(px - (vx * steps)))
+        src_y = int(round(py - (vy * steps)))
+        
+        # Clamp to image boundaries
+        src_x = max(0, min(img.shape[1] - 1, src_x))
+        src_y = max(0, min(img.shape[0] - 1, src_y))
+        
+        # Get the dbz from the source pixel in the current image
+        dbz = self.get_dbz_at_pixel(img, src_x, src_y)
+        
+        return float(dbz)
+
+    def get_wind_speed_kmh(self, flow: np.ndarray, px: int, py: int) -> float:
+        """
+        Converts the optical flow vector (px/15min) into wind speed (km/h) 
+        based on the geographic bounding box size.
+        """
+        import math
+        vx, vy = self.get_flow_vector_at(flow, px, py)
+        pixel_speed_15m = math.sqrt(vx**2 + vy**2)
+        
+        # Calculate km per pixel (approx 1 degree = 111 km)
+        lon_diff = self.config.bbox.lng_max - self.config.bbox.lng_min
+        width_km = lon_diff * 111.0
+        km_per_pixel = width_km / max(1, self.config.loop_crop_width)
+        
+        km_per_15m = pixel_speed_15m * km_per_pixel
+        km_per_h = km_per_15m * 4.0
+        
+        return float(km_per_h)
+
     def calculate_growth_decay(self, prev_img: np.ndarray, curr_img: np.ndarray, x: int, y: int, radius: int = 10) -> float:
         """
         Calculates the growth or decay percentage of a rain cell around (x, y).
@@ -163,6 +256,27 @@ class TMDRadarProcessor:
             pass
         return None
 
+    async def fetch_loop_gif_and_extract_frames(self) -> List[np.ndarray]:
+        """Fetches the Loop.gif and extracts all frames as numpy arrays using PIL for proper GIF coalescing."""
+        import httpx
+        from PIL import Image, ImageSequence
+        import io
+        
+        url = getattr(self.config, 'loop_gif_url', self.config.static_image_url.replace('_latest.gif', 'Loop.gif').replace('_latest.jpg', 'Loop.gif'))
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url)
+                if response.status_code == 200:
+                    img = Image.open(io.BytesIO(response.content))
+                    frames = []
+                    # PIL handles GIF frame disposal properly (coalescing delta frames)
+                    for frame in ImageSequence.Iterator(img):
+                        frames.append(np.array(frame.copy().convert("RGB")))
+                    return frames
+        except Exception as e:
+            print(f"Error fetching loop gif: {e}")
+        return []
+
     async def fetch_loop_history_bytes(self) -> List[bytes]:
         """
         Fetches the history of images from the loop page.
@@ -172,4 +286,55 @@ class TMDRadarProcessor:
         # TODO: Implement actual HTML scraping of self.config.loop_page_url
         # For now, return an empty list to fallback to polling
         return []
+
+    async def save_polled_frame(self, image_bytes: bytes) -> str:
+        """Saves a polled image byte sequence to Google Cloud Storage with a timestamp."""
+        import time
+        import os
+        from google.cloud import storage
+        
+        timestamp = int(time.time())
+        filename = f"radar/{self.station_code}/{self.station_code}_{timestamp}.gif"
+        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+        
+        # Use sync GCS upload (in a real high-throughput app we might use asyncio wrapper or threadpool)
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(filename)
+        
+        blob.upload_from_string(image_bytes, content_type="image/gif")
+        
+        return filename
+        
+    async def cleanup_old_frames(self, max_age_hours: int = 3) -> int:
+        """Deletes files in GCS that are older than max_age_hours."""
+        import time
+        import os
+        from google.cloud import storage
+        
+        now = time.time()
+        max_age_seconds = max_age_hours * 3600
+        cutoff_time = now - max_age_seconds
+        
+        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        prefix = f"radar/{self.station_code}/"
+        
+        blobs = bucket.list_blobs(prefix=prefix)
+        deleted_count = 0
+        
+        for blob in blobs:
+            # We parse the timestamp from the filename "radar/kkn120/kkn120_1234567890.gif"
+            try:
+                base_name = blob.name.split("/")[-1]
+                ts_str = base_name.replace(f"{self.station_code}_", "").replace(".gif", "")
+                blob_ts = int(ts_str)
+                if blob_ts < cutoff_time:
+                    blob.delete()
+                    deleted_count += 1
+            except Exception:
+                pass
+                
+        return deleted_count
 

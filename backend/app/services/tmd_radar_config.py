@@ -20,10 +20,23 @@ class StationConfig:
     # These represent the pixel coordinates within the downloaded image
     # where the actual map (excluding titles/legends) starts and ends.
     # We use approximate whole-image values for now until calibrated.
-    crop_x: int = 0
-    crop_y: int = 0
-    crop_width: int = 800
-    crop_height: int = 800
+    # Static Image Crop (for _latest.gif which is usually ~800x800)
+    static_crop_x: int = 0
+    static_crop_y: int = 0
+    static_crop_width: int = 800
+    static_crop_height: int = 800
+
+    # Loop Image Crop (for Loop.gif which is usually compressed to 680x680)
+    loop_crop_x: int = 0
+    loop_crop_y: int = 0
+    loop_crop_width: int = 680
+    loop_crop_height: int = 680
+    projection_type: str = "linear"  # "linear" or "azimuthal"
+    center_lat: float = 0.0
+    center_lng: float = 0.0
+    radius_km: float = 0.0
+    # dict mapping "lat,lng" to "pixel_x,pixel_y" for affine calibration
+    calibration_points: Dict[Tuple[float, float], Tuple[float, float]] = None
 
 # Approximate bounding boxes for 120km radius.
 # 1 degree is roughly 111km. 120km is ~1.08 degrees.
@@ -58,10 +71,17 @@ STATIONS = {
         static_image_url="https://weather.tmd.go.th/kkn/kkn120_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
         bbox=KKN_BBOX,
-        crop_x=75,
-        crop_y=0,
-        crop_width=725,
-        crop_height=786
+        center_lat=16.4322,
+        center_lng=102.8236,
+        radius_km=120.0,
+        static_crop_x=80,
+        static_crop_y=40,
+        static_crop_width=720,
+        static_crop_height=720,
+        loop_crop_x=80,
+        loop_crop_y=40,
+        loop_crop_width=600,
+        loop_crop_height=600
     ),
     "kkn240": StationConfig(
         code="kkn240",
@@ -69,17 +89,29 @@ STATIONS = {
         static_image_url="https://weather.tmd.go.th/kkn/kkn240_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
         bbox=KKN240_BBOX,
-        crop_x=75,
-        crop_y=0,
-        crop_width=725,
-        crop_height=786
+        center_lat=16.4322,
+        center_lng=102.8236,
+        radius_km=240.0,
+        # Image is 680x680. Legend on left is approx 80px.
+        # Radar circle is approx 600x600, vertically centered.
+        static_crop_x=80,
+        static_crop_y=40,
+        static_crop_width=720,
+        static_crop_height=720,
+        loop_crop_x=80,
+        loop_crop_y=40,
+        loop_crop_width=600,
+        loop_crop_height=600
     ),
     "skn240": StationConfig(
         code="skn240",
         name="Sakon Nakhon (240km)",
         static_image_url="https://weather.tmd.go.th/skn/skn240_latest.jpg",
         loop_page_url="https://weather.tmd.go.th/sknLoop.php",
-        bbox=SKN_BBOX
+        bbox=SKN_BBOX,
+        center_lat=17.1607,
+        center_lng=104.1486,
+        radius_km=240.0
     )
 }
 
