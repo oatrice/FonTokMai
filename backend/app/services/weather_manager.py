@@ -222,38 +222,39 @@ class WeatherManager:
                                 {"color": (46, 204, 113),  "dbz": 25.0, "base_offset": (-5, 5),   "eta": 0},  # Green
                                 {"color": (241, 196, 15),  "dbz": 35.0, "base_offset": (-15, 15), "eta": 5},  # Yellow
                             ]
-                    for band in bands:
-                        bx, by = band["base_offset"]
-                        # Spread clouds along the NW-SE axis (dx=spread, dy=spread)
-                        for spread in [-60, -30, 0, 30, 60]:
-                            mock_configs.append({
-                                "color": band["color"],
-                                "dbz": band["dbz"],
-                                "offset": (bx + spread, by + spread),
-                                "eta": band["eta"]
-                            })
+                            
+                        for band in bands:
+                            bx, by = band["base_offset"]
+                            # Spread clouds along the NW-SE axis (dx=spread, dy=spread)
+                            for spread in [-60, -30, 0, 30, 60]:
+                                mock_configs.append({
+                                    "color": band["color"],
+                                    "dbz": band["dbz"],
+                                    "offset": (bx + spread, by + spread),
+                                    "eta": band["eta"]
+                                })
 
-                    for mc in mock_configs:
-                        cx, cy = px + mc["offset"][0], py + mc["offset"][1]
-                        vx, vy = 3.0, -3.0  # Move towards NE
-                        clouds.append({
-                            "cx": cx, "cy": cy,
-                            "vx": vx, "vy": vy,
-                            "dbz_now": mc["dbz"], "dbz_prev": mc["dbz"] - 2.0,
-                            "predicted_dbz": mc["dbz"],
-                            "eta_min": mc["eta"],
-                            "growth_rate": 0.05,
-                            "dist": max(1, abs(mc["offset"][0]))
-                        })
-                        # Draw fake cloud blobs moving across the frames
-                        num_frames = len(frames)
-                        for i, f in enumerate(frames):
-                            steps_ago = num_frames - 1 - i
-                            cx_i = int(cx - steps_ago * vx)
-                            cy_i = int(cy - steps_ago * vy)
-                            if mock_state == "storm":
-                                # Make the blobs slightly larger so they merge into a solid wall
-                                cv2.circle(f, (cx_i, cy_i), 22, mc["color"], -1)
+                        for mc in mock_configs:
+                            cx, cy = px + mc["offset"][0], py + mc["offset"][1]
+                            vx, vy = 3.0, -3.0  # Move towards NE
+                            clouds.append({
+                                "cx": cx, "cy": cy,
+                                "vx": vx, "vy": vy,
+                                "dbz_now": mc["dbz"], "dbz_prev": mc["dbz"] - 2.0,
+                                "predicted_dbz": mc["dbz"],
+                                "eta_min": mc["eta"],
+                                "growth_rate": 0.05,
+                                "dist": max(1, abs(mc["offset"][0]))
+                            })
+                            # Draw fake cloud blobs moving across the frames
+                            num_frames = len(frames)
+                            for i, f in enumerate(frames):
+                                steps_ago = num_frames - 1 - i
+                                cx_i = int(cx - steps_ago * vx)
+                                cy_i = int(cy - steps_ago * vy)
+                                if mock_state == "storm":
+                                    # Make the blobs slightly larger so they merge into a solid wall
+                                    cv2.circle(f, (cx_i, cy_i), 22, mc["color"], -1)
                     else:
                         # If there ARE real clouds and mock_state == "rain", we just boost their intensity
                         # to simulate heavier rain without injecting fake clouds.
