@@ -33,15 +33,14 @@ def test_extract_timestamp_from_text(ocr_service):
     text1 = "some radar text 06/06/2026 09:30 some other text"
     ts1 = ocr_service._extract_timestamp_from_text(text1)
     
-    bkk_tz = ZoneInfo('Asia/Bangkok')
-    expected_dt1 = datetime(2026, 6, 6, 9, 30, 0, tzinfo=bkk_tz)
-    assert ts1 == int(expected_dt1.astimezone(timezone.utc).timestamp())
+    expected_dt1 = datetime(2026, 6, 6, 9, 30, 0, tzinfo=timezone.utc)
+    assert ts1 == int(expected_dt1.timestamp())
     
     # Test YYYY-MM-DD HH:MM:SS
     text2 = "TMD RADAR 2026-06-06 09:30:15"
     ts2 = ocr_service._extract_timestamp_from_text(text2)
-    expected_dt2 = datetime(2026, 6, 6, 9, 30, 15, tzinfo=bkk_tz)
-    assert ts2 == int(expected_dt2.astimezone(timezone.utc).timestamp())
+    expected_dt2 = datetime(2026, 6, 6, 9, 30, 15, tzinfo=timezone.utc)
+    assert ts2 == int(expected_dt2.timestamp())
     
     # Test Invalid
     assert ocr_service._extract_timestamp_from_text("no date here") is None
@@ -54,9 +53,8 @@ async def test_get_frame_timestamp_cloud_vision_success(ocr_service):
         frame = np.zeros((10, 10, 3), dtype=np.uint8)
         ts = await ocr_service.get_frame_timestamp(frame)
         
-        bkk_tz = ZoneInfo('Asia/Bangkok')
-        expected_dt = datetime(2026, 6, 6, 10, 0, 0, tzinfo=bkk_tz)
-        assert ts == int(expected_dt.astimezone(timezone.utc).timestamp())
+        expected_dt = datetime(2026, 6, 6, 10, 0, 0, tzinfo=timezone.utc)
+        assert ts == int(expected_dt.timestamp())
         
         mock_vision.assert_called_once()
         ocr_service.repo.set_radar_timestamp_cache.assert_called_once()
@@ -74,9 +72,8 @@ async def test_get_frame_timestamp_gemini_fallback(ocr_service):
         frame = np.zeros((10, 10, 3), dtype=np.uint8)
         ts = await ocr_service.get_frame_timestamp(frame)
         
-        bkk_tz = ZoneInfo('Asia/Bangkok')
-        expected_dt = datetime(2026, 6, 6, 11, 0, 0, tzinfo=bkk_tz)
-        assert ts == int(expected_dt.astimezone(timezone.utc).timestamp())
+        expected_dt = datetime(2026, 6, 6, 11, 0, 0, tzinfo=timezone.utc)
+        assert ts == int(expected_dt.timestamp())
         
         mock_vision.assert_called_once()
         mock_gemini.assert_called_once()
@@ -95,9 +92,8 @@ async def test_get_frame_timestamp_ocr_space_fallback(ocr_service):
         frame = np.zeros((10, 10, 3), dtype=np.uint8)
         ts = await ocr_service.get_frame_timestamp(frame)
         
-        bkk_tz = ZoneInfo('Asia/Bangkok')
-        expected_dt = datetime(2026, 6, 6, 12, 0, 0, tzinfo=bkk_tz)
-        assert ts == int(expected_dt.astimezone(timezone.utc).timestamp())
+        expected_dt = datetime(2026, 6, 6, 12, 0, 0, tzinfo=timezone.utc)
+        assert ts == int(expected_dt.timestamp())
         
         mock_vision.assert_called_once()
         mock_gemini.assert_called_once()
@@ -133,9 +129,8 @@ async def test_get_frame_timestamp_cloud_vision_quota_exceeded(ocr_service):
         frame = np.zeros((10, 10, 3), dtype=np.uint8)
         ts = await ocr_service.get_frame_timestamp(frame)
         
-        bkk_tz = ZoneInfo('Asia/Bangkok')
-        expected_dt = datetime(2026, 6, 6, 13, 0, 0, tzinfo=bkk_tz)
-        assert ts == int(expected_dt.astimezone(timezone.utc).timestamp())
+        expected_dt = datetime(2026, 6, 6, 13, 0, 0, tzinfo=timezone.utc)
+        assert ts == int(expected_dt.timestamp())
         
         # Cloud vision should NOT be called
         mock_vision.assert_not_called()
