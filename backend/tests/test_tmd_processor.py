@@ -211,3 +211,48 @@ def test_extrapolate_rain_at_pixel():
         # After 1 step, it should be at (25, 25), so target (30, 30) should have 0 dBZ.
         dbz_1step = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=1)
         assert dbz_1step == 0.0
+
+def test_draw_pin_on_frame():
+    processor = TMDRadarProcessor(station_code="kkn120")
+    img = np.zeros((100, 100, 3), dtype=np.uint8)
+    
+    # Original color at center
+    assert np.array_equal(img[50, 50], [0, 0, 0])
+    
+    # Draw pin at (50, 50)
+    processor.draw_pin_on_frame(img, 50, 50)
+    
+    # Check if the pixel at (50, 50) has changed to red (0, 0, 255) in BGR
+    assert not np.array_equal(img[50, 50], [0, 0, 0])
+    assert img[50, 50][2] > 100  # R channel should be high
+    
+def test_extrapolate_rain_with_growth_decay():
+    processor = TMDRadarProcessor(station_code="kkn120")
+    img = np.zeros((100, 100, 3), dtype=np.uint8)
+    
+    with patch.object(processor, 'get_dbz_at_pixel', side_effect=lambda i, x, y: 40.0 if x == 20 and y == 20 else 0.0):
+        flow = np.zeros((100, 100, 2), dtype=np.float32)
+        flow[:, :, 0] = 5.0
+        flow[:, :, 1] = 5.0
+        
+        # Test Normal Extrapolation (no growth/decay passed)
+        dbz_base = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2)
+        assert dbz_base == 40.0
+        
+        # Test with Growth (rate = 0.1 per step) -> 40 * (1 + 0.1)^2 = 48.4
+        dbz_growth = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=0.1)
+        assert abs(dbz_growth - 48.4) < 0.1
+        
+        # Test with Decay (rate = -0.1 per step) -> 40 * (1 - 0.1)^2 = 32.4
+        dbz_decay = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=-0.1)
+        assert abs(dbz_decay - 32.4) < 0.1
+        
+        # Test Damping/Max threshold (e.g. rate = 2.0 -> very high growth)
+        # Should be capped at 75.0 (MAX_DBZ)
+        dbz_capped = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=2.0)
+        assert dbz_capped == 75.0
+        
+        # Test Min threshold (e.g. rate = -0.9 -> very high decay)
+        # 40 * (0.1)^2 = 0.4 -> below MIN_DBZ (e.g., 10), so should be 0.0
+        dbz_min = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=-0.9)
+        assert dbz_min == 0.0

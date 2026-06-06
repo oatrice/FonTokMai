@@ -159,11 +159,12 @@ class TMDRadarProcessor:
         vy = float(flow[y, x, 1])
         return vx, vy
 
-    def extrapolate_rain_at_pixel(self, img: np.ndarray, flow: np.ndarray, px: int, py: int, steps: int) -> float:
+    def extrapolate_rain_at_pixel(self, img: np.ndarray, flow: np.ndarray, px: int, py: int, steps: int, rate: float = 0.0) -> float:
         """
         Uses Semi-Lagrangian backward tracking to find the dBZ value that will arrive at (px, py) in 'steps' time intervals.
         Each step corresponds to the time difference between the frames used to compute the optical flow (e.g. 15 mins).
         Positive steps mean predicting into the future.
+        If 'rate' is provided, it applies an exponential growth/decay factor per step.
         """
         if steps == 0:
             return self.get_dbz_at_pixel(img, px, py)
@@ -183,7 +184,27 @@ class TMDRadarProcessor:
         # Get the dbz from the source pixel in the current image
         dbz = self.get_dbz_at_pixel(img, src_x, src_y)
         
+        if rate != 0.0 and dbz > 0:
+            factor = 1.0 + rate
+            if factor <= 0:
+                dbz = 0.0
+            else:
+                dbz = float(dbz * (factor ** steps))
+                
+            if dbz > 75.0:
+                dbz = 75.0
+            elif dbz < 10.0:
+                dbz = 0.0
+        
         return float(dbz)
+
+    def draw_pin_on_frame(self, img: np.ndarray, x: int, y: int) -> None:
+        """Draws a red marker on the image at the specified pixel coordinates."""
+        if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
+            return
+        color = (0, 0, 255) # BGR Red
+        cv2.circle(img, (x, y), radius=6, color=color, thickness=2)
+        cv2.drawMarker(img, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=10, thickness=2)
 
     def get_wind_speed_kmh(self, flow: np.ndarray, px: int, py: int) -> float:
         """

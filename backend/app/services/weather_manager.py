@@ -196,6 +196,10 @@ class WeatherManager:
                     flow = processor.calculate_optical_flow(frames)
                     latest_frame = frames[-1]
                     
+                    # Calculate Growth/Decay rate
+                    percent_change = processor.calculate_growth_decay(frames[-2], latest_frame, px, py, radius=10)
+                    rate = percent_change / 100.0
+                    
                     predictions = []
                     max_dbz = 0.0
                     
@@ -208,7 +212,7 @@ class WeatherManager:
                     
                     # Generate predictions for +0m, +15m, +30m, +45m, +60m
                     for steps in range(5):
-                        dbz = processor.extrapolate_rain_at_pixel(latest_frame, flow, px, py, steps)
+                        dbz = processor.extrapolate_rain_at_pixel(latest_frame, flow, px, py, steps, rate=rate)
                         if dbz > max_dbz:
                             max_dbz = dbz
                             
@@ -222,13 +226,32 @@ class WeatherManager:
                     intensity = predictions[0]["intensity"]
                     wind_speed = processor.get_wind_speed_kmh(flow, px, py)
 
+                    # Draw pins on all frames and generate GIF bytes
+                    gif_bytes = None
+                    try:
+                        import io
+                        from PIL import Image
+                        pil_frames = []
+                        for frame in frames:
+                            processor.draw_pin_on_frame(frame, px, py)
+                            pil_frames.append(Image.fromarray(frame))
+                            
+                        if pil_frames:
+                            buffer = io.BytesIO()
+                            pil_frames[0].save(buffer, save_all=True, append_images=pil_frames[1:], format='GIF', loop=0, duration=100)
+                            gif_bytes = buffer.getvalue()
+                    except Exception as e:
+                        logger.error(f"Failed to generate radar GIF: {e}")
+
                     return {
                         "predictions": predictions,
                         "intensity": intensity,
                         "max_rain": float(max_dbz),
                         "duration_minutes": sum(15 for p in predictions if p["dbz"] > 0),
                         "wind_speed_kmh": round(wind_speed, 1),
-                        "endpoint": f"tmd-radar ({station_code})"
+                        "endpoint": f"tmd-radar ({station_code})",
+                        "growth_rate_pct": percent_change,
+                        "radar_gif_bytes": gif_bytes
                     }
             except Exception as e:
                 logger.warning(f"Failed to process TMD radar {station_code}: {e}")

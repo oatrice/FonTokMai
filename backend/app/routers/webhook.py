@@ -91,6 +91,15 @@ def _build_forecast_text(result: dict) -> str:
         wind_dir = result.get("wind_dir_text", "ไม่ทราบ")
         if wind_kmh > 0:
             text += f"🌬️ สภาพลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+            
+        growth_rate = result.get("growth_rate_pct")
+        if growth_rate is not None:
+            if growth_rate > 5.0:
+                text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%)\n"
+            elif growth_rate < -5.0:
+                text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%)\n"
+            else:
+                text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
     else:
         text = f"ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
 
@@ -194,6 +203,10 @@ async def process_telegram_location(
             await edit_telegram_message(chat_id, message_id_to_edit, text, reply_markup)
         else:
             await send_telegram_message(chat_id, text, reply_markup)
+            
+        gif_bytes = result.get("radar_gif_bytes")
+        if gif_bytes:
+            await send_telegram_document(chat_id, gif_bytes, "radar_nowcast.gif")
 
     except Exception as e:
         logger.error(f"Error processing telegram location: {e}")
