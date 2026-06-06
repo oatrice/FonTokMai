@@ -214,18 +214,23 @@ class WeatherManager:
                         ]
                         for mc in mock_configs:
                             cx, cy = px + mc["offset"][0], py + mc["offset"][1]
+                            vx, vy = 3.0, 3.0
                             clouds.append({
                                 "cx": cx, "cy": cy,
-                                "vx": 3.0, "vy": 3.0,
+                                "vx": vx, "vy": vy,
                                 "dbz_now": mc["dbz"], "dbz_prev": mc["dbz"] - 2.0,
                                 "predicted_dbz": mc["dbz"],
                                 "eta_min": mc["eta"],
                                 "growth_rate": 0.05,
                                 "dist": max(1, abs(mc["offset"][0]))
                             })
-                            # Draw fake cloud blobs on all frames so it shows up visually
-                            for f in frames:
-                                cv2.circle(f, (cx, cy), 15, mc["color"], -1)
+                            # Draw fake cloud blobs moving across the frames
+                            num_frames = len(frames)
+                            for i, f in enumerate(frames):
+                                steps_ago = num_frames - 1 - i
+                                cx_i = int(cx - steps_ago * vx)
+                                cy_i = int(cy - steps_ago * vy)
+                                cv2.circle(f, (cx_i, cy_i), 15, mc["color"], -1)
                     else:
                         for c in clouds:
                             c["dbz_now"]       = max(c["dbz_now"], 40.0)
