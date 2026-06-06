@@ -212,13 +212,20 @@ async def process_telegram_location(
             
         gif_bytes = result.get("radar_gif_bytes")
         static_bytes = result.get("radar_static_bytes")
+        tracking_bytes = result.get("radar_tracking_bytes")
+        timeline_bytes = result.get("rain_timeline_bytes")
         
-        if static_bytes:
-            from app.services.telegram import send_telegram_photo
+        from app.services.telegram import send_telegram_photo, send_telegram_document
+        
+        if tracking_bytes:
+            await send_telegram_photo(chat_id, tracking_bytes, "radar_tracking.png")
+        elif static_bytes:
             await send_telegram_photo(chat_id, static_bytes, "radar_latest.png")
             
+        if timeline_bytes:
+            await send_telegram_photo(chat_id, timeline_bytes, "rain_timeline.png")
+            
         if gif_bytes:
-            from app.services.telegram import send_telegram_document
             await send_telegram_document(chat_id, gif_bytes, "radar_nowcast.gif")
 
     except Exception as e:

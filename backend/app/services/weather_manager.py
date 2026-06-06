@@ -291,8 +291,14 @@ class WeatherManager:
                         static_buffer = io.BytesIO()
                         pil_frames[-1].save(static_buffer, format='PNG')
                         static_bytes = static_buffer.getvalue()
+                        
+                    # Also generate tracking and timeline images
+                    tracking_bytes = processor.generate_radar_tracking_image(curr_frame, px, py, clouds)
+                    timeline_bytes = processor.generate_timeline_image(clouds)
                 except Exception as e:
-                    logger.error(f"Failed to generate radar GIF: {e}")
+                    logger.error(f"Failed to generate radar GIF/images: {e}")
+                    tracking_bytes = None
+                    timeline_bytes = None
 
                 return {
                     "predictions":       predictions,
@@ -307,6 +313,8 @@ class WeatherManager:
                     "rain_summary":      summary_line,
                     "radar_gif_bytes":   gif_bytes,
                     "radar_static_bytes": static_bytes,
+                    "radar_tracking_bytes": tracking_bytes,
+                    "rain_timeline_bytes": timeline_bytes,
                 }
             except Exception as e:
                 logger.warning(f"Failed to process TMD radar {station_code}: {e}")

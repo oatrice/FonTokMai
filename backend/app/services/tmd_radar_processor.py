@@ -482,6 +482,81 @@ class TMDRadarProcessor:
                 f"⚡ ก้อนหนักกว่ามาทีหลัง {fmt_eta(strongest['eta_min'])} ({int(strongest['predicted_dbz'])} dBZ — {lbl_s})"
             )
 
+    @staticmethod
+    def generate_radar_tracking_image(frame: np.ndarray, user_x: int, user_y: int, clouds: list) -> Optional[bytes]:
+        if frame is None or not clouds:
+            return None
+        import cv2
+        img = frame.copy()
+        
+        # Draw user pin and search radius
+        cv2.drawMarker(img, (user_x, user_y), (0, 0, 255), cv2.MARKER_CROSS, 20, 2)
+        cv2.circle(img, (user_x, user_y), 80, (255, 255, 255), 1)
+        
+        for c in clouds:
+            cx, cy = c["cx"], c["cy"]
+            eta = c["eta_min"]
+            dbz = c["predicted_dbz"]
+            
+            color = (0, 255, 0)
+            if dbz >= 55: color = (0, 0, 255)
+            elif dbz >= 40: color = (0, 165, 255)
+            
+            cv2.circle(img, (cx, cy), 15, color, 2)
+            cv2.arrowedLine(img, (cx, cy), (user_x, user_y), (0, 255, 255), 2, tipLength=0.1)
+            cv2.putText(img, f"~{int(eta)}m", (cx+20, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+        is_success, buffer = cv2.imencode(".png", img)
+        return buffer.tobytes() if is_success else None
+
+    @staticmethod
+    def generate_timeline_image(clouds: list) -> Optional[bytes]:
+        if not clouds:
+            return None
+        import cv2
+        img = np.zeros((400, 800, 3), dtype=np.uint8)
+        
+        cv2.line(img, (0, 350), (800, 350), (100, 100, 100), 2)
+        
+        # 90-min confidence boundary
+        x_90 = int((90 / 120) * 700) + 50
+        cv2.line(img, (x_90, 50), (x_90, 380), (255, 100, 100), 2, cv2.LINE_AA)
+        
+        for c in clouds:
+            eta = c["eta_min"]
+            dbz = c["predicted_dbz"]
+            
+            x = int((eta / 120) * 700) + 50
+            x = max(50, min(750, x))
+            h = int(dbz * 4) # 55 dBZ -> 220px
+            
+            color = (0, 200, 0)
+            if dbz >= 55: color = (0, 0, 200)
+            elif dbz >= 40: color = (0, 100, 255)
+            
+            if eta > 90:
+                color = (int(color[0]*0.4), int(color[1]*0.4), int(color[2]*0.4))
+            
+            cv2.rectangle(img, (x-15, 350-h), (x+15, 350), color, -1)
+            cv2.putText(img, f"{int(dbz)}", (x-10, 350-h-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            
+            # Format ETA
+            m = int(round(eta))
+            if m < 60:
+                time_str = f"~{m}m"
+            else:
+                h_val = m // 60
+                r_val = m % 60
+                time_str = f"~{h_val}h{r_val}m" if r_val else f"~{h_val}hr"
+                
+            cv2.putText(img, time_str, (x-20, 370), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+            
+        # Add legend
+        cv2.putText(img, "Confidence Boundary (90m)", (x_90 + 10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 100, 100), 1)
+            
+        is_success, buffer = cv2.imencode(".png", img)
+        return buffer.tobytes() if is_success else None
+
     def calculate_lagrangian_growth(self, frames: list, flow: np.ndarray, target_x: int, target_y: int, steps_ahead: int, max_lookback_frames: int = 2) -> float:
         """
         Calculates the true growth of the specific air mass that will hit target_x, target_y in `steps_ahead` frames.
