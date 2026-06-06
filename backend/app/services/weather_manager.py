@@ -387,19 +387,15 @@ class WeatherManager:
                         buffer = io.BytesIO()
                         hq_buffer = io.BytesIO()
                         
-                        # Freeze last frame
-                        last_frame_std = pil_frames_std[-1]
-                        last_frame_hq = pil_frames_hq[-1]
-                        for _ in range(4):
-                            pil_frames_std.append(last_frame_std.copy())
-                            pil_frames_hq.append(last_frame_hq.copy())
-                                
+                        durations = [500] * len(pil_frames_std)
+                        durations[-1] = 3000  # Freeze last frame for 3 seconds
+                        
                         pil_frames_std[0].save(buffer, save_all=True, append_images=pil_frames_std[1:],
-                                               format='GIF', loop=0, duration=500, optimize=True)
+                                               format='GIF', loop=0, duration=durations, optimize=True)
                         gif_bytes = buffer.getvalue()
                         
                         pil_frames_hq[0].save(hq_buffer, save_all=True, append_images=pil_frames_hq[1:],
-                                              format='GIF', loop=0, duration=500, optimize=False)
+                                              format='GIF', loop=0, duration=durations, optimize=True)
                         hq_gif_bytes = hq_buffer.getvalue()
                         
                         static_buffer = io.BytesIO()

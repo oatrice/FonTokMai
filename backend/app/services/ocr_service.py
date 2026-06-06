@@ -154,9 +154,10 @@ class OCRService:
                 minute = time_parts[1]
                 second = time_parts[2] if len(time_parts) > 2 else 0
                 
-                bkk_tz = ZoneInfo('Asia/Bangkok')
-                dt_bkk = datetime(year, month, day, hour, minute, second, tzinfo=bkk_tz)
-                return int(dt_bkk.astimezone(timezone.utc).timestamp())
+                # TMD radar images typically write the time in UTC (e.g. 06/06/2026 15:30Z)
+                # Even if the 'Z' is missed by OCR, we should treat it as UTC.
+                dt_utc = datetime(year, month, day, hour, minute, second, tzinfo=timezone.utc)
+                return int(dt_utc.timestamp())
             except Exception as e:
                 print(f"OCR Parsing error: {e}")
         return None
