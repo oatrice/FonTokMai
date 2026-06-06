@@ -290,14 +290,17 @@ class WeatherManager:
                     except:
                         font = ImageFont.load_default()
                         
-                    pil_frames = []
+                    pil_frames_std = []
+                    pil_frames_hq = []
                     num_frames = len(frames)
                     for i, frame in enumerate(frames):
                         processor.draw_pin_on_frame(frame, px, py)
-                        img = Image.fromarray(frame)
+                        img_orig = Image.fromarray(frame)
                         
-                        # Upscale (2.0x) using NEAREST to preserve sharp radar pixels and keep file size small
-                        img = img.resize((int(img.width * 2.0), int(img.height * 2.0)), Image.Resampling.NEAREST)
+                        # Upscale 1.5x for standard animation
+                        img_std = img_orig.resize((int(img_orig.width * 1.5), int(img_orig.height * 1.5)), Image.Resampling.NEAREST)
+                        # Upscale 3.0x for HQ document
+                        img_hq = img_orig.resize((int(img_orig.width * 3.0), int(img_orig.height * 3.0)), Image.Resampling.NEAREST)
                         
                         # Calculate time for this frame
                         frames_ago = num_frames - 1 - i
@@ -305,38 +308,51 @@ class WeatherManager:
                         frame_time_bkk = frame_time_utc.astimezone(ZoneInfo('Asia/Bangkok'))
                         time_str = frame_time_bkk.strftime('%d %b %H:%M')
                         
-                        # Draw timestamp text on top-right of the image
-                        draw = ImageDraw.Draw(img, "RGBA")
-                        left, top, right, bottom = draw.textbbox((0, 0), time_str, font=font)
-                        text_w = right - left
-                        text_h = bottom - top
-                        
-                        x_pos = img.width - text_w - 20
-                        y_pos = 20
-                        
-                        draw.rectangle([x_pos-10, y_pos-10, x_pos+text_w+10, y_pos+text_h+15], fill=(0, 0, 0, 200))
-                        draw.text((x_pos, y_pos), time_str, fill=(255, 255, 255, 255), font=font)
-                        
-                        pil_frames.append(img)
-                    if pil_frames:
+                        # Helper to draw timestamp
+                        def draw_timestamp(img, scale_factor):
+                            # Scale font size roughly
+                            fnt = font
+                            try:
+                                fnt = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(32 * scale_factor))
+                            except:
+                                fnt = ImageFont.load_default()
+                                
+                            draw = ImageDraw.Draw(img, "RGBA")
+                            left, top, right, bottom = draw.textbbox((0, 0), time_str, font=fnt)
+                            text_w = right - left
+                            text_h = bottom - top
+                            
+                            x_pos = img.width - text_w - int(10 * scale_factor)
+                            y_pos = int(10 * scale_factor)
+                            
+                            pad = int(5 * scale_factor)
+                            draw.rectangle([x_pos-pad, y_pos-pad, x_pos+text_w+pad, y_pos+text_h+pad], fill=(0, 0, 0, 200))
+                            draw.text((x_pos, y_pos), time_str, fill=(255, 255, 255, 255), font=fnt)
+                            return img
+                            
+                        pil_frames_std.append(draw_timestamp(img_std, 1.5))
+                        pil_frames_hq.append(draw_timestamp(img_hq, 3.0))
+                    if pil_frames_std and pil_frames_hq:
                         buffer = io.BytesIO()
                         hq_buffer = io.BytesIO()
-                        # Telegram converts GIFs to MP4 and ignores variable durations.
-                        # To freeze the last frame for 2 seconds (4 * 500ms), we duplicate it 4 times.
-                        if len(pil_frames) > 0:
-                            last_frame = pil_frames[-1]
-                            for _ in range(4):
-                                pil_frames.append(last_frame.copy())
+                        
+                        # Freeze last frame
+                        last_frame_std = pil_frames_std[-1]
+                        last_frame_hq = pil_frames_hq[-1]
+                        for _ in range(4):
+                            pil_frames_std.append(last_frame_std.copy())
+                            pil_frames_hq.append(last_frame_hq.copy())
                                 
-                        pil_frames[0].save(buffer, save_all=True, append_images=pil_frames[1:],
-                                           format='GIF', loop=0, duration=500, optimize=True)
+                        pil_frames_std[0].save(buffer, save_all=True, append_images=pil_frames_std[1:],
+                                               format='GIF', loop=0, duration=500, optimize=True)
                         gif_bytes = buffer.getvalue()
                         
-                        pil_frames[0].save(hq_buffer, save_all=True, append_images=pil_frames[1:],
-                                           format='GIF', loop=0, duration=500, optimize=False)
+                        pil_frames_hq[0].save(hq_buffer, save_all=True, append_images=pil_frames_hq[1:],
+                                              format='GIF', loop=0, duration=500, optimize=False)
                         hq_gif_bytes = hq_buffer.getvalue()
+                        
                         static_buffer = io.BytesIO()
-                        pil_frames[-1].save(static_buffer, format='PNG')
+                        pil_frames_hq[-1].save(static_buffer, format='PNG')
                         static_bytes = static_buffer.getvalue()
                         
                     # Also generate tracking and timeline images
