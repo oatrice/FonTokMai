@@ -733,7 +733,9 @@ class TMDRadarProcessor:
                         from app.services.ocr_service import OCRService
                         ocr_svc = OCRService()
                         if len(frames) > 0:
-                            ts = await ocr_svc.get_frame_timestamp(frames[-1])
+                            import time
+                            fallback_ts = int(dt.timestamp()) if dt else int(time.time())
+                            ts = await ocr_svc.get_frame_timestamp(frames[-1], fallback_ts=fallback_ts)
                             if ts is not None:
                                 dt = datetime.fromtimestamp(ts, timezone.utc)
                     except Exception as e:

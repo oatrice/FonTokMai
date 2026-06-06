@@ -66,7 +66,7 @@ class OCRService:
                 print(f"OCR Parsing error: {e}")
         return None
 
-    async def get_frame_timestamp(self, frame: np.ndarray) -> Optional[int]:
+    async def get_frame_timestamp(self, frame: np.ndarray, fallback_ts: Optional[int] = None) -> Optional[int]:
         """
         Check cache for the frame hash. If not found, run OCR to extract timestamp.
         Returns the UTC timestamp integer.
@@ -84,6 +84,10 @@ class OCRService:
         text = pytesseract.image_to_string(processed, config='--psm 6').strip()
         
         ts = self._extract_timestamp_from_text(text)
+        
+        if ts is None and fallback_ts is not None:
+            ts = fallback_ts
+            
         if ts is not None:
             # Cache the result
             await self.repo.set_radar_timestamp_cache(frame_hash, ts)

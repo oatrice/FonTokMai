@@ -75,3 +75,21 @@ async def test_get_frame_timestamp_cache_hit(ocr_service):
     # Verify tesseract was NOT called
     with patch('app.services.ocr_service.pytesseract.image_to_string') as mock_tesseract:
         mock_tesseract.assert_not_called()
+
+@pytest.mark.asyncio
+@patch('app.services.ocr_service.pytesseract.image_to_string')
+async def test_get_frame_timestamp_fallback(mock_tesseract, ocr_service):
+    # OCR fails to find a timestamp
+    mock_tesseract.return_value = "no valid text here"
+    
+    frame = np.zeros((500, 500, 3), dtype=np.uint8)
+    fallback = 1717671600 # Some Unix timestamp
+    ts = await ocr_service.get_frame_timestamp(frame, fallback_ts=fallback)
+    
+    # Should use the fallback
+    assert ts == fallback
+    
+    # Verify tesseract was called
+    mock_tesseract.assert_called_once()
+    # Verify cache was set with the fallback
+    ocr_service.repo.set_radar_timestamp_cache.assert_called_once()
