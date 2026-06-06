@@ -28,14 +28,14 @@ async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_
         payload["reply_markup"] = reply_markup
         
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(TELEGRAM_EDIT_MESSAGE_URL, json=payload)
             if response.status_code != 200:
                 logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
                 return False
             return True
     except Exception as e:
-        logger.error(f"Failed to edit telegram message {message_id} in {chat_id}: {e}")
+        logger.error(f"Failed to edit telegram message {message_id} in {chat_id}: {type(e).__name__} - {e}")
         return False
 async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
     """
@@ -49,14 +49,14 @@ async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[
         payload["reply_markup"] = reply_markup
         
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(TELEGRAM_API_URL, json=payload)
             if response.status_code != 200:
                 logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
                 return False
             return True
     except Exception as e:
-        logger.error(f"Failed to send telegram message to {chat_id}: {e}")
+        logger.error(f"Failed to send telegram message to {chat_id}: {type(e).__name__} - {e}")
         return False
 
 async def send_telegram_message_return_id(chat_id: int, text: str) -> Optional[int]:
@@ -70,7 +70,7 @@ async def send_telegram_message_return_id(chat_id: int, text: str) -> Optional[i
         "text": text,
     }
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(TELEGRAM_API_URL, json=payload)
             if response.status_code != 200:
                 logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
@@ -78,7 +78,7 @@ async def send_telegram_message_return_id(chat_id: int, text: str) -> Optional[i
             data = response.json()
             return data.get("result", {}).get("message_id")
     except Exception as e:
-        logger.error(f"Failed to send telegram loading message to {chat_id}: {e}")
+        logger.error(f"Failed to send telegram loading message to {chat_id}: {type(e).__name__} - {e}")
         return None
 
 
