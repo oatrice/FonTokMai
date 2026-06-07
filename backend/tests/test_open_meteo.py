@@ -12,14 +12,15 @@ def open_meteo_service():
 @respx.mock
 @pytest.mark.asyncio
 async def test_open_meteo_predict_rain_success(open_meteo_service):
+    now_iso = datetime.now(timezone.utc).isoformat()[:16]
     mock_response = {
         "minutely_15": {
-            "time": ["2026-06-05T12:00", "2026-06-05T12:15"],
+            "time": [now_iso, now_iso],
             "precipitation": [0.0, 5.5]
         },
-        "hourly": {
-            "time": ["2026-06-05T12:00", "2026-06-05T13:00"],
-            "wind_speed_10m": [15.0, 20.0]
+        "current": {
+            "wind_speed_10m": 15.0,
+            "wind_direction_10m": 90
         }
     }
     
@@ -34,7 +35,8 @@ async def test_open_meteo_predict_rain_success(open_meteo_service):
     assert result["intensity"] == "ปานกลาง (Moderate)"
     assert len(result["predictions"]) == 2
     assert result["predictions"][1]["rain"] == 5.5
-    assert result["wind_speed_kmh"] == 15.0  # From hourly data
+    assert result["wind_speed_kmh"] == 15.0
+    assert result["wind_dir_text"] == "E"
 
 @respx.mock
 @pytest.mark.asyncio
@@ -76,10 +78,11 @@ async def test_open_meteo_mock_state(open_meteo_service):
 @respx.mock
 @pytest.mark.asyncio
 async def test_open_meteo_custom_model(open_meteo_service):
+    now_iso = datetime.now(timezone.utc).isoformat()[:16]
     respx.get(url__startswith="https://api.open-meteo.com/v1/forecast").mock(
         return_value=httpx.Response(200, json={
-            "minutely_15": {"time": ["2026-06-05T12:00"], "precipitation": [0.0]},
-            "hourly": {"time": ["2026-06-05T12:00"], "wind_speed_10m": [0.0]}
+            "minutely_15": {"time": [now_iso], "precipitation": [0.0]},
+            "current": {"wind_speed_10m": 0.0, "wind_direction_10m": 0}
         })
     )
     

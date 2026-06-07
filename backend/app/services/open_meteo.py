@@ -52,7 +52,7 @@ class OpenMeteoService(BaseWeatherService):
             "latitude": lat,
             "longitude": lng,
             "minutely_15": "precipitation",
-            "hourly": "wind_speed_10m,wind_direction_10m",
+            "current": "wind_speed_10m,wind_direction_10m",
             "timezone": "UTC"
         }
         if active_model != "auto":
@@ -112,10 +112,11 @@ class OpenMeteoService(BaseWeatherService):
                         except ValueError:
                             pass
                             
-                # Get current wind from hourly
-                hourly = data.get("hourly", {})
-                h_winds = hourly.get("wind_speed_10m", [])
-                current_wind_speed = h_winds[0] if h_winds else 0.0
+                # Get current wind
+                current_data = data.get("current", {})
+                current_wind_speed = current_data.get("wind_speed_10m", 0.0)
+                wind_dir = current_data.get("wind_direction_10m", None)
+                wind_dir_text = self.degrees_to_cardinal(wind_dir) if wind_dir is not None else "ไม่ทราบ"
                 
                 intensity_text = "ไม่มีฝน (No Rain)"
                 duration_minutes = 0
@@ -139,6 +140,7 @@ class OpenMeteoService(BaseWeatherService):
                     "max_rain": max_rain,
                     "duration_minutes": duration_minutes,
                     "wind_speed_kmh": current_wind_speed,
+                    "wind_dir_text": wind_dir_text,
                     "endpoint": "open_meteo"
                 }
 
