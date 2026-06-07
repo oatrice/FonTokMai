@@ -763,9 +763,34 @@ class TMDRadarProcessor:
         growth_pct = ((curr_dbz - past_dbz) / past_dbz) * 100.0
         return max(-100.0, min(100.0, growth_pct))
 
-    async def fetch_latest_image_bytes(self) -> Optional[bytes]:
+    async def fetch_latest_image_bytes(self, use_cache: bool = True) -> Optional[bytes]:
         """Fetches the latest static radar image (Polling method)."""
         import httpx
+        import time
+        from datetime import datetime, timezone
+        
+        if use_cache:
+            try:
+                from app.dependencies import get_repo_context
+                async with get_repo_context() as repo:
+                    cache = await repo.get_latest_radar_cache(self.station_code)
+                    if cache and cache.get("static_url"):
+                        created_at = cache["created_at"]
+                        if created_at.tzinfo is not None:
+                            created_at = created_at.replace(tzinfo=None)
+                        age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
+                        if age_secs < 900: # 15 minutes max age
+                            from google.cloud import storage
+                            import os
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                            client = storage.Client()
+                            bucket = client.bucket(bucket_name)
+                            blob = bucket.blob(cache["static_url"])
+                            # Blocking call, but since we're in async, it's a minor block for memory download
+                            return blob.download_as_bytes()
+            except Exception as e:
+                print(f"Error reading static image from cache: {e}")
+                
         url = self.config.static_image_url
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -776,71 +801,98 @@ class TMDRadarProcessor:
             pass
         return None
 
-    async def fetch_loop_gif_and_extract_frames(self) -> Tuple[List[np.ndarray], Optional['datetime']]:
+    async def fetch_loop_gif_and_extract_frames(self, use_cache: bool = True) -> Tuple[List[np.ndarray], Optional['datetime']]:
         """Fetches the Loop.gif and extracts frames and the Last-Modified datetime."""
         import httpx
         from PIL import Image, ImageSequence
         import io
         from datetime import datetime, timezone
         
-        url = getattr(self.config, 'loop_gif_url', self.config.static_image_url.replace('_latest.gif', 'Loop.gif').replace('_latest.jpg', 'Loop.gif'))
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(url)
-                if response.status_code == 200:
-                    last_modified = response.headers.get("last-modified")
-                    dt = None
-                    
-                    # Try to fetch exact time from the HTML og:image first (more accurate than Last-Modified)
-                    try:
-                        php_url = f"https://weather.tmd.go.th/{self.station_code[:3]}.php"
-                        php_resp = await client.get(php_url)
-                        if php_resp.status_code == 200:
-                            import re
-                            from zoneinfo import ZoneInfo
-                            match = re.search(r'v=(\d{6})_(\d{4})', php_resp.text)
-                            if match:
-                                date_str = match.group(1)
-                                time_str = match.group(2)
-                                year = int('20' + date_str[0:2])
-                                month = int(date_str[2:4])
-                                day = int(date_str[4:6])
-                                hour = int(time_str[0:2])
-                                minute = int(time_str[2:4])
-                                bkk_tz = ZoneInfo('Asia/Bangkok')
-                                dt_bkk = datetime(year, month, day, hour, minute, tzinfo=bkk_tz)
-                                dt = dt_bkk.astimezone(timezone.utc)
-                    except Exception as e:
-                        print(f"Error fetching exact timestamp from HTML: {e}")
+        loop_bytes = None
+        dt = None
+        
+        if use_cache:
+            try:
+                from app.dependencies import get_repo_context
+                async with get_repo_context() as repo:
+                    cache = await repo.get_latest_radar_cache(self.station_code)
+                    if cache and cache.get("loop_url"):
+                        created_at = cache["created_at"]
+                        if created_at.tzinfo is not None:
+                            created_at = created_at.replace(tzinfo=None)
+                        age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
+                        if age_secs < 900: # 15 mins
+                            from google.cloud import storage
+                            import os
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                            client = storage.Client()
+                            bucket = client.bucket(bucket_name)
+                            blob = bucket.blob(cache["loop_url"])
+                            loop_bytes = blob.download_as_bytes()
+                            dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
+            except Exception as e:
+                print(f"Error reading loop gif from cache: {e}")
+                
+        if not loop_bytes:
+            url = getattr(self.config, 'loop_gif_url', self.config.static_image_url.replace('_latest.gif', 'Loop.gif').replace('_latest.jpg', 'Loop.gif'))
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(url)
+                    if response.status_code == 200:
+                        loop_bytes = response.content
+                        last_modified = response.headers.get("last-modified")
                         
-                    if dt is None and last_modified:
                         try:
-                            # format: Sat, 06 Jun 2026 09:35:43 GMT
-                            dt = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
+                            php_url = f"https://weather.tmd.go.th/{self.station_code[:3]}.php"
+                            php_resp = await client.get(php_url)
+                            if php_resp.status_code == 200:
+                                import re
+                                from zoneinfo import ZoneInfo
+                                match = re.search(r'v=(\d{6})_(\d{4})', php_resp.text)
+                                if match:
+                                    date_str = match.group(1)
+                                    time_str = match.group(2)
+                                    year = int('20' + date_str[0:2])
+                                    month = int(date_str[2:4])
+                                    day = int(date_str[4:6])
+                                    hour = int(time_str[0:2])
+                                    minute = int(time_str[2:4])
+                                    bkk_tz = ZoneInfo('Asia/Bangkok')
+                                    dt_bkk = datetime(year, month, day, hour, minute, tzinfo=bkk_tz)
+                                    dt = dt_bkk.astimezone(timezone.utc)
                         except Exception as e:
-                            print(f"Error parsing date: {e}")
+                            print(f"Error fetching exact timestamp from HTML: {e}")
                             
-                    img = Image.open(io.BytesIO(response.content))
-                    frames = []
-                    # PIL handles GIF frame disposal properly (coalescing delta frames)
-                    for frame in ImageSequence.Iterator(img):
-                        frames.append(np.array(frame.copy().convert("RGB")))
-                        
-                    try:
-                        from app.services.ocr_service import OCRService
-                        ocr_svc = OCRService()
-                        if len(frames) > 0:
-                            import time
-                            fallback_ts = int(dt.timestamp()) if dt else int(time.time())
-                            ts = await ocr_svc.get_frame_timestamp(frames[-1], fallback_ts=fallback_ts)
-                            if ts is not None:
-                                dt = datetime.fromtimestamp(ts, timezone.utc)
-                    except Exception as e:
-                        print(f"Error in OCR: {e}")
+                        if dt is None and last_modified:
+                            try:
+                                dt = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
+                            except Exception as e:
+                                print(f"Error parsing date: {e}")
+            except Exception as e:
+                print(f"Error fetching loop gif: {e}")
+                
+        if loop_bytes:
+            try:
+                img = Image.open(io.BytesIO(loop_bytes))
+                frames = []
+                for frame in ImageSequence.Iterator(img):
+                    frames.append(np.array(frame.copy().convert("RGB")))
+                    
+                try:
+                    from app.services.ocr_service import OCRService
+                    ocr_svc = OCRService()
+                    if len(frames) > 0:
+                        import time
+                        fallback_ts = int(dt.timestamp()) if dt else int(time.time())
+                        ts = await ocr_svc.get_frame_timestamp(frames[-1], fallback_ts=fallback_ts)
+                        if ts is not None:
+                            dt = datetime.fromtimestamp(ts, timezone.utc)
+                except Exception as e:
+                    print(f"Error in OCR: {e}")
 
-                    return frames, dt
-        except Exception as e:
-            print(f"Error fetching loop gif: {e}")
+                return frames, dt
+            except Exception as e:
+                print(f"Error processing loop gif: {e}")
         return [], None
 
     async def fetch_loop_history_bytes(self) -> List[bytes]:

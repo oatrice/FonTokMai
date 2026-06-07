@@ -45,6 +45,17 @@ async def trigger_disasters_infrequent(background_tasks: BackgroundTasks, x_cron
     await check_disasters_infrequent_routine()
     return {"status": "ok", "message": "Infrequent disaster check task completed"}
 
+@router.post("/fetch-tmd-radar")
+async def trigger_fetch_tmd_radar(background_tasks: BackgroundTasks, x_cron_secret: str = Header(None)):
+    """Endpoint for external schedulers to fetch and cache TMD Radar images to Firebase Storage."""
+    if not x_cron_secret or x_cron_secret != CRON_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    from app.scheduler_tasks import fetch_tmd_radar_routine
+    # Run in background since uploading might take time
+    background_tasks.add_task(fetch_tmd_radar_routine)
+    return {"status": "ok", "message": "TMD Radar fetch task added to background"}
+
 from pydantic import BaseModel
 from typing import Optional
 

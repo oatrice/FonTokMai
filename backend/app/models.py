@@ -51,3 +51,12 @@ class ApiReliability(Base):
     # accuracy_score = 1.0 - (false_alarms / total_queries) if total_queries > 0 else initial_score
     # We store the raw score directly for easier querying/sorting
     accuracy_score = Column(Float, default=1.0, nullable=False)
+
+class RadarLatestCache(Base):
+    __tablename__ = "radar_latest_cache"
+
+    station_code = Column(String, primary_key=True, index=True)
+    static_url = Column(String, nullable=True)
+    loop_url = Column(String, nullable=True)
+    timestamp = Column(Integer, nullable=False)
+    created_at = Column(DateTime, nullable=False)

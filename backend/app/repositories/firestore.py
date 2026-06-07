@@ -278,3 +278,19 @@ class FirestoreLocationRepository(LocationRepository):
         await doc_ref.update({'count': firestore.Increment(1)})
         return True
 
+    async def get_latest_radar_cache(self, station_code: str) -> Optional[dict]:
+        doc_ref = self.db.collection('radar_latest_cache').document(station_code)
+        doc = await doc_ref.get()
+        if doc.exists:
+            return doc.to_dict()
+        return None
+
+    async def set_latest_radar_cache(self, station_code: str, static_url: str, loop_url: str, timestamp: int) -> None:
+        doc_ref = self.db.collection('radar_latest_cache').document(station_code)
+        await doc_ref.set({
+            "station_code": station_code,
+            "static_url": static_url,
+            "loop_url": loop_url,
+            "timestamp": timestamp,
+            "created_at": datetime.now(timezone.utc)
+        })
