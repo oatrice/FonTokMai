@@ -797,12 +797,16 @@ class TMDRadarProcessor:
                         if age_secs < 900: # 15 minutes max age
                             from google.cloud import storage
                             import os
+                            import logging
+                            logger = logging.getLogger(__name__)
                             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(cache["static_url"])
                             # Blocking call, but since we're in async, it's a minor block for memory download
-                            return blob.download_as_bytes()
+                            data = blob.download_as_bytes()
+                            logger.info(f"Successfully loaded static_url {cache['static_url']} from Firebase Storage Cache")
+                            return data
             except Exception as e:
                 print(f"Error reading static image from cache: {e}")
                 
@@ -839,12 +843,15 @@ class TMDRadarProcessor:
                         if age_secs < 900: # 15 mins
                             from google.cloud import storage
                             import os
+                            import logging
+                            logger = logging.getLogger(__name__)
                             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(cache["loop_url"])
                             loop_bytes = blob.download_as_bytes()
                             dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
+                            logger.info(f"Successfully loaded loop_url {cache['loop_url']} from Firebase Storage Cache")
             except Exception as e:
                 print(f"Error reading loop gif from cache: {e}")
                 
