@@ -65,6 +65,7 @@ deploy_cloud_run:
         --region us-central1 \
         --allow-unauthenticated \
         --no-cpu-throttling \
+        --memory 1024Mi \
         --set-env-vars "\
       TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN},\
       RAINBOW_API_KEY=${RAINBOW_API_KEY},\
