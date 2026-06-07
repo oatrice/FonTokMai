@@ -47,8 +47,8 @@ def find_approaching_clouds_old_logic(processor, curr_frame, prev_frame, flow, u
     max_dbz_found = 0
     max_dot_found = -999.0
     
-    for dy in range(-search_radius, search_radius + 1, 2):
-        for dx in range(-search_radius, search_radius + 1, 2):
+    for dy in range(-search_radius, search_radius + 1):
+        for dx in range(-search_radius, search_radius + 1):
             sx = user_x + dx
             sy = user_y + dy
             debug_total += 1
@@ -64,13 +64,16 @@ def find_approaching_clouds_old_logic(processor, curr_frame, prev_frame, flow, u
             if d < min_dbz:
                 continue
                 
-            # Anti-noise check
+            # Anti-noise: must have at least 1 neighbor in 8-connected
             neighbors = 0
-            for nx, ny in [(sx-1, sy), (sx+1, sy), (sx, sy-1), (sx, sy+1)]:
-                if 0 <= nx < curr_frame.shape[1] and 0 <= ny < curr_frame.shape[0]:
-                    if processor.get_dbz_at_pixel(curr_frame, nx, ny) >= min_dbz:
-                        neighbors += 1
-            if neighbors < 2:
+            for dy_n in [-1, 0, 1]:
+                for dx_n in [-1, 0, 1]:
+                    if dx_n == 0 and dy_n == 0: continue
+                    nx, ny = sx + dx_n, sy + dy_n
+                    if 0 <= nx < curr_frame.shape[1] and 0 <= ny < curr_frame.shape[0]:
+                        if processor.get_dbz_at_pixel(curr_frame, nx, ny) >= min_dbz:
+                            neighbors += 1
+            if neighbors < 1:
                 continue
                 
             debug_min_dbz += 1
@@ -170,8 +173,8 @@ def find_approaching_clouds_new_debug(processor, curr_frame, prev_frame, flow, u
     rejected_vmag = 0
     rejected_cte = 0
     
-    for dy in range(-search_radius, search_radius + 1, 2):
-        for dx in range(-search_radius, search_radius + 1, 2):
+    for dy in range(-search_radius, search_radius + 1):
+        for dx in range(-search_radius, search_radius + 1):
             sx = user_x + dx
             sy = user_y + dy
             if not (valid_x_min <= sx < valid_x_max and valid_y_min <= sy < valid_y_max): continue
@@ -179,13 +182,16 @@ def find_approaching_clouds_new_debug(processor, curr_frame, prev_frame, flow, u
             d = processor.get_dbz_at_pixel(curr_frame, sx, sy)
             if d < min_dbz: continue
             
-            # Anti-noise check
+            # Anti-noise: must have at least 1 neighbor in 8-connected
             neighbors = 0
-            for nx, ny in [(sx-1, sy), (sx+1, sy), (sx, sy-1), (sx, sy+1)]:
-                if 0 <= nx < curr_frame.shape[1] and 0 <= ny < curr_frame.shape[0]:
-                    if processor.get_dbz_at_pixel(curr_frame, nx, ny) >= min_dbz:
-                        neighbors += 1
-            if neighbors < 2:
+            for dy_n in [-1, 0, 1]:
+                for dx_n in [-1, 0, 1]:
+                    if dx_n == 0 and dy_n == 0: continue
+                    nx, ny = sx + dx_n, sy + dy_n
+                    if 0 <= nx < curr_frame.shape[1] and 0 <= ny < curr_frame.shape[0]:
+                        if processor.get_dbz_at_pixel(curr_frame, nx, ny) >= min_dbz:
+                            neighbors += 1
+            if neighbors < 1:
                 continue
                 
             cvx, cvy = processor.get_flow_vector_at(flow, sx, sy)
@@ -251,7 +257,7 @@ def find_approaching_clouds_new_debug(processor, curr_frame, prev_frame, flow, u
                     used[j] = True
                     queue.append(c2)
                     
-        if len(group) < 5:
+        if len(group) < 3:
             continue
             
         total_w = sum(g[4] for g in group)
@@ -278,7 +284,12 @@ def find_approaching_clouds_new_debug(processor, curr_frame, prev_frame, flow, u
             "predicted_dbz": predicted_dbz,
             "dist": dist_c,
             "eta_min": eta_min,
+            "num_pixels": len(group)
         })
+        
+    print("\n--- RAW CLUSTERS DUMP ---")
+    for idx, cl in enumerate(clusters):
+        print(f"Cluster {idx}: cx={cl['cx']}, cy={cl['cy']}, dbz={cl['dbz_now']}, pixels={cl['num_pixels']}, dist={cl['dist']:.1f}, eta={cl['eta_min']:.1f}")
         
     return clusters
 def generate_debug_tracking_image(frame, user_x, user_y, clouds):
@@ -357,6 +368,7 @@ def main():
     parser.add_argument("--vy", type=float, default=0.5, help="[Static only] Simulated wind Y vector")
     parser.add_argument("--station", default="kkn240", help="Radar station code")
     parser.add_argument("--hit-radius", type=int, default=15, help="Perpendicular distance tolerance in pixels (New mode only)")
+    parser.add_argument("--cluster-dist", type=int, default=20, help="Clustering distance in pixels")
     parser.add_argument("--search-radius", type=int, default=160, help="Search radius around user in pixels")
     
     args = parser.parse_args()
@@ -447,7 +459,7 @@ def main():
             user_y=py,
             search_radius=args.search_radius,
             min_dbz=20.0,
-            cluster_dist=20,
+            cluster_dist=args.cluster_dist,
             hit_radius=args.hit_radius,
             debug_img=debug_img
         )
@@ -459,6 +471,36 @@ def main():
         print("Saved pixel-level debug image to mock_test_debug_pixels.jpg")
     
     print(f"\n--- LOGIC RESULTS ---")
+    if not clouds:
+        print("No approaching clouds detected. (Either no clouds nearby, or they are filtered out by trajectory/Cross Track Error)")
+    else:
+        print(f"Detected {len(clouds)} approaching clouds that will HIT the user:")
+        for i, c in enumerate(clouds):
+            print(f"  [{i+1}] dist={c['dist']:.1f}px, ETA={c['eta_min']:.1f}m, dbz={c['dbz_now']}")
+            print(f"      vx={c['vx']:.2f}, vy={c['vy']:.2f}")
+
+    print("\n--- DEEP DIVE DEBUG (Finding Purple Circles / 55 dBZ) ---")
+    print("Scanning entire search radius for 55 dBZ pixels...")
+    found_purple = False
+    for dy in range(-160, 161, 2):
+        for dx in range(-160, 161, 2):
+            tx, ty = px + dx, py + dy
+            if 0 <= tx < curr_frame.shape[1] and 0 <= ty < curr_frame.shape[0]:
+                dbz = processor.get_dbz_at_pixel(curr_frame, tx, ty)
+                if dbz >= 50.0:
+                    vx, vy = processor.get_flow_vector_at(flow, tx, ty)
+                    to_x = px - tx
+                    to_y = py - ty
+                    dist = math.sqrt(to_x**2 + to_y**2)
+                    dot = (vx * to_x + vy * to_y) / dist if dist > 0 else 0
+                    v_mag = math.sqrt(vx**2 + vy**2)
+                    perp_dist = abs(to_x * vy - to_y * vx) / v_mag if v_mag > 0 else 0
+                    print(f"  Purple/Red at {tx},{ty} (offset {dx},{dy}) | vx={vx:.2f}, vy={vy:.2f} | dot={dot:.2f} | cross_track={perp_dist:.2f}")
+                    found_purple = True
+    if not found_purple:
+        print("  NO >= 50 dBZ pixels found in 160px radius.")
+        
+    print()
     if not clouds:
         print("No approaching clouds detected. (Either no clouds nearby, or they are filtered out by trajectory/Cross Track Error)")
     else:

@@ -92,49 +92,61 @@ class TMDRadarProcessor:
             
         color_tuple = (r, g, b)
         
-        # Check ignored colors
-        if color_tuple in IGNORED_COLORS:
-            return 0.0
-            
-        # Find nearest color (due to GIF compression artifacts, colors are not exact)
-        min_dist = float('inf')
+        import math
+        
+        # Check ignored colors first (distance)
+        min_dist_ignored = float('inf')
+        for ic in IGNORED_COLORS:
+            dist = math.sqrt((r - ic[0])**2 + (g - ic[1])**2 + (b - ic[2])**2)
+            if dist < min_dist_ignored:
+                min_dist_ignored = dist
+        
+        # Find nearest dBZ color
+        min_dist_dbz = float('inf')
         best_dbz = 0.0
         
-        import math
         for known_color, dbz in DBZ_COLOR_MAPPING.items():
             dist = math.sqrt((r - known_color[0])**2 + (g - known_color[1])**2 + (b - known_color[2])**2)
-            if dist < min_dist:
-                min_dist = dist
+            if dist < min_dist_dbz:
+                min_dist_dbz = dist
                 best_dbz = dbz
                 
-        # Tighter threshold (80) reduces false positives from map features (rivers, terrain)
-        if min_dist < 80:
+        # If it's mathematically closer to a background color, it's noise
+        if min_dist_ignored <= min_dist_dbz:
+            return 0.0
+            
+        # Tighter threshold (40) reduces false positives from map features
+        if min_dist_dbz < 40:
             return best_dbz
             
         return 0.0
-
     def extract_rain_mask(self, img: np.ndarray) -> np.ndarray:
         """Converts an RGB radar frame into a grayscale mask representing rain intensity."""
         img_float = img.astype(np.float32)
         
-        min_dists = np.full(img.shape[:2], 90.0, dtype=np.float32)
+        min_dists = np.full(img.shape[:2], 40.0, dtype=np.float32)
         best_intensity = np.zeros(img.shape[:2], dtype=np.uint8)
         
+        # Calculate min distance to any ignored color
+        ignored_min_dists = np.full(img.shape[:2], float('inf'), dtype=np.float32)
+        for ic in IGNORED_COLORS:
+            ic_arr = np.array(ic, dtype=np.float32)
+            dist = np.sqrt(np.sum((img_float - ic_arr)**2, axis=-1))
+            better_mask = dist < ignored_min_dists
+            ignored_min_dists[better_mask] = dist[better_mask]
+            
         for color, dbz in DBZ_COLOR_MAPPING.items():
             c_arr = np.array(color, dtype=np.float32)
             dist = np.sqrt(np.sum((img_float - c_arr)**2, axis=-1))
             
-            better_mask = dist < min_dists
+            # Must be closer to this dBZ color than to ANY ignored color
+            valid_mask = dist < ignored_min_dists
+            
+            better_mask = (dist < min_dists) & valid_mask
             min_dists[better_mask] = dist[better_mask]
             
             intensity = int(min(255, max(50, dbz * 4)))
             best_intensity[better_mask] = intensity
-            
-        # Ignore exact IGNORED_COLORS
-        for ignored_color in IGNORED_COLORS:
-            ic_arr = np.array(ignored_color, dtype=np.float32)
-            exact_match = np.all(img_float == ic_arr, axis=-1)
-            best_intensity[exact_match] = 0
             
         # Apply a small median blur to remove single-pixel noise which confuses optical flow
         mask = cv2.medianBlur(best_intensity, 3)
@@ -394,7 +406,7 @@ class TMDRadarProcessor:
         search_radius: int = 80,
         min_dbz: float = 20.0,
         cluster_dist: int = 20,
-        hit_radius: int = 15,
+        hit_radius: int = 20,
     ) -> list:
         """
         Scans all rain pixels within search_radius of (user_x, user_y).
@@ -474,6 +486,9 @@ class TMDRadarProcessor:
                             group.append(c2)
                             used[j] = True
                             queue.append(c2)
+
+            if len(group) < 3:
+                continue
 
             total_w = sum(g[4] for g in group)
             cx = int(sum(g[0] * g[4] for g in group) / total_w)

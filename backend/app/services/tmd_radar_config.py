@@ -127,6 +127,7 @@ DBZ_COLOR_MAPPING: Dict[Tuple[int, int, int], float] = {
     (0, 255, 0): 20.0,
     # Green
     (0, 128, 0): 25.0,
+    (73, 160, 71): 25.0, # Real GIF Green
     # Yellow
     (255, 255, 0): 35.0,
     # Orange
@@ -144,6 +145,7 @@ IGNORED_COLORS = [
     (255, 255, 255), # White
     (0, 0, 0),       # Black
     (204, 204, 204), # Gray
+    (32, 45, 93),    # Dark brown/grey map background
     (153, 153, 153), # Gray
     # Add actual map background RGB here during calibration
 ]
