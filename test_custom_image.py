@@ -107,6 +107,9 @@ def find_approaching_clouds_old_logic(processor, curr_frame, prev_frame, flow, u
                     used[j] = True
                     queue.append(c2)
                     
+        if len(group) < 5:
+            continue
+            
         total_w = sum(g[4] for g in group)
         cx = int(sum(g[0] * g[4] for g in group) / total_w)
         cy = int(sum(g[1] * g[4] for g in group) / total_w)
@@ -165,6 +168,15 @@ def find_approaching_clouds_new_debug(processor, curr_frame, prev_frame, flow, u
             if not (0 <= sx < curr_frame.shape[1] and 0 <= sy < curr_frame.shape[0]): continue
             d = processor.get_dbz_at_pixel(curr_frame, sx, sy)
             if d < min_dbz: continue
+            
+            # Anti-noise check
+            neighbors = 0
+            for nx, ny in [(sx-1, sy), (sx+1, sy), (sx, sy-1), (sx, sy+1)]:
+                if 0 <= nx < curr_frame.shape[1] and 0 <= ny < curr_frame.shape[0]:
+                    if processor.get_dbz_at_pixel(curr_frame, nx, ny) >= min_dbz:
+                        neighbors += 1
+            if neighbors < 2:
+                continue
                 
             cvx, cvy = processor.get_flow_vector_at(flow, sx, sy)
             to_x = user_x - sx
@@ -229,6 +241,9 @@ def find_approaching_clouds_new_debug(processor, curr_frame, prev_frame, flow, u
                     used[j] = True
                     queue.append(c2)
                     
+        if len(group) < 5:
+            continue
+            
         total_w = sum(g[4] for g in group)
         cx = int(sum(g[0] * g[4] for g in group) / total_w)
         cy = int(sum(g[1] * g[4] for g in group) / total_w)
@@ -261,8 +276,10 @@ def main():
     parser = argparse.ArgumentParser(description="Test radar logic with a static image or an animated GIF loop.")
     parser.add_argument("image", help="Path to your radar image (.jpg / .png / .gif)")
     parser.add_argument("--mode", choices=["old", "new"], default="new", help="Logic mode: 'old' (Dot Product only) or 'new' (Cross Track Error)")
-    parser.add_argument("--lat", type=float, default=17.4138, help="User latitude (default Udon Thani: 17.4138)")
-    parser.add_argument("--lng", type=float, default=102.7872, help="User longitude (default Udon Thani: 102.7872)")
+    parser.add_argument("--lat", type=float, default=None, help="User latitude")
+    parser.add_argument("--lng", type=float, default=None, help="User longitude")
+    parser.add_argument("--user_x_1280", type=int, default=711, help="User X pixel in 1280x1280 scale")
+    parser.add_argument("--user_y_1280", type=int, default=346, help="User Y pixel in 1280x1280 scale")
     parser.add_argument("--vx", type=float, default=-1.0, help="[Static only] Simulated wind X vector")
     parser.add_argument("--vy", type=float, default=0.5, help="[Static only] Simulated wind Y vector")
     parser.add_argument("--station", default="kkn240", help="Radar station code")
@@ -271,11 +288,16 @@ def main():
     args = parser.parse_args()
     
     processor = TMDRadarProcessor(args.station)
-    px, py = processor.latlng_to_pixel(args.lat, args.lng)
     
-    if px is None:
-        print(f"Error: Coordinate {args.lat}, {args.lng} is outside the {args.station} radar bounds.")
-        return
+    if args.lat is not None and args.lng is not None:
+        px, py = processor.latlng_to_pixel(args.lat, args.lng)
+        if px is None:
+            print(f"Error: Coordinate {args.lat}, {args.lng} is outside the {args.station} radar bounds.")
+            return
+    else:
+        # Convert 1280x1280 scale to 800x800 scale (the internal scale)
+        px = int(args.user_x_1280 * 800 / 1280)
+        py = int(args.user_y_1280 * 800 / 1280)
     is_gif = args.image.lower().endswith(".gif")
     
     if is_gif:
