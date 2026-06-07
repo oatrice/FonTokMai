@@ -22,8 +22,8 @@ async def trigger_rain_check(background_tasks: BackgroundTasks, x_cron_secret: s
         logger.warning("Unauthorized access to trigger-rain-check")
         raise HTTPException(status_code=401, detail="Unauthorized")
         
-    background_tasks.add_task(check_rain_and_alert)
-    return {"status": "ok", "message": "Rain check task added to background"}
+    await check_rain_and_alert()
+    return {"status": "ok", "message": "Rain check task completed"}
 
 @router.post("/check-disasters-frequent")
 async def trigger_disasters_frequent(background_tasks: BackgroundTasks, x_cron_secret: str = Header(None)):
@@ -32,8 +32,8 @@ async def trigger_disasters_frequent(background_tasks: BackgroundTasks, x_cron_s
         raise HTTPException(status_code=401, detail="Unauthorized")
         
     from app.scheduler_tasks import check_disasters_frequent_routine
-    background_tasks.add_task(check_disasters_frequent_routine)
-    return {"status": "ok", "message": "Frequent disaster check task added to background"}
+    await check_disasters_frequent_routine()
+    return {"status": "ok", "message": "Frequent disaster check task completed"}
 
 @router.post("/check-disasters-infrequent")
 async def trigger_disasters_infrequent(background_tasks: BackgroundTasks, x_cron_secret: str = Header(None)):
@@ -42,8 +42,8 @@ async def trigger_disasters_infrequent(background_tasks: BackgroundTasks, x_cron
         raise HTTPException(status_code=401, detail="Unauthorized")
         
     from app.scheduler_tasks import check_disasters_infrequent_routine
-    background_tasks.add_task(check_disasters_infrequent_routine)
-    return {"status": "ok", "message": "Infrequent disaster check task added to background"}
+    await check_disasters_infrequent_routine()
+    return {"status": "ok", "message": "Infrequent disaster check task completed"}
 
 from pydantic import BaseModel
 from typing import Optional
@@ -87,5 +87,5 @@ async def trigger_mock_disaster(payload: MockDisasterPayload, background_tasks: 
         async with get_repo_context() as repo:
             await process_disaster_event(repo, payload.type, event_data)
             
-    background_tasks.add_task(run_mock)
-    return {"status": "ok", "message": f"Mock {payload.type} triggered in background"}
+    await run_mock()
+    return {"status": "ok", "message": f"Mock {payload.type} triggered"}

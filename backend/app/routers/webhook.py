@@ -672,7 +672,7 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     payload = await request.json()
 
     if "callback_query" in payload:
-        background_tasks.add_task(handle_callback_query, payload["callback_query"])
+        await handle_callback_query(payload["callback_query"])
         return {"status": "ok"}
 
     if "message" in payload:
