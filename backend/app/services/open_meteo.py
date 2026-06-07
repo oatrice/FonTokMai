@@ -74,8 +74,22 @@ class OpenMeteoService(BaseWeatherService):
                 times = minutely.get("time", [])
                 precips = minutely.get("precipitation", [])
                 
-                limit = min(len(times), len(precips), 12)
-                for i in range(limit):
+                now_utc = datetime.now(timezone.utc)
+                now_ts = now_utc.timestamp()
+                
+                start_idx = 0
+                for i, t_str in enumerate(times):
+                    t_str_iso = t_str + "Z" if not t_str.endswith("Z") else t_str
+                    try:
+                        dt = datetime.fromisoformat(t_str_iso.replace("Z", "+00:00"))
+                        if dt.timestamp() >= now_ts - 15 * 60:  # Include current 15-min window
+                            start_idx = i
+                            break
+                    except ValueError:
+                        pass
+                
+                limit = min(len(times), len(precips), start_idx + 12)
+                for i in range(start_idx, limit):
                     # Replace string '2026-06-05T12:00' with valid ISO '2026-06-05T12:00Z'
                     time_str = times[i]
                     if not time_str.endswith("Z"):
@@ -129,8 +143,9 @@ class OpenMeteoService(BaseWeatherService):
                 }
 
             except Exception as e:
-                logger.error(f"Open-Meteo Request failed: {e}")
-                raise Exception(f"Open-Meteo Error: {str(e)}")
+                error_msg = str(e) if str(e) else repr(e)
+                logger.error(f"Open-Meteo Request failed: {error_msg}")
+                raise Exception(f"Open-Meteo Error: {error_msg}")
 
     async def get_wind_vector(self, lat: float, lng: float, mock_state: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -171,5 +186,6 @@ class OpenMeteoService(BaseWeatherService):
                     "source": "open_meteo"
                 }
             except Exception as e:
-                logger.error(f"Open-Meteo Wind Vector Request failed: {e}")
-                raise Exception(f"Open-Meteo Error: {str(e)}")
+                error_msg = str(e) if str(e) else repr(e)
+                logger.error(f"Open-Meteo Wind Vector Request failed: {error_msg}")
+                raise Exception(f"Open-Meteo Error: {error_msg}")

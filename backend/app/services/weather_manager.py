@@ -107,7 +107,7 @@ class WeatherManager:
                 return name, res
             except Exception as e:
                 import re
-                error_msg = str(e)
+                error_msg = str(e) if str(e) else repr(e)
                 error_msg = re.sub(r'client_id=[^&\s]+', 'client_id=***', error_msg)
                 error_msg = re.sub(r'client_secret=[^&\s]+', 'client_secret=***', error_msg)
                 logger.error(f"Error fetching from {name}: {error_msg}")

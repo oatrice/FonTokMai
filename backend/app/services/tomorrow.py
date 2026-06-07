@@ -141,5 +141,6 @@ class TomorrowService(BaseWeatherService):
                 logger.error(f"Tomorrow.io HTTP error {e.response.status_code}: {e.response.text}")
                 raise e
             except Exception as e:
-                logger.error(f"Tomorrow.io Request failed: {e}")
-                raise e
+                error_msg = str(e) if str(e) else repr(e)
+                logger.error(f"Tomorrow.io Request failed: {error_msg}")
+                raise Exception(error_msg)
