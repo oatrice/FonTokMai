@@ -87,7 +87,7 @@ def _build_forecast_text(result: dict) -> str:
             if eta_minutes == 0 or (eta_minutes is None and result.get("max_rain", 0) > 0):
                 text = f"🌧️ ฝนกำลังตกอยู่ที่พิกัดของคุณ ณ ขณะนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
             else:
-                text = f"🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก {eta_minutes} นาที (ตรวจสอบด้วย: {endpoint_label})\n"
+                text = f"🌧️ ฝนกำลังเคลื่อนมาทางทิศของคุณ จะเริ่มตกในอีก {format_duration_text(eta_minutes)} (ตรวจสอบด้วย: {endpoint_label})\n"
             
             if intensity_str == "ไม่มีฝน" and eta_minutes and eta_minutes > 0:
                 text += f"💧 ความรุนแรง (คาดการณ์): ฝนกำลังจะมา\n"
@@ -467,7 +467,7 @@ async def handle_callback_query(callback_query: dict):
                                     if eta_minutes == 0:
                                         text += f"  ⏱️ เริ่มตก: ขณะนี้ ({start_str} น.)\n"
                                     else:
-                                        text += f"  ⏱️ เริ่มตกในอีก: {eta_minutes} นาที ({start_str} น.)\n"
+                                        text += f"  ⏱️ เริ่มตกในอีก: {format_duration_text(eta_minutes)} ({start_str} น.)\n"
                                         
                                     if duration > 0:
                                         text += f"  ⏳ ตกต่อเนื่อง: {format_duration_text(duration)} (จนถึง {end_str} น.)\n"

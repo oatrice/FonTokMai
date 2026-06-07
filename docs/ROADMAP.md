@@ -27,6 +27,18 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #64 - fix: Production bugs on Weather Managers and Open-Meteo integrations
+- **GitHub:** [#64](https://gitlab.com/oatricedev/FonMaYang/-/issues/64)
+- **Status:** 🟢 **Ready**
+
+### Issue #63 - Mask API keys and secrets before logging
+- **GitHub:** [#63](https://gitlab.com/oatricedev/FonMaYang/-/issues/63)
+- **Status:** 🟢 **Ready**
+
+### Issue #62 - Export Google Cloud Run dashboard metrics for analysis
+- **GitHub:** [#62](https://gitlab.com/oatricedev/FonMaYang/-/issues/62)
+- **Status:** 🟢 **Ready**
+
 ### Issue #61 - Feature: Digitize and Re-render Radar Images for Higher Sharpness
 - **GitHub:** [#61](https://gitlab.com/oatricedev/FonMaYang/-/issues/61)
 - **Status:** 🟢 **Ready**

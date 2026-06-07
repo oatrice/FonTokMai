@@ -1,15 +1,129 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "idle",
-  "active_issues": [],
-  "active_branch": null,
-  "started_at": null,
-  "checklist": {},
-  "context": {},
+  "phase": "coding",
+  "active_issues": [
+    {
+      "number": 64,
+      "title": "fix: Production bugs on Weather Managers and Open-Meteo integrations",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/64",
+      "body": null,
+      "project_item_id": "GLAB_64",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 63,
+      "title": "Mask API keys and secrets before logging",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/63",
+      "body": null,
+      "project_item_id": "GLAB_63",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    }
+  ],
+  "active_branch": "feat/64-63-fix-production-bugs-on-weather",
+  "started_at": "2026-06-07T12:44:04.179034",
+  "checklist": {
+    "step_planning": true
+  },
+  "context": {
+    "pending_doc_updates": {
+      "pending": [
+        "CHANGELOG.md",
+        "README.md",
+        "VERSION"
+      ],
+      "changed_files": [
+        "backend/app/services/ocr_service.py",
+        "backend/app/services/open_meteo.py",
+        "backend/app/services/tomorrow.py",
+        "backend/app/services/weather_manager.py",
+        "backend/requirements.txt",
+        "backend/tests/test_ocr_service.py",
+        "backend/tests/test_open_meteo.py",
+        "docs/ROADMAP.md",
+        "docs/features/24_issue-5x/manual_verification.md",
+        "luma/prompts/prompt_20260607_054402_38dc052b.md",
+        "luma_state.json"
+      ],
+      "meaningful_files": [
+        "backend/app/services/ocr_service.py",
+        "backend/app/services/open_meteo.py",
+        "backend/app/services/tomorrow.py",
+        "backend/app/services/weather_manager.py",
+        "luma_state.json"
+      ],
+      "version_file": "VERSION",
+      "has_meaningful_changes": true
+    },
+    "target_planning_repos": [
+      {
+        "name": "FonMaYang",
+        "path": "/Users/oatrice/Software-projects/FonMaYang",
+        "repo": "oatricedev/FonMaYang",
+        "kanban_number": 1,
+        "kanban_id": "",
+        "status_workflow": {
+          "selectable_statuses": [
+            "Ready",
+            "In Progress",
+            "Todo"
+          ],
+          "selection_order": [
+            "In Progress",
+            "Ready",
+            "Todo"
+          ],
+          "active_statuses": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review"
+          ],
+          "active_sort_order": [
+            "In Progress",
+            "Ready",
+            "Todo",
+            "In Review",
+            "Backlog"
+          ],
+          "board_order": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review",
+            "Done",
+            "Closed"
+          ],
+          "done_statuses": [
+            "Done",
+            "Closed"
+          ],
+          "status_icons": {
+            "Backlog": "📥 ",
+            "Ready": "✅ ",
+            "Todo": "📝 ",
+            "In Progress": "🔥 ",
+            "In Review": "👀 ",
+            "Done": "✅ ",
+            "Closed": "✅ "
+          },
+          "action_status_map": {
+            "select_issue": "In Progress",
+            "create_pr": "In Review",
+            "pr_merged": "Done"
+          }
+        }
+      }
+    ],
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/25_issue-64-63_fix-production-bugs-weather-managers-open-meteo-integra-c0ae700e"
+  },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-07T00:56:18.790093"
+  "last_updated": "2026-06-07T12:44:09.259305"
 }
