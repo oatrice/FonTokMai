@@ -1,0 +1,3 @@
+- `[/]` Implement Perpendicular Distance check in `find_approaching_clouds`
+- `[ ]` Verify the changes
+- `[ ]` Update documentation (walkthrough)

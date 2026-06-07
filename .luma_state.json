@@ -1,53 +1,36 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 64,
-      "title": "fix: Production bugs on Weather Managers and Open-Meteo integrations",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/64",
+      "number": 66,
+      "title": "Calculate rain cloud trajectory to improve alert accuracy",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/66",
       "body": null,
-      "project_item_id": "GLAB_64",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 63,
-      "title": "Mask API keys and secrets before logging",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/63",
-      "body": null,
-      "project_item_id": "GLAB_63",
+      "project_item_id": "GLAB_66",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/64-63-fix-production-bugs-on-weather",
-  "started_at": "2026-06-07T12:44:04.179034",
+  "active_branch": "feat/66-calculate-rain-cloud-trajector",
+  "started_at": "2026-06-07T20:25:01.249082",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "backend/app/routers/webhook.py",
+        "VERSION"
+      ],
+      "changed_files": [
         "docs/ROADMAP.md",
-        "docs/features/24_issue-64-63_fix-production-bugs-weather-managers-open-meteo-integra-c0ae700e/manual_verification2.md",
-        "luma_metrics.json",
+        "luma/prompts/prompt_20260607_132459_16baff74.md",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/routers/webhook.py",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -115,11 +98,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/24_issue-64-63_fix-production-bugs-weather-managers-open-meteo-integra-c0ae700e"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/24",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-07T15:28:07.787147"
+  "last_updated": "2026-06-07T20:25:04.614661"
 }

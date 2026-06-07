@@ -394,6 +394,7 @@ class TMDRadarProcessor:
         search_radius: int = 80,
         min_dbz: float = 20.0,
         cluster_dist: int = 20,
+        hit_radius: int = 15,
     ) -> list:
         """
         Scans all rain pixels within search_radius of (user_x, user_y).
@@ -435,7 +436,16 @@ class TMDRadarProcessor:
                     continue
                 dot = (cvx * to_x + cvy * to_y) / dist
                 # Only keep pixels whose flow APPROACHES the user (dot > 0)
-                if dot < 0.1:
+                if dot <= 0:
+                    continue
+                
+                v_mag = math.sqrt(cvx ** 2 + cvy ** 2)
+                if v_mag < 0.1:
+                    continue # Not moving enough to predict
+                    
+                # Perpendicular distance (Cross Track Error)
+                perp_dist = abs(to_x * cvy - to_y * cvx) / v_mag
+                if perp_dist > hit_radius:
                     continue
                 # Previous DBZ at the backward-traced position
                 prev_x = int(round(sx - cvx))

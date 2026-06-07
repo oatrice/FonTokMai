@@ -1386,6 +1386,28 @@
       "gh_mandays": null,
       "created_at": "2026-06-06T18:08:18.936Z",
       "updated_at": "2026-06-07T15:28:07.754615"
+    },
+    "oatricedev/FonMaYang#66": {
+      "issue_key": "oatricedev/FonMaYang#66",
+      "issue_number": 66,
+      "issue_title": "Calculate rain cloud trajectory to improve alert accuracy",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/66",
+      "repository": "oatricedev/FonMaYang",
+      "project_name": "FonMaYang",
+      "issue_status": null,
+      "estimate_points": 1,
+      "post_story_point": null,
+      "estimated_mandays": 0.5,
+      "start_datetime": "2026-06-07T20:25:04",
+      "actual_mandays": null,
+      "due_date": null,
+      "actual_completion_date": null,
+      "effort_level": "Low",
+      "notes": null,
+      "gh_closed_at": null,
+      "gh_mandays": null,
+      "created_at": "2026-06-07T20:25:04.616313",
+      "updated_at": "2026-06-07T20:25:04.617577"
     }
   }
 }
