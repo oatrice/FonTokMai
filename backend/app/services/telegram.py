@@ -14,7 +14,7 @@ TELEGRAM_SEND_ANIMATION_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}
 TELEGRAM_SEND_DOC_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendDocument"
 TELEGRAM_SEND_PHOTO_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
 TELEGRAM_EDIT_MESSAGE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
-
+TELEGRAM_ANSWER_CB_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answerCallbackQuery"
 async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
     """
     Edits a previously sent message in a specific Telegram chat_id.
@@ -36,6 +36,22 @@ async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_
             return True
     except Exception as e:
         logger.error(f"Failed to edit telegram message {message_id} in {chat_id}: {type(e).__name__} - {e}")
+        return False
+
+async def answer_callback_query(callback_query_id: str, text: Optional[str] = None) -> bool:
+    """Answers a callback query to stop the loading spinner on Telegram buttons."""
+    payload = {"callback_query_id": callback_query_id}
+    if text:
+        payload["text"] = text
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(TELEGRAM_ANSWER_CB_URL, json=payload)
+            if response.status_code != 200:
+                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+                return False
+            return True
+    except Exception as e:
+        logger.error(f"Failed to answer callback query {callback_query_id}: {type(e).__name__} - {e}")
         return False
 async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
     """

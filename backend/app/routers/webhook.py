@@ -9,6 +9,7 @@ from app.services.telegram import (
     send_telegram_message,
     send_telegram_message_return_id,
     edit_telegram_message,
+    answer_callback_query,
     get_radar_inline_keyboard,
     send_telegram_document,
     DEVELOPER_CHAT_IDS,
@@ -24,7 +25,6 @@ router = APIRouter(
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "mock_token")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-TELEGRAM_ANSWER_CB_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answerCallbackQuery"
 TELEGRAM_EDIT_REPLY_MARKUP_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageReplyMarkup"
 
 
@@ -493,12 +493,9 @@ async def handle_callback_query(callback_query: dict):
                 logger.error(f"Error handling compare_api: {e}")
                 answer_text = "เกิดข้อผิดพลาดในการดึงข้อมูลเปรียบเทียบ"
 
+    await answer_callback_query(query_id, text=answer_text)
+    
     async with httpx.AsyncClient() as client:
-        # ตอบ Callback Query
-        await client.post(TELEGRAM_ANSWER_CB_URL, json={
-            "callback_query_id": query_id,
-            "text": answer_text
-        })
         # ลบ Inline Keyboard (เฉพาะ action ที่เกี่ยวกับ location ไม่ใช่ raw/switch)
         if message_id and not (data.startswith("raw_") or data.startswith("switch_")):
             await client.post(TELEGRAM_EDIT_REPLY_MARKUP_URL, json={
