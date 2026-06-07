@@ -597,6 +597,17 @@ async def handle_devmock_command(chat_id: int, command: str):
             from app.scheduler_tasks import check_rain_and_alert
             await check_rain_and_alert()
             
+        elif command == "/devmock error":
+            await repo.set_mock_state(chat_id, "error")
+            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: ❌ เชื่อมต่อ API ล้มเหลวทั้งหมด\n⏳ กำลังส่งตำแหน่งเพื่อทดสอบ Fallback...")
+            
+            # Simulate a location update to trigger the fallback error message immediately
+            locs = await repo.get_user_locations(chat_id)
+            if locs:
+                await handle_location(chat_id, locs[0].latitude, locs[0].longitude, message_id=None)
+            else:
+                await send_telegram_message(chat_id, "ไม่พบตำแหน่งที่บันทึกไว้ โปรดส่ง Location มาใหม่เพื่อทดสอบ error")
+            
         elif command == "/devmock off":
             await repo.set_mock_state(chat_id, None)
             await send_telegram_message(chat_id, "🛠️ [DEV MOCK] ปิดใช้งานโหมดจำลองเรียบร้อยแล้ว")

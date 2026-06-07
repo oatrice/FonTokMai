@@ -26,6 +26,9 @@ class WeatherManager:
         ดึงข้อมูลพยากรณ์ฝนโดยผ่านระบบ Fallback อัตโนมัติ:
         หรือบังคับ API ตาม force_endpoint
         """
+        if mock_state == "error":
+            return {"endpoint": "error", "error": "Simulated error from /devmock error"}
+
         service_map = {
             "xweather": lambda: self.xweather_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
             "tomorrow": lambda: self.tomorrow_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
