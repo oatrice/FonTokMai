@@ -29,11 +29,11 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ## Synced From GitHub
 ### Issue #64 - fix: Production bugs on Weather Managers and Open-Meteo integrations
 - **GitHub:** [#64](https://gitlab.com/oatricedev/FonMaYang/-/issues/64)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.24.0)
 
 ### Issue #63 - Mask API keys and secrets before logging
 - **GitHub:** [#63](https://gitlab.com/oatricedev/FonMaYang/-/issues/63)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.24.0)
 
 ### Issue #62 - Export Google Cloud Run dashboard metrics for analysis
 - **GitHub:** [#62](https://gitlab.com/oatricedev/FonMaYang/-/issues/62)

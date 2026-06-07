@@ -127,6 +127,7 @@ async def process_telegram_location(
     lng: float,
     force_endpoint: str = None,
     message_id_to_edit: int = None,
+    show_advanced: bool = False,
 ):
     """
     ดึงข้อมูลพยากรณ์ฝนผ่าน WeatherManager (รองรับ fallback chain อัตโนมัติ)
@@ -243,6 +244,44 @@ async def process_telegram_location(
             await send_telegram_document(chat_id, gif_bytes, "radar_nowcast.gif")
         if hq_gif_bytes:
             await send_telegram_raw_document(chat_id, hq_gif_bytes, "radar_nowcast_full.gif")
+
+        if show_advanced:
+            advanced_data = await weather_manager.get_advanced_alerts(lat, lng, mock_state=mock_state)
+            has_advisory = len(advanced_data.get("advisories", [])) > 0
+            has_lightning = advanced_data.get("lightning") is not None
+            has_stormcell = advanced_data.get("stormcell") is not None
+            
+            if has_advisory or has_lightning or has_stormcell:
+                adv_text = "🚨 *ข้อมูลเตือนภัยขั้นสูงรอบตัวคุณ*\n\n"
+                
+                if has_advisory:
+                    for adv in advanced_data["advisories"]:
+                        adv_text += f"⚠️ ประกาศเตือนภัย: {adv.get('name', '')}\n"
+                    adv_text += "\n"
+                    
+                if has_lightning:
+                    lightning = advanced_data["lightning"]
+                    adv_text += f"⚡ ฟ้าผ่าระยะใกล้สุด: {lightning.get('distance_km', 0):.1f} กม.\n\n"
+                    
+                if has_stormcell:
+                    stormcell = advanced_data["stormcell"]
+                    if stormcell.get('distance_km') is None:
+                        adv_text += f"🌪️ แนวโน้มกลุ่มฝน/ลม (Contingency):\n"
+                        adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
+                        adv_text += f"   - ความเร็วลม: {stormcell.get('speed_kmh', 0):.1f} km/h\n\n"
+                        adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Open-Meteo (Fallback)"
+                    else:
+                        adv_text += f"🌪️ ตรวจพบกลุ่มพายุ: ระยะห่าง {stormcell.get('distance_km', 0):.1f} กม.\n"
+                        adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
+                        adv_text += f"   - ความเร็ว: {stormcell.get('speed_kmh', 0):.1f} km/h\n"
+                        adv_text += f"   - ความรุนแรงสูงสุด (dBZ): {stormcell.get('max_dbz', 0)}\n\n"
+                        adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
+                elif has_advisory or has_lightning:
+                    adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
+                
+                await send_telegram_message(chat_id, adv_text)
+            else:
+                await send_telegram_message(chat_id, "ℹ️ ข้อมูลเตือนภัยขั้นสูง: ไม่พบประกาศเตือนภัย พายุ หรือฟ้าผ่าในระยะใกล้")
 
     except Exception as e:
         logger.error(f"Error processing telegram location: {e}")
@@ -613,7 +652,7 @@ async def handle_devmock_command(chat_id: int, command: str):
             await send_telegram_message(chat_id, "🛠️ [DEV MOCK] ปิดใช้งานโหมดจำลองเรียบร้อยแล้ว")
 
 
-async def handle_rain_command(chat_id: int, command: str):
+async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False):
     parts = command.strip().split()
     force_provider = None
     target_location_name = None
@@ -664,7 +703,11 @@ async def handle_rain_command(chat_id: int, command: str):
         
     loading_msg_id = await send_telegram_message_return_id(chat_id, msg_text)
     
-    await process_telegram_location(chat_id, loc.latitude, loc.longitude, force_endpoint=force_provider, message_id_to_edit=loading_msg_id)
+    await process_telegram_location(
+        chat_id, lat=loc.latitude, lng=loc.longitude,
+        force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
+        show_advanced=show_advanced
+    )
 
 
 @router.post("/webhook")
@@ -707,6 +750,10 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
 
         if text.startswith("/radar") and chat_id:
             background_tasks.add_task(handle_radar_command, chat_id)
+            return {"status": "ok"}
+
+        if text.startswith("/rain_pro") and chat_id:
+            background_tasks.add_task(handle_rain_command, chat_id, text, show_advanced=True)
             return {"status": "ok"}
 
         if text.startswith("/rain") and chat_id:
