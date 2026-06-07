@@ -391,7 +391,7 @@ class TMDRadarProcessor:
         flow: np.ndarray,
         user_x: int,
         user_y: int,
-        search_radius: int = 160,
+        search_radius: int = 80,
         min_dbz: float = 20.0,
         cluster_dist: int = 20,
         hit_radius: int = 15,
@@ -427,15 +427,6 @@ class TMDRadarProcessor:
                     continue
                 d = self.get_dbz_at_pixel(curr_frame, sx, sy)
                 if d < min_dbz:
-                    continue
-                    
-                # Anti-noise check: ensure it's not an isolated artifact from resizing
-                neighbors = 0
-                for nx, ny in [(sx-1, sy), (sx+1, sy), (sx, sy-1), (sx, sy+1)]:
-                    if 0 <= nx < curr_frame.shape[1] and 0 <= ny < curr_frame.shape[0]:
-                        if self.get_dbz_at_pixel(curr_frame, nx, ny) >= min_dbz:
-                            neighbors += 1
-                if neighbors < 2:
                     continue
                 cvx, cvy = self.get_flow_vector_at(flow, sx, sy)
                 to_x = user_x - sx
@@ -483,10 +474,6 @@ class TMDRadarProcessor:
                             group.append(c2)
                             used[j] = True
                             queue.append(c2)
-                            
-            # Filter out tiny clusters (likely artifacts from resize or noise)
-            if len(group) < 5:
-                continue
 
             total_w = sum(g[4] for g in group)
             cx = int(sum(g[0] * g[4] for g in group) / total_w)
@@ -573,16 +560,14 @@ class TMDRadarProcessor:
             return None
         import cv2
         
-        # Crop a 320x320 region around the user
-        crop_r = 160
+        # Crop a 240x240 region around the user
+        crop_r = 120
         h, w = frame.shape[:2]
         
-        # Asymmetric crop: shift slightly to the right to see more weather coming from the East
-        # Left 100px, Right 220px, Top 160px, Bottom 160px
-        x1 = max(0, user_x - 100)
-        y1 = max(0, user_y - 160)
-        x2 = min(w, user_x + 220)
-        y2 = min(h, user_y + 160)
+        x1 = max(0, user_x - crop_r)
+        y1 = max(0, user_y - crop_r)
+        x2 = min(w, user_x + crop_r)
+        y2 = min(h, user_y + crop_r)
         
         crop_img = frame[y1:y2, x1:x2].copy()
         

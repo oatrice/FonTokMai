@@ -63,6 +63,16 @@ def find_approaching_clouds_old_logic(processor, curr_frame, prev_frame, flow, u
                 max_dbz_found = d
             if d < min_dbz:
                 continue
+                
+            # Anti-noise check
+            neighbors = 0
+            for nx, ny in [(sx-1, sy), (sx+1, sy), (sx, sy-1), (sx, sy+1)]:
+                if 0 <= nx < curr_frame.shape[1] and 0 <= ny < curr_frame.shape[0]:
+                    if processor.get_dbz_at_pixel(curr_frame, nx, ny) >= min_dbz:
+                        neighbors += 1
+            if neighbors < 2:
+                continue
+                
             debug_min_dbz += 1
                 
             cvx, cvy = processor.get_flow_vector_at(flow, sx, sy)
@@ -271,6 +281,69 @@ def find_approaching_clouds_new_debug(processor, curr_frame, prev_frame, flow, u
         })
         
     return clusters
+def generate_debug_tracking_image(frame, user_x, user_y, clouds):
+    if frame is None or not clouds:
+        return None
+    
+    # Asymmetric crop: shift slightly to the right to see more weather coming from the East
+    # Left 100px, Right 220px, Top 160px, Bottom 160px
+    h, w = frame.shape[:2]
+    x1 = max(0, user_x - 100)
+    y1 = max(0, user_y - 160)
+    x2 = min(w, user_x + 220)
+    y2 = min(h, user_y + 160)
+    
+    crop_img = frame[y1:y2, x1:x2].copy()
+    
+    # Scale up by 3x for sharp, zoomed-in image
+    scale = 3.0
+    img = cv2.resize(crop_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
+    
+    ux = int((user_x - x1) * scale)
+    uy = int((user_y - y1) * scale)
+    
+    cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(20 * scale), int(2 * scale))
+    
+    incoming = [c for c in clouds if c["eta_min"] >= -5]
+    incoming.sort(key=lambda c: c["predicted_dbz"], reverse=True)
+    top_clouds = incoming[:3]
+    
+    for c in top_clouds:
+        cx_orig, cy_orig = c["cx"], c["cy"]
+        if cx_orig < x1 - 50 or cx_orig > x2 + 50 or cy_orig < y1 - 50 or cy_orig > y2 + 50:
+            continue
+            
+        cx = int((cx_orig - x1) * scale)
+        cy = int((cy_orig - y1) * scale)
+        eta = c["eta_min"]
+        dbz = c["predicted_dbz"]
+        
+        if dbz >= 60: color = (155, 89, 182)
+        elif dbz >= 50: color = (231, 76, 60)
+        elif dbz >= 40: color = (243, 156, 18)
+        elif dbz >= 30: color = (241, 196, 15)
+        else: color = (46, 204, 113)
+        
+        cv2.circle(img, (cx, cy), int(12 * scale), color, int(1.5 * scale))
+        
+        vx_scaled = int(c.get("vx", 0) * scale * 3.0)
+        vy_scaled = int(c.get("vy", 0) * scale * 3.0)
+        if vx_scaled == 0 and vy_scaled == 0:
+            cv2.arrowedLine(img, (cx, cy), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.1)
+        else:
+            target_x = cx + vx_scaled
+            target_y = cy + vy_scaled
+            cv2.arrowedLine(img, (cx, cy), (target_x, target_y), (255, 255, 0), int(1.5 * scale), tipLength=0.3)
+        
+        sign = "-" if eta < 0 else "~"
+        abs_eta = int(abs(eta))
+        time_str = f"{abs_eta} m" if abs_eta < 60 else f"{abs_eta // 60} hr {abs_eta % 60} m"
+            
+        cv2.putText(img, f"{sign}{time_str}", (cx + int(15 * scale), cy), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6 * scale, (255, 255, 255), int(1.5 * scale), cv2.LINE_AA)
+                    
+    is_success, buffer = cv2.imencode(".jpg", img)
+    return buffer.tobytes() if is_success else None
 
 def main():
     parser = argparse.ArgumentParser(description="Test radar logic with a static image or an animated GIF loop.")
@@ -284,6 +357,7 @@ def main():
     parser.add_argument("--vy", type=float, default=0.5, help="[Static only] Simulated wind Y vector")
     parser.add_argument("--station", default="kkn240", help="Radar station code")
     parser.add_argument("--hit-radius", type=int, default=15, help="Perpendicular distance tolerance in pixels (New mode only)")
+    parser.add_argument("--search-radius", type=int, default=160, help="Search radius around user in pixels")
     
     args = parser.parse_args()
     
@@ -298,6 +372,7 @@ def main():
         # Convert 1280x1280 scale to 800x800 scale (the internal scale)
         px = int(args.user_x_1280 * 800 / 1280)
         py = int(args.user_y_1280 * 800 / 1280)
+
     is_gif = args.image.lower().endswith(".gif")
     
     if is_gif:
@@ -356,7 +431,7 @@ def main():
             flow=flow,
             user_x=px,
             user_y=py,
-            search_radius=80,
+            search_radius=args.search_radius,
             min_dbz=20.0,
             cluster_dist=20
         )
@@ -370,7 +445,7 @@ def main():
             flow=flow,
             user_x=px,
             user_y=py,
-            search_radius=80,
+            search_radius=args.search_radius,
             min_dbz=20.0,
             cluster_dist=20,
             hit_radius=args.hit_radius,
@@ -391,8 +466,9 @@ def main():
         for i, c in enumerate(clouds):
             print(f"  [{i+1}] dist={c['dist']:.1f}px, ETA={c['eta_min']:.1f}m, dbz={c['dbz_now']}")
         
-    # 4. Generate the output visualization using production logic
-    viz_bytes = processor.generate_radar_tracking_image(curr_frame, px, py, clouds)
+    print()
+        
+    viz_bytes = generate_debug_tracking_image(curr_frame, px, py, clouds)
     if viz_bytes:
         out_path = f"mock_test_result_{args.mode}.jpg"
         with open(out_path, "wb") as f:
