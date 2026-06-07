@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] - 2026-06-07
+### Added
+- Added the `/rain_pro` command to manually request advanced weather alerts (such as severe thunderstorms, lightning distance, and stormcell movement) alongside the standard rain forecast.
+- Added `/devmock error` to test the API fallback and circuit breaker behavior manually.
+- Implemented `SensitiveDataFilter` to mask API keys and secrets in logs for enhanced security.
+
+### Changed
+- Migrated OCR processing from the deprecated `google-generativeai` to the new `google-genai` SDK.
+- Formatted `eta_minutes` to display in hours and minutes for better readability in alert messages.
+- Refactored Webhook request processing to run inline instead of using `BackgroundTasks` to avoid Cloud Run CPU throttling.
+
+### Fixed
+- Fixed an issue where the storm direction was shown even when no rain was found.
+- Resolved a `NameError` related to `answer_callback_query` in telegram webhooks.
+- Fixed Open-Meteo API integration to correctly use the current wind speed/direction and corrected time filtering logic.
+- Fixed Cloud Run Out-Of-Memory (OOM) crashes during TMD radar processing by increasing the memory limit to 1024Mi.
+- Fixed FastAPI background tasks freezing on Cloud Run by adding the `--no-cpu-throttling` flag in CI deployment configuration.
+- Fixed production UI issues on Linux environments by using Liberation fonts for radar images instead of tiny fallback fonts.
+- Prevented empty exception strings from failing the weather API processing.
+
 ## [0.23.0] - 2026-06-07
 ### Added
 - Implemented synthetic mock cloud injection for `/devmock storm` and `/devmock rain` to force tracking image generation and test alert workflows even during clear skies.
