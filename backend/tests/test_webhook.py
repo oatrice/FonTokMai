@@ -268,3 +268,49 @@ def test_telegram_webhook_callback_compare_api():
                     text = call_args[2] # 0=chat_id, 1=message_id, 2=text
                     assert "95.0%" in text
                     assert "80.0%" in text
+
+def test_telegram_webhook_all_apis_fail():
+    """
+    Test when WeatherManager.predict_rain raises an exception,
+    the webhook should catch it and send the fallback error message.
+    """
+    with patch("app.routers.webhook.WeatherManager") as mock_wm_cls:
+        mock_wm_instance = mock_wm_cls.return_value
+        mock_wm_instance.predict_rain = AsyncMock(return_value={"endpoint": "error", "error": "All APIs failed"})
+
+        with patch("app.routers.webhook.send_telegram_message_return_id", new_callable=AsyncMock) as mock_loading:
+            mock_loading.return_value = 111
+
+            with patch("app.routers.webhook.edit_telegram_message", new_callable=AsyncMock) as mock_edit:
+                with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
+                    mock_repo = AsyncMock()
+                    mock_repo.get_location.return_value = None
+                    mock_repo.get_mock_state.return_value = None
+
+                    @asynccontextmanager
+                    async def mock_context():
+                        yield mock_repo
+                    mock_get_repo_context.side_effect = mock_context
+
+                    payload = {
+                        "update_id": 12346,
+                        "message": {
+                            "message_id": 10,
+                            "chat": {"id": 9999},
+                            "location": {
+                                "latitude": 17.1664,
+                                "longitude": 104.1486
+                            }
+                        }
+                    }
+
+                    response = client.post("/api/v1/telegram/webhook", json=payload)
+
+                assert response.status_code == 200
+                assert mock_edit.called
+                
+                # Check that the fallback text was sent
+                call_args = mock_edit.call_args[0]
+                text = call_args[2]
+                assert "⚠️ ขออภัย ไม่สามารถเชื่อมต่อกับระบบพยากรณ์ฝนได้ในขณะนี้" in text
+

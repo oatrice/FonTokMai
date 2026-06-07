@@ -101,7 +101,8 @@ def _build_forecast_text(result: dict) -> str:
         wind_dir = result.get("wind_dir_text", "ไม่ทราบ")
         if wind_kmh > 0:
             if "tmd-radar" in actual_endpoint:
-                text += f"🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+                if "ไม่พบฝน" not in result.get("rain_summary", ""):
+                    text += f"🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
             else:
                 text += f"🌬️ สภาพลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
 
@@ -421,7 +422,8 @@ async def handle_callback_query(callback_query: dict):
                             wind_dir = v.get("wind_dir_text", "ไม่ทราบ")
                             if wind_kmh > 0:
                                 if "tmd-radar" in disp_k.lower() or "tmd-radar" in k.lower():
-                                    text += f"  🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+                                    if "ไม่พบฝน" not in rain_summary:
+                                        text += f"  🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
                                 else:
                                     text += f"  🌬️ ลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
                             text += "\n"
@@ -433,7 +435,8 @@ async def handle_callback_query(callback_query: dict):
                             wind_dir = v.get("wind_dir_text", "ไม่ทราบ")
                             if wind_kmh > 0:
                                 if "tmd-radar" in disp_k.lower() or "tmd-radar" in k.lower():
-                                    text += f"  🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+                                    if "ไม่พบฝน" not in v.get("rain_summary", ""):
+                                        text += f"  🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
                                 else:
                                     text += f"  🌬️ ลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
                                 
