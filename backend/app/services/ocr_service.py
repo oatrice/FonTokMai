@@ -17,7 +17,8 @@ except ImportError:
     vision = None
 
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 except ImportError:
     genai = None
 
@@ -29,8 +30,9 @@ class OCRService:
         
         # Initialize Gemini API if key is present and package is installed
         self.gemini_key = os.environ.get("GEMINI_API_KEY")
+        self.gemini_client = None
         if self.gemini_key and genai is not None:
-            genai.configure(api_key=self.gemini_key)
+            self.gemini_client = genai.Client(api_key=self.gemini_key)
             
         self.ocr_space_key = os.environ.get("OCR_SPACE_API_KEY")
 
@@ -72,27 +74,25 @@ class OCRService:
             return None
 
     async def _call_gemini(self, content: bytes) -> Optional[str]:
-        """Call Gemini 1.5 Flash to extract text."""
+        """Call Gemini 2.5 Flash to extract text."""
         if genai is None:
             print("Gemini API package not installed. Skipping.")
             return None
             
-        if not self.gemini_key:
-            print("Gemini API key not found.")
+        if not self.gemini_client:
+            print("Gemini API key not found or client not initialized.")
             return None
             
         try:
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            # Create a dictionary suitable for gemini inputs
-            image_part = {
-                "mime_type": "image/png",
-                "data": content
-            }
             prompt = "Extract all the text you can see in this radar image exactly as it appears. Do not format as markdown. Keep the date and time together on the same line."
             
-            # Since genai sdk is mostly sync, we could run it in an executor or use generate_content_async
-            # Newer SDK supports generate_content_async
-            response = await model.generate_content_async([prompt, image_part])
+            response = await self.gemini_client.aio.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[
+                    prompt,
+                    types.Part.from_bytes(data=content, mime_type="image/png")
+                ]
+            )
             return response.text
         except Exception as e:
             print(f"Gemini Exception: {e}")

@@ -7,7 +7,8 @@ import cv2
 import sys
 from unittest.mock import MagicMock
 sys.modules['google.cloud.vision'] = MagicMock()
-sys.modules['google.generativeai'] = MagicMock()
+sys.modules['google.genai'] = MagicMock()
+sys.modules['google.genai.types'] = MagicMock()
 
 from app.services.ocr_service import OCRService
 

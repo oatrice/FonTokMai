@@ -15,5 +15,5 @@ numpy
 opencv-python-headless
 google-cloud-storage
 google-cloud-vision
-google-generativeai
+google-genai
 Pillow
