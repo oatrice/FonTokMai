@@ -642,8 +642,12 @@ class TMDRadarProcessor:
             font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 16)
             font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
         except:
-            font = ImageFont.load_default()
-            font_small = font
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 16)
+                font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 14)
+            except:
+                font = ImageFont.load_default()
+                font_small = font
             
         baseline_y = 350
         draw.line([(0, baseline_y), (width, baseline_y)], fill=(100, 100, 100, 255), width=2)

@@ -352,7 +352,10 @@ class WeatherManager:
                     try:
                         font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 48)
                     except:
-                        font = ImageFont.load_default()
+                        try:
+                            font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 48)
+                        except:
+                            font = ImageFont.load_default()
                         
                     pil_frames_std = []
                     pil_frames_hq = []
@@ -379,7 +382,10 @@ class WeatherManager:
                             try:
                                 fnt = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(32 * scale_factor))
                             except:
-                                fnt = ImageFont.load_default()
+                                try:
+                                    fnt = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(32 * scale_factor))
+                                except:
+                                    fnt = ImageFont.load_default()
                                 
                             draw = ImageDraw.Draw(img, "RGBA")
                             left, top, right, bottom = draw.textbbox((0, 0), time_str, font=fnt)
