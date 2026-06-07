@@ -3,7 +3,38 @@ load_dotenv()
 import logging
 from datetime import datetime, timezone
 
+import re
+
+class SensitiveDataFilter(logging.Filter):
+    def __init__(self):
+        super().__init__()
+        self.patterns = [
+            (re.compile(r"(apikey=)[^&\s'\"]+", flags=re.IGNORECASE), r"\1***"),
+            (re.compile(r"(client_id=)[^&\s'\"]+", flags=re.IGNORECASE), r"\1***"),
+            (re.compile(r"(client_secret=)[^&\s'\"]+", flags=re.IGNORECASE), r"\1***"),
+            (re.compile(r"(/bot)[^/\s'\"]+", flags=re.IGNORECASE), r"\1***"),
+        ]
+
+    def filter(self, record):
+        try:
+            msg = record.getMessage()
+            for pattern, replacement in self.patterns:
+                msg = pattern.sub(replacement, msg)
+            record.msg = msg
+            record.args = ()
+        except Exception:
+            pass
+        return True
+
 logging.basicConfig(level=logging.INFO)
+
+# Apply filter to handlers
+sensitive_filter = SensitiveDataFilter()
+for handler in logging.root.handlers:
+    handler.addFilter(sensitive_filter)
+
+# Also explicitly add to httpx since it logs the URLs
+logging.getLogger("httpx").addFilter(sensitive_filter)
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
