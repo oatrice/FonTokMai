@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 64,
@@ -40,18 +40,14 @@
         "README.md",
         "VERSION",
         "backend/app/routers/webhook.py",
-        "code_review.md",
+        "docs/ROADMAP.md",
         "docs/features/24_issue-64-63_fix-production-bugs-weather-managers-open-meteo-integra-c0ae700e/manual_verification2.md",
-        "draft_code_review.md",
-        "luma/prompts/prompt_20260607_080822_2175c0d2.md",
-        "luma/prompts/prompt_20260607_080822_3e4de174.md",
-        "luma/prompts/prompt_20260607_080822_3e4de174.md.response.md",
-        "luma/prompts/prompt_20260607_081013_58a9647f.md",
-        "luma/prompts/prompt_20260607_081016_f047d4d0.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/app/routers/webhook.py",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -123,7 +119,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/24",
   "pr_number": null,
-  "last_updated": "2026-06-07T15:10:48.538621"
+  "last_updated": "2026-06-07T15:28:07.787147"
 }
