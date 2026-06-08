@@ -75,3 +75,13 @@ class LocationRepository(ABC):
     async def record_api_query_success(self, endpoint: str) -> None:
         """เพิ่มจำนวน total_queries ให้กับ API ที่ทำผลงานทายว่าฝนตกสำเร็จ"""
         pass
+
+    @abstractmethod
+    async def get_latest_radar_cache(self, station_code: str) -> Optional[dict]:
+        """ดึงข้อมูล Cache ล่าสุดของสถานีเรดาร์ (คืนค่าเป็น dict ที่มี static_url, loop_url, timestamp, created_at)"""
+        pass
+
+    @abstractmethod
+    async def set_latest_radar_cache(self, station_code: str, static_url: str, loop_url: str, timestamp: int) -> None:
+        """บันทึกข้อมูล Cache ล่าสุดของสถานีเรดาร์ลงฐานข้อมูล"""
+        pass

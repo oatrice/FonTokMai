@@ -27,6 +27,14 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #66 - Calculate rain cloud trajectory to improve alert accuracy
+- **GitHub:** [#66](https://gitlab.com/oatricedev/FonMaYang/-/issues/66)
+    - ✅ **Done** (0.25.0)
+
+### Issue #65 - Refactor: Migrate long-running background tasks to Google Cloud Tasks / PubSub
+- **GitHub:** [#65](https://gitlab.com/oatricedev/FonMaYang/-/issues/65)
+- **Status:** 🟢 **Ready**
+
 ### Issue #64 - fix: Production bugs on Weather Managers and Open-Meteo integrations
 - **GitHub:** [#64](https://gitlab.com/oatricedev/FonMaYang/-/issues/64)
     - ✅ **Done** (0.24.0)

@@ -21,6 +21,13 @@ async def check_rain_and_alert():
     """
     logger.info("Starting proactive rain check...")
     
+    # Cache Phase: Fetch and upload TMD Radar frames to Firebase Storage
+    # This prevents the predictor loop from redundantly downloading the same frame.
+    try:
+        await fetch_tmd_radar_routine()
+    except Exception as e:
+        logger.error(f"Error during cache phase: {e}")
+    
     async with get_repo_context() as repo:
         locations = await repo.get_active_locations()
         
@@ -320,23 +327,66 @@ async def check_disasters_infrequent_routine():
             await process_disaster_event(repo, "fire", event)
 
 async def fetch_tmd_radar_routine():
-    """Run frequently (e.g., every 15 mins) to fetch and cache TMD Radar images."""
-    logger.info("Starting TMD Radar fetch routine...")
+    """Run frequently (e.g., every 5 mins) to fetch and cache TMD Radar images to Firebase Storage and Firestore."""
+    logger.info("Starting TMD Radar Cache Phase...")
     from app.services.tmd_radar_processor import TMDRadarProcessor
+    from app.dependencies import get_repo_context
+    import httpx
     
     stations_to_update = ["kkn120", "kkn240", "skn240"]
-    for station in stations_to_update:
-        try:
-            processor = TMDRadarProcessor(station_code=station)
-            latest_bytes = await processor.fetch_latest_image_bytes()
-            if latest_bytes:
-                logger.info(f"Successfully fetched latest radar image for {station} (Size: {len(latest_bytes)} bytes)")
-                saved_filename = await processor.save_polled_frame(latest_bytes)
-                logger.info(f"Saved radar frame to {saved_filename}")
+    
+    async with get_repo_context() as repo:
+        for station in stations_to_update:
+            try:
+                processor = TMDRadarProcessor(station_code=station)
                 
+                # Fetch static image
+                static_bytes = await processor.fetch_latest_image_bytes(use_cache=False)
+                static_path = None
+                if static_bytes:
+                    static_path = await processor.save_polled_frame(static_bytes)
+                    logger.info(f"Cached static image for {station} to {static_path}")
+                
+                # Fetch loop GIF
+                url = getattr(processor.config, 'loop_gif_url', processor.config.static_image_url.replace('_latest.gif', 'Loop.gif').replace('_latest.jpg', 'Loop.gif'))
+                loop_bytes = None
+                loop_path = None
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(url)
+                    if response.status_code == 200:
+                        loop_bytes = response.content
+                        loop_path = await processor.save_polled_frame(loop_bytes)
+                        logger.info(f"Cached loop GIF for {station} to {loop_path}")
+                
+                # We need to extract the timestamp. We'll use the loop GIF frames if available, else static.
+                timestamp = int(datetime.now(timezone.utc).timestamp())
+                if loop_bytes:
+                    from PIL import Image, ImageSequence
+                    import io
+                    import numpy as np
+                    from app.services.ocr_service import OCRService
+                    img = Image.open(io.BytesIO(loop_bytes))
+                    frames = [np.array(frame.copy().convert("RGB")) for frame in ImageSequence.Iterator(img)]
+                    ocr_svc = OCRService()
+                    if frames:
+                        ts = await ocr_svc.get_frame_timestamp(frames[-1], fallback_ts=timestamp)
+                        if ts:
+                            timestamp = ts
+                
+                if static_path or loop_path:
+                    # Save to Firestore
+                    await repo.set_latest_radar_cache(
+                        station_code=station,
+                        static_url=static_path,
+                        loop_url=loop_path,
+                        timestamp=timestamp
+                    )
+                    logger.info(f"Updated Firestore radar_latest_cache for {station} with ts {timestamp}")
+                
+                # Cleanup old frames
                 deleted = await processor.cleanup_old_frames(max_age_hours=3)
                 if deleted > 0:
                     logger.info(f"Cleaned up {deleted} old frames for {station}")
-        except Exception as e:
-            logger.error(f"Failed to fetch TMD radar for {station}: {e}")
+            except Exception as e:
+                logger.error(f"Failed to cache TMD radar for {station}: {e}")
 

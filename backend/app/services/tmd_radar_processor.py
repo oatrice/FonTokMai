@@ -92,49 +92,61 @@ class TMDRadarProcessor:
             
         color_tuple = (r, g, b)
         
-        # Check ignored colors
-        if color_tuple in IGNORED_COLORS:
-            return 0.0
-            
-        # Find nearest color (due to GIF compression artifacts, colors are not exact)
-        min_dist = float('inf')
+        import math
+        
+        # Check ignored colors first (distance)
+        min_dist_ignored = float('inf')
+        for ic in IGNORED_COLORS:
+            dist = math.sqrt((r - ic[0])**2 + (g - ic[1])**2 + (b - ic[2])**2)
+            if dist < min_dist_ignored:
+                min_dist_ignored = dist
+        
+        # Find nearest dBZ color
+        min_dist_dbz = float('inf')
         best_dbz = 0.0
         
-        import math
         for known_color, dbz in DBZ_COLOR_MAPPING.items():
             dist = math.sqrt((r - known_color[0])**2 + (g - known_color[1])**2 + (b - known_color[2])**2)
-            if dist < min_dist:
-                min_dist = dist
+            if dist < min_dist_dbz:
+                min_dist_dbz = dist
                 best_dbz = dbz
                 
-        # Tighter threshold (80) reduces false positives from map features (rivers, terrain)
-        if min_dist < 80:
+        # If it's mathematically closer to a background color, it's noise
+        if min_dist_ignored <= min_dist_dbz:
+            return 0.0
+            
+        # Tighter threshold (40) reduces false positives from map features
+        if min_dist_dbz < 40:
             return best_dbz
             
         return 0.0
-
     def extract_rain_mask(self, img: np.ndarray) -> np.ndarray:
         """Converts an RGB radar frame into a grayscale mask representing rain intensity."""
         img_float = img.astype(np.float32)
         
-        min_dists = np.full(img.shape[:2], 90.0, dtype=np.float32)
+        min_dists = np.full(img.shape[:2], 40.0, dtype=np.float32)
         best_intensity = np.zeros(img.shape[:2], dtype=np.uint8)
         
+        # Calculate min distance to any ignored color
+        ignored_min_dists = np.full(img.shape[:2], float('inf'), dtype=np.float32)
+        for ic in IGNORED_COLORS:
+            ic_arr = np.array(ic, dtype=np.float32)
+            dist = np.sqrt(np.sum((img_float - ic_arr)**2, axis=-1))
+            better_mask = dist < ignored_min_dists
+            ignored_min_dists[better_mask] = dist[better_mask]
+            
         for color, dbz in DBZ_COLOR_MAPPING.items():
             c_arr = np.array(color, dtype=np.float32)
             dist = np.sqrt(np.sum((img_float - c_arr)**2, axis=-1))
             
-            better_mask = dist < min_dists
+            # Must be closer to this dBZ color than to ANY ignored color
+            valid_mask = dist < ignored_min_dists
+            
+            better_mask = (dist < min_dists) & valid_mask
             min_dists[better_mask] = dist[better_mask]
             
             intensity = int(min(255, max(50, dbz * 4)))
             best_intensity[better_mask] = intensity
-            
-        # Ignore exact IGNORED_COLORS
-        for ignored_color in IGNORED_COLORS:
-            ic_arr = np.array(ignored_color, dtype=np.float32)
-            exact_match = np.all(img_float == ic_arr, axis=-1)
-            best_intensity[exact_match] = 0
             
         # Apply a small median blur to remove single-pixel noise which confuses optical flow
         mask = cv2.medianBlur(best_intensity, 3)
@@ -394,6 +406,7 @@ class TMDRadarProcessor:
         search_radius: int = 80,
         min_dbz: float = 20.0,
         cluster_dist: int = 20,
+        hit_radius: int = 20,
     ) -> list:
         """
         Scans all rain pixels within search_radius of (user_x, user_y).
@@ -435,7 +448,16 @@ class TMDRadarProcessor:
                     continue
                 dot = (cvx * to_x + cvy * to_y) / dist
                 # Only keep pixels whose flow APPROACHES the user (dot > 0)
-                if dot < 0.1:
+                if dot <= 0:
+                    continue
+                
+                v_mag = math.sqrt(cvx ** 2 + cvy ** 2)
+                if v_mag < 0.1:
+                    continue # Not moving enough to predict
+                    
+                # Perpendicular distance (Cross Track Error)
+                perp_dist = abs(to_x * cvy - to_y * cvx) / v_mag
+                if perp_dist > hit_radius:
                     continue
                 # Previous DBZ at the backward-traced position
                 prev_x = int(round(sx - cvx))
@@ -464,6 +486,9 @@ class TMDRadarProcessor:
                             group.append(c2)
                             used[j] = True
                             queue.append(c2)
+
+            if len(group) < 3:
+                continue
 
             total_w = sum(g[4] for g in group)
             cx = int(sum(g[0] * g[4] for g in group) / total_w)
@@ -753,9 +778,38 @@ class TMDRadarProcessor:
         growth_pct = ((curr_dbz - past_dbz) / past_dbz) * 100.0
         return max(-100.0, min(100.0, growth_pct))
 
-    async def fetch_latest_image_bytes(self) -> Optional[bytes]:
+    async def fetch_latest_image_bytes(self, use_cache: bool = True) -> Optional[bytes]:
         """Fetches the latest static radar image (Polling method)."""
         import httpx
+        import time
+        from datetime import datetime, timezone
+        
+        if use_cache:
+            try:
+                from app.dependencies import get_repo_context
+                async with get_repo_context() as repo:
+                    cache = await repo.get_latest_radar_cache(self.station_code)
+                    if cache and cache.get("static_url"):
+                        created_at = cache["created_at"]
+                        if created_at.tzinfo is not None:
+                            created_at = created_at.replace(tzinfo=None)
+                        age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
+                        if age_secs < 900: # 15 minutes max age
+                            from google.cloud import storage
+                            import os
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                            client = storage.Client()
+                            bucket = client.bucket(bucket_name)
+                            blob = bucket.blob(cache["static_url"])
+                            # Blocking call, but since we're in async, it's a minor block for memory download
+                            data = blob.download_as_bytes()
+                            logger.info(f"Successfully loaded static_url {cache['static_url']} from Firebase Storage Cache")
+                            return data
+            except Exception as e:
+                print(f"Error reading static image from cache: {e}")
+                
         url = self.config.static_image_url
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -766,71 +820,101 @@ class TMDRadarProcessor:
             pass
         return None
 
-    async def fetch_loop_gif_and_extract_frames(self) -> Tuple[List[np.ndarray], Optional['datetime']]:
+    async def fetch_loop_gif_and_extract_frames(self, use_cache: bool = True) -> Tuple[List[np.ndarray], Optional['datetime']]:
         """Fetches the Loop.gif and extracts frames and the Last-Modified datetime."""
         import httpx
         from PIL import Image, ImageSequence
         import io
         from datetime import datetime, timezone
         
-        url = getattr(self.config, 'loop_gif_url', self.config.static_image_url.replace('_latest.gif', 'Loop.gif').replace('_latest.jpg', 'Loop.gif'))
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(url)
-                if response.status_code == 200:
-                    last_modified = response.headers.get("last-modified")
-                    dt = None
-                    
-                    # Try to fetch exact time from the HTML og:image first (more accurate than Last-Modified)
-                    try:
-                        php_url = f"https://weather.tmd.go.th/{self.station_code[:3]}.php"
-                        php_resp = await client.get(php_url)
-                        if php_resp.status_code == 200:
-                            import re
-                            from zoneinfo import ZoneInfo
-                            match = re.search(r'v=(\d{6})_(\d{4})', php_resp.text)
-                            if match:
-                                date_str = match.group(1)
-                                time_str = match.group(2)
-                                year = int('20' + date_str[0:2])
-                                month = int(date_str[2:4])
-                                day = int(date_str[4:6])
-                                hour = int(time_str[0:2])
-                                minute = int(time_str[2:4])
-                                bkk_tz = ZoneInfo('Asia/Bangkok')
-                                dt_bkk = datetime(year, month, day, hour, minute, tzinfo=bkk_tz)
-                                dt = dt_bkk.astimezone(timezone.utc)
-                    except Exception as e:
-                        print(f"Error fetching exact timestamp from HTML: {e}")
+        loop_bytes = None
+        dt = None
+        
+        if use_cache:
+            try:
+                from app.dependencies import get_repo_context
+                async with get_repo_context() as repo:
+                    cache = await repo.get_latest_radar_cache(self.station_code)
+                    if cache and cache.get("loop_url"):
+                        created_at = cache["created_at"]
+                        if created_at.tzinfo is not None:
+                            created_at = created_at.replace(tzinfo=None)
+                        age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
+                        if age_secs < 900: # 15 mins
+                            from google.cloud import storage
+                            import os
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                            client = storage.Client()
+                            bucket = client.bucket(bucket_name)
+                            blob = bucket.blob(cache["loop_url"])
+                            loop_bytes = blob.download_as_bytes()
+                            dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
+                            logger.info(f"Successfully loaded loop_url {cache['loop_url']} from Firebase Storage Cache")
+            except Exception as e:
+                print(f"Error reading loop gif from cache: {e}")
+                
+        if not loop_bytes:
+            url = getattr(self.config, 'loop_gif_url', self.config.static_image_url.replace('_latest.gif', 'Loop.gif').replace('_latest.jpg', 'Loop.gif'))
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(url)
+                    if response.status_code == 200:
+                        loop_bytes = response.content
+                        last_modified = response.headers.get("last-modified")
                         
-                    if dt is None and last_modified:
                         try:
-                            # format: Sat, 06 Jun 2026 09:35:43 GMT
-                            dt = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
+                            php_url = f"https://weather.tmd.go.th/{self.station_code[:3]}.php"
+                            php_resp = await client.get(php_url)
+                            if php_resp.status_code == 200:
+                                import re
+                                from zoneinfo import ZoneInfo
+                                match = re.search(r'v=(\d{6})_(\d{4})', php_resp.text)
+                                if match:
+                                    date_str = match.group(1)
+                                    time_str = match.group(2)
+                                    year = int('20' + date_str[0:2])
+                                    month = int(date_str[2:4])
+                                    day = int(date_str[4:6])
+                                    hour = int(time_str[0:2])
+                                    minute = int(time_str[2:4])
+                                    bkk_tz = ZoneInfo('Asia/Bangkok')
+                                    dt_bkk = datetime(year, month, day, hour, minute, tzinfo=bkk_tz)
+                                    dt = dt_bkk.astimezone(timezone.utc)
                         except Exception as e:
-                            print(f"Error parsing date: {e}")
+                            print(f"Error fetching exact timestamp from HTML: {e}")
                             
-                    img = Image.open(io.BytesIO(response.content))
-                    frames = []
-                    # PIL handles GIF frame disposal properly (coalescing delta frames)
-                    for frame in ImageSequence.Iterator(img):
-                        frames.append(np.array(frame.copy().convert("RGB")))
-                        
-                    try:
-                        from app.services.ocr_service import OCRService
-                        ocr_svc = OCRService()
-                        if len(frames) > 0:
-                            import time
-                            fallback_ts = int(dt.timestamp()) if dt else int(time.time())
-                            ts = await ocr_svc.get_frame_timestamp(frames[-1], fallback_ts=fallback_ts)
-                            if ts is not None:
-                                dt = datetime.fromtimestamp(ts, timezone.utc)
-                    except Exception as e:
-                        print(f"Error in OCR: {e}")
+                        if dt is None and last_modified:
+                            try:
+                                dt = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
+                            except Exception as e:
+                                print(f"Error parsing date: {e}")
+            except Exception as e:
+                print(f"Error fetching loop gif: {e}")
+                
+        if loop_bytes:
+            try:
+                img = Image.open(io.BytesIO(loop_bytes))
+                frames = []
+                for frame in ImageSequence.Iterator(img):
+                    frames.append(np.array(frame.copy().convert("RGB")))
+                    
+                try:
+                    from app.services.ocr_service import OCRService
+                    ocr_svc = OCRService()
+                    if len(frames) > 0:
+                        import time
+                        fallback_ts = int(dt.timestamp()) if dt else int(time.time())
+                        ts = await ocr_svc.get_frame_timestamp(frames[-1], fallback_ts=fallback_ts)
+                        if ts is not None:
+                            dt = datetime.fromtimestamp(ts, timezone.utc)
+                except Exception as e:
+                    print(f"Error in OCR: {e}")
 
-                    return frames, dt
-        except Exception as e:
-            print(f"Error fetching loop gif: {e}")
+                return frames, dt
+            except Exception as e:
+                print(f"Error processing loop gif: {e}")
         return [], None
 
     async def fetch_loop_history_bytes(self) -> List[bytes]:
