@@ -45,7 +45,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #62 - Export Google Cloud Run dashboard metrics for analysis
 - **GitHub:** [#62](https://gitlab.com/oatricedev/FonMaYang/-/issues/62)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.26.0)
 
 ### Issue #61 - Feature: Digitize and Re-render Radar Images for Higher Sharpness
 - **GitHub:** [#61](https://gitlab.com/oatricedev/FonMaYang/-/issues/61)

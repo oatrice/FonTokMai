@@ -171,7 +171,10 @@ async def test_scheduler_mock_state_injection():
             }
             
             with patch("app.scheduler_tasks.send_telegram_message") as mock_send:
-                await check_rain_and_alert()
-                # Should pass mock_state="rain" to predict_rain
-                mock_svc.predict_rain.assert_called_with(10.0, 20.0, mock_state="rain")
-                mock_send.assert_called()
+                with patch("app.scheduler_tasks.fetch_tmd_radar_routine", new_callable=AsyncMock) as mock_fetch:
+                    with patch("app.scheduler_tasks.MetricsService") as mock_metrics_cls:
+                        mock_metrics_cls.return_value = AsyncMock()
+                        await check_rain_and_alert()
+                        # Should pass mock_state="rain" to predict_rain
+                        mock_svc.predict_rain.assert_called_with(10.0, 20.0, mock_state="rain")
+                        mock_send.assert_called()

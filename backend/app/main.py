@@ -38,7 +38,7 @@ logging.getLogger("httpx").addFilter(sensitive_filter)
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
-from app.routers import weather, webhook
+from app.routers import weather, webhook, metrics
 
 from contextlib import asynccontextmanager
 from app.database import engine, Base
@@ -78,11 +78,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-from app.routers import weather, webhook, scheduler
+from app.routers import weather, webhook, scheduler, metrics
 
 app.include_router(weather.router)
 app.include_router(webhook.router)
 app.include_router(scheduler.router)
+app.include_router(metrics.router)
 
 
 @app.get("/", include_in_schema=False)

@@ -294,3 +294,62 @@ class FirestoreLocationRepository(LocationRepository):
             "timestamp": timestamp,
             "created_at": datetime.now(timezone.utc)
         })
+
+    async def record_cron_run(
+        self,
+        routine_name: str,
+        run_at,
+        duration_s: float,
+        alerts_sent: int = 0,
+        locations_checked: int = 0,
+        errors: int = 0,
+        extra_data: Optional[dict] = None,
+    ) -> None:
+        doc_ref = self.db.collection('cron_metrics').document()
+        await doc_ref.set({
+            "routine_name": routine_name,
+            "run_at": run_at if run_at else datetime.now(timezone.utc),
+            "duration_s": duration_s,
+            "alerts_sent": alerts_sent,
+            "locations_checked": locations_checked,
+            "errors": errors,
+            "extra_data": extra_data
+        })
+
+    async def get_cron_metrics(
+        self,
+        days: int = 7,
+        routine_name: Optional[str] = None,
+    ) -> list[dict]:
+        from datetime import timedelta
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        
+        query = self.db.collection('cron_metrics').where("run_at", ">=", cutoff_date)
+        if routine_name:
+            query = query.where("routine_name", "==", routine_name)
+            
+        # Note: Firestore might require an index for order_by with multiple fields/where clauses.
+        # To avoid index errors during deployment, we'll sort in python since volume isn't huge.
+        docs = []
+        async for doc in query.stream():
+            docs.append(doc.to_dict())
+            
+        docs.sort(key=lambda x: x.get("run_at", datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
+        
+        metrics = []
+        for d in docs:
+            run_dt = d.get("run_at")
+            if run_dt and getattr(run_dt, "tzinfo", None) is None:
+                run_dt = run_dt.replace(tzinfo=timezone.utc)
+                
+            metrics.append({
+                "routine_name": d.get("routine_name"),
+                "run_at": run_dt,
+                "duration_s": d.get("duration_s", 0.0),
+                "alerts_sent": d.get("alerts_sent", 0),
+                "locations_checked": d.get("locations_checked", 0),
+                "errors": d.get("errors", 0),
+                "extra_data": d.get("extra_data")
+            })
+            
+        return metrics

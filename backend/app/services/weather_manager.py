@@ -276,8 +276,17 @@ class WeatherManager:
                 elif mock_state == "clear":
                     clouds = []
 
+                from datetime import datetime, timedelta, timezone
+                if last_modified_dt:
+                    now_utc = last_modified_dt
+                else:
+                    now_utc = datetime.now(timezone.utc)
+                
+                current_utc = datetime.now(timezone.utc)
+                time_offset_min = (current_utc - now_utc).total_seconds() / 60.0
+
                 # Generate smart summary text
-                summary_line = processor.render_rain_summary(clouds, confidence_cutoff_min=90)
+                summary_line = processor.render_rain_summary(clouds, confidence_cutoff_min=90, time_offset_min=time_offset_min)
 
                 # Build predictions array (keep legacy format for downstream consumers)
                 def dbz_to_intensity(d: float) -> str:
@@ -286,12 +295,6 @@ class WeatherManager:
                     if d >= 20: return "ฝนตกปานกลาง"
                     if d > 0:   return "ฝนตกเล็กน้อย"
                     return "ไม่มีฝน"
-
-                from datetime import datetime, timedelta, timezone
-                if last_modified_dt:
-                    now_utc = last_modified_dt
-                else:
-                    now_utc = datetime.now(timezone.utc)
 
                 # Use closest approaching cloud for step-by-step predictions
                 if clouds:

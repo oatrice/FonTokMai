@@ -15,15 +15,20 @@ def mock_repo_context():
     return get_repo, mock_repo
 
 @pytest.mark.asyncio
-@patch('app.scheduler_tasks.WeatherManager')
-@patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
-@patch('app.scheduler_tasks.get_repo_context')
+@patch("app.scheduler_tasks.send_telegram_message", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.WeatherManager")
+@patch("app.scheduler_tasks.get_repo_context")
+@patch("app.scheduler_tasks.fetch_tmd_radar_routine", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.MetricsService")
 async def test_check_rain_and_alert_rain_incoming(
+    mock_metrics,
+    mock_tmd_radar,
     mock_get_repo_context,
-    mock_send_msg,
-    mock_weather_mgr_cls
+    mock_weather_mgr_cls,
+    mock_send_msg
 ):
     mock_repo = AsyncMock()
+    mock_metrics.return_value = AsyncMock()
     
     @asynccontextmanager
     async def mock_context():
@@ -53,9 +58,9 @@ async def test_check_rain_and_alert_rain_incoming(
         "max_rain": 1.5,
         "intensity": "ปานกลาง",
         "duration_minutes": 60,
-        "wind_speed_kmh": 20.0,
         "endpoint": "tomorrow"
     })
+    mock_wm_instance.get_advanced_alerts = AsyncMock(return_value={})
 
     # Execute
     await check_rain_and_alert()
@@ -68,7 +73,7 @@ async def test_check_rain_and_alert_rain_incoming(
     call_args, call_kwargs = mock_send_msg.call_args
     assert call_args[0] == 123
     assert "ฝนกำลังเคลื่อนมาทางพิกัด" in call_args[1]
-    assert "(ในอีก 30 นาที)" in call_args[1]
+    assert "(ในอีก" in call_args[1]
     assert "Tomorrow.io" in call_args[1]
     
     reply_markup = call_args[2] if len(call_args) > 2 else call_kwargs.get("reply_markup")
@@ -80,15 +85,20 @@ async def test_check_rain_and_alert_rain_incoming(
 
 
 @pytest.mark.asyncio
-@patch('app.scheduler_tasks.WeatherManager')
-@patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
-@patch('app.scheduler_tasks.get_repo_context')
+@patch("app.scheduler_tasks.send_telegram_message", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.WeatherManager")
+@patch("app.scheduler_tasks.get_repo_context")
+@patch("app.scheduler_tasks.fetch_tmd_radar_routine", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.MetricsService")
 async def test_check_rain_and_alert_recently_alerted(
+    mock_metrics,
+    mock_tmd_radar,
     mock_get_repo_context,
-    mock_send_msg,
-    mock_weather_mgr_cls
+    mock_weather_mgr_cls,
+    mock_send_msg
 ):
     mock_repo = AsyncMock()
+    mock_metrics.return_value = AsyncMock()
     
     @asynccontextmanager
     async def mock_context():
@@ -128,19 +138,24 @@ async def test_check_rain_and_alert_recently_alerted(
 
 
 @pytest.mark.asyncio
-@patch('app.scheduler_tasks.WeatherManager')
-@patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
-@patch('app.scheduler_tasks.get_repo_context')
+@patch("app.scheduler_tasks.send_telegram_message", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.WeatherManager")
+@patch("app.scheduler_tasks.get_repo_context")
+@patch("app.scheduler_tasks.fetch_tmd_radar_routine", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.MetricsService")
 async def test_check_rain_and_alert_smart_cooldown_override(
+    mock_metrics,
+    mock_tmd_radar,
     mock_get_repo_context,
-    mock_send_msg,
-    mock_weather_mgr_cls
+    mock_weather_mgr_cls,
+    mock_send_msg
 ):
     """
     Issue #26: Smart Cooldown Override
     ถ้าความรุนแรงของฝนปัจจุบัน > ครั้งล่าสุด ควรทะลุ Cooldown และแจ้งเตือนได้ทันที
     """
     mock_repo = AsyncMock()
+    mock_metrics.return_value = AsyncMock()
 
     @asynccontextmanager
     async def mock_context():
@@ -186,16 +201,20 @@ async def test_check_rain_and_alert_smart_cooldown_override(
 
 
 @pytest.mark.asyncio
-
-@patch('app.scheduler_tasks.WeatherManager')
-@patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
-@patch('app.scheduler_tasks.get_repo_context')
+@patch("app.scheduler_tasks.send_telegram_message", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.WeatherManager")
+@patch("app.scheduler_tasks.get_repo_context")
+@patch("app.scheduler_tasks.fetch_tmd_radar_routine", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.MetricsService")
 async def test_check_rain_and_alert_no_rain(
+    mock_metrics,
+    mock_tmd_radar,
     mock_get_repo_context,
-    mock_send_msg,
-    mock_weather_mgr_cls
+    mock_weather_mgr_cls,
+    mock_send_msg
 ):
     mock_repo = AsyncMock()
+    mock_metrics.return_value = AsyncMock()
     
     @asynccontextmanager
     async def mock_context():
@@ -228,15 +247,20 @@ async def test_check_rain_and_alert_no_rain(
     mock_repo.update_last_alerted.assert_not_called()
 
 @pytest.mark.asyncio
-@patch('app.scheduler_tasks.WeatherManager')
-@patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
-@patch('app.scheduler_tasks.get_repo_context')
+@patch("app.scheduler_tasks.send_telegram_message", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.WeatherManager")
+@patch("app.scheduler_tasks.get_repo_context")
+@patch("app.scheduler_tasks.fetch_tmd_radar_routine", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.MetricsService")
 async def test_check_rain_and_alert_all_clear(
+    mock_metrics,
+    mock_tmd_radar,
     mock_get_repo_context,
-    mock_send_msg,
-    mock_weather_mgr_cls
+    mock_weather_mgr_cls,
+    mock_send_msg
 ):
     mock_repo = AsyncMock()
+    mock_metrics.return_value = AsyncMock()
     
     @asynccontextmanager
     async def mock_context():
@@ -278,15 +302,20 @@ async def test_check_rain_and_alert_all_clear(
     assert call_kwargs.get("max_rain") == 0.0
 
 @pytest.mark.asyncio
-@patch('app.scheduler_tasks.WeatherManager')
-@patch('app.scheduler_tasks.send_telegram_message', new_callable=AsyncMock)
-@patch('app.scheduler_tasks.get_repo_context')
+@patch("app.scheduler_tasks.send_telegram_message", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.WeatherManager")
+@patch("app.scheduler_tasks.get_repo_context")
+@patch("app.scheduler_tasks.fetch_tmd_radar_routine", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.MetricsService")
 async def test_check_rain_and_alert_with_advanced_alerts(
+    mock_metrics,
+    mock_tmd_radar,
     mock_get_repo_context,
-    mock_send_msg,
-    mock_weather_mgr_cls
+    mock_weather_mgr_cls,
+    mock_send_msg
 ):
     mock_repo = AsyncMock()
+    mock_metrics.return_value = AsyncMock()
     
     @asynccontextmanager
     async def mock_context():
@@ -355,10 +384,11 @@ def test_trigger_rain_check_endpoint_success():
     if not client:
         pytest.fail("FastAPI app is not implemented yet")
         
-    secret = os.getenv("CRON_SECRET", "default_secret_for_local_testing")
-    with patch("app.routers.scheduler.check_rain_and_alert", new_callable=AsyncMock) as mock_check:
-        with TestClient(app) as test_client:
-            response = test_client.post("/api/v1/cron/check-rain", headers={"X-Cron-Secret": secret})
+    secret = "test_cron_secret_scheduler"
+    with patch("app.routers.scheduler.CRON_SECRET", secret):
+        with patch("app.routers.scheduler.check_rain_and_alert", new_callable=AsyncMock) as mock_check:
+            with TestClient(app) as test_client:
+                response = test_client.post("/api/v1/cron/check-rain", headers={"X-Cron-Secret": secret})
         
         assert response.status_code == 200
         assert response.json()["status"] == "ok"

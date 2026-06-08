@@ -527,7 +527,7 @@ class TMDRadarProcessor:
         return clusters
 
     @staticmethod
-    def render_rain_summary(clouds: list, confidence_cutoff_min: int = 90) -> str:
+    def render_rain_summary(clouds: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0) -> str:
         """
         Generates a smart, non-redundant rain summary line for Telegram.
 
@@ -536,7 +536,9 @@ class TMDRadarProcessor:
         - If a stronger cloud follows: shows two distinct lines.
         """
         def fmt_eta(minutes: float) -> str:
-            m = int(round(minutes))
+            m = int(round(minutes - time_offset_min))
+            if m < 0:
+                m = 0
             if m < 60:
                 return f"~{m}m"
             h = m // 60

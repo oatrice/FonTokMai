@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime
+from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime, Text
 from app.database import Base
 
 class UserLocation(Base):
@@ -60,3 +60,15 @@ class RadarLatestCache(Base):
     loop_url = Column(String, nullable=True)
     timestamp = Column(Integer, nullable=False)
     created_at = Column(DateTime, nullable=False)
+
+class CronRunLog(Base):
+    __tablename__ = "cron_run_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    routine_name = Column(String, index=True, nullable=False)  # e.g. 'check_rain', 'fetch_tmd_radar'
+    run_at = Column(DateTime, nullable=False)                   # UTC timestamp
+    duration_s = Column(Float, nullable=False)                  # seconds
+    alerts_sent = Column(Integer, default=0, nullable=False)
+    locations_checked = Column(Integer, default=0, nullable=False)
+    errors = Column(Integer, default=0, nullable=False)
+    extra_data = Column(Text, nullable=True)                    # JSON string for extra fields

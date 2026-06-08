@@ -85,3 +85,26 @@ class LocationRepository(ABC):
     async def set_latest_radar_cache(self, station_code: str, static_url: str, loop_url: str, timestamp: int) -> None:
         """บันทึกข้อมูล Cache ล่าสุดของสถานีเรดาร์ลงฐานข้อมูล"""
         pass
+
+    @abstractmethod
+    async def record_cron_run(
+        self,
+        routine_name: str,
+        run_at,
+        duration_s: float,
+        alerts_sent: int = 0,
+        locations_checked: int = 0,
+        errors: int = 0,
+        extra_data: Optional[dict] = None,
+    ) -> None:
+        """บันทึก metrics ของ cron routine run หนึ่งครั้ง"""
+        pass
+
+    @abstractmethod
+    async def get_cron_metrics(
+        self,
+        days: int = 7,
+        routine_name: Optional[str] = None,
+    ) -> list[dict]:
+        """ดึงรายการ cron run logs ย้อนหลัง N วัน คืนค่าเป็น list of dict"""
+        pass
