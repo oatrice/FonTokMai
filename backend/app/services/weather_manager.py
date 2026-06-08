@@ -309,14 +309,30 @@ class WeatherManager:
 
                 predictions = []
                 max_dbz = 0.0
+                current_dbz = processor.get_dbz_at_pixel(curr_frame, px, py)
+                
                 for steps in range(5):
-                    dbz = processor.extrapolate_rain_at_pixel(curr_frame, flow, px, py, steps, rate=rate)
+                    offset_min = steps * 15
+                    
+                    if steps == 0:
+                        dbz = current_dbz
+                    else:
+                        dbz = 0.0
+                        window_min = offset_min - 7.5
+                        window_max = offset_min + 7.5
+                        for c in clouds:
+                            if window_min <= c["eta_min"] < window_max:
+                                if c["predicted_dbz"] > dbz:
+                                    dbz = c["predicted_dbz"]
+                                    
                     if mock_state == "rain":
                         dbz = max(dbz, 40.0)
                     elif mock_state == "clear":
                         dbz = 0.0
+                        
                     if dbz > max_dbz:
                         max_dbz = dbz
+                    
                     pred_time  = now_utc + timedelta(minutes=steps * 15)
                     z_value    = 10 ** (dbz / 10.0)
                     rain_mmhr  = (z_value / 200.0) ** (1.0 / 1.6) if dbz > 0 else 0.0

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 66,
@@ -43,8 +43,6 @@
         "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/manual_verification.md",
         "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/task.md",
         "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/walkthrough.md",
-        "luma/prompts/prompt_20260608_031626_114aded3.md",
-        "luma/prompts/prompt_20260608_031632_c14cae94.md",
         "luma_metrics.json",
         "luma_state.json",
         "test_cache_system.py",
@@ -134,7 +132,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/25",
   "pr_number": null,
-  "last_updated": "2026-06-08T10:17:06.833926"
+  "last_updated": "2026-06-08T10:44:24.857769"
 }
