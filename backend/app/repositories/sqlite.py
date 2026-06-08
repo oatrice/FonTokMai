@@ -266,3 +266,68 @@ class SQLiteLocationRepository(LocationRepository):
             self.session.add(cache)
             
         await self.session.commit()
+
+    async def record_cron_run(
+        self,
+        routine_name: str,
+        run_at,
+        duration_s: float,
+        alerts_sent: int = 0,
+        locations_checked: int = 0,
+        errors: int = 0,
+        extra_data: Optional[dict] = None,
+    ) -> None:
+        import json
+        from app.models import CronRunLog
+        
+        log_entry = CronRunLog(
+            routine_name=routine_name,
+            run_at=run_at.replace(tzinfo=None) if run_at else datetime.now(timezone.utc).replace(tzinfo=None),
+            duration_s=duration_s,
+            alerts_sent=alerts_sent,
+            locations_checked=locations_checked,
+            errors=errors,
+            extra_data=json.dumps(extra_data) if extra_data else None
+        )
+        self.session.add(log_entry)
+        await self.session.commit()
+
+    async def get_cron_metrics(
+        self,
+        days: int = 7,
+        routine_name: Optional[str] = None,
+    ) -> list[dict]:
+        from app.models import CronRunLog
+        import json
+        
+        cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+        
+        conditions = [CronRunLog.run_at >= cutoff_date]
+        if routine_name:
+            conditions.append(CronRunLog.routine_name == routine_name)
+            
+        result = await self.session.execute(
+            select(CronRunLog).where(*conditions).order_by(CronRunLog.run_at.desc())
+        )
+        logs = result.scalars().all()
+        
+        metrics = []
+        for log in logs:
+            extra = None
+            if log.extra_data:
+                try:
+                    extra = json.loads(log.extra_data)
+                except Exception:
+                    pass
+                    
+            metrics.append({
+                "routine_name": log.routine_name,
+                "run_at": log.run_at.replace(tzinfo=timezone.utc),
+                "duration_s": log.duration_s,
+                "alerts_sent": log.alerts_sent,
+                "locations_checked": log.locations_checked,
+                "errors": log.errors,
+                "extra_data": extra
+            })
+            
+        return metrics

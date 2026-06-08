@@ -1,9 +1,11 @@
 import os
+import time
 import logging
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from app.dependencies import get_repo_context
 from app.services.weather_manager import WeatherManager
+from app.services.metrics_service import MetricsService
 from app.services.telegram import send_telegram_message, send_telegram_document, send_telegram_photo, get_radar_inline_keyboard, DEVELOPER_CHAT_IDS
 
 logger = logging.getLogger(__name__)
@@ -20,6 +22,10 @@ async def check_rain_and_alert():
     Background job to check rain for all active locations and alert users.
     """
     logger.info("Starting proactive rain check...")
+    start_time = time.time()
+    alerts_sent = 0
+    locations_checked = 0
+    errors = 0
     
     # Cache Phase: Fetch and upload TMD Radar frames to Firebase Storage
     # This prevents the predictor loop from redundantly downloading the same frame.
@@ -291,9 +297,26 @@ async def check_rain_and_alert():
                             await send_telegram_message(loc.chat_id, adv_text)
                     except Exception as e:
                         logger.error(f"Failed to process advanced alerts for {loc.chat_id}: {e}")
+                        errors += 1
                     
+                    alerts_sent += 1
             except Exception as e:
                 logger.error(f"Failed to check rain for chat_id {loc.chat_id}: {e}")
+                errors += 1
+                
+        # Record Metrics
+        duration_s = time.time() - start_time
+        try:
+            metrics_svc = MetricsService(repo)
+            await metrics_svc.record_cron_run(
+                routine_name="check_rain",
+                duration_s=duration_s,
+                alerts_sent=alerts_sent,
+                locations_checked=locations_checked,
+                errors=errors
+            )
+        except Exception as e:
+            logger.error(f"Failed to save metrics for check_rain: {e}")
 
 async def check_disasters_frequent_routine():
     """Run frequently (e.g., every 1 min) for USGS Earthquakes."""
@@ -329,8 +352,14 @@ async def check_disasters_infrequent_routine():
 async def fetch_tmd_radar_routine():
     """Run frequently (e.g., every 5 mins) to fetch and cache TMD Radar images to Firebase Storage and Firestore."""
     logger.info("Starting TMD Radar Cache Phase...")
+    import time
+    start_time = time.time()
+    errors = 0
+    stations_updated = 0
+    
     from app.services.tmd_radar_processor import TMDRadarProcessor
     from app.dependencies import get_repo_context
+    from app.services.metrics_service import MetricsService
     import httpx
     
     stations_to_update = ["kkn120", "kkn240", "skn240"]
@@ -387,6 +416,22 @@ async def fetch_tmd_radar_routine():
                 deleted = await processor.cleanup_old_frames(max_age_hours=3)
                 if deleted > 0:
                     logger.info(f"Cleaned up {deleted} old frames for {station}")
+                
+                stations_updated += 1
             except Exception as e:
                 logger.error(f"Failed to cache TMD radar for {station}: {e}")
+                errors += 1
+                
+        # Record Metrics
+        duration_s = time.time() - start_time
+        try:
+            metrics_svc = MetricsService(repo)
+            await metrics_svc.record_cron_run(
+                routine_name="fetch_tmd_radar",
+                duration_s=duration_s,
+                errors=errors,
+                extra_data={"stations_updated": stations_updated}
+            )
+        except Exception as e:
+            logger.error(f"Failed to save metrics for fetch_tmd_radar: {e}")
 

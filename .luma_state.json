@@ -1,66 +1,35 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 66,
-      "title": "Calculate rain cloud trajectory to improve alert accuracy",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/66",
+      "number": 62,
+      "title": "Export Google Cloud Run dashboard metrics for analysis",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/62",
       "body": null,
-      "project_item_id": "GLAB_66",
+      "project_item_id": "GLAB_62",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/66-calculate-rain-cloud-trajector",
-  "started_at": "2026-06-07T20:25:01.249082",
+  "active_branch": "feat/62-export-google-cloud-run-dashbo",
+  "started_at": "2026-06-08T10:54:02.599784",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/scheduler.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/tmd_radar_config.py",
-        "backend/app/services/tmd_radar_processor.py",
-        "docs/ROADMAP.md",
-        "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/implementation_plan.md",
-        "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/manual_verification.md",
-        "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/task.md",
-        "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/walkthrough.md",
-        "luma_metrics.json",
-        "luma_state.json",
-        "test_cache_system.py",
-        "test_check_rain.py",
-        "test_custom_image.py",
-        "test_fetch_routine.py",
-        "test_radar_all_clouds.py"
+        "VERSION"
+      ],
+      "changed_files": [
+        "luma/prompts/prompt_20260608_035355_bc2fe42a.md",
+        "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/scheduler.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/tmd_radar_config.py",
-        "backend/app/services/tmd_radar_processor.py",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -128,11 +97,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2"
+    "last_feature_dir": "/Users/oatrice/Software-projects/FonMaYang/docs/features/26_issue-62_export-google-cloud-run-dashboard-metrics-analysis-3644e176"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/25",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-08T10:44:24.857769"
+  "last_updated": "2026-06-08T10:54:07.682564"
 }
