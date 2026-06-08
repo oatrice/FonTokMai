@@ -18,20 +18,55 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
-        "luma/prompts/prompt_20260608_035355_bc2fe42a.md",
+        "VERSION",
+        "backend/app/main.py",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/metrics.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/metrics_service.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/app/services/weather_manager.py",
+        "backend/tests/test_devmock.py",
+        "backend/tests/test_metrics.py",
+        "backend/tests/test_scheduler.py",
+        "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/ai_brain/implementation_plan.md",
+        "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/ai_brain/task.md",
+        "docs/features/26_issue-62_export-google-cloud-run-dashboard-metrics-analysis-3644e176/code_review.md",
+        "docs/features/26_issue-62_export-google-cloud-run-dashboard-metrics-analysis-3644e176/gcp_logs_metrics_analysis_guide.md",
+        "docs/features/26_issue-62_export-google-cloud-run-dashboard-metrics-analysis-3644e176/implementation_plan.md",
+        "docs/features/26_issue-62_export-google-cloud-run-dashboard-metrics-analysis-3644e176/manual_verification.md",
+        "docs/features/26_issue-62_export-google-cloud-run-dashboard-metrics-analysis-3644e176/task.md",
+        "docs/features/26_issue-62_export-google-cloud-run-dashboard-metrics-analysis-3644e176/tradeoffs.md",
+        "docs/features/26_issue-62_export-google-cloud-run-dashboard-metrics-analysis-3644e176/walkthrough.md",
+        "luma/prompts/prompt_20260608_045426_607216aa.md",
+        "luma/prompts/prompt_20260608_045429_a26a66fb.md",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/app/main.py",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/metrics.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/metrics_service.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/app/services/weather_manager.py",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -105,5 +140,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-08T11:26:45.359765"
+  "last_updated": "2026-06-08T11:58:48.377112"
 }

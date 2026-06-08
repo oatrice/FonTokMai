@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.26.0] - 2026-06-08
 ### Added
-- Added an internal `MetricsService` and `/api/v1/metrics/export` endpoint to record and export cron routine runtime metrics.
+- Implemented lightweight telemetry and an internal `MetricsService` with `/api/v1/metrics/export` endpoint to record and export cron routine runtime metrics.
 - Added metrics recording for the `check_rain_and_alert` and `fetch_tmd_radar_routine` background tasks.
+- Added a comprehensive guide (`gcp_logs_metrics_analysis_guide.md`) for analyzing GCP Cloud Run metrics and logs.
+
+### Changed
+- Refactored rain intensity reporting and ETA calculation for improved accuracy.
+
+### Fixed
+- Secured the metrics export endpoint to prevent unauthorized access and improved overall test coverage.
 
 ## [0.25.0] - 2026-06-08
 ### Added
