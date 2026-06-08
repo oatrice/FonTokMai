@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 62,
@@ -16,7 +16,9 @@
   "active_branch": "feat/62-export-google-cloud-run-dashbo",
   "started_at": "2026-06-08T10:54:02.599784",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -103,5 +105,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-08T10:54:07.682564"
+  "last_updated": "2026-06-08T11:26:45.359765"
 }

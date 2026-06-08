@@ -183,9 +183,20 @@ class TestMetricsExportEndpoint:
 
     @pytest.fixture(autouse=True)
     def setup_client(self):
+        os.environ["CRON_SECRET"] = "test_secret_123"
         from app.main import app
         self.client = TestClient(app)
-        self.secret = os.getenv("CRON_SECRET", "default_secret_for_local_testing")
+        self.secret = "test_secret_123"
+
+    def test_metrics_export_unauthorized_no_server_secret(self):
+        """ถ้าไม่ได้ set CRON_SECRET ที่ฝั่ง server ต้อง reject เสมอ"""
+        if "CRON_SECRET" in os.environ:
+            del os.environ["CRON_SECRET"]
+        response = self.client.get(
+            "/api/v1/metrics/export",
+            headers={"X-Cron-Secret": "test_secret_123"}
+        )
+        assert response.status_code == 401
 
     def test_metrics_export_unauthorized_no_header(self):
         """ไม่มี header → ต้องได้ 401"""
@@ -321,10 +332,12 @@ class TestSchedulerMetricsIntegration:
     @patch("app.scheduler_tasks.MetricsService")
     @patch("app.scheduler_tasks.WeatherManager")
     @patch("app.scheduler_tasks.send_telegram_message", new_callable=AsyncMock)
+    @patch("app.scheduler_tasks.fetch_tmd_radar_routine", new_callable=AsyncMock)
     @patch("app.scheduler_tasks.get_repo_context")
     async def test_check_rain_records_metrics_after_run(
         self,
         mock_get_repo_context,
+        mock_fetch_routine,
         mock_send_msg,
         mock_weather_mgr_cls,
         mock_metrics_svc_cls,

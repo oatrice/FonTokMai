@@ -1,6 +1,8 @@
 import os
 import io
 import csv
+import json
+import secrets
 from typing import Optional
 from fastapi import APIRouter, Header, HTTPException, Depends
 from fastapi.responses import JSONResponse, Response
@@ -13,7 +15,6 @@ router = APIRouter(
     tags=["metrics"]
 )
 
-CRON_SECRET = os.getenv("CRON_SECRET", "default_secret_for_local_testing")
 
 @router.get("/export")
 async def export_metrics(
@@ -28,7 +29,8 @@ async def export_metrics(
     - format: json (default) หรือ csv (เหมาะสำหรับ import เข้า Google Sheets)
     - routine: (optional) ระบุชื่อ routine หากต้องการกรองเฉพาะ routine นั้น
     """
-    if not x_cron_secret or x_cron_secret != CRON_SECRET:
+    server_secret = os.getenv("CRON_SECRET")
+    if not server_secret or not x_cron_secret or not secrets.compare_digest(x_cron_secret, server_secret):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     async with get_repo_context() as repo:
@@ -51,7 +53,6 @@ async def export_metrics(
             for log in logs:
                 extra = ""
                 if log.get("extra_data"):
-                    import json
                     try:
                         extra = json.dumps(log["extra_data"]) if isinstance(log["extra_data"], dict) else str(log["extra_data"])
                     except:
