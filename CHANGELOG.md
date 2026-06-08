@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.0] - 2026-06-08
+### Added
+- Implemented a unified caching system using Firebase Storage and Firestore for TMD radar images to prevent rate limiting and optimize processing speed.
+- Added detailed info logging for cache hits during radar image fetches.
+
+### Changed
+- Improved rain cloud trajectory accuracy by implementing a perpendicular distance (Cross Track Error) check to ensure clouds are on a direct collision course.
+- Enhanced rain cloud detection precision by refining noise filtering, clustering distances, and color calibration.
+- Refactored and simplified cloud detection and trajectory cropping logic for better performance.
+
+### Fixed
+- Fixed false-positive rain detections by simplifying cloud detection and boundary cropping parameters.
+
 ## [0.24.0] - 2026-06-07
 ### Added
 - Added the `/rain_pro` command to manually request advanced weather alerts (such as severe thunderstorms, lightning distance, and stormcell movement) alongside the standard rain forecast.

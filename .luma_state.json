@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 66,
@@ -16,21 +16,53 @@
   "active_branch": "feat/66-calculate-rain-cloud-trajector",
   "started_at": "2026-06-07T20:25:01.249082",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/scheduler.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/tmd_radar_config.py",
+        "backend/app/services/tmd_radar_processor.py",
         "docs/ROADMAP.md",
-        "luma/prompts/prompt_20260607_132459_16baff74.md",
-        "luma_state.json"
+        "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/implementation_plan.md",
+        "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/manual_verification.md",
+        "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/task.md",
+        "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/walkthrough.md",
+        "luma/prompts/prompt_20260608_031626_114aded3.md",
+        "luma/prompts/prompt_20260608_031632_c14cae94.md",
+        "luma_metrics.json",
+        "luma_state.json",
+        "test_cache_system.py",
+        "test_check_rain.py",
+        "test_custom_image.py",
+        "test_fetch_routine.py",
+        "test_radar_all_clouds.py"
       ],
       "meaningful_files": [
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/scheduler.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/tmd_radar_config.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -104,5 +136,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-07T20:25:04.614661"
+  "last_updated": "2026-06-08T10:17:06.833926"
 }

@@ -29,7 +29,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ## Synced From GitHub
 ### Issue #66 - Calculate rain cloud trajectory to improve alert accuracy
 - **GitHub:** [#66](https://gitlab.com/oatricedev/FonMaYang/-/issues/66)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.25.0)
 
 ### Issue #65 - Refactor: Migrate long-running background tasks to Google Cloud Tasks / PubSub
 - **GitHub:** [#65](https://gitlab.com/oatricedev/FonMaYang/-/issues/65)

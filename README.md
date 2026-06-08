@@ -7,7 +7,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 
 ## Features
 - **Pluggable Architecture**: Easily switch between or combine weather providers (Xweather, Tomorrow.io, Open-Meteo, RainViewer, Rainbow, TMD Radar) with an automated fallback mechanism based on user feedback and reliability scoring.
-- **Automated TMD Radar Processing & Nowcasting**: Real-time extraction of rain intensity directly from TMD radar imagery, fully integrated as a highly accurate data source in the automated fallback system. Includes optical flow extrapolation and azimuthal projection for precise rain cell tracking and forecasting.
+- **Automated TMD Radar Processing & Nowcasting**: Real-time extraction of rain intensity directly from TMD radar imagery, fully integrated as a highly accurate data source in the automated fallback system. Includes optical flow extrapolation, azimuthal projection, and a unified Firebase Storage/Firestore caching system for precise rain cell tracking, forecasting, and high-concurrency rate-limit prevention.
 - **Resilient Radar OCR Pipeline**: Utilizes an automated fallback chain (Google Cloud Vision -> Gemini -> OCR.space) for reliable radar timestamp extraction, safeguarded by a Firestore-based quota management system.
 - **Visual Radar Tracking & ETA Timelines**: Generates and sends high-quality radar animation loops (GIFs), tracked cloud visualizations, and human-readable ETA confidence timelines directly to users via Telegram webhooks and scheduled alerts.
 - **Advanced Lagrangian Cloud Modeling**: Employs spatial max dBZ search and lagrangian tracking to model rain cell growth, decay, and precise movement paths across multi-user environments.
