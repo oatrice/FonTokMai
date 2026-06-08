@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 62,
@@ -43,6 +43,7 @@
         "backend/tests/test_devmock.py",
         "backend/tests/test_metrics.py",
         "backend/tests/test_scheduler.py",
+        "docs/ROADMAP.md",
         "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/ai_brain/implementation_plan.md",
         "docs/features/25_issue-66_calculate-rain-cloud-trajectory-improve-alert-accuracy-db26f1f2/ai_brain/task.md",
         "docs/features/26_issue-62_export-google-cloud-run-dashboard-metrics-analysis-3644e176/code_review.md",
@@ -52,8 +53,7 @@
         "docs/features/26_issue-62_export-google-cloud-run-dashboard-metrics-analysis-3644e176/task.md",
         "docs/features/26_issue-62_export-google-cloud-run-dashboard-metrics-analysis-3644e176/tradeoffs.md",
         "docs/features/26_issue-62_export-google-cloud-run-dashboard-metrics-analysis-3644e176/walkthrough.md",
-        "luma/prompts/prompt_20260608_045426_607216aa.md",
-        "luma/prompts/prompt_20260608_045429_a26a66fb.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
@@ -67,6 +67,7 @@
         "backend/app/services/metrics_service.py",
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -138,7 +139,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/26",
   "pr_number": null,
-  "last_updated": "2026-06-08T11:58:48.377112"
+  "last_updated": "2026-06-08T12:01:15.098041"
 }
