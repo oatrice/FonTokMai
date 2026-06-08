@@ -115,7 +115,11 @@ async def check_rain_and_alert():
                             if base_time:
                                 try:
                                     pred_time = datetime.fromisoformat(pred.get("time", "").replace("Z", "+00:00"))
-                                    eta_minutes = int((pred_time - base_time).total_seconds() / 60)
+                                    current_utc = datetime.now(timezone.utc)
+                                    eta_minutes = int((pred_time - current_utc).total_seconds() / 60)
+                                    # ป้องกันกรณี eta_minutes ติดลบ หากภาพเก่ามากแล้ว
+                                    if eta_minutes < 0:
+                                        eta_minutes = 0
                                     rain_start_dt = pred_time
                                 except Exception:
                                     eta_minutes = 0
@@ -185,7 +189,14 @@ async def check_rain_and_alert():
                     else:
                         text += "\n"
                         
-                    text += f"💧 ความรุนแรง: {intensity_str} ({max_rain:.1f} mm/hr)\n"
+                    if intensity_str == "ไม่มีฝน" and eta_minutes > 0:
+                        if max_rain > 10.0: max_int = "ฝนตกหนักมาก"
+                        elif max_rain > 2.5: max_int = "ฝนตกหนัก"
+                        elif max_rain > 0.5: max_int = "ฝนตกปานกลาง"
+                        else: max_int = "ฝนตกเล็กน้อย"
+                        text += f"💧 ความรุนแรง (สูงสุด): {max_int} ({max_rain:.1f} mm/hr)\n"
+                    else:
+                        text += f"💧 ความรุนแรง: {intensity_str} ({max_rain:.1f} mm/hr)\n"
                     wind_dir_text = result.get("wind_dir_text", "ไม่ทราบ")
                     
                     if wind_speed_kmh > 0:
