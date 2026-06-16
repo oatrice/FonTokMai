@@ -33,6 +33,132 @@
 
 ---
 
+## Issue #69 — Code Optimization (Sub-tasks เพิ่มเติม)
+
+> งานนี้เพิ่มเติมจาก Cloud Run parameter tuning เดิม ครอบคลุม 3 ส่วน:
+> 1. **Fix Dead URL** — `kkn120Loop.gif` ที่ return 404
+> 2. **Async Parallel Processing** — `fetch_tmd_radar_routine` ทำ 3 stations พร้อมกัน
+> 3. **Cloud Logging Optimization** — ลด EMSC WebSocket noise
+
+---
+
+### Sub-task 1: Fix Dead URL (`kkn120Loop.gif`)
+
+**ผลการ verify URL จริงจาก TMD:**
+
+| URL | HTTP Status | หมายเหตุ |
+|---|---|---|
+| `weather.tmd.go.th/kkn/kkn120Loop.gif` | **404** | ❌ TMD ไม่มี 120km loop GIF |
+| `weather.tmd.go.th/kkn/kkn240Loop.gif` | **200 OK** | ✅ ใช้งานได้ |
+| `weather.tmd.go.th/skn/skn240Loop.gif` | **200 OK** | ✅ ใช้งานได้ |
+
+**ตรวจสอบหลัง deploy:**
+```bash
+# ตรวจว่า kkn120 ไม่มีการ fetch loop GIF อีกต่อไป
+# ดู log ว่าต้องเห็น:
+# "[kkn120] No loop_gif_url available ... Skipping loop fetch"
+gcloud logging read 'textPayload:"No loop_gif_url"' \
+  --project=fonmayang \
+  --limit=5
+```
+
+**ตรวจสอบ Code:**
+```bash
+python -c "
+from app.services.tmd_radar_config import STATIONS
+for code, cfg in STATIONS.items():
+    print(f'{code}: loop_gif_url={cfg.loop_gif_url!r}')
+"
+# Expected:
+# kkn120: loop_gif_url=''         ← ไม่ fetch, ใช้ static แทน
+# kkn240: loop_gif_url='https://weather.tmd.go.th/kkn/kkn240Loop.gif'
+# skn240: loop_gif_url='https://weather.tmd.go.th/skn/skn240Loop.gif'
+```
+
+---
+
+### Sub-task 2: Async Parallel — `fetch_tmd_radar_routine`
+
+**ตรวจสอบ performance ก่อน/หลัง:**
+```bash
+# วัดเวลา cron run
+time curl -s -X POST https://<CLOUD_RUN_URL>/api/v1/cron/fetch-tmd-radar \
+  -H "X-Cron-Secret: $CRON_SECRET"
+
+# เช็ค log ว่าเห็น summary line
+gcloud logging read 'textPayload:"TMD Radar Cache Phase complete"' \
+  --project=fonmayang \
+  --limit=3
+# Expected: "TMD Radar Cache Phase complete: 3/3 stations, X.Xs"
+```
+
+**ตรวจสอบว่า stations ทำงาน parallel:**
+```bash
+# ใน log ต้องเห็น 3 stations interleaved กัน (ไม่ sequential)
+gcloud logging read 'textPayload:"Cached static image"' \
+  --project=fonmayang \
+  --limit=10
+```
+
+**เป้าหมาย:** เวลา fetch 3 stations ≤ `max(T_single_station)` แทนที่จะเป็น `3 × T`
+
+---
+
+### Sub-task 3: Cloud Logging Optimization
+
+**ตรวจสอบ GCP Logging Exclusion Filters:**
+```bash
+gcloud logging exclusions list --project=fonmayang
+# Expected output:
+# NAME                       DESCRIPTION
+# emsc-websocket-debug-noise  Exclude EMSC WebSocket high-frequency DEBUG messages
+# httpx-debug-verbose         Exclude httpx DEBUG-level request/response logs
+```
+
+**สร้าง exclusion filters (ถ้ายังไม่มี — รัน setup script):**
+```bash
+export GCP_PROJECT=fonmayang
+bash backend/scripts/setup_gcp.sh
+```
+
+**ตรวจสอบ log volume ลดลง:**
+```bash
+# ก่อน: EMSC messages จะเห็นทุก message
+# หลัง: DEBUG messages ถูก exclude ออก
+gcloud logging read 'severity=WARNING AND textPayload:"EMSC"' \
+  --project=fonmayang \
+  --limit=5
+# Should see only reconnect/error events, NOT per-message noise
+```
+
+**ตรวจสอบ Python-level logging ทำงานถูกต้อง:**
+```bash
+# ดู log ขณะ server running — EMSC debug ต้องไม่ปรากฏ
+# เฉพาะ earthquake event จริงๆ ถึงจะ log ที่ INFO level
+gcloud logging read 'textPayload:"EMSC earthquake event"' \
+  --project=fonmayang \
+  --limit=5
+```
+
+---
+
+### Checklist Issue #69 (Code Optimization) ✅
+
+**Sub-task 1 — Dead URL Fix:**
+- [ ] `kkn120` ไม่มี 404 loop GIF error ใน logs อีกต่อไป
+- [ ] `kkn240` และ `skn240` ยัง fetch loop GIF ได้ปกติ
+
+**Sub-task 2 — Async Parallel:**
+- [ ] `fetch_tmd_radar_routine` log แสดง "complete: 3/3 stations"
+- [ ] เวลา fetch รวมลดลงชัดเจนเทียบกับก่อนหน้า (เป้า < 15s)
+
+**Sub-task 3 — Cloud Logging:**
+- [ ] `gcloud logging exclusions list` แสดง 2 exclusions
+- [ ] EMSC DEBUG noise ไม่ปรากฏใน Cloud Logging Viewer
+- [ ] EMSC earthquake event จริงยังคง log ที่ INFO level
+
+---
+
 ## Issue #72 — Budget Auto-shutdown Mechanism
 
 ### สถาปัตยกรรม

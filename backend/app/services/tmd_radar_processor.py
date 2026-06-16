@@ -851,7 +851,15 @@ class TMDRadarProcessor:
                 print(f"Error reading loop gif from cache: {e}")
                 
         if not loop_bytes:
-            url = getattr(self.config, 'loop_gif_url', self.config.static_image_url.replace('_latest.gif', 'Loop.gif').replace('_latest.jpg', 'Loop.gif'))
+            # Use the verified loop_gif_url from station config.
+            # If empty, the station has no loop GIF (e.g. kkn120 → returns 404).
+            url = self.config.loop_gif_url
+            if not url:
+                logger.warning(
+                    f"[{self.station_code}] No loop_gif_url configured "
+                    f"(station has no loop GIF from TMD). Returning empty frames."
+                )
+                return [], None
             try:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.get(url)
@@ -885,8 +893,13 @@ class TMDRadarProcessor:
                                 dt = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
                             except Exception as e:
                                 print(f"Error parsing date: {e}")
+                    else:
+                        logger.warning(
+                            f"[{self.station_code}] Loop GIF URL returned HTTP {response.status_code}: {url}"
+                        )
             except Exception as e:
                 print(f"Error fetching loop gif: {e}")
+
                 
         if loop_bytes:
             try:
