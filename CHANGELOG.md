@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.28.0] - 2026-06-16
+### Added
+- Created `setup_schedulers.sh` to automate the configuration and deployment of Google Cloud Scheduler jobs for all routine tasks.
+- Integrated Cloud Scheduler setup script directly into the GitLab CI/CD pipeline for automated synchronization on every deployment.
+- Added a dedicated runtime Service Account (`cloud-run-runtime`) with minimal IAM permissions (Principle of Least Privilege) for the Cloud Run service.
+
+### Fixed
+- Fixed a bug in the scheduler setup script where bash exit statuses were being overwritten by local variable declarations.
+
 ## [0.27.0] - 2026-06-16
 ### Added
 - Implemented Google Cloud Tasks automation script (`setup_gcp.sh`) and optimized Cloud Run deployment settings (asia-southeast1, scale-to-zero, max instances).
