@@ -29,7 +29,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ## Synced From GitHub
 ### Issue #77 - Infrastructure: Automate Cloud Scheduler Jobs Migration
 - **GitHub:** [#77](https://gitlab.com/oatricedev/FonMaYang/-/issues/77)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.28.0)
 
 ### Issue #75 - [Epic] Environment Staging & Automated Secret Management (Local/UAT/PROD)
 - **GitHub:** [#75](https://gitlab.com/oatricedev/FonMaYang/-/issues/75)
@@ -331,4 +331,8 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ### Issue # - Implement Weather Services MVP (Base, RainViewer, Rainbow) with TDD
 - **State:** opened
 - ✅ **Done** (0.1.0)
+
+### Issue # - Security: Enforce minimal IAM permissions for Cloud Run
+- **State:** opened
+- ✅ **Done** (0.28.0)
 

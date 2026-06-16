@@ -27,7 +27,10 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
@@ -37,16 +40,24 @@
         "VERSION"
       ],
       "changed_files": [
+        "CHANGELOG.md.PREVIEW.md",
         "backend/scripts/setup_schedulers.sh",
         "docs/ROADMAP.md",
         "docs/development_guide.md",
+        "docs/features/28_issue-76-77_security-enforce-minimal-iam-permissions-cloud-run-infr-b50dd52f/code_review.md",
+        "docs/features/28_issue-76-77_security-enforce-minimal-iam-permissions-cloud-run-infr-b50dd52f/implementation_plan.md",
+        "docs/features/28_issue-76-77_security-enforce-minimal-iam-permissions-cloud-run-infr-b50dd52f/manual_verification.md",
+        "docs/features/28_issue-76-77_security-enforce-minimal-iam-permissions-cloud-run-infr-b50dd52f/task.md",
+        "docs/features/28_issue-76-77_security-enforce-minimal-iam-permissions-cloud-run-infr-b50dd52f/walkthrough.md",
         "gitlab-ci.yml",
-        "luma/prompts/prompt_20260616_073006_a3af6c02.md",
+        "luma/prompts/prompt_20260616_073900_520d4b15.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/scripts/setup_schedulers.sh",
         "gitlab-ci.yml",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -122,5 +133,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-16T14:33:44.956889"
+  "last_updated": "2026-06-16T14:40:16.723204"
 }
