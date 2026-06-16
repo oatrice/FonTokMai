@@ -42,7 +42,7 @@ setup_job() {
   local SCHEDULE=$2
   local ENDPOINT=$3
 
-  local FULL_URL="${BASE_URL}/api/v1/scheduler/${ENDPOINT}"
+  local FULL_URL="${BASE_URL}/api/v1/cron/${ENDPOINT}"
   
   echo "--------------------------------------------------"
   echo "Configuring job: $JOB_NAME"
