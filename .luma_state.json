@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 76,
@@ -25,7 +25,9 @@
   "active_branch": "feat/76-77-security-enforce-minimal-iam-p",
   "started_at": "2026-06-16T14:30:08.641999",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -120,5 +122,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-16T14:30:23.102151"
+  "last_updated": "2026-06-16T14:33:44.956889"
 }

@@ -48,11 +48,11 @@ setup_job() {
   echo "Schedule: $SCHEDULE"
   echo "Target: $FULL_URL"
   
+  local DESCRIPTION="⚠️ DO NOT EDIT - Managed by CI/CD setup_schedulers.sh"
+  
   # Check if exists
   gcloud scheduler jobs describe $JOB_NAME --location=$LOCATION --project=$PROJECT_ID > /dev/null 2>&1
   
-  local DESCRIPTION="⚠️ DO NOT EDIT - Managed by CI/CD setup_schedulers.sh"
-
   if [ $? -eq 0 ]; then
     echo "Updating existing job..."
     gcloud scheduler jobs update http $JOB_NAME \
