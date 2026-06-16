@@ -86,3 +86,27 @@ async def export_metrics(
                 summary["routines"] = {}
                 
             return JSONResponse(content=summary)
+
+@router.get("/queue")
+async def get_queue_status(
+    x_cron_secret: str = Header(None)
+):
+    """
+    Endpoint สำหรับดึง Cloud Tasks Queue Depth ปัจจุบัน
+    """
+    server_secret = os.getenv("CRON_SECRET")
+    if not server_secret or not x_cron_secret or not secrets.compare_digest(x_cron_secret, server_secret):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    from app.services.cloud_tasks import CloudTasksService
+    import time
+    
+    tasks_svc = CloudTasksService()
+    start_time = time.time()
+    queue_metrics = await tasks_svc.get_queue_metrics()
+    duration_ms = int((time.time() - start_time) * 1000)
+    
+    queue_metrics["query_duration_ms"] = duration_ms
+    queue_metrics["timestamp"] = int(time.time())
+    
+    return JSONResponse(content=queue_metrics)

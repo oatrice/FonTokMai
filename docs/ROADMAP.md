@@ -27,6 +27,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #76 - Security: Enforce minimal IAM permissions for Cloud Run
+- **GitHub:** [#76](https://gitlab.com/oatricedev/FonMaYang/-/issues/76)
+    - ✅ **Done** (0.28.0) 
+
 ### Issue #77 - Infrastructure: Automate Cloud Scheduler Jobs Migration
 - **GitHub:** [#77](https://gitlab.com/oatricedev/FonMaYang/-/issues/77)
     - ✅ **Done** (0.28.0)
@@ -45,7 +49,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #72 - Feature: Budget-based Auto-shutdown Mechanism for Cloud Run
 - **GitHub:** [#72](https://gitlab.com/oatricedev/FonMaYang/-/issues/72)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.29.0)
 
 ### Issue #71 - Optimize Cloud Storage Fetching & Remove Blocking I/O in Radar Processor
 - **GitHub:** [#71](https://gitlab.com/oatricedev/FonMaYang/-/issues/71)
@@ -73,7 +77,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #65 - Refactor: Migrate long-running background tasks to Google Cloud Tasks / PubSub
 - **GitHub:** [#65](https://gitlab.com/oatricedev/FonMaYang/-/issues/65)
-    - ✅ **Done** (0.26.0[D[7)
+    - ✅ **Done** (0.29.0)
 
 ### Issue #64 - fix: Production bugs on Weather Managers and Open-Meteo integrations
 - **GitHub:** [#64](https://gitlab.com/oatricedev/FonMaYang/-/issues/64)

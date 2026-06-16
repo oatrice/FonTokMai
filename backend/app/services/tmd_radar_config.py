@@ -17,6 +17,9 @@ class StationConfig:
     static_image_url: str
     loop_page_url: str
     bbox: BoundingBox
+    # Direct URL to Loop GIF (if available). Empty string means no loop GIF → fallback to static.
+    # Verified against TMD server: kkn120 has no loop GIF, only 240km variants have loop GIFs.
+    loop_gif_url: str = ""
     # These represent the pixel coordinates within the downloaded image
     # where the actual map (excluding titles/legends) starts and ends.
     # We use approximate whole-image values for now until calibrated.
@@ -70,6 +73,9 @@ STATIONS = {
         name="Khon Kaen (120km)",
         static_image_url="https://weather.tmd.go.th/kkn/kkn120_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
+        # TMD does not provide a 120km loop GIF (verified: returns 404).
+        # Processor will fallback to static image for frame data.
+        loop_gif_url="",
         bbox=KKN_BBOX,
         center_lat=16.4322,
         center_lng=102.8236,
@@ -88,6 +94,8 @@ STATIONS = {
         name="Khon Kaen (240km)",
         static_image_url="https://weather.tmd.go.th/kkn/kkn240_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
+        # Verified: https://weather.tmd.go.th/kkn/kkn240Loop.gif returns 200 OK
+        loop_gif_url="https://weather.tmd.go.th/kkn/kkn240Loop.gif",
         bbox=KKN240_BBOX,
         center_lat=16.4322,
         center_lng=102.8236,
@@ -108,6 +116,8 @@ STATIONS = {
         name="Sakon Nakhon (240km)",
         static_image_url="https://weather.tmd.go.th/skn/skn240_latest.jpg",
         loop_page_url="https://weather.tmd.go.th/sknLoop.php",
+        # Verified: https://weather.tmd.go.th/skn/skn240Loop.gif returns 200 OK
+        loop_gif_url="https://weather.tmd.go.th/skn/skn240Loop.gif",
         bbox=SKN_BBOX,
         center_lat=17.1607,
         center_lng=104.1486,

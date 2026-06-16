@@ -39,7 +39,7 @@ async def test_latlng_to_pixel_with_calibration():
 
 @pytest.mark.asyncio
 async def test_fetch_loop_gif_and_extract_frames():
-    processor = TMDRadarProcessor(station_code="kkn120")
+    processor = TMDRadarProcessor(station_code="kkn240")
     
     # Mock httpx and imageio
     with patch('httpx.AsyncClient.get', new_callable=AsyncMock) as mock_get:

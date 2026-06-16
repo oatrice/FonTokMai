@@ -1,0 +1,201 @@
+#!/bin/bash
+# =============================================================================
+# Script: setup_budget_alert.sh
+# Issue:  #72 — Budget-based Auto-shutdown Mechanism for Cloud Run
+# Description:
+#   สร้าง GCP Budget Alert และ Pub/Sub topic สำหรับระบบ auto-shutdown
+#   เมื่อค่าใช้จ่ายถึง threshold ที่กำหนด Cloud Run จะถูกสั่ง scale ลงเหลือ 0
+#
+# Required ENV Vars (ตั้งใน GitLab CI/CD Variables หรือ .env):
+#   GCP_PROJECT_ID          - GCP Project ID
+#   GCP_BILLING_ACCOUNT_ID  - GCP Billing Account ID (format: XXXXXX-XXXXXX-XXXXXX)
+#   BUDGET_AMOUNT_THB       - Budget threshold ในหน่วย THB (default: 10)
+#   CLOUD_RUN_URL           - Cloud Run service URL (auto-detected ถ้าไม่ได้กำหนด)
+# =============================================================================
+
+set -e
+
+# Load environment variables from .env file if it exists
+if [ -f ".env" ]; then
+  echo "📥 Loading environment variables from .env..."
+  set -a; source .env; set +a
+elif [ -f "../.env" ]; then
+  echo "📥 Loading environment variables from ../.env..."
+  set -a; source ../.env; set +a
+fi
+
+PROJECT_ID="${GCP_PROJECT_ID:-${GCP_PROJECT:-fonmayang}}"
+BILLING_ACCOUNT_ID="${GCP_BILLING_ACCOUNT_ID:?Error: GCP_BILLING_ACCOUNT_ID is required}"
+BUDGET_AMOUNT="${BUDGET_AMOUNT_THB:-10}"
+REGION="${GCP_LOCATION:-asia-southeast1}"
+SERVICE_NAME="fontokmai-api"
+PUBSUB_TOPIC="billing-alerts"
+BUDGET_DISPLAY_NAME="${SERVICE_NAME}-monthly-budget"
+
+echo "=================================================="
+echo "💰 Setting up Budget Alert for FonMaYang"
+echo "Project: $PROJECT_ID"
+MASKED_BILLING_ID="******-******-${BILLING_ACCOUNT_ID: -4}"
+echo "Billing Account: $MASKED_BILLING_ID"
+echo "Budget Threshold: ${BUDGET_AMOUNT} THB/month"
+echo "Pub/Sub Topic: $PUBSUB_TOPIC"
+echo "=================================================="
+
+# ─────────────────────────────────────────────────────
+# 1. สร้าง Pub/Sub Topic สำหรับรับ Budget Alert
+# ─────────────────────────────────────────────────────
+echo ""
+echo "📡 Step 1: Setting up Pub/Sub topic..."
+
+if gcloud pubsub topics describe "$PUBSUB_TOPIC" --project="$PROJECT_ID" > /dev/null 2>&1; then
+  echo "  ✅ Pub/Sub topic '$PUBSUB_TOPIC' already exists."
+else
+  gcloud pubsub topics create "$PUBSUB_TOPIC" --project="$PROJECT_ID"
+  echo "  ✅ Created Pub/Sub topic: $PUBSUB_TOPIC"
+fi
+
+# ─────────────────────────────────────────────────────
+# 2. Grant Cloud Billing permission to publish to Pub/Sub
+#    (GCP Billing service account needs roles/pubsub.publisher)
+# ─────────────────────────────────────────────────────
+echo ""
+echo "🔑 Step 2: Granting Billing service account Pub/Sub publisher access..."
+
+BILLING_SA="serviceAccount:billing-export@system.gserviceaccount.com"
+gcloud pubsub topics add-iam-policy-binding "$PUBSUB_TOPIC" \
+  --project="$PROJECT_ID" \
+  --member="$BILLING_SA" \
+  --role="roles/pubsub.publisher" > /dev/null 2>&1 || true
+
+echo "  ✅ IAM binding set."
+
+# ─────────────────────────────────────────────────────
+# 3. สร้าง Pub/Sub Subscription (Push → Cloud Run endpoint)
+# ─────────────────────────────────────────────────────
+echo ""
+echo "📨 Step 3: Setting up Pub/Sub push subscription..."
+
+# ดึง Cloud Run URL อัตโนมัติ
+if [ -z "$CLOUD_RUN_URL" ]; then
+  CLOUD_RUN_URL=$(gcloud run services describe "$SERVICE_NAME" \
+    --platform managed \
+    --region "$REGION" \
+    --project "$PROJECT_ID" \
+    --format 'value(status.url)' 2>/dev/null || echo "")
+fi
+
+if [ -z "$CLOUD_RUN_URL" ]; then
+  echo "  ⚠️  Could not detect Cloud Run URL. Skipping push subscription setup."
+  echo "     Run manually: gcloud pubsub subscriptions create billing-alerts-sub --topic=$PUBSUB_TOPIC --push-endpoint=<CLOUD_RUN_URL>/api/v1/internal/budget-alert"
+else
+  PUSH_ENDPOINT="${CLOUD_RUN_URL}/api/v1/internal/budget-alert"
+  SUBSCRIPTION_NAME="billing-alerts-sub"
+
+  if gcloud pubsub subscriptions describe "$SUBSCRIPTION_NAME" --project="$PROJECT_ID" > /dev/null 2>&1; then
+    echo "  🔄 Subscription '$SUBSCRIPTION_NAME' exists. Updating push endpoint..."
+    gcloud pubsub subscriptions modify-push-config "$SUBSCRIPTION_NAME" \
+      --project="$PROJECT_ID" \
+      --push-endpoint="$PUSH_ENDPOINT"
+  else
+    gcloud pubsub subscriptions create "$SUBSCRIPTION_NAME" \
+      --project="$PROJECT_ID" \
+      --topic="$PUBSUB_TOPIC" \
+      --push-endpoint="$PUSH_ENDPOINT" \
+      --ack-deadline=60 \
+      --message-retention-duration=10m
+  fi
+  echo "  ✅ Push subscription configured → $PUSH_ENDPOINT"
+fi
+
+# ─────────────────────────────────────────────────────
+# 4. สร้าง/อัปเดต GCP Budget Alert
+# ─────────────────────────────────────────────────────
+echo ""
+echo "💳 Step 4: Setting up GCP Budget Alert..."
+
+echo "  ⚙️ Enabling billingbudgets.googleapis.com API (might take a moment)..."
+gcloud services enable billingbudgets.googleapis.com --project="$PROJECT_ID" --quiet
+
+# ตรวจสอบว่ามี budget นี้อยู่แล้วหรือไม่
+EXISTING_BUDGET=$(gcloud billing budgets list \
+  --billing-account="$BILLING_ACCOUNT_ID" \
+  --format="value(name)" \
+  --filter="displayName=$BUDGET_DISPLAY_NAME" \
+  --quiet 2>/dev/null | head -1)
+
+TOPIC_RESOURCE="projects/${PROJECT_ID}/topics/${PUBSUB_TOPIC}"
+
+if [ -n "$EXISTING_BUDGET" ]; then
+  echo "  🔄 Budget '$BUDGET_DISPLAY_NAME' exists. Updating..."
+  gcloud billing budgets update "$EXISTING_BUDGET" \
+    --billing-account="$BILLING_ACCOUNT_ID" \
+    --display-name="$BUDGET_DISPLAY_NAME" \
+    --budget-amount="${BUDGET_AMOUNT}THB" \
+    --threshold-rule=percent=0.8,basis=current-spend \
+    --threshold-rule=percent=1.0,basis=current-spend \
+    --notifications-rule-pubsub-topic="$TOPIC_RESOURCE" \
+    --filter-projects="projects/$PROJECT_ID" \
+    --quiet
+  echo "  ✅ Budget updated."
+else
+  echo "  ✨ Creating budget '$BUDGET_DISPLAY_NAME'..."
+  gcloud billing budgets create \
+    --billing-account="$BILLING_ACCOUNT_ID" \
+    --display-name="$BUDGET_DISPLAY_NAME" \
+    --budget-amount="${BUDGET_AMOUNT}THB" \
+    --threshold-rule=percent=0.8,basis=current-spend \
+    --threshold-rule=percent=1.0,basis=current-spend \
+    --notifications-rule-pubsub-topic="$TOPIC_RESOURCE" \
+    --filter-projects="projects/$PROJECT_ID" \
+    --quiet
+  echo "  ✅ Budget created."
+fi
+
+# ─────────────────────────────────────────────────────
+# 5. Grant Cloud Run invoker permission ให้ Pub/Sub SA
+# ─────────────────────────────────────────────────────
+echo ""
+echo "🔑 Step 5: Granting Pub/Sub SA Cloud Run invoker permission..."
+
+PUBSUB_SA="serviceAccount:service-$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')@gcp-sa-pubsub.iam.gserviceaccount.com"
+
+gcloud run services add-iam-policy-binding "$SERVICE_NAME" \
+  --project="$PROJECT_ID" \
+  --region="$REGION" \
+  --member="$PUBSUB_SA" \
+  --role="roles/run.invoker" > /dev/null 2>&1 || true
+
+echo "  ✅ Cloud Run invoker permission granted to Pub/Sub SA."
+
+# ─────────────────────────────────────────────────────
+# 6. Grant Cloud Run Admin permission ให้ Cloud Run Runtime SA
+#    budget_webhook.py รัน `gcloud run services remove-iam-policy-binding`
+#    จากภายใน container เพื่อลบสิทธิ์ allUsers (ตัด public access)
+#    → ต้องการ roles/run.admin เพื่อจัดการ IAM policy บน service ได้
+# ─────────────────────────────────────────────────────
+echo ""
+echo "🔑 Step 6: Granting Cloud Run runtime SA permission to update services..."
+
+RUNTIME_SA="cloud-run-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
+
+# Grant roles/run.admin at service level (Least Privilege สำหรับ IAM)
+gcloud run services add-iam-policy-binding "$SERVICE_NAME" \
+  --region="$REGION" \
+  --project="$PROJECT_ID" \
+  --member="serviceAccount:${RUNTIME_SA}" \
+  --role="roles/run.admin" > /dev/null 2>&1 || true
+
+echo "  ✅ roles/run.admin granted to ${RUNTIME_SA} for service ${SERVICE_NAME}"
+echo "  ℹ️  This allows budget_webhook.py to revoke public access via gcloud CLI inside container."
+
+echo ""
+echo "=================================================="
+echo "🎉 Budget Alert Setup Complete!"
+echo "   Topic: projects/$PROJECT_ID/topics/$PUBSUB_TOPIC"
+echo "   Budget: ${BUDGET_AMOUNT} THB/month"
+echo "   Thresholds: 80% (warning) + 100% (shutdown trigger)"
+echo ""
+echo "   IAM Summary:"
+echo "   • Pub/Sub SA         → roles/run.invoker     (push message to Cloud Run)"
+echo "   • cloud-run-runtime  → roles/run.admin       (revoke public access)"
+echo "=================================================="

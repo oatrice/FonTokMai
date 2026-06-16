@@ -61,3 +61,66 @@ class CloudTasksService:
         except Exception as e:
             logger.error(f"Failed to create task for {url}: {e}")
             return None
+
+    async def get_queue_metrics(self) -> Dict[str, Any]:
+        """
+        Fetches the current queue depth from Google Cloud Monitoring.
+        Requires `google-cloud-monitoring` package.
+        """
+        try:
+            from google.cloud import monitoring_v3
+            import time
+            
+            client = monitoring_v3.MetricServiceAsyncClient()
+            project_name = f"projects/{self.project_id}"
+            
+            # Query the queue depth metric for the last 5 minutes
+            now = time.time()
+            seconds = int(now)
+            nanos = int((now - seconds) * 10**9)
+            
+            interval = monitoring_v3.TimeInterval(
+                {
+                    "end_time": {"seconds": seconds, "nanos": nanos},
+                    "start_time": {"seconds": seconds - 300, "nanos": nanos}, # past 5 minutes
+                }
+            )
+            
+            # Filter for specific queue
+            metric_filter = (
+                'metric.type = "cloudtasks.googleapis.com/queue/depth" '
+                f'AND resource.labels.queue_id = "{self.queue_name}" '
+                f'AND resource.labels.location = "{self.location}"'
+            )
+            
+            results = await client.list_time_series(
+                request={
+                    "name": project_name,
+                    "filter": metric_filter,
+                    "interval": interval,
+                    "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+                }
+            )
+            
+            # Extract the most recent data point
+            latest_depth = 0
+            async for series in results:
+                if series.points:
+                    # points are ordered by end_time descending
+                    latest_depth = series.points[0].value.int64_value
+                    break
+            
+            return {
+                "queue_name": self.queue_name,
+                "location": self.location,
+                "depth": latest_depth,
+                "status": "success"
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch queue metrics: {e}")
+            return {
+                "queue_name": self.queue_name,
+                "depth": -1,
+                "status": "error",
+                "error": str(e)
+            }

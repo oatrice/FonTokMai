@@ -28,3 +28,44 @@ else
     --max-backoff=60s
   echo "✅ Creation successful!"
 fi
+
+# ─────────────────────────────────────────────────────
+# Cloud Logging Exclusion Filters (Issue #69)
+# Reduce billing leak from high-frequency log ingestion
+# ─────────────────────────────────────────────────────
+echo ""
+echo "📋 Configuring Cloud Logging exclusion filters..."
+
+# Exclusion 1: EMSC WebSocket high-frequency streaming noise
+EXCLUSION_NAME="emsc-websocket-debug-noise"
+if gcloud logging sinks describe _Default --project="$PROJECT_ID" | grep -q "$EXCLUSION_NAME"; then
+  echo "  🔄 Log exclusion '$EXCLUSION_NAME' already exists. Updating..."
+  gcloud logging sinks update _Default \
+    --project="$PROJECT_ID" \
+    --update-exclusion="name=$EXCLUSION_NAME,filter=severity=DEBUG AND (jsonPayload.message:\"EMSC WebSocket\" OR jsonPayload.message:\"EMSC: non-JSON\"),description=Exclude EMSC WebSocket high-frequency DEBUG messages (Issue #69 cost optimization)" \
+    --quiet
+else
+  gcloud logging sinks update _Default \
+    --project="$PROJECT_ID" \
+    --add-exclusion="name=$EXCLUSION_NAME,filter=severity=DEBUG AND (jsonPayload.message:\"EMSC WebSocket\" OR jsonPayload.message:\"EMSC: non-JSON\"),description=Exclude EMSC WebSocket high-frequency DEBUG messages (Issue #69 cost optimization)" \
+    --quiet
+  echo "  ✅ Created log exclusion: $EXCLUSION_NAME"
+fi
+
+# Exclusion 2: httpx request DEBUG logs (verbose HTTP client logging)
+EXCLUSION_NAME_2="httpx-debug-verbose"
+if gcloud logging sinks describe _Default --project="$PROJECT_ID" | grep -q "$EXCLUSION_NAME_2"; then
+  echo "  🔄 Log exclusion '$EXCLUSION_NAME_2' already exists. Updating..."
+  gcloud logging sinks update _Default \
+    --project="$PROJECT_ID" \
+    --update-exclusion="name=$EXCLUSION_NAME_2,filter=severity=DEBUG AND jsonPayload.name=\"httpx\",description=Exclude httpx DEBUG-level request/response logs in production (Issue #69)" \
+    --quiet
+else
+  gcloud logging sinks update _Default \
+    --project="$PROJECT_ID" \
+    --add-exclusion="name=$EXCLUSION_NAME_2,filter=severity=DEBUG AND jsonPayload.name=\"httpx\",description=Exclude httpx DEBUG-level request/response logs in production (Issue #69)" \
+    --quiet
+  echo "  ✅ Created log exclusion: $EXCLUSION_NAME_2"
+fi
+
+echo "  ✅ Cloud Logging exclusion filters configured."

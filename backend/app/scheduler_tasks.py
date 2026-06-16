@@ -361,81 +361,114 @@ async def check_disasters_infrequent_routine():
             await process_disaster_event(repo, "fire", event)
 
 async def fetch_tmd_radar_routine():
-    """Run frequently (e.g., every 5 mins) to fetch and cache TMD Radar images to Firebase Storage and Firestore."""
+    """Run frequently (e.g., every 5 mins) to fetch and cache TMD Radar images to Firebase Storage and Firestore.
+    
+    Processes all stations in PARALLEL using asyncio.gather for improved performance.
+    """
     logger.info("Starting TMD Radar Cache Phase...")
     import time
     start_time = time.time()
     errors = 0
     stations_updated = 0
-    
+
     from app.services.tmd_radar_processor import TMDRadarProcessor
     from app.dependencies import get_repo_context
     from app.services.metrics_service import MetricsService
     import httpx
-    
+    import asyncio
+
     stations_to_update = ["kkn120", "kkn240", "skn240"]
-    
-    async with get_repo_context() as repo:
-        for station in stations_to_update:
-            try:
-                processor = TMDRadarProcessor(station_code=station)
-                
-                # Fetch static image
-                static_bytes = await processor.fetch_latest_image_bytes(use_cache=False)
-                static_path = None
-                if static_bytes:
-                    static_path = await processor.save_polled_frame(static_bytes)
-                    logger.info(f"Cached static image for {station} to {static_path}")
-                
-                # Fetch loop GIF
-                url = getattr(processor.config, 'loop_gif_url', processor.config.static_image_url.replace('_latest.gif', 'Loop.gif').replace('_latest.jpg', 'Loop.gif'))
-                loop_bytes = None
-                loop_path = None
+
+    async def _process_station(station: str) -> dict:
+        """Process a single radar station: fetch static + loop GIF, update Firestore cache."""
+        result = {"station": station, "updated": False, "error": None}
+        try:
+            processor = TMDRadarProcessor(station_code=station)
+
+            # Fetch static image
+            static_bytes = await processor.fetch_latest_image_bytes(use_cache=False)
+            static_path = None
+            if static_bytes:
+                static_path = await processor.save_polled_frame(static_bytes)
+                logger.info(f"Cached static image for {station} to {static_path}")
+
+            # Fetch loop GIF (only if station has a verified loop_gif_url)
+            url = getattr(processor.config, 'loop_gif_url', '')
+            loop_bytes = None
+            loop_path = None
+            if not url:
+                logger.debug(
+                    f"[{station}] No loop_gif_url available (station has no loop GIF). "
+                    f"Skipping loop fetch — static image will be used for frame data."
+                )
+            else:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.get(url)
                     if response.status_code == 200:
                         loop_bytes = response.content
                         loop_path = await processor.save_polled_frame(loop_bytes)
                         logger.info(f"Cached loop GIF for {station} to {loop_path}")
-                
-                # We need to extract the timestamp. We'll use the loop GIF frames if available, else static.
-                timestamp = int(datetime.now(timezone.utc).timestamp())
-                if loop_bytes:
-                    from PIL import Image, ImageSequence
-                    import io
-                    import numpy as np
-                    from app.services.ocr_service import OCRService
-                    img = Image.open(io.BytesIO(loop_bytes))
-                    frames = [np.array(frame.copy().convert("RGB")) for frame in ImageSequence.Iterator(img)]
-                    ocr_svc = OCRService()
-                    if frames:
-                        ts = await ocr_svc.get_frame_timestamp(frames[-1], fallback_ts=timestamp)
-                        if ts:
-                            timestamp = ts
-                
-                if static_path or loop_path:
-                    # Save to Firestore
+                    else:
+                        logger.warning(f"[{station}] Loop GIF URL returned HTTP {response.status_code}: {url}")
+
+            # Extract timestamp from loop GIF frames (via OCR) or fallback to now
+            timestamp = int(datetime.now(timezone.utc).timestamp())
+            if loop_bytes:
+                from PIL import Image, ImageSequence
+                import io
+                import numpy as np
+                from app.services.ocr_service import OCRService
+                img = Image.open(io.BytesIO(loop_bytes))
+                frames = [np.array(frame.copy().convert("RGB")) for frame in ImageSequence.Iterator(img)]
+                ocr_svc = OCRService()
+                if frames:
+                    ts = await ocr_svc.get_frame_timestamp(frames[-1], fallback_ts=timestamp)
+                    if ts:
+                        timestamp = ts
+
+            if static_path or loop_path:
+                # Save to Firestore
+                async with get_repo_context() as repo:
                     await repo.set_latest_radar_cache(
                         station_code=station,
                         static_url=static_path,
                         loop_url=loop_path,
                         timestamp=timestamp
                     )
-                    logger.info(f"Updated Firestore radar_latest_cache for {station} with ts {timestamp}")
-                
-                # Cleanup old frames
-                deleted = await processor.cleanup_old_frames(max_age_hours=3)
-                if deleted > 0:
-                    logger.info(f"Cleaned up {deleted} old frames for {station}")
-                
+                logger.info(f"Updated Firestore radar_latest_cache for {station} with ts {timestamp}")
+
+            # Cleanup old frames
+            deleted = await processor.cleanup_old_frames(max_age_hours=3)
+            if deleted > 0:
+                logger.info(f"Cleaned up {deleted} old frames for {station}")
+
+            result["updated"] = True
+        except Exception as e:
+            logger.error(f"Failed to cache TMD radar for {station}: {e}")
+            result["error"] = str(e)
+        return result
+
+    # Run all stations in PARALLEL — reduces total time from 3×T to max(T)
+    station_results = await asyncio.gather(
+        *[_process_station(s) for s in stations_to_update],
+        return_exceptions=True
+    )
+
+    for res in station_results:
+        if isinstance(res, Exception):
+            logger.error(f"Unhandled exception in station task: {res}")
+            errors += 1
+        elif isinstance(res, dict):
+            if res.get("updated"):
                 stations_updated += 1
-            except Exception as e:
-                logger.error(f"Failed to cache TMD radar for {station}: {e}")
+            if res.get("error"):
                 errors += 1
-                
-        # Record Metrics
-        duration_s = time.time() - start_time
-        try:
+
+    # Record Metrics
+    duration_s = time.time() - start_time
+    logger.info(f"TMD Radar Cache Phase complete: {stations_updated}/{len(stations_to_update)} stations, {duration_s:.1f}s")
+    try:
+        async with get_repo_context() as repo:
             metrics_svc = MetricsService(repo)
             await metrics_svc.record_cron_run(
                 routine_name="fetch_tmd_radar",
@@ -443,8 +476,9 @@ async def fetch_tmd_radar_routine():
                 errors=errors,
                 extra_data={"stations_updated": stations_updated}
             )
-        except Exception as e:
-            logger.error(f"Failed to save metrics for fetch_tmd_radar: {e}")
+    except Exception as e:
+        logger.error(f"Failed to save metrics for fetch_tmd_radar: {e}")
+
 
 
 

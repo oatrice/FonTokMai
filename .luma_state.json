@@ -1,29 +1,29 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "preflight",
   "active_issues": [
     {
-      "number": 76,
-      "title": "Security: Enforce minimal IAM permissions for Cloud Run",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/76",
+      "number": 72,
+      "title": "Feature: Budget-based Auto-shutdown Mechanism for Cloud Run",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/72",
       "body": null,
-      "project_item_id": "GLAB_76",
+      "project_item_id": "GLAB_72",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 77,
-      "title": "Infrastructure: Automate Cloud Scheduler Jobs Migration",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/77",
+      "number": 65,
+      "title": "Refactor: Migrate long-running background tasks to Google Cloud Tasks / PubSub",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/65",
       "body": null,
-      "project_item_id": "GLAB_77",
+      "project_item_id": "GLAB_65",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/76-77-security-enforce-minimal-iam-p",
-  "started_at": "2026-06-16T14:30:08.641999",
+  "active_branch": "feat/72-65-feature-budget-based-auto-shut",
+  "started_at": "2026-06-16T20:54:05.716338",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -34,26 +34,50 @@
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
-        "README.md"
-      ],
+      "pending": [],
       "changed_files": [
         "CHANGELOG.md",
+        "README.md",
         "VERSION",
-        "backend/scripts/setup_schedulers.sh",
+        "backend/.env.example",
+        "backend/app/main.py",
+        "backend/app/routers/budget_webhook.py",
+        "backend/app/routers/metrics.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/cloud_tasks.py",
+        "backend/app/services/earthquake.py",
+        "backend/app/services/tmd_radar_config.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/requirements.txt",
+        "backend/scripts/restore_public_access.sh",
+        "backend/scripts/setup_budget_alert.sh",
+        "backend/scripts/setup_gcp.sh",
+        "backend/scripts/setup_queue_alert.sh",
+        "backend/test_radar.py",
+        "backend/tests/test_budget_webhook.py",
         "docs/ROADMAP.md",
-        "docs/development_guide.md",
-        "docs/features/28_issue-76-77_security-enforce-minimal-iam-permissions-cloud-run-infr-b50dd52f/code_review.md",
-        "docs/features/28_issue-76-77_security-enforce-minimal-iam-permissions-cloud-run-infr-b50dd52f/implementation_plan.md",
-        "docs/features/28_issue-76-77_security-enforce-minimal-iam-permissions-cloud-run-infr-b50dd52f/manual_verification.md",
-        "docs/features/28_issue-76-77_security-enforce-minimal-iam-permissions-cloud-run-infr-b50dd52f/task.md",
-        "docs/features/28_issue-76-77_security-enforce-minimal-iam-permissions-cloud-run-infr-b50dd52f/walkthrough.md",
+        "docs/architecture_decisions/007_cost_efficiency_and_billing_batching_strategy.md",
+        "docs/features/29_issue-72-69_feature-budget-based-auto-shutdown-mechanism-cloud-run-5e97c36f/implementation_plan.md",
+        "docs/features/29_issue-72-69_feature-budget-based-auto-shutdown-mechanism-cloud-run-5e97c36f/manual_verification.md",
+        "docs/features/29_issue-72-69_feature-budget-based-auto-shutdown-mechanism-cloud-run-5e97c36f/task.md",
         "gitlab-ci.yml",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/scripts/setup_schedulers.sh",
+        "backend/.env.example",
+        "backend/app/main.py",
+        "backend/app/routers/budget_webhook.py",
+        "backend/app/routers/metrics.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/cloud_tasks.py",
+        "backend/app/services/earthquake.py",
+        "backend/app/services/tmd_radar_config.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/scripts/restore_public_access.sh",
+        "backend/scripts/setup_budget_alert.sh",
+        "backend/scripts/setup_gcp.sh",
+        "backend/scripts/setup_queue_alert.sh",
         "gitlab-ci.yml",
         "luma_metrics.json",
         "luma_state.json"
@@ -125,11 +149,11 @@
         }
       }
     ],
-    "last_feature_dir": "/Users/oatrice/Software Project/FonMaYang/docs/features/28_issue-76-77_security-enforce-minimal-iam-permissions-cloud-run-infr-b50dd52f"
+    "last_feature_dir": "/Users/oatrice/Software Project/FonMaYang/docs/features/29_issue-72-65_feature-budget-based-auto-shutdown-mechanism-cloud-run-5e97c36f"
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/28",
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/29",
   "pr_number": null,
-  "last_updated": "2026-06-16T15:35:24.015662"
+  "last_updated": "2026-06-16T20:54:33.428737"
 }

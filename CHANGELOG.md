@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.0] - 2026-06-16
+### Added
+- Implemented a Budget Webhook auto-shutdown mechanism to automatically revoke Cloud Run public access when the billing budget limit is reached (Issue #72).
+- Added setup scripts (`setup_budget_alert.sh` and `restore_public_access.sh`) for automating Google Cloud Budget alerts, Pub/Sub integrations, and service restoration.
+- Implemented Cloud Tasks queue depth monitoring to track and alert on background worker metrics.
+- Added Cloud Logging noise reduction filters (`setup_gcp.sh`) to exclude high-frequency debug logs and optimize billing costs (Issue #69).
+
+### Changed
+- Optimized TMD radar processing by implementing parallel station updates, significantly improving execution speed.
+
+### Fixed
+- Fixed the TMD radar loop URL resolution logic.
+
 ## [0.28.0] - 2026-06-16
 ### Added
 - Created `setup_schedulers.sh` to automate the configuration and deployment of Google Cloud Scheduler jobs for all routine tasks.

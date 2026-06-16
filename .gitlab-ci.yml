@@ -65,10 +65,12 @@ deploy_cloud_run:
         --service-account=cloud-run-runtime@fonmayang.iam.gserviceaccount.com \
         --region asia-southeast1 \
         --allow-unauthenticated \
-        --memory 1024Mi \
+        --memory 512Mi \
+        --cpu 1 \
+        --timeout 120 \
         --service-min-instances 0 \
-        --service-max-instances 2 \
-        --concurrency 80 \
+        --service-max-instances 3 \
+        --concurrency 40 \
         --cpu-boost \
         --set-env-vars "\
       TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN},\
@@ -102,6 +104,16 @@ deploy_cloud_run:
     - echo "Updating Cloud Scheduler Jobs..."
     - chmod +x scripts/setup_schedulers.sh
     - ./scripts/setup_schedulers.sh
+    # Setup Budget Alert (Issue #72) — requires GCP_BILLING_ACCOUNT_ID
+    - echo "Setting up Budget Alert..."
+    - chmod +x scripts/setup_budget_alert.sh
+    - |
+      if [ -n "$GCP_BILLING_ACCOUNT_ID" ]; then
+        ./scripts/setup_budget_alert.sh
+      else
+        echo "⚠️  GCP_BILLING_ACCOUNT_ID not set. Skipping budget alert setup."
+        echo "   Set GCP_BILLING_ACCOUNT_ID in GitLab CI/CD Variables to enable."
+      fi
   <<: *telegram_notify
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
