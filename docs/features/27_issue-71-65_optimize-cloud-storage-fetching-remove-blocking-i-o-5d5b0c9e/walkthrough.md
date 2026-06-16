@@ -39,6 +39,14 @@ I've completed the implementation for migrating inline processing to Google Clou
 - Added `google-cloud-tasks==2.16.2` to `requirements.txt`.
 - Executed `python3 -m py_compile` across all modified files to ensure zero syntax errors.
 
+### 5. Telegram Pending Updates Mitigation
+- **File**: [webhook.py](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/webhook.py)
+- **Details**: Added logic to verify the `date` field of incoming Telegram webhooks. Any messages older than 2 minutes are identified as "stale" (pending updates from periods of downtime) and are gracefully ignored. This prevents massive queues of old test commands from executing immediately when the server reconnects.
+
+### 6. Cloud Tasks & Webhook Hotfixes
+- **Script**: Added [setup_gcp.sh](file:///Users/oatrice/Software%20Project/FonMaYang/backend/scripts/setup_gcp.sh) to automate Cloud Tasks queue creation and configuration (IaC best practice).
+- **Bugfixes**: Resolved `NameError` for `timezone` and fixed a deprecated function call `handle_location` -> `process_telegram_location` in the devmock error handler.
+
 > [!TIP]
 > **Deployment Steps**
 > 1. Make sure to set `WORKER_BASE_URL` in your production environment (e.g., your Cloud Run service URL).

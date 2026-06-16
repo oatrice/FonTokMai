@@ -62,9 +62,13 @@ deploy_cloud_run:
     - |
       gcloud run deploy fontokmai-api \
         --source . \
-        --region us-central1 \
+        --region asia-southeast1 \
         --allow-unauthenticated \
         --memory 1024Mi \
+        --min-instances 0 \
+        --max-instances 2 \
+        --concurrency 80 \
+        --cpu-boost \
         --set-env-vars "\
       TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN},\
       RAINBOW_API_KEY=${RAINBOW_API_KEY},\
@@ -80,12 +84,14 @@ deploy_cloud_run:
       ALERT_COOLDOWN_MINUTES=${ALERT_COOLDOWN_MINUTES},\
       RAIN_TRIGGER_THRESHOLD_MM=${RAIN_TRIGGER_THRESHOLD_MM},\
       GEMINI_API_KEY=${GEMINI_API_KEY},\
-      OCR_SPACE_API_KEY=${OCR_SPACE_API_KEY}"
+      OCR_SPACE_API_KEY=${OCR_SPACE_API_KEY},\
+      WORKER_SECRET=${WORKER_SECRET},\
+      WORKER_BASE_URL=${WORKER_BASE_URL}"
     # Update Telegram Webhook
     - |
       CLOUD_RUN_URL=$(gcloud run services describe fontokmai-api \
         --platform managed \
-        --region us-central1 \
+        --region asia-southeast1 \
         --format 'value(status.url)')
     - echo "Updating Webhook to $CLOUD_RUN_URL/api/v1/telegram/webhook"
     - |

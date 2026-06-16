@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, BackgroundTasks
 import httpx
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from app.services.weather_manager import WeatherManager
 from app.dependencies import get_repo_context
 from app.services.telegram import (
@@ -643,13 +643,16 @@ async def handle_devmock_command(chat_id: int, command: str):
             # Simulate a location update to trigger the fallback error message immediately
             locs = await repo.get_user_locations(chat_id)
             if locs:
-                await handle_location(chat_id, locs[0].latitude, locs[0].longitude, message_id=None)
+                await process_telegram_location(chat_id, locs[0].latitude, locs[0].longitude, message_id_to_edit=None)
             else:
                 await send_telegram_message(chat_id, "ไม่พบตำแหน่งที่บันทึกไว้ โปรดส่ง Location มาใหม่เพื่อทดสอบ error")
             
         elif command == "/devmock off":
             await repo.set_mock_state(chat_id, None)
-            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] ปิดใช้งานโหมดจำลองเรียบร้อยแล้ว")
+            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] ปิดใช้งานโหมดจำลองเรียบร้อยแล้ว\n⏳ กำลังส่งสถานะ All-Clear...")
+            
+            from app.scheduler_tasks import check_rain_and_alert
+            await check_rain_and_alert()
 
 
 async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False):
@@ -721,6 +724,13 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     if "message" in payload:
         message = payload["message"]
         chat_id = message.get("chat", {}).get("id")
+        date_ts = message.get("date", 0)
+
+        # Handle pending updates: ignore messages older than 2 minutes (120 seconds)
+        current_ts = datetime.now(timezone.utc).timestamp()
+        if date_ts > 0 and (current_ts - date_ts) > 120:
+            logger.warning(f"[WEBHOOK] Ignoring stale message from chat_id={chat_id} (age: {current_ts - date_ts:.1f}s)")
+            return {"status": "ok", "ignored": "stale"}
 
         if "location" in message and chat_id:
             location = message["location"]
