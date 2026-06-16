@@ -1,3 +1,4 @@
+
 # Walkthrough: Background Tasks Migration (Batch 1 - Issue #65)
 
 I've completed the implementation for migrating inline processing to Google Cloud Tasks. This will prevent Cloud Run from throttling the CPU while processing long-running cron jobs and heavy Telegram commands, and ensures Webhooks return 200 OK well within Telegram's timeout limit.
@@ -7,6 +8,7 @@ I've completed the implementation for migrating inline processing to Google Clou
 ### 1. `CloudTasksService` Added
 - **File**: [cloud_tasks.py](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/cloud_tasks.py)
 - **Details**: Created a dedicated service leveraging `google-cloud-tasks` (v2.16.2) to enqueue tasks securely. It targets endpoints under the `WORKER_BASE_URL` provided in the `.env` file. If the `WORKER_BASE_URL` or `CLOUD_TASKS_QUEUE` isn't configured, it gracefully falls back to inline `background_tasks`.
+- **Security Update**: It now automatically injects the `X-Worker-Secret` header into the HTTP request payload for Cloud Tasks to verify.
 
 ### 2. Worker Endpoints
 - **File**: [worker.py](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/worker.py)
@@ -22,6 +24,8 @@ I've completed the implementation for migrating inline processing to Google Clou
   - `/worker/handle-rain`
   - `/worker/handle-devmock`
 - Registered the `worker.router` in [main.py](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/main.py).
+- **Security Update**: Added a FastAPI Dependency `Depends(verify_worker_secret)` that enforces the presence of a valid `X-Worker-Secret` header. This prevents unauthorized callers from triggering heavy worker jobs.
+- **Resilience Update**: Wrapped all worker logic in robust `try...except` blocks that catch exceptions and return `HTTP 200 OK` (with an error JSON body). This crucial step prevents **Cloud Tasks Retry Storms** and associated Billing Shocks when external APIs (like the TMD Radar website) go down temporarily.
 
 ### 3. Refactored `scheduler.py`
 - **File**: [scheduler.py](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/scheduler.py)
@@ -40,3 +44,4 @@ I've completed the implementation for migrating inline processing to Google Clou
 > 1. Make sure to set `WORKER_BASE_URL` in your production environment (e.g., your Cloud Run service URL).
 > 2. Ensure your Cloud Run service account has permissions to enqueue to Google Cloud Tasks (`roles/cloudtasks.enqueuer`).
 > 3. Verify that the Cloud Tasks Queue (`webhook-worker-queue`) exists in your target GCP project.
+> 4. (Optional) Set `WORKER_SECRET` in `.env`. If not set, it will fallback to using `CRON_SECRET`.

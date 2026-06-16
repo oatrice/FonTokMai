@@ -32,11 +32,33 @@
     ```
   - **Expected Result**: It returns `{"status": "ok", "message": "Rain check task enqueued"}` instantly. The logs should reflect that the worker endpoint `/worker/check-rain` was hit (via Cloud Tasks) or the background task started.
 
-- **Step 5: Verify the Worker Endpoints**
+- **Step 5: Verify the Worker Endpoints (Security & Retry Prevention)**
   - Hit the worker endpoint directly to simulate Cloud Tasks hitting it:
     ```bash
     curl -X POST http://localhost:8000/worker/check-rain \
          -H "Content-Type: application/json" \
+         -H "X-Worker-Secret: default_secret_for_local_testing" \
          -d '{}'
     ```
-  - **Expected Result**: The worker runs `check_rain_and_alert()` and returns `{"status": "ok"}` upon completion.
+  - **Expected Result**: 
+    1. If you omit the `X-Worker-Secret` header or provide an invalid one, you will receive a `401 Unauthorized` response (verifying Security).
+    2. With the correct secret, the worker runs `check_rain_and_alert()` and returns `{"status": "ok"}` upon completion.
+    3. *Retry Storm Prevention*: If you deliberately force an error (e.g. disable Wi-Fi so API calls fail), you should see the worker return `HTTP 200 OK` with `{"status": "error", "message": "..."}` instead of a `500` status. This proves that Cloud Tasks will not endlessly retry failed network operations.
+
+- **Step 6: Verify Syntax and Automated Tests**
+  - Run the `py_compile` check across all modified files:
+    ```bash
+    cd backend && python3 -m py_compile app/services/cloud_tasks.py app/routers/worker.py app/routers/scheduler.py app/routers/webhook.py app/services/tmd_radar_processor.py
+    ```
+  - **Expected Result**: No output, meaning zero syntax errors.
+
+- **Step 7: Verify Production / Staging Cloud Run Logs**
+  - After deploying, trigger the `/check-rain` scheduler endpoint.
+  - **Expected Result**: Verify in Cloud Run logs that the worker endpoint successfully executes the task and downloads the radar GIF only **once** per execution batch. Verify that `user_execution` latency metrics in GCP are significantly reduced for the main Cloud Run instances.
+
+> [!TIP]
+> **Deployment Steps**
+> 1. Make sure to set `WORKER_BASE_URL` in your production environment (e.g., your Cloud Run service URL).
+> 2. Ensure your Cloud Run service account has permissions to enqueue to Google Cloud Tasks (`roles/cloudtasks.enqueuer`).
+> 3. Verify that the Cloud Tasks Queue (`webhook-worker-queue`) exists in your target GCP project.
+> 4. (Optional) Set `WORKER_SECRET` in `.env`. If not set, it will fallback to using `CRON_SECRET`.
