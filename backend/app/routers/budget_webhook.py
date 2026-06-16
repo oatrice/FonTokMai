@@ -96,20 +96,21 @@ def _is_budget_exceeded(budget_data: dict[str, Any]) -> bool:
     return alert_threshold >= 1.0 or ratio >= 1.0
 
 
-def _scale_cloud_run_to_zero() -> bool:
-    """สั่ง gcloud เพื่อ update max-instances = 0 บน Cloud Run service"""
+def _revoke_public_access() -> bool:
+    """สั่ง gcloud เพื่อลบสิทธิ์ allUsers บน Cloud Run service (ทำให้เข้าถึงไม่ได้ = ปิด)"""
     try:
         cmd = [
-            "gcloud", "run", "services", "update", CLOUD_RUN_SERVICE,
+            "gcloud", "run", "services", "remove-iam-policy-binding", CLOUD_RUN_SERVICE,
             "--region", GCP_REGION,
             "--project", GCP_PROJECT_ID,
-            "--max-instances", "0",
+            "--member", "allUsers",
+            "--role", "roles/run.invoker",
             "--quiet",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
 
         if result.returncode == 0:
-            logger.info(f"[BudgetAlert] ✅ Cloud Run '{CLOUD_RUN_SERVICE}' scaled to 0 instances.")
+            logger.info(f"[BudgetAlert] ✅ Cloud Run '{CLOUD_RUN_SERVICE}' public access revoked (Suspended).")
             return True
         else:
             logger.error(f"[BudgetAlert] ❌ gcloud error: {result.stderr}")
@@ -216,25 +217,25 @@ async def handle_budget_alert(payload: PubSubPushPayload, request: Request):
     if _is_budget_exceeded(budget_data):
         logger.warning("[BudgetAlert] 🚨 Budget 100% exceeded! Initiating Cloud Run shutdown...")
 
-        scale_success = _scale_cloud_run_to_zero()
+        scale_success = _revoke_public_access()
 
         if scale_success:
             shutdown_msg = (
                 f"🚨 <b>Budget Exceeded — Emergency Shutdown</b>\n\n"
-                f"⚡ Cloud Run <code>{CLOUD_RUN_SERVICE}</code> ถูก scale ลงเหลือ 0 instances แล้ว\n\n"
+                f"⚡ สิทธิ์การเข้าถึงแบบ Public (allUsers) ของ <code>{CLOUD_RUN_SERVICE}</code> ถูกระงับแล้ว (ไม่มีการรับ traffic ใหม่)\n\n"
                 f"💳 ค่าใช้จ่ายปัจจุบัน: <code>{cost_amount:.2f} {currency}</code>\n"
                 f"🎯 Budget limit: <code>{budget_amount:.2f} {currency}</code>\n\n"
-                f"ℹ️ เพื่อ restore service:\n"
-                f"<code>gcloud run services update {CLOUD_RUN_SERVICE} --max-instances=3 --region={GCP_REGION}</code>"
+                f"ℹ️ เพื่อ restore service ให้กลับมาออนไลน์:\n"
+                f"<code>gcloud run services add-iam-policy-binding {CLOUD_RUN_SERVICE} --region={GCP_REGION} --member=\"allUsers\" --role=\"roles/run.invoker\"</code>"
             )
             status_result = "shutdown_success"
         else:
             shutdown_msg = (
                 f"🔴 <b>Budget Exceeded — Shutdown FAILED</b>\n\n"
-                f"❌ ไม่สามารถ scale Cloud Run ลงได้ กรุณาตรวจสอบด่วน!\n\n"
+                f"❌ ไม่สามารถระงับการเข้าถึง Cloud Run ได้ กรุณาตรวจสอบด่วน!\n\n"
                 f"💳 ค่าใช้จ่าย: <code>{cost_amount:.2f} {currency}</code> / <code>{budget_amount:.2f} {currency}</code>\n"
-                f"🛠️ กรุณา scale down manually:\n"
-                f"<code>gcloud run services update {CLOUD_RUN_SERVICE} --max-instances=0 --region={GCP_REGION}</code>"
+                f"🛠️ กรุณาระงับ manually:\n"
+                f"<code>gcloud run services remove-iam-policy-binding {CLOUD_RUN_SERVICE} --region={GCP_REGION} --member=\"allUsers\" --role=\"roles/run.invoker\"</code>"
             )
             status_result = "shutdown_failed"
 

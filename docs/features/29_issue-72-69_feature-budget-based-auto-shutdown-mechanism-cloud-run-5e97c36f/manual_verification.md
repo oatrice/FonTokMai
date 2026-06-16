@@ -251,11 +251,12 @@ curl -s -X POST https://<CLOUD_RUN_URL>/api/v1/internal/budget-alert \
 
 ### Restore Cloud Run (หลังจาก shutdown)
 
-ถ้าระบบปิดตัวเองเพราะ budget exceeded สามารถ restore ได้:
+ถ้าระบบปิดตัวเองเพราะ budget exceeded เราสามารถดึงกลับมาออนไลน์ (รับ public traffic) ได้โดยการรันคำสั่ง:
 ```bash
-gcloud run services update fontokmai-api \
+gcloud run services add-iam-policy-binding fontokmai-api \
   --region asia-southeast1 \
-  --max-instances 3
+  --member "allUsers" \
+  --role "roles/run.invoker"
 ```
 
 ### Checklist ✅
@@ -265,6 +266,136 @@ gcloud run services update fontokmai-api \
 - [ ] Pub/Sub topic `billing-alerts` ถูกสร้าง
 - [ ] Push subscription ชี้ไปที่ Cloud Run URL ถูกต้อง
 - [ ] ทดสอบ mock 80% → ได้รับ Telegram warning
-- [ ] ทดสอบ mock 100% → Cloud Run ถูก scale ลงเหลือ 0
+- [ ] ทดสอบ mock 100% → Cloud Run ถูกระงับสิทธิ์ public access
 - [ ] ทดสอบ mock 100% → ได้รับ Telegram emergency alert
-- [ ] Restore Cloud Run กลับมา max-instances=3
+- [ ] Restore Cloud Run โดยการคืนสิทธิ์ allUsers
+
+---
+
+## Part 3: Verify Cloud Run Parameter Tuning & CI/CD Pipeline (from manual_verification2.md)
+
+### Verify Cloud Run Parameters
+
+- **Step 1:** Run the following command to check the deployed Cloud Run service configuration:
+  ```bash
+  gcloud run services describe fontokmai-api \
+    --region asia-southeast1 \
+    --format json | jq '{memory: .spec.template.spec.containers[0].resources.limits.memory, concurrency: .spec.containerConcurrency, timeout: .spec.template.spec.timeoutSeconds}'
+  ```
+- **Expected Result:** The output should display `memory: "512Mi"`, `concurrency: 40`, and `timeout: 120s`.
+
+- **Step 2:** Perform a basic load test using a tool like `hey` to ensure the new concurrency limit of 40 handles requests smoothly:
+  ```bash
+  hey -n 100 -c 20 https://<CLOUD_RUN_URL>/health
+  ```
+- **Expected Result:** The test completes successfully with a 200 OK status for all requests, without returning 5xx errors or significant latency spikes.
+
+- **Step 3:** Open the GCP Console and navigate to **Cloud Run -> Metrics -> Container Instance Count**.
+- **Expected Result:** The maximum number of container instances running concurrently should not exceed 3.
+
+### Verify Budget Alert CI/CD Pipeline Setup
+
+- **Step 1:** Manually trigger the GitLab CI/CD pipeline or push a change to the `main` branch to trigger a deploy.
+- **Expected Result:** The pipeline should reach the `deploy_cloud_run` stage.
+
+- **Step 2:** Inspect the GitLab CI/CD logs for the `deploy_cloud_run` job.
+- **Expected Result:** You should see the message "Setting up Budget Alert...". If `GCP_BILLING_ACCOUNT_ID` is set, the script `setup_budget_alert.sh` should execute successfully. If not set, it should output a warning "GCP_BILLING_ACCOUNT_ID not set. Skipping budget alert setup."
+
+- **Step 3:** Open the GCP Console and navigate to **Billing -> Budgets & alerts**.
+- **Expected Result:** The budget for the project (e.g., `fontokmai-api-monthly-budget`) should be present.
+
+- **Step 4:** In the GCP Console, navigate to **Pub/Sub -> Topics**.
+- **Expected Result:** The `billing-alerts` topic should exist.
+
+- **Step 5:** Navigate to **Pub/Sub -> Subscriptions** and inspect the push subscription associated with `billing-alerts`.
+- **Expected Result:** The push endpoint should correctly point to your Cloud Run URL (e.g., `https://<CLOUD_RUN_URL>/api/v1/internal/budget-alert`).
+
+---
+
+## Part 4: Local Testing Before Deployment 🛠️
+
+คุณสามารถทดสอบฟังก์ชันต่างๆ ในเครื่อง Local ของคุณได้ก่อนที่จะพุชโค้ดขึ้นไปบน GitLab
+
+### 1. ทดสอบ Webhook (Budget Auto-shutdown)
+เนื่องจากเราทำ Webhook รับข้อมูลจาก Pub/Sub เราสามารถใช้ `curl` ยิงจำลอง (Mock) ข้อมูลเข้า Local Server ได้โดยตรง
+
+**Step 1:** รันเซิร์ฟเวอร์ Local (ถ้ายังไม่ได้รัน)
+```bash
+cd backend
+uvicorn app.main:app --reload --port 8000
+```
+
+**Step 2:** เปิด Terminal ใหม่ แล้วยิง cURL จำลองเหตุการณ์ **"เงินถึง 80%" (Warning)**
+```bash
+curl -X POST http://localhost:8000/api/v1/internal/budget-alert \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": {
+      "data": "eyJidWRnZXREaXNwbGF5TmFtZSI6ImZvbnRva21haS1hcGktbW9udGhseS1idWRnZXQiLCJjb3N0QW1vdW50Ijo4LCJjb3N0SW50ZXJ2YWxTdGFydCI6IjIwMjQtMTAtMDFUMDc6MDA6MDBaIiwiYnVkZ2V0QW1vdW50IjoxMCwiYnVkZ2V0QW1vdW50VHlwZSI6IlNQRUNJRklFRF9BTU9VTlQiLCJjdXJyZW5jeUNvZGUiOiJUSEIifQ=="
+    }
+  }'
+```
+> **คำอธิบาย:** ข้อมูล `data` ข้างต้นคือ Base64 ของ JSON ที่บอกว่า Cost=8, Budget=10 (80%) ในสกุลเงิน THB
+> **ผลลัพธ์ที่คาดหวัง:** คุณจะได้รับข้อความแจ้งเตือน **"⚠️ ⚠️ [WARNING] ⚠️ ⚠️ ค่าใช้จ่าย GCP ทะลุ 80% แล้ว!"** ใน Telegram ของคุณ
+
+**Step 3:** ยิง cURL จำลองเหตุการณ์ **"เงินถึง 100%" (Shutdown Trigger)**
+```bash
+curl -X POST http://localhost:8000/api/v1/internal/budget-alert \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": {
+      "data": "eyJidWRnZXREaXNwbGF5TmFtZSI6ImZvbnRva21haS1hcGktbW9udGhseS1idWRnZXQiLCJjb3N0QW1vdW50IjoxMSwiY29zdEludGVydmFsU3RhcnQiOiIyMDI0LTEwLTAxVDA3OjAwOjAwWiIsImJ1ZGdldEFtb3VudCI6MTAsImJ1ZGdldEFtb3VudFR5cGUiOiJTUEVDSUZJRURfQU1PVU5UIiwiY3VycmVuY3lDb2RlIjoiVEhCIn0="
+    }
+  }'
+```
+> **คำอธิบาย:** ข้อมูล `data` คือ Base64 ของ JSON ที่บอกว่า Cost=11, Budget=10 (> 100%) ในสกุลเงิน THB
+> **ผลลัพธ์ที่คาดหวัง:** 
+> 1. คุณจะได้รับข้อความแจ้งเตือน **"🚨 🚨 [EMERGENCY SHUTDOWN] 🚨 🚨"** ใน Telegram
+> 2. ใน Console Log ของ Uvicorn จะมี error/log พยายามรันคำสั่ง `gcloud run services remove-iam-policy-binding` (ใน Local อาจจะไม่สำเร็จ เพราะไม่มีสิทธิ์ gcloud แต่เป็นการพิสูจน์ว่า Webhook ทำงานและแตกกิ่งได้ถูกต้อง)
+
+### 2. ทดสอบสคริปต์สร้าง Budget Alert บน GCP
+สคริปต์นี้เขียนด้วย `gcloud` CLI ล้วนๆ จึงสามารถรันจากเครื่อง Local ได้เลยเพื่อสร้าง Budget ล่วงหน้าโดยไม่ต้องรอ CI/CD (One-time Setup)
+
+**Step 1:** ตรวจสอบและตั้งค่า Billing Account ID
+```bash
+export GCP_BILLING_ACCOUNT_ID="ใส่-BILLING-ID-ของคุณ"
+export BUDGET_AMOUNT_THB="10"
+```
+
+**Step 2:** รันสคริปต์
+```bash
+bash backend/scripts/setup_budget_alert.sh
+```
+> **ผลลัพธ์ที่คาดหวัง:** สคริปต์จะวิ่งทำงานตั้งแต่ Step 1 - Step 6 และหากสำเร็จ ปลายทางคุณจะเห็น Topic `billing-alerts` และ Budget ปรากฏในหน้า GCP Console
+
+### 3. ทดสอบ Async Parallel (ความเร็วการดูดรูปเรดาร์)
+ฟังก์ชันนี้ไม่ต้องทำผ่าน cURL แต่รันโค้ด Python ได้ตรงๆ
+
+**Step 1:** สร้างไฟล์สั้นๆ ในโฟลเดอร์ `backend/` ชื่อ `test_radar.py`
+```python
+import asyncio
+from app.scheduler_tasks import fetch_tmd_radar_routine
+
+async def test():
+    print("Starting parallel fetch...")
+    await fetch_tmd_radar_routine()
+    print("Done!")
+
+asyncio.run(test())
+```
+
+**Step 2:** สั่งรันจาก Terminal
+```bash
+cd backend
+python test_radar.py
+```
+> **ผลลัพธ์ที่คาดหวัง:** โค้ดจะแสดง log การดึงข้อมูล `kkn120`, `kkn240`, `skn240` โดยจะเห็นว่าทั้ง 3 สถานีพยายามเริ่มทำงานในเวลาใกล้เคียงกัน (พร้อมกัน) สังเกตจากเวลาทำงานรวม (Execution Time) จะลดลง
+
+### 4. ทดสอบ Cloud Logging Exclusions
+เช่นเดียวกับสคริปต์ Budget คุณสามารถสั่งรันสคริปต์ Setup GCP ซ้ำในเครื่องคุณเพื่อสร้าง Filter รอไว้ก่อน Deploy โค้ด
+
+**Step 1:** รันสคริปต์
+```bash
+bash backend/scripts/setup_gcp.sh
+```
+> **ผลลัพธ์ที่คาดหวัง:** สคริปต์จะแสดงข้อความว่า `Exclusion 'emsc-websocket-debug-noise' created/updated` และไปปรากฏในหน้า **Logging -> Logs Router** ใน GCP Console

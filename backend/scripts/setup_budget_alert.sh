@@ -9,15 +9,24 @@
 # Required ENV Vars (ตั้งใน GitLab CI/CD Variables หรือ .env):
 #   GCP_PROJECT_ID          - GCP Project ID
 #   GCP_BILLING_ACCOUNT_ID  - GCP Billing Account ID (format: XXXXXX-XXXXXX-XXXXXX)
-#   BUDGET_AMOUNT_USD       - Budget threshold ในหน่วย USD (default: 10)
+#   BUDGET_AMOUNT_THB       - Budget threshold ในหน่วย THB (default: 10)
 #   CLOUD_RUN_URL           - Cloud Run service URL (auto-detected ถ้าไม่ได้กำหนด)
 # =============================================================================
 
 set -e
 
+# Load environment variables from .env file if it exists
+if [ -f ".env" ]; then
+  echo "📥 Loading environment variables from .env..."
+  set -a; source .env; set +a
+elif [ -f "../.env" ]; then
+  echo "📥 Loading environment variables from ../.env..."
+  set -a; source ../.env; set +a
+fi
+
 PROJECT_ID="${GCP_PROJECT_ID:-${GCP_PROJECT:-fonmayang}}"
 BILLING_ACCOUNT_ID="${GCP_BILLING_ACCOUNT_ID:?Error: GCP_BILLING_ACCOUNT_ID is required}"
-BUDGET_AMOUNT="${BUDGET_AMOUNT_USD:-10}"
+BUDGET_AMOUNT="${BUDGET_AMOUNT_THB:-10}"
 REGION="${GCP_LOCATION:-asia-southeast1}"
 SERVICE_NAME="fontokmai-api"
 PUBSUB_TOPIC="billing-alerts"
@@ -26,8 +35,9 @@ BUDGET_DISPLAY_NAME="${SERVICE_NAME}-monthly-budget"
 echo "=================================================="
 echo "💰 Setting up Budget Alert for FonMaYang"
 echo "Project: $PROJECT_ID"
-echo "Billing Account: $BILLING_ACCOUNT_ID"
-echo "Budget Threshold: \$${BUDGET_AMOUNT} USD/month"
+MASKED_BILLING_ID="******-******-${BILLING_ACCOUNT_ID: -4}"
+echo "Billing Account: $MASKED_BILLING_ID"
+echo "Budget Threshold: ${BUDGET_AMOUNT} THB/month"
 echo "Pub/Sub Topic: $PUBSUB_TOPIC"
 echo "=================================================="
 
@@ -103,63 +113,43 @@ fi
 echo ""
 echo "💳 Step 4: Setting up GCP Budget Alert..."
 
+echo "  ⚙️ Enabling billingbudgets.googleapis.com API (might take a moment)..."
+gcloud services enable billingbudgets.googleapis.com --project="$PROJECT_ID" --quiet
+
 # ตรวจสอบว่ามี budget นี้อยู่แล้วหรือไม่
 EXISTING_BUDGET=$(gcloud billing budgets list \
   --billing-account="$BILLING_ACCOUNT_ID" \
   --format="value(name)" \
-  --filter="displayName=$BUDGET_DISPLAY_NAME" 2>/dev/null | head -1)
+  --filter="displayName=$BUDGET_DISPLAY_NAME" \
+  --quiet 2>/dev/null | head -1)
 
 TOPIC_RESOURCE="projects/${PROJECT_ID}/topics/${PUBSUB_TOPIC}"
-
-# Budget JSON config
-BUDGET_CONFIG=$(cat <<EOF
-{
-  "displayName": "${BUDGET_DISPLAY_NAME}",
-  "budgetFilter": {
-    "projects": ["projects/${PROJECT_ID}"]
-  },
-  "amount": {
-    "specifiedAmount": {
-      "currencyCode": "USD",
-      "units": "${BUDGET_AMOUNT}"
-    }
-  },
-  "thresholdRules": [
-    {
-      "thresholdPercent": 0.8,
-      "spendBasis": "CURRENT_SPEND"
-    },
-    {
-      "thresholdPercent": 1.0,
-      "spendBasis": "CURRENT_SPEND"
-    }
-  ],
-  "notificationsRule": {
-    "pubsubTopic": "${TOPIC_RESOURCE}",
-    "schemaVersion": "1.0"
-  }
-}
-EOF
-)
-
-BUDGET_CONFIG_FILE="/tmp/fonmayang_budget.json"
-echo "$BUDGET_CONFIG" > "$BUDGET_CONFIG_FILE"
 
 if [ -n "$EXISTING_BUDGET" ]; then
   echo "  🔄 Budget '$BUDGET_DISPLAY_NAME' exists. Updating..."
   gcloud billing budgets update "$EXISTING_BUDGET" \
     --billing-account="$BILLING_ACCOUNT_ID" \
-    --from-file="$BUDGET_CONFIG_FILE"
+    --display-name="$BUDGET_DISPLAY_NAME" \
+    --budget-amount="${BUDGET_AMOUNT}THB" \
+    --threshold-rule=percent=0.8,basis=current-spend \
+    --threshold-rule=percent=1.0,basis=current-spend \
+    --notifications-rule-pubsub-topic="$TOPIC_RESOURCE" \
+    --filter-projects="projects/$PROJECT_ID" \
+    --quiet
   echo "  ✅ Budget updated."
 else
   echo "  ✨ Creating budget '$BUDGET_DISPLAY_NAME'..."
   gcloud billing budgets create \
     --billing-account="$BILLING_ACCOUNT_ID" \
-    --from-file="$BUDGET_CONFIG_FILE"
+    --display-name="$BUDGET_DISPLAY_NAME" \
+    --budget-amount="${BUDGET_AMOUNT}THB" \
+    --threshold-rule=percent=0.8,basis=current-spend \
+    --threshold-rule=percent=1.0,basis=current-spend \
+    --notifications-rule-pubsub-topic="$TOPIC_RESOURCE" \
+    --filter-projects="projects/$PROJECT_ID" \
+    --quiet
   echo "  ✅ Budget created."
 fi
-
-rm -f "$BUDGET_CONFIG_FILE"
 
 # ─────────────────────────────────────────────────────
 # 5. Grant Cloud Run invoker permission ให้ Pub/Sub SA
@@ -178,36 +168,34 @@ gcloud run services add-iam-policy-binding "$SERVICE_NAME" \
 echo "  ✅ Cloud Run invoker permission granted to Pub/Sub SA."
 
 # ─────────────────────────────────────────────────────
-# 6. Grant Cloud Run Developer permission ให้ Cloud Run Runtime SA
-#    budget_webhook.py รัน `gcloud run services update --max-instances=0`
-#    จากภายใน container → ต้องการ roles/run.developer บน Cloud Run runtime SA
-#
-#    Principle of Least Privilege:
-#    - roles/run.developer: update service configuration ✅
-#    - roles/run.admin: full admin incl. delete/IAM — ไม่จำเป็น ❌
+# 6. Grant Cloud Run Admin permission ให้ Cloud Run Runtime SA
+#    budget_webhook.py รัน `gcloud run services remove-iam-policy-binding`
+#    จากภายใน container เพื่อลบสิทธิ์ allUsers (ตัด public access)
+#    → ต้องการ roles/run.admin เพื่อจัดการ IAM policy บน service ได้
 # ─────────────────────────────────────────────────────
 echo ""
 echo "🔑 Step 6: Granting Cloud Run runtime SA permission to update services..."
 
 RUNTIME_SA="cloud-run-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
 
-# Grant roles/run.developer at project level (ไม่ใช่ service level)
-# เพราะ gcloud run services update ต้องการ permission บน project ไม่ใช่แค่ service เดียว
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+# Grant roles/run.admin at service level (Least Privilege สำหรับ IAM)
+gcloud run services add-iam-policy-binding "$SERVICE_NAME" \
+  --region="$REGION" \
+  --project="$PROJECT_ID" \
   --member="serviceAccount:${RUNTIME_SA}" \
-  --role="roles/run.developer" > /dev/null 2>&1 || true
+  --role="roles/run.admin" > /dev/null 2>&1 || true
 
-echo "  ✅ roles/run.developer granted to ${RUNTIME_SA}"
-echo "  ℹ️  This allows budget_webhook.py to scale Cloud Run to 0 via gcloud CLI inside container."
+echo "  ✅ roles/run.admin granted to ${RUNTIME_SA} for service ${SERVICE_NAME}"
+echo "  ℹ️  This allows budget_webhook.py to revoke public access via gcloud CLI inside container."
 
 echo ""
 echo "=================================================="
 echo "🎉 Budget Alert Setup Complete!"
 echo "   Topic: projects/$PROJECT_ID/topics/$PUBSUB_TOPIC"
-echo "   Budget: \$${BUDGET_AMOUNT} USD/month"
+echo "   Budget: ${BUDGET_AMOUNT} THB/month"
 echo "   Thresholds: 80% (warning) + 100% (shutdown trigger)"
 echo ""
 echo "   IAM Summary:"
 echo "   • Pub/Sub SA         → roles/run.invoker     (push message to Cloud Run)"
-echo "   • cloud-run-runtime  → roles/run.developer   (scale service to 0)"
+echo "   • cloud-run-runtime  → roles/run.admin       (revoke public access)"
 echo "=================================================="

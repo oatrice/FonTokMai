@@ -11,7 +11,7 @@ Batch 1 (v0.27.0) เสร็จสมบูรณ์แล้ว ขั้น�
 ## เนื้อหาที่ต้องทำ
 
 ### Issue #72 — Budget-based Auto-shutdown via Pub/Sub
-> วางระบบให้ GCP ส่ง Budget Alert → Pub/Sub → Cloud Run endpoint → ปิด Cloud Run (max-instances=0)
+> วางระบบให้ GCP ส่ง Budget Alert → Pub/Sub → Cloud Run endpoint → ตัดสิทธิ์ public access ของ Cloud Run (remove allUsers)
 
 ### Issue #69 — Cloud Run Parameter Tuning + Code Optimization
 > ปรับค่า Memory, CPU, Concurrency ของ Cloud Run + แก้ Dead URL, Async Parallel, Cloud Logging
@@ -20,20 +20,33 @@ Batch 1 (v0.27.0) เสร็จสมบูรณ์แล้ว ขั้น�
 
 ## สถาปัตยกรรม Issue #72 (Budget Auto-shutdown)
 
-```
-GCP Billing Budget
-       │
-       │ Budget Alert (at 80% → warning, at 100% → shutdown)
-       ▼
-   Pub/Sub Topic: "billing-alerts"
-       │
-       │ Push Subscription
-       ▼
-   POST /api/v1/internal/budget-alert  (Cloud Run endpoint)
-       │
-       ├── 80%  → ส่ง Telegram warning เท่านั้น
-       └── 100% → gcloud run services update --max-instances=0
-                   + ส่ง Telegram emergency alert
+```mermaid
+sequenceDiagram
+    participant B as 💰 GCP Billing
+    participant T as 📮 Pub/Sub (Topic)<br/>billing-alerts
+    participant S as 📬 Pub/Sub (Subscription)<br/>billing-alerts-sub
+    participant C as 🚀 Cloud Run<br/>fontokmai-api
+    participant TG as 📱 Telegram Bot
+    participant IAM as 🛡️ GCP IAM<br/>(Service Policy)
+
+    Note over B: มีการใช้เงินแตะ 100% (10 บาท)
+    B->>T: 1. โยนจดหมายแจ้งเตือน (Budget Alert JSON)
+    T->>S: 2. ส่งต่อจดหมายให้ Subscription
+    
+    Note over S: มีการฝัง URL ของ Cloud Run ไว้
+    S->>C: 3. ยิง HTTP POST แบบ Push ไปที่ /budget-alert
+    
+    Note over C: อ่านจดหมายเจอ threshold = 1.0 (100%)
+    
+    par ทำงานขนานกัน
+        C->>TG: 4A. ยิงข้อความฉุกเฉินบอก Developer ว่าจะปิดระบบแล้วนะ
+        C->>IAM: 4B. ยิงคำสั่ง gcloud ลบสิทธิ์ allUsers ทิ้งซะ!
+    end
+    
+    Note over IAM: ระงับการเข้าถึงแบบ Public
+    IAM-->>C: 5. Cloud Run กลายเป็น Private
+    
+    Note over C,TG: ระบบปิดรับ Traffic จากภายนอก 100% (ไม่เสียเงินเพิ่ม)
 ```
 
 > **Design Decision:** ใช้ Cloud Run endpoint แทน Cloud Function แยกต่างหาก
@@ -55,7 +68,7 @@ GCP Billing Budget
 #### [NEW] backend/app/routers/budget_webhook.py
 - `POST /api/v1/internal/budget-alert`
 - Parse Pub/Sub push message (base64 JSON)
-- 80% → Telegram warning, 100% → `gcloud run services update --max-instances=0`
+- 80% → Telegram warning, 100% → `gcloud run services remove-iam-policy-binding` (ระงับสิทธิ์ public)
 
 #### [MODIFY] backend/app/main.py
 - Register `budget_webhook` router ✅
@@ -180,8 +193,8 @@ station_results = await asyncio.gather(
 1. ตั้งค่า `GCP_BILLING_ACCOUNT_ID` + `BUDGET_AMOUNT_USD` ใน CI/CD Variables
 2. รัน `setup_budget_alert.sh` → verify Budget + Pub/Sub ใน GCP Console
 3. ทดสอบ mock 80% → ได้รับ Telegram warning
-4. ทดสอบ mock 100% → Cloud Run scale ลงเหลือ 0 + Telegram emergency alert
-5. Restore: `gcloud run services update fontokmai-api --max-instances=3`
+4. ทดสอบ mock 100% → Cloud Run ระงับการเข้าถึง (revoke allUsers) + Telegram emergency alert
+5. Restore: `gcloud run services add-iam-policy-binding fontokmai-api --member="allUsers" --role="roles/run.invoker"`
 
 ### Manual Verification (Issue #69 Sub-tasks)
 1. ตรวจสอบ `kkn120` ไม่มี 404 error ใน logs
@@ -195,6 +208,6 @@ station_results = await asyncio.gather(
 ## ⚠️ Session Overlap Notes
 > **Note:** ในการทำงาน session นี้ มี 2 เรื่องที่เพิ่มเติมเข้ามานอกเหนือจากแผนเริ่มต้น:
 > 
-> 1. **Issue #72 IAM Permission Update:** มีการเพิ่ม Step 6 ใน `setup_budget_alert.sh` เพื่อ grant `roles/run.developer` ให้กับ `cloud-run-runtime` Service Account (SA) ซึ่งมีความจำเป็นเพื่อให้สคริปต์ภายใน container สามารถรัน `gcloud run services update` เพื่อ scale จำนวน instance เป็น 0 ได้ โดยเลือกใช้ `roles/run.developer` แทน `roles/run.admin` เพื่อยึดหลัก Least Privilege
+> 1. **Issue #72 IAM Permission Update:** มีการเพิ่ม Step 6 ใน `setup_budget_alert.sh` เพื่อ grant `roles/run.admin` ให้กับ `cloud-run-runtime` Service Account (SA) ซึ่งมีความจำเป็นเพื่อให้สคริปต์ภายใน container สามารถรันคำสั่งระงับสิทธิ์ public access (`remove-iam-policy-binding`) ได้ เพื่อไม่ให้ระบบเสียเงินเพิ่มเมื่อ budget เต็ม
 > 
-> 2. **Issue #74 (Cloud Tasks Queue Monitoring):** โค้ดสำหรับฟีเจอร์ Cloud Tasks Monitoring (สคริปต์ Alert Policy และ Endpoint `/api/v1/metrics/queue`) ถูกสร้างขึ้นและบันทึกรวมอยู่ใน Branch/Session นี้ด้วย ซึ่งเอกสาร Walkthrough ของ Issue 74 ถูกแยกไปเก็บไว้ที่ `docs/features/30_issue-74_feature-cloud-tasks-monitoring/README.md` แล้ว
+> 2. **Issue #74 (Cloud Tasks Queue Monitoring):** โค้ดสำหรับฟีเจอร์ Cloud Tasks Monitoring (สคริปต์ Alert Policy และ Endpoint `/api/v1/metrics/queue`) ถูกสร้างขึ้นและบันทึกรวมอยู่ใน Branch/Session นี้ด้วย (ลบเอกสาร Walkthrough ของ Issue 74 ไปแล้ว)

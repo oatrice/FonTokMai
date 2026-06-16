@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 72,
@@ -25,7 +25,9 @@
   "active_branch": "feat/72-65-feature-budget-based-auto-shut",
   "started_at": "2026-06-16T16:55:01.971485",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -35,12 +37,43 @@
         "VERSION"
       ],
       "changed_files": [
+        "backend/.env.example",
+        "backend/app/main.py",
+        "backend/app/routers/budget_webhook.py",
+        "backend/app/routers/metrics.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/cloud_tasks.py",
+        "backend/app/services/earthquake.py",
+        "backend/app/services/tmd_radar_config.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/requirements.txt",
+        "backend/scripts/setup_budget_alert.sh",
+        "backend/scripts/setup_gcp.sh",
+        "backend/scripts/setup_queue_alert.sh",
         "docs/ROADMAP.md",
         "docs/architecture_decisions/007_cost_efficiency_and_billing_batching_strategy.md",
-        "luma/prompts/prompt_20260616_095500_163d6c8a.md",
+        "docs/features/29_issue-72-69_feature-budget-based-auto-shutdown-mechanism-cloud-run-5e97c36f/implementation_plan.md",
+        "docs/features/29_issue-72-69_feature-budget-based-auto-shutdown-mechanism-cloud-run-5e97c36f/manual_verification.md",
+        "docs/features/29_issue-72-69_feature-budget-based-auto-shutdown-mechanism-cloud-run-5e97c36f/task.md",
+        "gitlab-ci.yml",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/.env.example",
+        "backend/app/main.py",
+        "backend/app/routers/budget_webhook.py",
+        "backend/app/routers/metrics.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/cloud_tasks.py",
+        "backend/app/services/earthquake.py",
+        "backend/app/services/tmd_radar_config.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/scripts/setup_budget_alert.sh",
+        "backend/scripts/setup_gcp.sh",
+        "backend/scripts/setup_queue_alert.sh",
+        "gitlab-ci.yml",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -116,5 +149,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-16T17:00:06.839082"
+  "last_updated": "2026-06-16T18:39:45.547442"
 }
