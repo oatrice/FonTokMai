@@ -67,11 +67,11 @@ async def worker_fetch_tmd_radar():
         return {"status": "error", "message": str(e)}
 
 @router.post("/trigger-mock-disaster")
-async def worker_trigger_mock_disaster():
+async def worker_trigger_mock_disaster(payload: dict):
     """Worker endpoint to trigger a mock disaster."""
     try:
         logger.info("Worker started: trigger-mock-disaster")
-        await trigger_mock_disaster()
+        await trigger_mock_disaster(payload)
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Worker failed trigger-mock-disaster: {e}")

@@ -87,31 +87,6 @@ async def trigger_mock_disaster(payload: MockDisasterPayload, background_tasks: 
     tasks_svc = CloudTasksService()
     task_name = tasks_svc.enqueue_task("worker/trigger-mock-disaster", payload.model_dump())
     if not task_name:
-        async def run_mock():
-            import time
-            from app.dependencies import get_repo_context
-            from app.services.disaster_manager import process_disaster_event
-            
-            timestamp = int(time.time())
-            event_id = f"postman_mock_{timestamp}"
-            
-            event_data = {
-                "id": event_id,
-                "lat": payload.lat,
-                "lng": payload.lng,
-            }
-            
-            if payload.type == "earthquake":
-                event_data["mag"] = payload.mag
-                event_data["place"] = payload.name
-            elif payload.type == "cyclone":
-                event_data["name"] = payload.name
-                event_data["category"] = "Cat 4"
-            elif payload.type == "fire":
-                event_data["name"] = payload.name
-                
-            async with get_repo_context() as repo:
-                await process_disaster_event(repo, payload.type, event_data)
-                
-        background_tasks.add_task(run_mock)
+        from app.scheduler_tasks import trigger_mock_disaster
+        background_tasks.add_task(trigger_mock_disaster, payload.model_dump())
     return {"status": "ok", "message": f"Mock {payload.type} triggered"}

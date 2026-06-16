@@ -1,4 +1,3 @@
-import cv2
 import numpy as np
 from typing import List, Tuple, Optional
 from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING, IGNORED_COLORS
@@ -9,7 +8,6 @@ class TMDRadarProcessor:
         if station_code not in STATIONS:
             raise ValueError(f"Unknown station code: {station_code}")
         self.config = STATIONS[station_code]
-        import os
         self.storage_dir = os.path.join(os.getcwd(), "backend", "tmp")
 
     def latlng_to_pixel(self, lat: float, lng: float, is_loop: bool = True, projection: str = None) -> Tuple[Optional[int], Optional[int]]:
@@ -29,7 +27,6 @@ class TMDRadarProcessor:
         crop_height = self.config.loop_crop_height if is_loop else self.config.static_crop_height
         
         if projection == "azimuthal" and hasattr(self.config, 'center_lat') and self.config.radius_km > 0:
-            import math
             # Haversine distance
             R = 6371.0 # Earth radius in km
             lat1 = math.radians(self.config.center_lat)
@@ -91,8 +88,6 @@ class TMDRadarProcessor:
             return 0.0
             
         color_tuple = (r, g, b)
-        
-        import math
         
         # Check ignored colors first (distance)
         min_dist_ignored = float('inf')
@@ -301,7 +296,6 @@ class TMDRadarProcessor:
         cv2.drawMarker(img, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=14, thickness=2)
 
     def get_wind_speed_kmh_from_vector(self, vx: float, vy: float) -> float:
-        import math
         pixel_speed_15m = math.sqrt(vx**2 + vy**2)
         
         # Calculate km per pixel (approx 1 degree = 111 km)
@@ -323,7 +317,6 @@ class TMDRadarProcessor:
         return self.get_wind_speed_kmh_from_vector(vx, vy)
 
     def get_wind_direction_text_from_vector(self, vx: float, vy: float) -> str:
-        import math
         if abs(vx) < 0.5 and abs(vy) < 0.5:
             return "ไม่ทราบ"
             
@@ -415,7 +408,6 @@ class TMDRadarProcessor:
         Returns a list of dicts sorted by ETA (soonest first), each containing:
           cx, cy, dbz_now, dbz_prev, growth_rate, predicted_dbz, dist, eta_min
         """
-        import math
         # Restrict search to the valid radar crop area to exclude legend strips
         is_loop = flow.shape[0] <= self.config.loop_crop_height + self.config.loop_crop_y + 10
         crop_x0 = self.config.loop_crop_x if is_loop else self.config.static_crop_x
@@ -575,7 +567,6 @@ class TMDRadarProcessor:
     def generate_radar_tracking_image(frame: np.ndarray, user_x: int, user_y: int, clouds: list) -> Optional[bytes]:
         if frame is None or not clouds:
             return None
-        import cv2
         
         # Crop a 240x240 region around the user
         crop_r = 120
@@ -654,7 +645,6 @@ class TMDRadarProcessor:
     def generate_timeline_image(clouds: list) -> Optional[bytes]:
         if not clouds:
             return None
-        import io
         try:
             from PIL import Image, ImageDraw, ImageFont
         except ImportError:
@@ -782,13 +772,9 @@ class TMDRadarProcessor:
 
     async def fetch_latest_image_bytes(self, use_cache: bool = True) -> Optional[bytes]:
         """Fetches the latest static radar image (Polling method)."""
-        import httpx
-        import time
-        from datetime import datetime, timezone
         
         if use_cache:
             try:
-                from app.dependencies import get_repo_context
                 async with get_repo_context() as repo:
                     cache = await repo.get_latest_radar_cache(self.station_code)
                     if cache and cache.get("static_url"):
@@ -797,8 +783,6 @@ class TMDRadarProcessor:
                             created_at = created_at.replace(tzinfo=None)
                         age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
                         if age_secs < 900: # 15 minutes max age
-                            from google.cloud import storage
-                            import os
                             import logging
                             logger = logging.getLogger(__name__)
                             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
@@ -825,17 +809,12 @@ class TMDRadarProcessor:
 
     async def fetch_loop_gif_and_extract_frames(self, use_cache: bool = True) -> Tuple[List[np.ndarray], Optional['datetime']]:
         """Fetches the Loop.gif and extracts frames and the Last-Modified datetime."""
-        import httpx
-        from PIL import Image, ImageSequence
-        import io
-        from datetime import datetime, timezone
         
         loop_bytes = None
         dt = None
         
         if use_cache:
             try:
-                from app.dependencies import get_repo_context
                 async with get_repo_context() as repo:
                     cache = await repo.get_latest_radar_cache(self.station_code)
                     if cache and cache.get("loop_url"):
@@ -844,8 +823,6 @@ class TMDRadarProcessor:
                             created_at = created_at.replace(tzinfo=None)
                         age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
                         if age_secs < 900: # 15 mins
-                            from google.cloud import storage
-                            import os
                             import logging
                             logger = logging.getLogger(__name__)
                             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
@@ -905,10 +882,8 @@ class TMDRadarProcessor:
                     frames.append(np.array(frame.copy().convert("RGB")))
                     
                 try:
-                    from app.services.ocr_service import OCRService
                     ocr_svc = OCRService()
                     if len(frames) > 0:
-                        import time
                         fallback_ts = int(dt.timestamp()) if dt else int(time.time())
                         ts = await ocr_svc.get_frame_timestamp(frames[-1], fallback_ts=fallback_ts)
                         if ts is not None:
@@ -933,9 +908,6 @@ class TMDRadarProcessor:
 
     async def save_polled_frame(self, image_bytes: bytes) -> str:
         """Saves a polled image byte sequence to Google Cloud Storage with a timestamp."""
-        import time
-        import os
-        from google.cloud import storage
         
         timestamp = int(time.time())
         filename = f"radar/{self.station_code}/{self.station_code}_{timestamp}.gif"
@@ -953,10 +925,7 @@ class TMDRadarProcessor:
         
     async def cleanup_old_frames(self, max_age_hours: int = 3) -> int:
         """Deletes files in GCS that are older than max_age_hours."""
-        import time
-        import os
         import asyncio
-        from google.cloud import storage
         
         now = time.time()
         max_age_seconds = max_age_hours * 3600
