@@ -16,6 +16,8 @@ from app.services.ocr_service import OCRService
 from google.cloud import storage
 from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING, IGNORED_COLORS
 
+logger = logging.getLogger(__name__)
+
 class TMDRadarProcessor:
     def __init__(self, station_code: str):
         self.station_code = station_code
@@ -837,8 +839,6 @@ class TMDRadarProcessor:
                             created_at = created_at.replace(tzinfo=None)
                         age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
                         if age_secs < 900: # 15 mins
-                            import logging
-                            logger = logging.getLogger(__name__)
                             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
