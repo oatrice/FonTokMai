@@ -6,7 +6,7 @@
 
 ### 1. Production Bot (`@FonTokMaiBot`)
 - **สถานะ:** ใช้งานจริง
-- **Webhook:** ชี้ไปที่ Google Cloud Run URL ที่ Deploy โดยอัตโนมัติจาก GitLab CI (เช่น `https://fontokmai-api-422715657056.us-central1.run.app/api/v1/telegram/webhook`)
+- **Webhook:** ชี้ไปที่ Google Cloud Run URL ที่ Deploy โดยอัตโนมัติจาก GitLab CI (เช่น `https://fontokmai-api-422715657056.asia-southeast1.run.app/api/v1/telegram/webhook`)
 - **การอัปเดต:** GitLab CI จะทำการอัปเดต Webhook URL ให้โดยอัตโนมัติเมื่อ Deploy เสร็จ
 
 ### 2. Development Bot (`@FonTokMaiDevBot`)

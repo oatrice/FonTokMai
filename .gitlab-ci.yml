@@ -62,6 +62,7 @@ deploy_cloud_run:
     - |
       gcloud run deploy fontokmai-api \
         --source . \
+        --service-account=cloud-run-runtime@fonmayang.iam.gserviceaccount.com \
         --region asia-southeast1 \
         --allow-unauthenticated \
         --memory 1024Mi \
@@ -97,6 +98,10 @@ deploy_cloud_run:
     - |
       curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
         -d url="${CLOUD_RUN_URL}/api/v1/telegram/webhook"
+    # Update Cloud Scheduler Jobs
+    - echo "Updating Cloud Scheduler Jobs..."
+    - chmod +x scripts/setup_schedulers.sh
+    - ./scripts/setup_schedulers.sh
   <<: *telegram_notify
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
