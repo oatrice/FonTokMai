@@ -5,10 +5,10 @@
       "issue_key": "oatricedev/FonMaYang#1",
       "issue_number": 1,
       "issue_title": "Implement Weather Services MVP (Base, RainViewer, Rainbow) with TDD",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/1",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/1",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
-      "issue_status": "✅ Done (0.1.0)",
+      "issue_status": "✅ Done (0.28.0)",
       "estimate_points": 1,
       "post_story_point": 1.0,
       "estimated_mandays": 0.5,
@@ -21,13 +21,13 @@
       "gh_closed_at": "2026-05-29T10:20:36.738Z",
       "gh_mandays": 0.5,
       "created_at": "2026-05-29T07:39:49.264Z",
-      "updated_at": "2026-05-29T17:21:54.258738"
+      "updated_at": "2026-06-16T14:51:20.327529"
     },
     "oatricedev/FonMaYang#2": {
       "issue_key": "oatricedev/FonMaYang#2",
       "issue_number": 2,
       "issue_title": "Implement FastAPI On-demand Routers for RainNowcast",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/2",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/2",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Done (0.2.0)",
@@ -43,13 +43,13 @@
       "gh_closed_at": "2026-05-29T14:28:23.051Z",
       "gh_mandays": 0.5,
       "created_at": "2026-05-29T08:42:05.909Z",
-      "updated_at": "2026-05-29T21:33:41.181577"
+      "updated_at": "2026-06-16T14:51:20.327342"
     },
     "oatricedev/FonMaYang#4": {
       "issue_key": "oatricedev/FonMaYang#4",
       "issue_number": 4,
       "issue_title": "Implement Background Task Scheduler for automated polling",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/4",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/4",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Done (0.5.0)",
@@ -65,13 +65,13 @@
       "gh_closed_at": "2026-05-29T23:20:45.145Z",
       "gh_mandays": 58.5,
       "created_at": "2026-05-29T08:42:19.796Z",
-      "updated_at": "2026-05-30T10:27:02.139348"
+      "updated_at": "2026-06-16T14:51:20.327005"
     },
     "oatricedev/FonMaYang#3": {
       "issue_key": "oatricedev/FonMaYang#3",
       "issue_number": 3,
       "issue_title": "Integrate Notification Services (Line OA / Telegram)",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/3",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/3",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Done (0.3.0)",
@@ -87,13 +87,13 @@
       "gh_closed_at": "2026-05-29T23:20:59.557Z",
       "gh_mandays": 51.5,
       "created_at": "2026-05-29T08:42:12.258Z",
-      "updated_at": "2026-05-30T10:27:02.139907"
+      "updated_at": "2026-06-16T14:51:20.327174"
     },
     "oatricedev/FonMaYang#6": {
       "issue_key": "oatricedev/FonMaYang#6",
       "issue_number": 6,
       "issue_title": "Feature: User Location Persistence with Expiry (Retention Policy)",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/6",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/6",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Done (0.4.0)",
@@ -109,13 +109,13 @@
       "gh_closed_at": "2026-05-29T22:21:55.282Z",
       "gh_mandays": 50.5,
       "created_at": "2026-05-29T12:04:32.144Z",
-      "updated_at": "2026-05-30T05:27:42.440646"
+      "updated_at": "2026-06-16T14:51:20.326787"
     },
     "oatricedev/FonMaYang#8": {
       "issue_key": "oatricedev/FonMaYang#8",
       "issue_number": 8,
       "issue_title": "Infrastructure: Develop Cross-Platform Mobile App (Flutter/React Native)",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/8",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/8",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "🟡 In Progress",
@@ -131,13 +131,13 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-05-29T12:15:11.788Z",
-      "updated_at": "2026-06-16T12:21:57.007861"
+      "updated_at": "2026-06-16T14:51:22.649641"
     },
     "oatricedev/FonMaYang#7": {
       "issue_key": "oatricedev/FonMaYang#7",
       "issue_number": 7,
       "issue_title": "Feature: Broad Geofencing and District-Level Alert System",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/7",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/7",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "🟡 In Progress",
@@ -153,13 +153,13 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-05-29T12:15:09.282Z",
-      "updated_at": "2026-06-16T12:21:57.012104"
+      "updated_at": "2026-06-16T14:51:22.652017"
     },
     "oatricedev/FonMaYang#5": {
       "issue_key": "oatricedev/FonMaYang#5",
       "issue_number": 5,
       "issue_title": "Integrate Notification Services for Line OA",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/5",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/5",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "🟡 In Progress",
@@ -175,13 +175,13 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-05-29T10:34:06.291Z",
-      "updated_at": "2026-06-16T12:21:57.013647"
+      "updated_at": "2026-06-16T14:51:22.653929"
     },
     "oatricedev/FonMaYang#9": {
       "issue_key": "oatricedev/FonMaYang#9",
       "issue_number": 9,
       "issue_title": "Feature: Support multiple saved locations per user (e.g. Home, Work)",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/9",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/9",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Done (0.12.0)",
@@ -197,13 +197,13 @@
       "gh_closed_at": "2026-06-02T05:53:53.137Z",
       "gh_mandays": 75.0,
       "created_at": "2026-05-29T20:54:47.551Z",
-      "updated_at": "2026-06-03T17:47:38.921105"
+      "updated_at": "2026-06-16T14:51:20.326623"
     },
     "oatricedev/FonMaYang#10": {
       "issue_key": "oatricedev/FonMaYang#10",
       "issue_number": 10,
       "issue_title": "Infrastructure: Deploy FonTokMai MVP to Production",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/10",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/10",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Done (0.6.0)",
@@ -219,13 +219,13 @@
       "gh_closed_at": "2026-05-30T03:33:52.065Z",
       "gh_mandays": 72.0,
       "created_at": "2026-05-29T23:13:06.085Z",
-      "updated_at": "2026-05-30T16:19:18.562810"
+      "updated_at": "2026-06-16T14:51:20.326434"
     },
     "oatricedev/FonMaYang#12": {
       "issue_key": "oatricedev/FonMaYang#12",
       "issue_number": 12,
       "issue_title": "Feature: Add multiple radar sources (TMD, etc.) to Telegram /radar command",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/12",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/12",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Done (0.7.0)",
@@ -241,13 +241,13 @@
       "gh_closed_at": "2026-05-30T07:40:18.985Z",
       "gh_mandays": 1.5,
       "created_at": "2026-05-30T02:53:51.819Z",
-      "updated_at": "2026-05-30T16:18:30.166309"
+      "updated_at": "2026-06-16T14:51:20.326096"
     },
     "oatricedev/FonMaYang#15": {
       "issue_key": "oatricedev/FonMaYang#15",
       "issue_number": 15,
       "issue_title": "Infrastructure: CI/CD Auto-deploy to Cloud Run and Webhook Management",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/15",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/15",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Done (0.8.0)",
@@ -263,13 +263,13 @@
       "gh_closed_at": "2026-06-03T09:18:27.981Z",
       "gh_mandays": 61.5,
       "created_at": "2026-05-30T07:38:13.273Z",
-      "updated_at": "2026-06-03T17:47:38.922117"
+      "updated_at": "2026-06-16T14:51:20.325678"
     },
     "oatricedev/FonMaYang#13": {
       "issue_key": "oatricedev/FonMaYang#13",
       "issue_number": 13,
       "issue_title": "Feature: Enhance Rain Alert with Extended Meteorological Data (Intensity, Duration, Wind)",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/13",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/13",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Done (0.13.0)",
@@ -285,13 +285,13 @@
       "gh_closed_at": "2026-06-03T10:53:29.616Z",
       "gh_mandays": 70.5,
       "created_at": "2026-05-30T06:33:00.518Z",
-      "updated_at": "2026-06-04T18:05:16.286835"
+      "updated_at": "2026-06-16T14:51:20.325909"
     },
     "oatricedev/FonMaYang#16": {
       "issue_key": "oatricedev/FonMaYang#16",
       "issue_number": 16,
       "issue_title": "Feature: Integrate external meteorological APIs (Open-Meteo, TMD) for enhanced data (Wind, Accurate Intensity)",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/16",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/16",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Complete",
@@ -307,13 +307,13 @@
       "gh_closed_at": "2026-06-04T15:25:40.389Z",
       "gh_mandays": 65.5,
       "created_at": "2026-05-30T08:12:45.407Z",
-      "updated_at": "2026-06-16T12:21:57.015149"
+      "updated_at": "2026-06-16T14:51:22.655782"
     },
     "oatricedev/FonMaYang#14": {
       "issue_key": "oatricedev/FonMaYang#14",
       "issue_number": 14,
       "issue_title": "Feature Research: Rain Prediction along Driving Route (Route vs Live Tracking)",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/14",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/14",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "🟡 In Progress",
@@ -329,13 +329,13 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-05-30T07:15:30.759Z",
-      "updated_at": "2026-06-16T12:21:57.016732"
+      "updated_at": "2026-06-16T14:51:22.657431"
     },
     "oatricedev/FonMaYang#11": {
       "issue_key": "oatricedev/FonMaYang#11",
       "issue_number": 11,
       "issue_title": "Feature: Integrate Real Weather API (Tomorrow.io / OpenWeatherMap)",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/11",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/11",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Done (0.13.0)",
@@ -351,13 +351,13 @@
       "gh_closed_at": "2026-06-03T10:53:17.089Z",
       "gh_mandays": 63.0,
       "created_at": "2026-05-30T00:42:41.316Z",
-      "updated_at": "2026-06-04T18:05:16.288813"
+      "updated_at": "2026-06-16T14:51:20.326270"
     },
     "oatricedev/FonMaYang#17": {
       "issue_key": "oatricedev/FonMaYang#17",
       "issue_number": 17,
       "issue_title": "Update RainbowService to use official Rainbow Weather Nowcast API",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/17",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/17",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Done (0.9.0)",
@@ -373,7 +373,7 @@
       "gh_closed_at": "2026-05-30T16:06:12.136Z",
       "gh_mandays": 58.5,
       "created_at": "2026-05-30T11:50:35.583Z",
-      "updated_at": "2026-06-01T20:42:27.396339"
+      "updated_at": "2026-06-16T14:51:20.325449"
     },
     "oatricedev/FonMaYang#25": {
       "issue_key": "oatricedev/FonMaYang#25",
@@ -439,7 +439,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-05-31T05:38:04.018Z",
-      "updated_at": "2026-06-16T12:21:57.018184"
+      "updated_at": "2026-06-16T14:51:22.659212"
     },
     "oatricedev/FonMaYang#22": {
       "issue_key": "oatricedev/FonMaYang#22",
@@ -461,7 +461,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-05-31T05:38:02.162Z",
-      "updated_at": "2026-06-16T12:21:57.633537"
+      "updated_at": "2026-06-16T14:51:23.526706"
     },
     "oatricedev/FonMaYang#21": {
       "issue_key": "oatricedev/FonMaYang#21",
@@ -533,7 +533,7 @@
       "issue_key": "oatricedev/FonMaYang#18",
       "issue_number": 18,
       "issue_title": "Dummy for test",
-      "issue_url": "https://gitlab.com/oatricedev/Luma/-/issues/18",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/18",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "🟢 Ready",
@@ -549,7 +549,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-01T20:42:25.185712",
-      "updated_at": "2026-06-01T20:42:25.185713"
+      "updated_at": "2026-06-16T14:51:20.325261"
     },
     "oatricedev/FonMaYang#28": {
       "issue_key": "oatricedev/FonMaYang#28",
@@ -571,7 +571,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-03T09:14:45.472Z",
-      "updated_at": "2026-06-16T12:21:58.220288"
+      "updated_at": "2026-06-16T14:51:24.224760"
     },
     "oatricedev/FonMaYang#31": {
       "issue_key": "oatricedev/FonMaYang#31",
@@ -637,7 +637,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-03T09:15:24.414Z",
-      "updated_at": "2026-06-16T12:21:59.974672"
+      "updated_at": "2026-06-16T14:51:26.211310"
     },
     "oatricedev/FonMaYang#27": {
       "issue_key": "oatricedev/FonMaYang#27",
@@ -659,7 +659,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-03T09:14:26.47Z",
-      "updated_at": "2026-06-16T12:22:00.595453"
+      "updated_at": "2026-06-16T14:51:26.770523"
     },
     "oatricedev/FonMaYang#26": {
       "issue_key": "oatricedev/FonMaYang#26",
@@ -681,7 +681,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-02T05:24:56.347Z",
-      "updated_at": "2026-06-16T12:22:00.598183"
+      "updated_at": "2026-06-16T14:51:26.771824"
     },
     "oatricedev/FonMaYang#38": {
       "issue_key": "oatricedev/FonMaYang#38",
@@ -747,7 +747,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-04T07:34:18.324Z",
-      "updated_at": "2026-06-16T12:22:00.604490"
+      "updated_at": "2026-06-16T14:51:26.772942"
     },
     "oatricedev/FonMaYang#39": {
       "issue_key": "oatricedev/FonMaYang#39",
@@ -791,7 +791,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-03T12:22:59.365Z",
-      "updated_at": "2026-06-16T12:22:01.188329"
+      "updated_at": "2026-06-16T14:51:27.350570"
     },
     "oatricedev/FonMaYang#35": {
       "issue_key": "oatricedev/FonMaYang#35",
@@ -989,7 +989,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-04T14:55:07.678Z",
-      "updated_at": "2026-06-16T12:22:03.621470"
+      "updated_at": "2026-06-16T14:51:29.877159"
     },
     "oatricedev/FonMaYang#46": {
       "issue_key": "oatricedev/FonMaYang#46",
@@ -1011,7 +1011,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-04T14:35:42.372Z",
-      "updated_at": "2026-06-16T12:22:04.233705"
+      "updated_at": "2026-06-16T14:51:30.519364"
     },
     "oatricedev/FonMaYang#44": {
       "issue_key": "oatricedev/FonMaYang#44",
@@ -1033,7 +1033,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-04T14:35:26.035Z",
-      "updated_at": "2026-06-16T12:22:04.844101"
+      "updated_at": "2026-06-16T14:51:31.164802"
     },
     "oatricedev/FonMaYang#49": {
       "issue_key": "oatricedev/FonMaYang#49",
@@ -1187,7 +1187,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-05T17:41:50.968Z",
-      "updated_at": "2026-06-16T12:22:07.289425"
+      "updated_at": "2026-06-16T14:51:33.604335"
     },
     "oatricedev/FonMaYang#51": {
       "issue_key": "oatricedev/FonMaYang#51",
@@ -1275,7 +1275,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-06T10:14:13.621Z",
-      "updated_at": "2026-06-16T12:22:08.489346"
+      "updated_at": "2026-06-16T14:51:34.938291"
     },
     "oatricedev/FonMaYang#59": {
       "issue_key": "oatricedev/FonMaYang#59",
@@ -1297,7 +1297,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-06T10:08:21.174Z",
-      "updated_at": "2026-06-16T12:22:08.492788"
+      "updated_at": "2026-06-16T14:51:34.941576"
     },
     "oatricedev/FonMaYang#58": {
       "issue_key": "oatricedev/FonMaYang#58",
@@ -1429,7 +1429,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-07T07:15:17.209Z",
-      "updated_at": "2026-06-16T12:22:09.122667"
+      "updated_at": "2026-06-16T14:51:35.558850"
     },
     "oatricedev/FonMaYang#71": {
       "issue_key": "oatricedev/FonMaYang#71",
@@ -1451,7 +1451,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-09T16:24:15.913Z",
-      "updated_at": "2026-06-16T12:22:09.125233"
+      "updated_at": "2026-06-16T14:51:35.561705"
     },
     "oatricedev/FonMaYang#72": {
       "issue_key": "oatricedev/FonMaYang#72",
@@ -1473,7 +1473,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-14T13:27:32.824Z",
-      "updated_at": "2026-06-16T12:22:09.702567"
+      "updated_at": "2026-06-16T14:51:36.174538"
     },
     "oatricedev/FonMaYang#70": {
       "issue_key": "oatricedev/FonMaYang#70",
@@ -1495,7 +1495,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-08T12:37:06.944Z",
-      "updated_at": "2026-06-16T12:22:10.296777"
+      "updated_at": "2026-06-16T14:51:36.786612"
     },
     "oatricedev/FonMaYang#69": {
       "issue_key": "oatricedev/FonMaYang#69",
@@ -1517,7 +1517,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-08T11:56:52.399Z",
-      "updated_at": "2026-06-16T12:22:10.912851"
+      "updated_at": "2026-06-16T14:51:37.394763"
     },
     "oatricedev/FonMaYang#68": {
       "issue_key": "oatricedev/FonMaYang#68",
@@ -1539,7 +1539,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-08T05:20:55.182Z",
-      "updated_at": "2026-06-16T12:22:11.552422"
+      "updated_at": "2026-06-16T14:51:37.987040"
     },
     "oatricedev/FonMaYang#67": {
       "issue_key": "oatricedev/FonMaYang#67",
@@ -1561,29 +1561,29 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-08T05:07:06.587Z",
-      "updated_at": "2026-06-16T12:22:12.167676"
+      "updated_at": "2026-06-16T14:51:38.563845"
     },
     "oatricedev/FonMaYang#76": {
       "issue_key": "oatricedev/FonMaYang#76",
       "issue_number": 76,
-      "issue_title": "Security: Enforce minimal IAM permissions for Cloud Run",
-      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/76",
+      "issue_title": "Security enforce minimal iam permissions cloud run infr b50dd52f",
+      "issue_url": "https://github.com/oatricedev/FonMaYang/issues/76",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
-      "issue_status": "✅ Complete",
+      "issue_status": "🟡 In Progress",
       "estimate_points": 1,
       "post_story_point": 13.0,
       "estimated_mandays": 0.5,
       "start_datetime": "2026-06-16T14:30:23",
-      "actual_mandays": 0.5,
-      "due_date": null,
-      "actual_completion_date": "2026-06-16T14:41:48",
+      "actual_mandays": 0.0,
+      "due_date": "2026-06-17T23:59:59",
+      "actual_completion_date": null,
       "effort_level": "Low",
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
-      "created_at": "2026-06-16T14:30:23.103303",
-      "updated_at": "2026-06-16T14:41:48.773950"
+      "created_at": "2026-06-16T06:40:37.821Z",
+      "updated_at": "2026-06-16T14:51:39.318250"
     },
     "oatricedev/FonMaYang#77": {
       "issue_key": "oatricedev/FonMaYang#77",
@@ -1592,20 +1592,86 @@
       "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/77",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
-      "issue_status": "✅ Complete",
+      "issue_status": "🟡 In Progress",
       "estimate_points": 2,
       "post_story_point": 3.0,
       "estimated_mandays": 1.0,
       "start_datetime": "2026-06-16T14:30:23",
-      "actual_mandays": 0.5,
-      "due_date": null,
-      "actual_completion_date": "2026-06-16T14:41:48",
+      "actual_mandays": 0.0,
+      "due_date": "2026-06-16T23:59:59",
+      "actual_completion_date": null,
       "effort_level": "Low",
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
-      "created_at": "2026-06-16T14:30:23.105731",
-      "updated_at": "2026-06-16T14:41:48.776090"
+      "created_at": "2026-06-16T07:05:49.087Z",
+      "updated_at": "2026-06-16T14:51:39.922503"
+    },
+    "oatricedev/FonMaYang#75": {
+      "issue_key": "oatricedev/FonMaYang#75",
+      "issue_number": 75,
+      "issue_title": "[Epic] Environment Staging & Automated Secret Management (Local/UAT/PROD)",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/75",
+      "repository": "oatricedev/FonMaYang",
+      "project_name": "FonMaYang",
+      "issue_status": "🟡 In Progress",
+      "estimate_points": 8,
+      "post_story_point": null,
+      "estimated_mandays": 5.0,
+      "start_datetime": null,
+      "actual_mandays": 0.0,
+      "due_date": "2026-06-21T23:59:59",
+      "actual_completion_date": null,
+      "effort_level": "High",
+      "notes": null,
+      "gh_closed_at": null,
+      "gh_mandays": null,
+      "created_at": "2026-06-16T03:41:53.529Z",
+      "updated_at": "2026-06-16T14:51:40.510864"
+    },
+    "oatricedev/FonMaYang#74": {
+      "issue_key": "oatricedev/FonMaYang#74",
+      "issue_number": 74,
+      "issue_title": "Add Cloud Tasks Queue Monitoring & API endpoint",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/74",
+      "repository": "oatricedev/FonMaYang",
+      "project_name": "FonMaYang",
+      "issue_status": "🟡 In Progress",
+      "estimate_points": 2,
+      "post_story_point": null,
+      "estimated_mandays": 1.0,
+      "start_datetime": null,
+      "actual_mandays": 0.0,
+      "due_date": "2026-06-17T23:59:59",
+      "actual_completion_date": null,
+      "effort_level": "Low",
+      "notes": null,
+      "gh_closed_at": null,
+      "gh_mandays": null,
+      "created_at": "2026-06-16T03:38:32.172Z",
+      "updated_at": "2026-06-16T14:51:41.138527"
+    },
+    "oatricedev/FonMaYang#73": {
+      "issue_key": "oatricedev/FonMaYang#73",
+      "issue_number": 73,
+      "issue_title": "Verify Performance Gains & Monitor Memory Usage Post-Deployment of #71",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/73",
+      "repository": "oatricedev/FonMaYang",
+      "project_name": "FonMaYang",
+      "issue_status": "🟡 In Progress",
+      "estimate_points": 1,
+      "post_story_point": null,
+      "estimated_mandays": 0.5,
+      "start_datetime": null,
+      "actual_mandays": 0.0,
+      "due_date": "2026-06-17T23:59:59",
+      "actual_completion_date": null,
+      "effort_level": "Low",
+      "notes": null,
+      "gh_closed_at": null,
+      "gh_mandays": null,
+      "created_at": "2026-06-16T00:43:09.194Z",
+      "updated_at": "2026-06-16T14:51:41.739119"
     }
   }
 }
