@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 # Script to create/update Google Cloud Scheduler jobs pointing to Cloud Run
 
 PROJECT_ID=${GCP_PROJECT:-"fonmayang"}
@@ -51,9 +52,7 @@ setup_job() {
   local DESCRIPTION="⚠️ DO NOT EDIT - Managed by CI/CD setup_schedulers.sh"
   
   # Check if exists
-  gcloud scheduler jobs describe $JOB_NAME --location=$LOCATION --project=$PROJECT_ID > /dev/null 2>&1
-  
-  if [ $? -eq 0 ]; then
+  if gcloud scheduler jobs describe $JOB_NAME --location=$LOCATION --project=$PROJECT_ID > /dev/null 2>&1; then
     echo "Updating existing job..."
     gcloud scheduler jobs update http $JOB_NAME \
       --location=$LOCATION \
