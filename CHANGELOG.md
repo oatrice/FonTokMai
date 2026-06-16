@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.0] - 2026-06-16
+### Added
+- Implemented Google Cloud Tasks automation script (`setup_gcp.sh`) and optimized Cloud Run deployment settings (asia-southeast1, scale-to-zero, max instances).
+- Added environment configuration and secret headers to securely authenticate background worker endpoints.
+- Added comprehensive documentation and feasibility studies for Cloud Tasks integration, storage optimization, and future secret management.
+
+### Changed
+- Refactored radar processing to use asynchronous cloud storage fetching (`asyncio.to_thread`) to eliminate blocking I/O and prevent Cloud Run CPU throttling.
+- Migrated long-running background tasks to Google Cloud Tasks for robust queue management and retry logic.
+- Centralized module imports, implemented a 10-minute cache TTL for radar images, and modularized the developer mock disaster trigger logic.
+
+### Fixed
+- Fixed the Telegram webhook to gracefully ignore stale updates (older than 2 minutes) during reconnection, mitigating retry storms.
+
 ## [0.26.0] - 2026-06-08
 ### Added
 - Implemented lightweight telemetry and an internal `MetricsService` with `/api/v1/metrics/export` endpoint to record and export cron routine runtime metrics.
