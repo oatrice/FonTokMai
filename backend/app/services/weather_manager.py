@@ -1,12 +1,19 @@
 import logging
 import time
+import asyncio
+import cv2
+import io
+from datetime import datetime, timezone, timedelta
 from typing import Optional
+from PIL import Image, ImageDraw, ImageFont
+from zoneinfo import ZoneInfo
 from .tomorrow import TomorrowService
 from .rainbow import RainbowService
 from .xweather import XweatherService
 from .open_meteo import OpenMeteoService
 from .tmd_radar_processor import TMDRadarProcessor
 logger = logging.getLogger(__name__)
+from app.dependencies import get_repo_context
 
 class WeatherManager:
     def __init__(self):

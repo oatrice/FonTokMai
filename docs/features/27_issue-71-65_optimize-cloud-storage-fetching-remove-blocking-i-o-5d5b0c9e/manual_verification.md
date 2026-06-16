@@ -3,7 +3,12 @@
 **Objective**: Verify that the radar caching, GCS asynchronous wrapper, and Cloud Tasks background workers execute properly without blocking the event loop or causing syntax/runtime errors.
 
 - **Step 1: Start the Local Environment**
-  - Run the FastAPI application locally: `uvicorn app.main:app --reload --port 8000`
+  - Run the FastAPI application locally (ensure your virtual environment is active, or use `uv`):
+    ```bash
+    cd backend
+    uv run uvicorn app.main:app --reload --port 8000
+    ```
+    *(Or if using standard venv: `source .venv/bin/activate` followed by `uvicorn app.main:app --reload --port 8000`)*
   - *Note*: You may need to set `WORKER_BASE_URL=http://localhost:8000` and export your `GCP_PROJECT`, `GCP_LOCATION`, and `CLOUD_TASKS_QUEUE` for Cloud Tasks routing. If you don't have a Cloud Tasks queue, the fallback logic will execute tasks inline (`BackgroundTasks`), which is also fine for verifying functionality.
 
 - **Step 2: Verify Radar Processor Caching & Async I/O (Issue #71)**
