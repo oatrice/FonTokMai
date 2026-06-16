@@ -60,7 +60,7 @@ setup_job() {
       --schedule="$SCHEDULE" \
       --uri="$FULL_URL" \
       --http-method="POST" \
-      --headers="Content-Type=application/json,X-Cron-Secret=$CRON_SECRET" \
+      --update-headers="Content-Type=application/json,X-Cron-Secret=$CRON_SECRET" \
       --time-zone="Asia/Bangkok" \
       --description="$DESCRIPTION"
   else
