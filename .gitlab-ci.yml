@@ -66,8 +66,8 @@ deploy_cloud_run:
         --region asia-southeast1 \
         --allow-unauthenticated \
         --memory 1024Mi \
-        --min-instances 0 \
-        --max-instances 2 \
+        --service-min-instances 0 \
+        --service-max-instances 2 \
         --concurrency 80 \
         --cpu-boost \
         --set-env-vars "\
