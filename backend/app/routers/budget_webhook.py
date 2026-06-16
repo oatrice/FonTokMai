@@ -97,29 +97,58 @@ def _is_budget_exceeded(budget_data: dict[str, Any]) -> bool:
 
 
 def _revoke_public_access() -> bool:
-    """สั่ง gcloud เพื่อลบสิทธิ์ allUsers บน Cloud Run service (ทำให้เข้าถึงไม่ได้ = ปิด)"""
+    """สั่งลบสิทธิ์ allUsers บน Cloud Run service (ทำให้เข้าถึงไม่ได้ = ปิด) ผ่าน REST API"""
     try:
-        cmd = [
-            "gcloud", "run", "services", "remove-iam-policy-binding", CLOUD_RUN_SERVICE,
-            "--region", GCP_REGION,
-            "--project", GCP_PROJECT_ID,
-            "--member", "allUsers",
-            "--role", "roles/run.invoker",
-            "--quiet",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        import google.auth
+        from google.auth.transport.requests import Request as GoogleAuthRequest
+        import httpx
 
-        if result.returncode == 0:
-            logger.info(f"[BudgetAlert] ✅ Cloud Run '{CLOUD_RUN_SERVICE}' public access revoked (Suspended).")
-            return True
-        else:
-            logger.error(f"[BudgetAlert] ❌ gcloud error: {result.stderr}")
-            return False
-    except subprocess.TimeoutExpired:
-        logger.error("[BudgetAlert] ❌ gcloud command timed out.")
-        return False
-    except FileNotFoundError:
-        logger.error("[BudgetAlert] ❌ gcloud not found in PATH. Cannot scale Cloud Run.")
+        # Get default credentials (works seamlessly on Cloud Run)
+        credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+        credentials.refresh(GoogleAuthRequest())
+        token = credentials.token
+
+        resource = f"projects/{GCP_PROJECT_ID}/locations/{GCP_REGION}/services/{CLOUD_RUN_SERVICE}"
+        url_get = f"https://run.googleapis.com/v1/{resource}:getIamPolicy"
+        url_set = f"https://run.googleapis.com/v1/{resource}:setIamPolicy"
+
+        with httpx.Client(timeout=10) as client:
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
+            
+            # 1. Get current policy
+            resp_get = client.get(url_get, headers=headers)
+            if resp_get.status_code != 200:
+                logger.error(f"[BudgetAlert] ❌ Failed to get IAM policy: {resp_get.text}")
+                return False
+                
+            policy = resp_get.json()
+            
+            # 2. Modify policy: remove allUsers from roles/run.invoker
+            modified = False
+            for binding in policy.get("bindings", []):
+                if binding.get("role") == "roles/run.invoker":
+                    if "allUsers" in binding.get("members", []):
+                        binding["members"].remove("allUsers")
+                        modified = True
+            
+            if not modified:
+                logger.info(f"[BudgetAlert] ✅ Cloud Run '{CLOUD_RUN_SERVICE}' is already private.")
+                return True
+                
+            # 3. Set updated policy
+            resp_set = client.post(url_set, headers=headers, json={"policy": policy})
+            if resp_set.status_code == 200:
+                logger.info(f"[BudgetAlert] ✅ Cloud Run '{CLOUD_RUN_SERVICE}' public access revoked (Suspended).")
+                return True
+            else:
+                logger.error(f"[BudgetAlert] ❌ Failed to set IAM policy: {resp_set.text}")
+                return False
+
+    except Exception as e:
+        logger.error(f"[BudgetAlert] ❌ Exception during IAM modification: {e}")
         return False
 
 
