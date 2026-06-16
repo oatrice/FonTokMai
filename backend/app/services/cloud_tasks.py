@@ -32,11 +32,16 @@ class CloudTasksService:
 
         url = f"{self.base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
         
+        worker_secret = os.getenv("WORKER_SECRET", os.getenv("CRON_SECRET", "default_secret_for_local_testing"))
+        
         task = {
             "http_request": {
                 "http_method": tasks_v2.HttpMethod.POST,
                 "url": url,
-                "headers": {"Content-type": "application/json"},
+                "headers": {
+                    "Content-type": "application/json",
+                    "X-Worker-Secret": worker_secret
+                },
                 "body": json.dumps(payload).encode(),
             }
         }

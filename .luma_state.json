@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 71,
@@ -25,7 +25,9 @@
   "active_branch": "feat/71-65-optimize-cloud-storage-fetchin",
   "started_at": "2026-06-16T07:32:07.701232",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -116,5 +118,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-16T07:32:11.986139"
+  "last_updated": "2026-06-16T07:49:58.881367"
 }
