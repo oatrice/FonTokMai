@@ -27,6 +27,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #76 - Security: Enforce minimal IAM permissions for Cloud Run
+- **GitHub:** [#76](https://gitlab.com/oatricedev/FonMaYang/-/issues/76)
+    - ✅ **Done** (0.28.0) 
+
 ### Issue #77 - Infrastructure: Automate Cloud Scheduler Jobs Migration
 - **GitHub:** [#77](https://gitlab.com/oatricedev/FonMaYang/-/issues/77)
     - ✅ **Done** (0.28.0)

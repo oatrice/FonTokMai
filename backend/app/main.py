@@ -78,13 +78,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-from app.routers import weather, webhook, scheduler, metrics, worker
+from app.routers import weather, webhook, scheduler, metrics, worker, budget_webhook
 
 app.include_router(weather.router)
 app.include_router(webhook.router)
 app.include_router(scheduler.router)
 app.include_router(metrics.router)
 app.include_router(worker.router)
+app.include_router(budget_webhook.router)
 
 
 @app.get("/", include_in_schema=False)

@@ -1,0 +1,246 @@
+"""
+Router: budget_webhook.py
+Issue:  #72 — Budget-based Auto-shutdown Mechanism for Cloud Run
+
+รับ Pub/Sub push notification จาก GCP Budget Alert
+เมื่อค่าใช้จ่ายถึง 100% ของ budget → scale Cloud Run max-instances = 0
+และส่งแจ้งเตือนผ่าน Telegram
+"""
+
+import base64
+import json
+import logging
+import os
+import subprocess
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Request, status
+from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(
+    prefix="/api/v1/internal",
+    tags=["internal"],
+)
+
+# ─────────────────────────────────────────────────────
+# Models
+# ─────────────────────────────────────────────────────
+
+class PubSubMessage(BaseModel):
+    data: str  # base64-encoded JSON
+    messageId: str | None = None
+    publishTime: str | None = None
+    attributes: dict[str, str] | None = None
+
+
+class PubSubPushPayload(BaseModel):
+    message: PubSubMessage
+    subscription: str | None = None
+
+
+# ─────────────────────────────────────────────────────
+# Config
+# ─────────────────────────────────────────────────────
+
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT", os.getenv("GOOGLE_CLOUD_PROJECT", "fonmayang"))
+GCP_REGION = os.getenv("GCP_LOCATION", "asia-southeast1")
+CLOUD_RUN_SERVICE = os.getenv("CLOUD_RUN_SERVICE_NAME", "fontokmai-api")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+DEVELOPER_CHAT_IDS = os.getenv("DEVELOPER_CHAT_IDS", "")
+
+
+# ─────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────
+
+def _parse_pubsub_data(encoded_data: str) -> dict[str, Any]:
+    """Decode base64 Pub/Sub message data → dict"""
+    try:
+        decoded = base64.b64decode(encoded_data).decode("utf-8")
+        return json.loads(decoded)
+    except Exception as e:
+        logger.error(f"[BudgetAlert] Failed to decode Pub/Sub message: {e}")
+        raise ValueError(f"Invalid Pub/Sub message data: {e}") from e
+
+
+def _is_budget_exceeded(budget_data: dict[str, Any]) -> bool:
+    """
+    ตรวจว่า budget ถูกใช้จนถึง 100% แล้วหรือยัง
+
+    GCP Budget Alert schema:
+    {
+      "budgetDisplayName": "...",
+      "alertThresholdExceeded": 1.0,  ← triggered threshold (0.8 or 1.0)
+      "costAmount": 10.5,
+      "costIntervalStart": "...",
+      "budgetAmount": 10.0,
+      "budgetAmountType": "SPECIFIED_AMOUNT",
+      "currencyCode": "USD"
+    }
+    """
+    alert_threshold = budget_data.get("alertThresholdExceeded", 0.0)
+    cost_amount = budget_data.get("costAmount", 0.0)
+    budget_amount = budget_data.get("budgetAmount", 1.0)
+
+    # ถือว่า budget exceeded ถ้า threshold >= 1.0 (100%)
+    # หรือ cost/budget ratio >= 1.0
+    ratio = cost_amount / budget_amount if budget_amount > 0 else 0.0
+
+    logger.info(
+        f"[BudgetAlert] threshold={alert_threshold:.2f}, "
+        f"cost=${cost_amount:.2f}, budget=${budget_amount:.2f}, ratio={ratio:.2f}"
+    )
+
+    return alert_threshold >= 1.0 or ratio >= 1.0
+
+
+def _scale_cloud_run_to_zero() -> bool:
+    """สั่ง gcloud เพื่อ update max-instances = 0 บน Cloud Run service"""
+    try:
+        cmd = [
+            "gcloud", "run", "services", "update", CLOUD_RUN_SERVICE,
+            "--region", GCP_REGION,
+            "--project", GCP_PROJECT_ID,
+            "--max-instances", "0",
+            "--quiet",
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+
+        if result.returncode == 0:
+            logger.info(f"[BudgetAlert] ✅ Cloud Run '{CLOUD_RUN_SERVICE}' scaled to 0 instances.")
+            return True
+        else:
+            logger.error(f"[BudgetAlert] ❌ gcloud error: {result.stderr}")
+            return False
+    except subprocess.TimeoutExpired:
+        logger.error("[BudgetAlert] ❌ gcloud command timed out.")
+        return False
+    except FileNotFoundError:
+        logger.error("[BudgetAlert] ❌ gcloud not found in PATH. Cannot scale Cloud Run.")
+        return False
+
+
+async def _send_telegram_alert(message: str) -> None:
+    """ส่งข้อความแจ้งเตือนผ่าน Telegram"""
+    if not TELEGRAM_BOT_TOKEN or not DEVELOPER_CHAT_IDS:
+        logger.warning("[BudgetAlert] Telegram not configured, skipping notification.")
+        return
+
+    import httpx
+
+    chat_ids = [cid.strip() for cid in DEVELOPER_CHAT_IDS.split(",") if cid.strip()]
+    async with httpx.AsyncClient() as client:
+        for chat_id in chat_ids:
+            try:
+                await client.post(
+                    f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                    json={
+                        "chat_id": chat_id,
+                        "text": message,
+                        "parse_mode": "HTML",
+                        "disable_web_page_preview": True,
+                    },
+                    timeout=10,
+                )
+            except Exception as e:
+                logger.error(f"[BudgetAlert] Failed to send Telegram alert to {chat_id}: {e}")
+
+
+# ─────────────────────────────────────────────────────
+# Endpoint
+# ─────────────────────────────────────────────────────
+
+@router.post(
+    "/budget-alert",
+    status_code=status.HTTP_200_OK,
+    summary="GCP Budget Alert Pub/Sub Handler",
+    description=(
+        "รับ Pub/Sub push message จาก GCP Budget Alert. "
+        "ถ้าค่าใช้จ่ายถึง 100% ของ budget จะสั่ง scale Cloud Run max-instances=0 "
+        "และส่งแจ้งเตือนผ่าน Telegram"
+    ),
+)
+async def handle_budget_alert(payload: PubSubPushPayload, request: Request):
+    """
+    Pub/Sub push subscription endpoint สำหรับ GCP Budget Alert
+
+    GCP จะ POST มาในรูปแบบ:
+    {
+      "message": {
+        "data": "<base64-encoded-json>",
+        "messageId": "...",
+        "publishTime": "..."
+      },
+      "subscription": "projects/.../subscriptions/billing-alerts-sub"
+    }
+    """
+    logger.info(f"[BudgetAlert] Received Pub/Sub message: {payload.message.messageId}")
+
+    # Decode และ parse ข้อมูล budget
+    try:
+        budget_data = _parse_pubsub_data(payload.message.data)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    budget_name = budget_data.get("budgetDisplayName", "unknown")
+    cost_amount = budget_data.get("costAmount", 0.0)
+    budget_amount = budget_data.get("budgetAmount", 0.0)
+    currency = budget_data.get("currencyCode", "USD")
+    alert_threshold = budget_data.get("alertThresholdExceeded", 0.0)
+
+    logger.info(
+        f"[BudgetAlert] Budget '{budget_name}': "
+        f"cost={cost_amount} {currency}, budget={budget_amount} {currency}, "
+        f"threshold={alert_threshold:.0%}"
+    )
+
+    # ─── Warning Alert (80%) ───
+    if 0.79 < alert_threshold < 1.0:
+        warning_msg = (
+            f"⚠️ <b>Budget Warning — FonMaYang</b>\n\n"
+            f"📊 ค่าใช้จ่ายถึง <b>{alert_threshold:.0%}</b> ของ budget แล้ว\n"
+            f"💰 ค่าใช้จ่ายปัจจุบัน: <code>{cost_amount:.2f} {currency}</code>\n"
+            f"🎯 Budget limit: <code>{budget_amount:.2f} {currency}</code>\n"
+            f"🔔 ถ้าถึง 100% ระบบจะ scale down Cloud Run อัตโนมัติ"
+        )
+        await _send_telegram_alert(warning_msg)
+        logger.info("[BudgetAlert] ⚠️ 80% warning alert sent.")
+        return {"status": "warning_sent", "threshold": alert_threshold}
+
+    # ─── Shutdown Trigger (100%) ───
+    if _is_budget_exceeded(budget_data):
+        logger.warning("[BudgetAlert] 🚨 Budget 100% exceeded! Initiating Cloud Run shutdown...")
+
+        scale_success = _scale_cloud_run_to_zero()
+
+        if scale_success:
+            shutdown_msg = (
+                f"🚨 <b>Budget Exceeded — Emergency Shutdown</b>\n\n"
+                f"⚡ Cloud Run <code>{CLOUD_RUN_SERVICE}</code> ถูก scale ลงเหลือ 0 instances แล้ว\n\n"
+                f"💳 ค่าใช้จ่ายปัจจุบัน: <code>{cost_amount:.2f} {currency}</code>\n"
+                f"🎯 Budget limit: <code>{budget_amount:.2f} {currency}</code>\n\n"
+                f"ℹ️ เพื่อ restore service:\n"
+                f"<code>gcloud run services update {CLOUD_RUN_SERVICE} --max-instances=3 --region={GCP_REGION}</code>"
+            )
+            status_result = "shutdown_success"
+        else:
+            shutdown_msg = (
+                f"🔴 <b>Budget Exceeded — Shutdown FAILED</b>\n\n"
+                f"❌ ไม่สามารถ scale Cloud Run ลงได้ กรุณาตรวจสอบด่วน!\n\n"
+                f"💳 ค่าใช้จ่าย: <code>{cost_amount:.2f} {currency}</code> / <code>{budget_amount:.2f} {currency}</code>\n"
+                f"🛠️ กรุณา scale down manually:\n"
+                f"<code>gcloud run services update {CLOUD_RUN_SERVICE} --max-instances=0 --region={GCP_REGION}</code>"
+            )
+            status_result = "shutdown_failed"
+
+        await _send_telegram_alert(shutdown_msg)
+        return {"status": status_result, "cost": cost_amount, "budget": budget_amount}
+
+    # ─── Normal notification (ไม่ถึง threshold สำคัญ) ───
+    logger.info(f"[BudgetAlert] Notification received but no action needed (threshold={alert_threshold:.0%}).")
+    return {"status": "acknowledged", "threshold": alert_threshold}
