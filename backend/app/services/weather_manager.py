@@ -14,6 +14,7 @@ class WeatherManager:
         self.tomorrow_svc = TomorrowService()
         self.rainbow_svc = RainbowService()
         self.open_meteo_svc = OpenMeteoService()
+        self.tmd_frames_cache = {}
 
     async def predict_rain(
         self,
@@ -188,7 +189,13 @@ class WeatherManager:
                 if px is None or py is None:
                     continue
 
-                frames, last_modified_dt = await processor.fetch_loop_gif_and_extract_frames()
+                if station_code in self.tmd_frames_cache:
+                    frames, last_modified_dt = self.tmd_frames_cache[station_code]
+                else:
+                    frames, last_modified_dt = await processor.fetch_loop_gif_and_extract_frames()
+                    if frames and len(frames) >= 2:
+                        self.tmd_frames_cache[station_code] = (frames, last_modified_dt)
+
                 if not frames or len(frames) < 2:
                     continue
 

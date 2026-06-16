@@ -806,7 +806,8 @@ class TMDRadarProcessor:
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(cache["static_url"])
                             # Blocking call, but since we're in async, it's a minor block for memory download
-                            data = blob.download_as_bytes()
+                            import asyncio
+                            data = await asyncio.to_thread(blob.download_as_bytes)
                             logger.info(f"Successfully loaded static_url {cache['static_url']} from Firebase Storage Cache")
                             return data
             except Exception as e:
@@ -851,7 +852,8 @@ class TMDRadarProcessor:
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(cache["loop_url"])
-                            loop_bytes = blob.download_as_bytes()
+                            import asyncio
+                            loop_bytes = await asyncio.to_thread(blob.download_as_bytes)
                             dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
                             logger.info(f"Successfully loaded loop_url {cache['loop_url']} from Firebase Storage Cache")
             except Exception as e:
@@ -939,12 +941,13 @@ class TMDRadarProcessor:
         filename = f"radar/{self.station_code}/{self.station_code}_{timestamp}.gif"
         bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
         
-        # Use sync GCS upload (in a real high-throughput app we might use asyncio wrapper or threadpool)
+        # Use sync GCS upload with asyncio.to_thread
         client = storage.Client()
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(filename)
         
-        blob.upload_from_string(image_bytes, content_type="image/gif")
+        import asyncio
+        await asyncio.to_thread(blob.upload_from_string, image_bytes, content_type="image/gif")
         
         return filename
         
@@ -952,31 +955,33 @@ class TMDRadarProcessor:
         """Deletes files in GCS that are older than max_age_hours."""
         import time
         import os
+        import asyncio
         from google.cloud import storage
         
         now = time.time()
         max_age_seconds = max_age_hours * 3600
         cutoff_time = now - max_age_seconds
         
-        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
-        client = storage.Client()
-        bucket = client.bucket(bucket_name)
-        prefix = f"radar/{self.station_code}/"
-        
-        blobs = bucket.list_blobs(prefix=prefix)
-        deleted_count = 0
-        
-        for blob in blobs:
-            # We parse the timestamp from the filename "radar/kkn120/kkn120_1234567890.gif"
-            try:
-                base_name = blob.name.split("/")[-1]
-                ts_str = base_name.replace(f"{self.station_code}_", "").replace(".gif", "")
-                blob_ts = int(ts_str)
-                if blob_ts < cutoff_time:
-                    blob.delete()
-                    deleted_count += 1
-            except Exception:
-                pass
-                
-        return deleted_count
+        def _delete_sync():
+            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+            client = storage.Client()
+            bucket = client.bucket(bucket_name)
+            prefix = f"radar/{self.station_code}/"
+            
+            blobs = bucket.list_blobs(prefix=prefix)
+            deleted_count = 0
+            
+            for blob in blobs:
+                try:
+                    base_name = blob.name.split("/")[-1]
+                    ts_str = base_name.replace(f"{self.station_code}_", "").replace(".gif", "")
+                    blob_ts = int(ts_str)
+                    if blob_ts < cutoff_time:
+                        blob.delete()
+                        deleted_count += 1
+                except Exception:
+                    pass
+            return deleted_count
+            
+        return await asyncio.to_thread(_delete_sync)
 

@@ -17,3 +17,5 @@ google-cloud-storage
 google-cloud-vision
 google-genai
 Pillow
+
+google-cloud-tasks==2.16.2
