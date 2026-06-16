@@ -446,3 +446,33 @@ async def fetch_tmd_radar_routine():
         except Exception as e:
             logger.error(f"Failed to save metrics for fetch_tmd_radar: {e}")
 
+
+
+async def trigger_mock_disaster(payload_dict: dict):
+    """Process a mock disaster payload."""
+    import time
+    from app.dependencies import get_repo_context
+    from app.services.disaster_manager import process_disaster_event
+    
+    timestamp = int(time.time())
+    event_id = f"postman_mock_{timestamp}"
+    
+    event_data = {
+        "id": event_id,
+        "lat": payload_dict.get("lat"),
+        "lng": payload_dict.get("lng"),
+    }
+    
+    disaster_type = payload_dict.get("type", "earthquake")
+    
+    if disaster_type == "earthquake":
+        event_data["mag"] = payload_dict.get("mag")
+        event_data["place"] = payload_dict.get("name")
+    elif disaster_type == "cyclone":
+        event_data["name"] = payload_dict.get("name")
+        event_data["category"] = "Cat 4"
+    elif disaster_type == "fire":
+        event_data["name"] = payload_dict.get("name")
+        
+    async with get_repo_context() as repo:
+        await process_disaster_event(repo, disaster_type, event_data)

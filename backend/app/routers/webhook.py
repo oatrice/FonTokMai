@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, BackgroundTasks
 import httpx
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from app.services.weather_manager import WeatherManager
 from app.dependencies import get_repo_context
 from app.services.telegram import (
@@ -643,13 +643,16 @@ async def handle_devmock_command(chat_id: int, command: str):
             # Simulate a location update to trigger the fallback error message immediately
             locs = await repo.get_user_locations(chat_id)
             if locs:
-                await handle_location(chat_id, locs[0].latitude, locs[0].longitude, message_id=None)
+                await process_telegram_location(chat_id, locs[0].latitude, locs[0].longitude, message_id_to_edit=None)
             else:
                 await send_telegram_message(chat_id, "ไม่พบตำแหน่งที่บันทึกไว้ โปรดส่ง Location มาใหม่เพื่อทดสอบ error")
             
         elif command == "/devmock off":
             await repo.set_mock_state(chat_id, None)
-            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] ปิดใช้งานโหมดจำลองเรียบร้อยแล้ว")
+            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] ปิดใช้งานโหมดจำลองเรียบร้อยแล้ว\n⏳ กำลังส่งสถานะ All-Clear...")
+            
+            from app.scheduler_tasks import check_rain_and_alert
+            await check_rain_and_alert()
 
 
 async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False):
@@ -721,8 +724,14 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     if "message" in payload:
         message = payload["message"]
         chat_id = message.get("chat", {}).get("id")
+        date_ts = message.get("date", 0)
 
-        # --- Issue #37: ส่งข้อความ "กำลังประมวลผล..." ทันที แล้วค่อย background process ---
+        # Handle pending updates: ignore messages older than 2 minutes (120 seconds)
+        current_ts = datetime.now(timezone.utc).timestamp()
+        if date_ts > 0 and (current_ts - date_ts) > 120:
+            logger.warning(f"[WEBHOOK] Ignoring stale message from chat_id={chat_id} (age: {current_ts - date_ts:.1f}s)")
+            return {"status": "ok", "ignored": "stale"}
+
         if "location" in message and chat_id:
             location = message["location"]
             lat = location.get("latitude")
@@ -734,40 +743,56 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
                     chat_id,
                     "⏳ กำลังประมวลผลเรดาร์และพยากรณ์อากาศ กรุณารอสักครู่..."
                 )
-                # ส่ง message_id ไปให้ background task เพื่อ edit ต่อเมื่อเสร็จ
-                background_tasks.add_task(
-                    process_telegram_location, chat_id, lat, lng,
-                    None, loading_msg_id
-                )
+                from app.services.cloud_tasks import CloudTasksService
+                tasks_svc = CloudTasksService()
+                payload = {
+                    "chat_id": chat_id, "lat": lat, "lng": lng,
+                    "message_id_to_edit": loading_msg_id
+                }
+                if not tasks_svc.enqueue_task("worker/process-telegram-location", payload):
+                    # ส่ง message_id ไปให้ background task เพื่อ edit ต่อเมื่อเสร็จ
+                    background_tasks.add_task(
+                        process_telegram_location, chat_id, lat, lng,
+                        None, loading_msg_id
+                    )
                 return {"status": "ok"}
 
         text = message.get("text", "")
         logger.info(f"[WEBHOOK] Received text='{text}' chat_id={chat_id}")
 
+        from app.services.cloud_tasks import CloudTasksService
+        tasks_svc = CloudTasksService()
+
         if text.startswith("/mylocation") and chat_id:
-            background_tasks.add_task(handle_mylocation_command, chat_id)
+            if not tasks_svc.enqueue_task("worker/handle-mylocation", {"chat_id": chat_id}):
+                background_tasks.add_task(handle_mylocation_command, chat_id)
             return {"status": "ok"}
 
         if text.startswith("/radar") and chat_id:
-            background_tasks.add_task(handle_radar_command, chat_id)
+            if not tasks_svc.enqueue_task("worker/handle-radar", {"chat_id": chat_id}):
+                background_tasks.add_task(handle_radar_command, chat_id)
             return {"status": "ok"}
 
         if text.startswith("/rain_pro") and chat_id:
-            background_tasks.add_task(handle_rain_command, chat_id, text, show_advanced=True)
+            if not tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text, "show_advanced": True}):
+                background_tasks.add_task(handle_rain_command, chat_id, text, show_advanced=True)
             return {"status": "ok"}
 
         if text.startswith("/rain") and chat_id:
-            background_tasks.add_task(handle_rain_command, chat_id, text)
+            if not tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text}):
+                background_tasks.add_task(handle_rain_command, chat_id, text)
             return {"status": "ok"}
 
         if text.startswith("/devmock") and chat_id:
-            background_tasks.add_task(handle_devmock_command, chat_id, text.strip())
+            if not tasks_svc.enqueue_task("worker/handle-devmock", {"chat_id": chat_id, "command": text.strip()}):
+                background_tasks.add_task(handle_devmock_command, chat_id, text.strip())
             return {"status": "ok"}
 
         # /check — shorthand alias for /rain tmd-radar (for manual testing)
         if text.strip() == "/check" and chat_id:
             logger.info(f"[WEBHOOK] /check received from chat_id={chat_id}, routing to handle_rain_command with 'tmd-radar'")
-            background_tasks.add_task(handle_rain_command, chat_id, "/rain tmd-radar")
+            if not tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": "/rain tmd-radar"}):
+                background_tasks.add_task(handle_rain_command, chat_id, "/rain tmd-radar")
             return {"status": "ok"}
 
         logger.debug(f"[WEBHOOK] Unrecognized command or text, returning ignored. text='{text}'")

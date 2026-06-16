@@ -1,12 +1,19 @@
 import logging
+import time
+import asyncio
+import cv2
+import io
+from datetime import datetime, timezone, timedelta
 from typing import Optional
+from PIL import Image, ImageDraw, ImageFont
+from zoneinfo import ZoneInfo
 from .tomorrow import TomorrowService
 from .rainbow import RainbowService
 from .xweather import XweatherService
 from .open_meteo import OpenMeteoService
 from .tmd_radar_processor import TMDRadarProcessor
-
 logger = logging.getLogger(__name__)
+from app.dependencies import get_repo_context
 
 class WeatherManager:
     def __init__(self):
@@ -14,6 +21,7 @@ class WeatherManager:
         self.tomorrow_svc = TomorrowService()
         self.rainbow_svc = RainbowService()
         self.open_meteo_svc = OpenMeteoService()
+        self.tmd_frames_cache = {}
 
     async def predict_rain(
         self,
@@ -57,7 +65,6 @@ class WeatherManager:
                 }
 
         # --- โหมดปกติ: Auto-select based on accuracy score ---
-        from app.dependencies import get_repo_context
         async with get_repo_context() as repo:
             reliabilities = await repo.get_all_api_reliability()
             
@@ -96,8 +103,6 @@ class WeatherManager:
         """
         เรียก 3 API พร้อมกันเพื่อเปรียบเทียบผลลัพธ์
         """
-        import asyncio
-        from app.dependencies import get_repo_context
         
         async with get_repo_context() as repo:
             reliabilities = await repo.get_all_api_reliability()
@@ -178,8 +183,6 @@ class WeatherManager:
         Uses dot-product approach vector filter to find approaching cloud clusters,
         then ranks by ETA and generates a smart summary with growth/decay rates.
         """
-        import cv2
-        import numpy as np
 
         for station_code in ["kkn120", "kkn240", "skn240"]:
             try:
@@ -188,7 +191,15 @@ class WeatherManager:
                 if px is None or py is None:
                     continue
 
-                frames, last_modified_dt = await processor.fetch_loop_gif_and_extract_frames()
+                # Check cache with 10-minute TTL to prevent stale frames across cron runs
+                cached_data = self.tmd_frames_cache.get(station_code)
+                if cached_data and (time.time() - cached_data[2]) < 600:
+                    frames, last_modified_dt = cached_data[0], cached_data[1]
+                else:
+                    frames, last_modified_dt = await processor.fetch_loop_gif_and_extract_frames()
+                    if frames and len(frames) >= 2:
+                        self.tmd_frames_cache[station_code] = (frames, last_modified_dt, time.time())
+
                 if not frames or len(frames) < 2:
                     continue
 
@@ -204,7 +215,6 @@ class WeatherManager:
 
                 # Apply mock overrides
                 if mock_state in ("rain", "storm"):
-                    import cv2
                     
                     if mock_state == "storm" or not clouds:
                         if mock_state == "storm":
@@ -275,8 +285,6 @@ class WeatherManager:
                             c["predicted_dbz"] = max(c["predicted_dbz"], 40.0)
                 elif mock_state == "clear":
                     clouds = []
-
-                from datetime import datetime, timedelta, timezone
                 if last_modified_dt:
                     now_utc = last_modified_dt
                 else:
@@ -364,9 +372,6 @@ class WeatherManager:
                 hq_gif_bytes = None
                 static_bytes = None
                 try:
-                    import io
-                    from PIL import Image, ImageDraw, ImageFont
-                    from zoneinfo import ZoneInfo
                     
                     try:
                         font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 48)

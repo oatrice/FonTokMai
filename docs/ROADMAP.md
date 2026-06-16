@@ -27,13 +27,37 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #72 - Feature: Budget-based Auto-shutdown Mechanism for Cloud Run
+- **GitHub:** [#72](https://gitlab.com/oatricedev/FonMaYang/-/issues/72)
+- **Status:** 🟢 **Ready**
+
+### Issue #71 - Optimize Cloud Storage Fetching & Remove Blocking I/O in Radar Processor
+- **GitHub:** [#71](https://gitlab.com/oatricedev/FonMaYang/-/issues/71)
+    - ✅ **Done** (0.26.0[D[7)
+
+### Issue #70 - Feature: Overlay historical wind vectors and timestamps on cropped radar images
+- **GitHub:** [#70](https://gitlab.com/oatricedev/FonMaYang/-/issues/70)
+- **Status:** 🟢 **Ready**
+
+### Issue #69 - Enhancement: System Infrastructure and Code Optimization (Latency & Billing)
+- **GitHub:** [#69](https://gitlab.com/oatricedev/FonMaYang/-/issues/69)
+- **Status:** 🟢 **Ready**
+
+### Issue #68 - Feature: Export metrics via Telegram command (/metrics)
+- **GitHub:** [#68](https://gitlab.com/oatricedev/FonMaYang/-/issues/68)
+- **Status:** 🟢 **Ready**
+
+### Issue #67 - Feature: Implement build-time versioning and display deployment info in Telegram
+- **GitHub:** [#67](https://gitlab.com/oatricedev/FonMaYang/-/issues/67)
+- **Status:** 🟢 **Ready**
+
 ### Issue #66 - Calculate rain cloud trajectory to improve alert accuracy
 - **GitHub:** [#66](https://gitlab.com/oatricedev/FonMaYang/-/issues/66)
     - ✅ **Done** (0.25.0)
 
 ### Issue #65 - Refactor: Migrate long-running background tasks to Google Cloud Tasks / PubSub
 - **GitHub:** [#65](https://gitlab.com/oatricedev/FonMaYang/-/issues/65)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.26.0[D[7)
 
 ### Issue #64 - fix: Production bugs on Weather Managers and Open-Meteo integrations
 - **GitHub:** [#64](https://gitlab.com/oatricedev/FonMaYang/-/issues/64)
@@ -165,7 +189,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #31 - Feature: Wind Vector Nowcasting — Calculate Storm Cell Movement Trajectory Before Alerting
 - **GitHub:** [#31](https://gitlab.com/oatricedev/FonMaYang/-/issues/31)
-- **Status:** 🟢 **Ready**
+- **Status:** 🟢 **Done**
 
 ### Issue #30 - Improvement: Tighten Geofence Radius to 5-10 km to Isolate Local Weather from Cross-border Events
 - **GitHub:** [#30](https://gitlab.com/oatricedev/FonMaYang/-/issues/30)

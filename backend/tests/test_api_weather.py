@@ -48,7 +48,7 @@ def test_compare_weather_apis_e2e():
     if not client:
         pytest.fail("FastAPI app is not implemented yet")
 
-    with patch("app.dependencies.get_repo_context") as mock_get_repo:
+    with patch("app.services.weather_manager.get_repo_context") as mock_get_repo:
         from contextlib import asynccontextmanager
         from unittest.mock import AsyncMock
         
@@ -64,6 +64,9 @@ def test_compare_weather_apis_e2e():
         mock_get_repo.side_effect = mock_context
         
         response = client.get("/api/v1/weather/compare?lat=13.7&lng=100.5&mock_state=rain")
+        
+    if response.status_code == 500:
+        print("500 ERROR DATA:", response.text)
         
     assert response.status_code == 200
     data = response.json()

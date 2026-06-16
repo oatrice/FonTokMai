@@ -1,6 +1,19 @@
+import os
+import asyncio
+import time
+import logging
+import math
+import io
 import cv2
+import httpx
 import numpy as np
+from datetime import datetime, timezone, timedelta
+from PIL import Image, ImageDraw, ImageFont, ImageSequence
+from zoneinfo import ZoneInfo
 from typing import List, Tuple, Optional
+from app.dependencies import get_repo_context
+from app.services.ocr_service import OCRService
+from google.cloud import storage
 from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING, IGNORED_COLORS
 
 class TMDRadarProcessor:
@@ -9,7 +22,6 @@ class TMDRadarProcessor:
         if station_code not in STATIONS:
             raise ValueError(f"Unknown station code: {station_code}")
         self.config = STATIONS[station_code]
-        import os
         self.storage_dir = os.path.join(os.getcwd(), "backend", "tmp")
 
     def latlng_to_pixel(self, lat: float, lng: float, is_loop: bool = True, projection: str = None) -> Tuple[Optional[int], Optional[int]]:
@@ -29,7 +41,6 @@ class TMDRadarProcessor:
         crop_height = self.config.loop_crop_height if is_loop else self.config.static_crop_height
         
         if projection == "azimuthal" and hasattr(self.config, 'center_lat') and self.config.radius_km > 0:
-            import math
             # Haversine distance
             R = 6371.0 # Earth radius in km
             lat1 = math.radians(self.config.center_lat)
@@ -91,8 +102,6 @@ class TMDRadarProcessor:
             return 0.0
             
         color_tuple = (r, g, b)
-        
-        import math
         
         # Check ignored colors first (distance)
         min_dist_ignored = float('inf')
@@ -301,7 +310,6 @@ class TMDRadarProcessor:
         cv2.drawMarker(img, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=14, thickness=2)
 
     def get_wind_speed_kmh_from_vector(self, vx: float, vy: float) -> float:
-        import math
         pixel_speed_15m = math.sqrt(vx**2 + vy**2)
         
         # Calculate km per pixel (approx 1 degree = 111 km)
@@ -323,7 +331,6 @@ class TMDRadarProcessor:
         return self.get_wind_speed_kmh_from_vector(vx, vy)
 
     def get_wind_direction_text_from_vector(self, vx: float, vy: float) -> str:
-        import math
         if abs(vx) < 0.5 and abs(vy) < 0.5:
             return "ไม่ทราบ"
             
@@ -415,7 +422,6 @@ class TMDRadarProcessor:
         Returns a list of dicts sorted by ETA (soonest first), each containing:
           cx, cy, dbz_now, dbz_prev, growth_rate, predicted_dbz, dist, eta_min
         """
-        import math
         # Restrict search to the valid radar crop area to exclude legend strips
         is_loop = flow.shape[0] <= self.config.loop_crop_height + self.config.loop_crop_y + 10
         crop_x0 = self.config.loop_crop_x if is_loop else self.config.static_crop_x
@@ -575,7 +581,6 @@ class TMDRadarProcessor:
     def generate_radar_tracking_image(frame: np.ndarray, user_x: int, user_y: int, clouds: list) -> Optional[bytes]:
         if frame is None or not clouds:
             return None
-        import cv2
         
         # Crop a 240x240 region around the user
         crop_r = 120
@@ -654,7 +659,6 @@ class TMDRadarProcessor:
     def generate_timeline_image(clouds: list) -> Optional[bytes]:
         if not clouds:
             return None
-        import io
         try:
             from PIL import Image, ImageDraw, ImageFont
         except ImportError:
@@ -782,13 +786,9 @@ class TMDRadarProcessor:
 
     async def fetch_latest_image_bytes(self, use_cache: bool = True) -> Optional[bytes]:
         """Fetches the latest static radar image (Polling method)."""
-        import httpx
-        import time
-        from datetime import datetime, timezone
         
         if use_cache:
             try:
-                from app.dependencies import get_repo_context
                 async with get_repo_context() as repo:
                     cache = await repo.get_latest_radar_cache(self.station_code)
                     if cache and cache.get("static_url"):
@@ -797,8 +797,6 @@ class TMDRadarProcessor:
                             created_at = created_at.replace(tzinfo=None)
                         age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
                         if age_secs < 900: # 15 minutes max age
-                            from google.cloud import storage
-                            import os
                             import logging
                             logger = logging.getLogger(__name__)
                             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
@@ -806,7 +804,8 @@ class TMDRadarProcessor:
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(cache["static_url"])
                             # Blocking call, but since we're in async, it's a minor block for memory download
-                            data = blob.download_as_bytes()
+                            import asyncio
+                            data = await asyncio.to_thread(blob.download_as_bytes)
                             logger.info(f"Successfully loaded static_url {cache['static_url']} from Firebase Storage Cache")
                             return data
             except Exception as e:
@@ -824,17 +823,12 @@ class TMDRadarProcessor:
 
     async def fetch_loop_gif_and_extract_frames(self, use_cache: bool = True) -> Tuple[List[np.ndarray], Optional['datetime']]:
         """Fetches the Loop.gif and extracts frames and the Last-Modified datetime."""
-        import httpx
-        from PIL import Image, ImageSequence
-        import io
-        from datetime import datetime, timezone
         
         loop_bytes = None
         dt = None
         
         if use_cache:
             try:
-                from app.dependencies import get_repo_context
                 async with get_repo_context() as repo:
                     cache = await repo.get_latest_radar_cache(self.station_code)
                     if cache and cache.get("loop_url"):
@@ -843,15 +837,14 @@ class TMDRadarProcessor:
                             created_at = created_at.replace(tzinfo=None)
                         age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
                         if age_secs < 900: # 15 mins
-                            from google.cloud import storage
-                            import os
                             import logging
                             logger = logging.getLogger(__name__)
                             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(cache["loop_url"])
-                            loop_bytes = blob.download_as_bytes()
+                            import asyncio
+                            loop_bytes = await asyncio.to_thread(blob.download_as_bytes)
                             dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
                             logger.info(f"Successfully loaded loop_url {cache['loop_url']} from Firebase Storage Cache")
             except Exception as e:
@@ -903,10 +896,8 @@ class TMDRadarProcessor:
                     frames.append(np.array(frame.copy().convert("RGB")))
                     
                 try:
-                    from app.services.ocr_service import OCRService
                     ocr_svc = OCRService()
                     if len(frames) > 0:
-                        import time
                         fallback_ts = int(dt.timestamp()) if dt else int(time.time())
                         ts = await ocr_svc.get_frame_timestamp(frames[-1], fallback_ts=fallback_ts)
                         if ts is not None:
@@ -931,52 +922,49 @@ class TMDRadarProcessor:
 
     async def save_polled_frame(self, image_bytes: bytes) -> str:
         """Saves a polled image byte sequence to Google Cloud Storage with a timestamp."""
-        import time
-        import os
-        from google.cloud import storage
         
         timestamp = int(time.time())
         filename = f"radar/{self.station_code}/{self.station_code}_{timestamp}.gif"
         bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
         
-        # Use sync GCS upload (in a real high-throughput app we might use asyncio wrapper or threadpool)
+        # Use sync GCS upload with asyncio.to_thread
         client = storage.Client()
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(filename)
         
-        blob.upload_from_string(image_bytes, content_type="image/gif")
+        import asyncio
+        await asyncio.to_thread(blob.upload_from_string, image_bytes, content_type="image/gif")
         
         return filename
         
     async def cleanup_old_frames(self, max_age_hours: int = 3) -> int:
         """Deletes files in GCS that are older than max_age_hours."""
-        import time
-        import os
-        from google.cloud import storage
+        import asyncio
         
         now = time.time()
         max_age_seconds = max_age_hours * 3600
         cutoff_time = now - max_age_seconds
         
-        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
-        client = storage.Client()
-        bucket = client.bucket(bucket_name)
-        prefix = f"radar/{self.station_code}/"
-        
-        blobs = bucket.list_blobs(prefix=prefix)
-        deleted_count = 0
-        
-        for blob in blobs:
-            # We parse the timestamp from the filename "radar/kkn120/kkn120_1234567890.gif"
-            try:
-                base_name = blob.name.split("/")[-1]
-                ts_str = base_name.replace(f"{self.station_code}_", "").replace(".gif", "")
-                blob_ts = int(ts_str)
-                if blob_ts < cutoff_time:
-                    blob.delete()
-                    deleted_count += 1
-            except Exception:
-                pass
-                
-        return deleted_count
+        def _delete_sync():
+            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+            client = storage.Client()
+            bucket = client.bucket(bucket_name)
+            prefix = f"radar/{self.station_code}/"
+            
+            blobs = bucket.list_blobs(prefix=prefix)
+            deleted_count = 0
+            
+            for blob in blobs:
+                try:
+                    base_name = blob.name.split("/")[-1]
+                    ts_str = base_name.replace(f"{self.station_code}_", "").replace(".gif", "")
+                    blob_ts = int(ts_str)
+                    if blob_ts < cutoff_time:
+                        blob.delete()
+                        deleted_count += 1
+                except Exception:
+                    pass
+            return deleted_count
+            
+        return await asyncio.to_thread(_delete_sync)
 
