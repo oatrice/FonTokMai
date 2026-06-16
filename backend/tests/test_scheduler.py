@@ -386,13 +386,13 @@ def test_trigger_rain_check_endpoint_success():
         
     secret = "test_cron_secret_scheduler"
     with patch("app.routers.scheduler.CRON_SECRET", secret):
-        with patch("app.routers.scheduler.check_rain_and_alert", new_callable=AsyncMock) as mock_check:
+        with patch("app.routers.scheduler.CloudTasksService.enqueue_task", return_value="projects/my-project/locations/asia/queues/my-queue/tasks/12345") as mock_enqueue:
             with TestClient(app) as test_client:
                 response = test_client.post("/api/v1/cron/check-rain", headers={"X-Cron-Secret": secret})
         
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
-        mock_check.assert_called_once()
+        mock_enqueue.assert_called_once_with("worker/check-rain", {})
 
 def test_trigger_rain_check_endpoint_unauthorized():
     if not client:

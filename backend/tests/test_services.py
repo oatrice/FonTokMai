@@ -139,7 +139,7 @@ async def test_weather_manager_compare_all_apis():
         
     manager.rainbow_svc.predict_rain_by_location = AsyncMock(side_effect=mock_rainbow)
     
-    with patch("app.dependencies.get_repo_context") as mock_repo_context:
+    with patch("app.services.weather_manager.get_repo_context") as mock_repo_context:
         mock_repo = AsyncMock()
         mock_repo.get_all_api_reliability.return_value = {"tomorrow": 0.9, "rainbow-local": 0.8, "rainbow-global": 0.7}
         mock_repo_context.return_value.__aenter__.return_value = mock_repo
@@ -160,7 +160,7 @@ async def test_weather_manager_fallback_chain():
     
     manager = WeatherManager()
     
-    with patch("app.dependencies.get_repo_context") as mock_repo_context:
+    with patch("app.services.weather_manager.get_repo_context") as mock_repo_context:
         mock_repo = AsyncMock()
         mock_repo.get_all_api_reliability.return_value = {
             "xweather": 1.0, 
