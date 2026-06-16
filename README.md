@@ -24,6 +24,8 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 - **Interactive Radar**: Telegram `/radar` command providing multi-source visual tracking (Zoom Earth, Windy, TMD).
 - **Developer Mock Mode**: Built-in `/devmock` command and mock event servers for simulating weather states, API fallback errors, and natural disasters during testing without making live API calls.
 - **Asynchronous Workload Queuing**: Deep integration with Google Cloud Tasks to offload long-running radar and forecasting processes, preventing Cloud Run CPU throttling and ensuring reliable delivery with exponential backoff.
+- **Budget Auto-Shutdown Mechanism**: Native GCP Billing Budget integration with Pub/Sub webhooks to automatically revoke Cloud Run public access when spending limits are reached, preventing unexpected billing spikes.
+- **Cost-Optimized Cloud Logging**: Pre-configured Logging Exclusion filters to drop high-frequency debug noise, drastically reducing log ingestion costs.
 - **FastAPI Backend**: Asynchronous, highly concurrent backend structure.
 - **Cloud Run Native**: Fully containerized and automated deployment to Google Cloud Run via GitLab CI/CD pipelines (Scale-to-zero optimized).
 
