@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "preflight",
   "active_issues": [
     {
       "number": 72,
@@ -23,22 +23,22 @@
     }
   ],
   "active_branch": "feat/72-65-feature-budget-based-auto-shut",
-  "started_at": "2026-06-16T16:55:01.971485",
+  "started_at": "2026-06-16T20:54:05.716338",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
     "step_review": true,
-    "step_docs": true
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
-        "CHANGELOG.md.PREVIEW.md",
+        "VERSION",
         "backend/.env.example",
         "backend/app/main.py",
         "backend/app/routers/budget_webhook.py",
@@ -54,13 +54,13 @@
         "backend/scripts/setup_gcp.sh",
         "backend/scripts/setup_queue_alert.sh",
         "backend/test_radar.py",
+        "backend/tests/test_budget_webhook.py",
         "docs/ROADMAP.md",
         "docs/architecture_decisions/007_cost_efficiency_and_billing_batching_strategy.md",
         "docs/features/29_issue-72-69_feature-budget-based-auto-shutdown-mechanism-cloud-run-5e97c36f/implementation_plan.md",
         "docs/features/29_issue-72-69_feature-budget-based-auto-shutdown-mechanism-cloud-run-5e97c36f/manual_verification.md",
         "docs/features/29_issue-72-69_feature-budget-based-auto-shutdown-mechanism-cloud-run-5e97c36f/task.md",
         "gitlab-ci.yml",
-        "luma/prompts/prompt_20260616_133519_7a0c95bd.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -153,7 +153,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/29",
   "pr_number": null,
-  "last_updated": "2026-06-16T20:35:35.584902"
+  "last_updated": "2026-06-16T20:54:33.428737"
 }
