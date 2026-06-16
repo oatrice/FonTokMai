@@ -189,3 +189,12 @@ station_results = await asyncio.gather(
 3. ตรวจสอบ `gcloud logging exclusions list` แสดง 2 exclusions
 
 ดูรายละเอียดใน [manual_verification.md](./manual_verification.md)
+
+---
+
+## ⚠️ Session Overlap Notes
+> **Note:** ในการทำงาน session นี้ มี 2 เรื่องที่เพิ่มเติมเข้ามานอกเหนือจากแผนเริ่มต้น:
+> 
+> 1. **Issue #72 IAM Permission Update:** มีการเพิ่ม Step 6 ใน `setup_budget_alert.sh` เพื่อ grant `roles/run.developer` ให้กับ `cloud-run-runtime` Service Account (SA) ซึ่งมีความจำเป็นเพื่อให้สคริปต์ภายใน container สามารถรัน `gcloud run services update` เพื่อ scale จำนวน instance เป็น 0 ได้ โดยเลือกใช้ `roles/run.developer` แทน `roles/run.admin` เพื่อยึดหลัก Least Privilege
+> 
+> 2. **Issue #74 (Cloud Tasks Queue Monitoring):** โค้ดสำหรับฟีเจอร์ Cloud Tasks Monitoring (สคริปต์ Alert Policy และ Endpoint `/api/v1/metrics/queue`) ถูกสร้างขึ้นและบันทึกรวมอยู่ใน Branch/Session นี้ด้วย ซึ่งเอกสาร Walkthrough ของ Issue 74 ถูกแยกไปเก็บไว้ที่ `docs/features/30_issue-74_feature-cloud-tasks-monitoring/README.md` แล้ว

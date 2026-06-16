@@ -177,10 +177,37 @@ gcloud run services add-iam-policy-binding "$SERVICE_NAME" \
 
 echo "  ✅ Cloud Run invoker permission granted to Pub/Sub SA."
 
+# ─────────────────────────────────────────────────────
+# 6. Grant Cloud Run Developer permission ให้ Cloud Run Runtime SA
+#    budget_webhook.py รัน `gcloud run services update --max-instances=0`
+#    จากภายใน container → ต้องการ roles/run.developer บน Cloud Run runtime SA
+#
+#    Principle of Least Privilege:
+#    - roles/run.developer: update service configuration ✅
+#    - roles/run.admin: full admin incl. delete/IAM — ไม่จำเป็น ❌
+# ─────────────────────────────────────────────────────
+echo ""
+echo "🔑 Step 6: Granting Cloud Run runtime SA permission to update services..."
+
+RUNTIME_SA="cloud-run-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
+
+# Grant roles/run.developer at project level (ไม่ใช่ service level)
+# เพราะ gcloud run services update ต้องการ permission บน project ไม่ใช่แค่ service เดียว
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${RUNTIME_SA}" \
+  --role="roles/run.developer" > /dev/null 2>&1 || true
+
+echo "  ✅ roles/run.developer granted to ${RUNTIME_SA}"
+echo "  ℹ️  This allows budget_webhook.py to scale Cloud Run to 0 via gcloud CLI inside container."
+
 echo ""
 echo "=================================================="
 echo "🎉 Budget Alert Setup Complete!"
 echo "   Topic: projects/$PROJECT_ID/topics/$PUBSUB_TOPIC"
 echo "   Budget: \$${BUDGET_AMOUNT} USD/month"
 echo "   Thresholds: 80% (warning) + 100% (shutdown trigger)"
+echo ""
+echo "   IAM Summary:"
+echo "   • Pub/Sub SA         → roles/run.invoker     (push message to Cloud Run)"
+echo "   • cloud-run-runtime  → roles/run.developer   (scale service to 0)"
 echo "=================================================="
