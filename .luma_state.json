@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 87,
@@ -43,11 +43,12 @@
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
+      "pending": [
+        "README.md"
+      ],
       "changed_files": [
         "CHANGELOG.md",
         "GEMINI.md",
-        "README.md",
         "VERSION",
         "backend/app/main.py",
         "backend/app/services/ocr_service.py",
@@ -55,8 +56,6 @@
         "docs/architecture_decisions/007_cost_efficiency_and_billing_batching_strategy.md",
         "docs/architecture_decisions/008_incident_recovery_and_stability_batching_strategy.md",
         "gitlab-ci.yml",
-        "luma/prompts/prompt_20260617_145422_b2c3dcb8.md",
-        "luma/prompts/prompt_20260617_145423_0dff5587.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -137,7 +136,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/30",
   "pr_number": null,
-  "last_updated": "2026-06-17T21:54:27.251174"
+  "last_updated": "2026-06-17T21:56:37.129603"
 }
