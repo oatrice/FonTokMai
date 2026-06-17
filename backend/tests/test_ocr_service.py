@@ -47,9 +47,9 @@ def test_extract_timestamp_from_text(ocr_service):
     assert ocr_service._extract_timestamp_from_text("no date here") is None
 
 @pytest.mark.asyncio
-async def test_get_frame_timestamp_cloud_vision_success(ocr_service):
-    with patch.object(ocr_service, '_call_cloud_vision', new_callable=AsyncMock) as mock_vision:
-        mock_vision.return_value = "06/06/2026 10:00"
+async def test_get_frame_timestamp_ocr_space_success(ocr_service):
+    with patch.object(ocr_service, '_call_ocr_space', new_callable=AsyncMock) as mock_ocr:
+        mock_ocr.return_value = "06/06/2026 10:00"
         
         frame = np.zeros((10, 10, 3), dtype=np.uint8)
         ts = await ocr_service.get_frame_timestamp(frame)
@@ -57,9 +57,10 @@ async def test_get_frame_timestamp_cloud_vision_success(ocr_service):
         expected_dt = datetime(2026, 6, 6, 10, 0, 0, tzinfo=timezone.utc)
         assert ts == int(expected_dt.timestamp())
         
-        mock_vision.assert_called_once()
+        mock_ocr.assert_called_once()
         ocr_service.repo.set_radar_timestamp_cache.assert_called_once()
 
+@pytest.mark.skip(reason="Hotfix #85: Bypassed Vision and Gemini fallback chain")
 @pytest.mark.asyncio
 async def test_get_frame_timestamp_gemini_fallback(ocr_service):
     with patch.object(ocr_service, '_call_cloud_vision', new_callable=AsyncMock) as mock_vision, \
@@ -80,6 +81,7 @@ async def test_get_frame_timestamp_gemini_fallback(ocr_service):
         mock_gemini.assert_called_once()
         ocr_service.repo.set_radar_timestamp_cache.assert_called_once()
 
+@pytest.mark.skip(reason="Hotfix #85: Bypassed Vision and Gemini fallback chain")
 @pytest.mark.asyncio
 async def test_get_frame_timestamp_ocr_space_fallback(ocr_service):
     with patch.object(ocr_service, '_call_cloud_vision', new_callable=AsyncMock) as mock_vision, \
@@ -103,12 +105,8 @@ async def test_get_frame_timestamp_ocr_space_fallback(ocr_service):
 
 @pytest.mark.asyncio
 async def test_get_frame_timestamp_fallback_ts(ocr_service):
-    with patch.object(ocr_service, '_call_cloud_vision', new_callable=AsyncMock) as mock_vision, \
-         patch.object(ocr_service, '_call_gemini', new_callable=AsyncMock) as mock_gemini, \
-         patch.object(ocr_service, '_call_ocr_space', new_callable=AsyncMock) as mock_ocr_space:
+    with patch.object(ocr_service, '_call_ocr_space', new_callable=AsyncMock) as mock_ocr_space:
         
-        mock_vision.return_value = None
-        mock_gemini.return_value = None
         mock_ocr_space.return_value = None
         
         frame = np.zeros((10, 10, 3), dtype=np.uint8)
@@ -117,6 +115,7 @@ async def test_get_frame_timestamp_fallback_ts(ocr_service):
         assert ts == fallback
         ocr_service.repo.set_radar_timestamp_cache.assert_called_once_with(ocr_service._hash_frame(frame), fallback)
 
+@pytest.mark.skip(reason="Hotfix #85: Bypassed Vision quota check")
 @pytest.mark.asyncio
 async def test_get_frame_timestamp_cloud_vision_quota_exceeded(ocr_service):
     # Mock quota to return False (exceeded)
