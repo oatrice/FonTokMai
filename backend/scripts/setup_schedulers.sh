@@ -62,6 +62,7 @@ setup_job() {
       --http-method="POST" \
       --update-headers="Content-Type=application/json,X-Cron-Secret=$CRON_SECRET" \
       --time-zone="Asia/Bangkok" \
+      --max-retry-attempts=0 \
       --description="$DESCRIPTION"
   else
     echo "Creating new job..."
@@ -73,6 +74,7 @@ setup_job() {
       --http-method="POST" \
       --headers="Content-Type=application/json,X-Cron-Secret=$CRON_SECRET" \
       --time-zone="Asia/Bangkok" \
+      --max-retry-attempts=0 \
       --description="$DESCRIPTION"
   fi
 }

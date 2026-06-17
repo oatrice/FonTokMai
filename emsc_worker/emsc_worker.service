@@ -1,0 +1,15 @@
+[Unit]
+Description=FonMaYang EMSC WebSocket Worker
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/emsc_worker
+ExecStart=/home/ubuntu/emsc_worker/venv/bin/python main.py
+Restart=always
+RestartSec=10
+Environment="FONMAYANG_API_URL=https://fontokmai-api-xxxxxxxx-as.a.run.app"
+Environment="INTERNAL_WEBHOOK_SECRET=your_secret_here"
+
+[Install]
+WantedBy=multi-user.target

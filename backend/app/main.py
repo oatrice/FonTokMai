@@ -54,23 +54,9 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         
-    from app.services.earthquake import start_emsc_websocket
     from app.services.disaster_manager import process_disaster_event
     from app.dependencies import get_repo_context
     
-    async def ws_callback(event):
-        try:
-            logging.info(f"Received WS earthquake event: {event.get('id')} at lat={event.get('lat')}, lng={event.get('lng')}")
-            async with get_repo_context() as repo:
-                await process_disaster_event(repo, "earthquake", event)
-        except Exception as e:
-            logging.error(f"Crash in ws_callback: {e}")
-            
-    # Start the websocket in the background
-    # Hotfix (Issue #86): Temporarily disabled EMSC WebSocket due to Memory Leak on Cloud Run
-    # Will be addressed properly in architectural fix (Issue #89).
-    # asyncio.create_task(start_emsc_websocket(ws_callback))
-        
     yield
 
 app = FastAPI(
@@ -88,6 +74,8 @@ app.include_router(scheduler.router)
 app.include_router(metrics.router)
 app.include_router(worker.router)
 app.include_router(budget_webhook.router)
+from app.routers import internal
+app.include_router(internal.router)
 
 
 @app.get("/", include_in_schema=False)

@@ -67,7 +67,7 @@ deploy_cloud_run:
         --allow-unauthenticated \
         --memory 512Mi \
         --cpu 1 \
-        --timeout 120 \
+        --timeout 60 \
         --service-min-instances 0 \
         --service-max-instances 2 \
         --concurrency 40 \
@@ -89,7 +89,8 @@ deploy_cloud_run:
       GEMINI_API_KEY=${GEMINI_API_KEY},\
       OCR_SPACE_API_KEY=${OCR_SPACE_API_KEY},\
       WORKER_SECRET=${WORKER_SECRET},\
-      WORKER_BASE_URL=${WORKER_BASE_URL}"
+      WORKER_BASE_URL=${WORKER_BASE_URL},\
+      INTERNAL_WEBHOOK_SECRET=${INTERNAL_WEBHOOK_SECRET}"
     # Update Telegram Webhook
     - |
       CLOUD_RUN_URL=$(gcloud run services describe fontokmai-api \
