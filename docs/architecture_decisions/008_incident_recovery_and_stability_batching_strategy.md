@@ -5,8 +5,33 @@
 เมื่อวันที่ 10–17 มิถุนายน 2568 ระบบ FonMaYang เผชิญกับเหตุการณ์ฉุกเฉิน (Incident #84) ที่ส่งผลให้ค่าใช้จ่ายบน Cloud Run พุ่งสูงอย่างผิดปกติถึง 2,657,500% สาเหตุหลักมาจากปัจจัยที่ทับซ้อนกัน 3 ประการ ได้แก่:
 
 1. **OCR Fallback Trap** — Fallback Chain ใน `ocr_service.py` ที่ชนโควต้า Cloud Vision + Gemini ทำให้แต่ละ Request ใช้เวลา 1–2 นาที
-2. **WebSocket vs Cloud Run Architecture** — `start_emsc_websocket` รันอยู่บน Cloud Run ที่เปิด CPU Throttling ทำให้เกิด Memory Leak และบล็อก Scale-to-Zero
+2. **WebSocket vs Cloud Run Architecture** — `start_emsc_websocket` รันอยู่บน Cloud Run ที่เปิด CPU Throttling ทำให้เกิด Memory Leak และบล็อก Scale-to-Zero (สร้าง Idle Cost อย่างมหาศาล)
 3. **Cloud Scheduler Retry Flood** — Scheduler เข้าใจว่า Job ล้มเหลว จึงยิง Auto-Retry ทุก 5 นาที
+
+### 📊 System Context: FinOps & Pricing Analysis (Project: FonMaYang)
+**Data Source:** Telegram Budget Warning Alerts (June 17, 2026, 17:44 to 21:04)
+
+* **Cost Delta:** 264.95 THB ➡️ 266.57 THB (+1.62 THB in 200 minutes or 3.33 hours)
+* **Budget Limit:** 270.00 THB (Action: Auto scale-down Cloud Run at 100%)
+
+**1. Burn Rate Analysis (Cost over Time)**
+* **Per Day:** ~11.66 THB / Day
+* **Per Hour:** ~0.486 THB / Hour
+* **Per Minute:** ~0.0081 THB / Minute
+* **Per Second:** ~0.000135 THB / Second
+*Note: The cost drops significantly from the crisis period (~55 THB/day) but remains high due to WebSocket Idle state holding resources. Billing updates in batches of ~0.81 THB roughly every 1.5 - 2 hours.*
+
+**2. Unit Economics (Cost per Request)**
+* **If Normal Cron (Every 20 mins):** ~0.162 THB / Request
+* **If Auto-Retry Bug (Every 5 mins):** ~0.04 THB / Request
+*Note: This is heavily inflated. A healthy Cloud Run API should cost < 0.0001 THB/Request. The current high cost reflects the 1-2 minute execution delay (OCR quota trap) + Instance idle cost.*
+
+**3. Runway & Inverted Analysis (Time per Baht)**
+* **Value of 1 Baht:** 1 THB buys ~2.06 Hours (123 Minutes).
+* **Remaining Budget:** 270.00 THB - 266.57 THB = 3.43 THB
+
+🚨 **Time to Death (Scale-down):** 3.43 THB × 2.06 Hours = ~7 Hours left.
+**Critical Warning:** If the application logic is not fixed or the budget limit is not adjusted, the system will hit 100% budget and completely shut down (Auto Scale-Zero) around 04:00 AM (relative to the 21:04 timestamp).
 
 เพื่อให้การแก้ไขเป็นระเบียบ ตรวจสอบได้ และป้องกันไม่ให้ปัญหาเกิดซ้ำ จึงจัดกลุ่มงาน (Batching) แบบแยกชั้น (Layer) ตามลำดับความเร่งด่วน
 
@@ -91,9 +116,9 @@ gcloud run services update fontokmai-api --max-instances 2 --region asia-southea
 
 | ตัวเลือก | วิธี | Cost | Complexity |
 |---------|-----|------|-----------|
-| A | Cloud Run Worker แยก (CPU Always Allocated + maxScale:1) | ~฿15–30/เดือน | Medium |
-| B | เปลี่ยนเป็น Polling ผ่าน REST API | ต่ำมาก | Low |
-| C | ตั้งค่า CPU Always-On บน API Service เดิม | ~฿15–30/เดือน | Low |
+| A | Cloud Run Worker แยก (CPU Always Allocated + maxScale:1) | **~฿2,300/เดือน** (1vCPU) หรือต่ำสุด **~฿350/เดือน** (Throttled Idle) | Medium |
+| B | เปลี่ยนเป็น Polling ผ่าน REST API | ต่ำมาก (< ฿1/เดือน) | Low |
+| C | ตั้งค่า CPU Always-On บน API Service เดิม | **~฿2,300/เดือน** | Low |
 | D | Compute Engine e2-micro (Free Tier) | ฟรี | High (ดูแล VM) |
 
 **ขั้นตอน:**
