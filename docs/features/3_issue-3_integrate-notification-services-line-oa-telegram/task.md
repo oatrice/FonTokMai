@@ -1,5 +1,0 @@
-- [x] เขียน Failing test สำหรับ Telegram webhook ใน `backend/tests/test_webhook.py` (Red)
-- [x] สร้าง endpoint `POST /api/v1/webhook/telegram` ใน `backend/app/routers/webhook.py` (Green)
-- [x] เพิ่ม webhook router ใน `backend/app/main.py` (Green)
-- [x] เพิ่ม `TELEGRAM_BOT_TOKEN` config (Green)
-- [x] Refactor โค้ดและยืนยันว่ารันเทสต์ผ่านทั้งหมด (Refactor)

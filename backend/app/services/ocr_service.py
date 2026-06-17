@@ -115,7 +115,7 @@ class OCRService:
                 'file': ('radar.png', content, 'image/png')
             }
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.post(url, data=payload, files=files)
                 result = response.json()
                 
@@ -175,26 +175,27 @@ class OCRService:
         png_bytes = self._frame_to_png_bytes(frame)
         ts = None
         
+        # Hotfix (Issue #85): Bypass Cloud Vision and Gemini due to quotas/latency
         # Check quota for Cloud Vision
-        vision_allowed = await self.repo.check_and_increment_vision_quota(1000)
+        # vision_allowed = await self.repo.check_and_increment_vision_quota(1000)
         
-        # Fallback Chain 1: Google Cloud Vision
-        if vision_allowed:
-            print("Running OCR: Cloud Vision")
-            text = await self._call_cloud_vision(png_bytes)
-            ts = self._extract_timestamp_from_text(text)
-        else:
-            print("Cloud Vision quota exceeded. Skipping to Gemini.")
+        # Fallback Chain 1: Google Cloud Vision (Bypassed)
+        # if vision_allowed:
+        #     print("Running OCR: Cloud Vision")
+        #     text = await self._call_cloud_vision(png_bytes)
+        #     ts = self._extract_timestamp_from_text(text)
+        # else:
+        #     print("Cloud Vision quota exceeded. Skipping to Gemini.")
         
-        # Fallback Chain 2: Gemini
-        if ts is None:
-            print("Running OCR: Gemini")
-            text = await self._call_gemini(png_bytes)
-            ts = self._extract_timestamp_from_text(text)
+        # Fallback Chain 2: Gemini (Bypassed)
+        # if ts is None:
+        #     print("Running OCR: Gemini")
+        #     text = await self._call_gemini(png_bytes)
+        #     ts = self._extract_timestamp_from_text(text)
             
-        # Fallback Chain 3: OCR.space
+        # Primary Engine: OCR.space (Issue #85)
         if ts is None:
-            print("Running OCR: OCR.space")
+            print("Running OCR: OCR.space (Hotfix Bypass)")
             text = await self._call_ocr_space(png_bytes)
             ts = self._extract_timestamp_from_text(text)
         
