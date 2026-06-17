@@ -67,7 +67,9 @@ async def lifespan(app: FastAPI):
             logging.error(f"Crash in ws_callback: {e}")
             
     # Start the websocket in the background
-    asyncio.create_task(start_emsc_websocket(ws_callback))
+    # Hotfix (Issue #86): Temporarily disabled EMSC WebSocket due to Memory Leak on Cloud Run
+    # Will be addressed properly in architectural fix (Issue #89).
+    # asyncio.create_task(start_emsc_websocket(ws_callback))
         
     yield
 

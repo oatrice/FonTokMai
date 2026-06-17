@@ -1,15 +1,141 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "idle",
-  "active_issues": [],
-  "active_branch": null,
-  "started_at": null,
-  "checklist": {},
-  "context": {},
+  "phase": "reviewing",
+  "active_issues": [
+    {
+      "number": 87,
+      "title": "🛠 [Infra] Limit Cloud Run max-instances and pause check-rain Scheduler",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/87",
+      "body": null,
+      "project_item_id": "GLAB_87",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 85,
+      "title": "🛠 [Hotfix] Bypass OCR Fallback Trap to reduce Cloud Run latency",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/85",
+      "body": null,
+      "project_item_id": "GLAB_85",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 86,
+      "title": "🛠 [Hotfix] Temporarily disable EMSC WebSocket to prevent Cloud Run Memory Leak",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/86",
+      "body": null,
+      "project_item_id": "GLAB_86",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    }
+  ],
+  "active_branch": "feat/87-85-86-infra-limit-cloud-run-max-inst",
+  "started_at": "2026-06-17T21:31:53.748615",
+  "checklist": {
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
+  },
+  "context": {
+    "pending_doc_updates": {
+      "pending": [],
+      "changed_files": [
+        "CHANGELOG.md",
+        "GEMINI.md",
+        "README.md",
+        "VERSION",
+        "backend/app/main.py",
+        "backend/app/services/ocr_service.py",
+        "docs/ROADMAP.md",
+        "docs/architecture_decisions/007_cost_efficiency_and_billing_batching_strategy.md",
+        "docs/architecture_decisions/008_incident_recovery_and_stability_batching_strategy.md",
+        "gitlab-ci.yml",
+        "luma/prompts/prompt_20260617_145033_6c3d868e.md",
+        "luma/prompts/prompt_20260617_145034_20f30357.md",
+        "luma_state.json"
+      ],
+      "meaningful_files": [
+        "backend/app/main.py",
+        "backend/app/services/ocr_service.py",
+        "gitlab-ci.yml",
+        "luma_state.json"
+      ],
+      "version_file": "VERSION",
+      "has_meaningful_changes": true
+    },
+    "target_planning_repos": [
+      {
+        "name": "FonMaYang",
+        "path": "/Users/oatrice/Software Project/FonMaYang",
+        "repo": "oatricedev/FonMaYang",
+        "slug": "fonmayang",
+        "kanban_number": 1,
+        "kanban_id": "",
+        "platform": "gitlab",
+        "status_workflow": {
+          "selectable_statuses": [
+            "Ready",
+            "In Progress",
+            "Todo"
+          ],
+          "selection_order": [
+            "In Progress",
+            "Ready",
+            "Todo"
+          ],
+          "active_statuses": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review"
+          ],
+          "active_sort_order": [
+            "In Progress",
+            "Ready",
+            "Todo",
+            "In Review",
+            "Backlog"
+          ],
+          "board_order": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review",
+            "Done",
+            "Closed"
+          ],
+          "done_statuses": [
+            "Done",
+            "Closed"
+          ],
+          "status_icons": {
+            "Backlog": "📥 ",
+            "Ready": "✅ ",
+            "Todo": "📝 ",
+            "In Progress": "🔥 ",
+            "In Review": "👀 ",
+            "Done": "✅ ",
+            "Closed": "✅ "
+          },
+          "action_status_map": {
+            "select_issue": "In Progress",
+            "create_pr": "In Review",
+            "pr_merged": "Done"
+          }
+        }
+      }
+    ]
+  },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-16T22:53:36.675600"
+  "last_updated": "2026-06-17T21:51:19.011621"
 }

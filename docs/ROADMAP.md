@@ -27,6 +27,58 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #90 - Optimization: Cleanup stale AI-generated context artifacts and establish ephemeral docs policy
+- **GitHub:** [#90](https://gitlab.com/oatricedev/FonMaYang/-/issues/90)
+- **Status:** 🟢 **Ready**
+
+### Issue #89 - 🏗 [Architecture] Decouple EMSC WebSocket from Cloud Run API (Long-term Solution)
+- **GitHub:** [#89](https://gitlab.com/oatricedev/FonMaYang/-/issues/89)
+- **Status:** 🟢 **Ready**
+
+### Issue #88 - 🛠 [Infra] Fix Cloud Scheduler Retry Policy to prevent retry flood
+- **GitHub:** [#88](https://gitlab.com/oatricedev/FonMaYang/-/issues/88)
+- **Status:** 🟢 **Ready**
+
+### Issue #87 - 🛠 [Infra] Limit Cloud Run max-instances and pause check-rain Scheduler
+- **GitHub:** [#87](https://gitlab.com/oatricedev/FonMaYang/-/issues/87)
+    - ✅ **Done** (0.30.0)
+
+### Issue #86 - 🛠 [Hotfix] Temporarily disable EMSC WebSocket to prevent Cloud Run Memory Leak
+- **GitHub:** [#86](https://gitlab.com/oatricedev/FonMaYang/-/issues/86)
+    - ✅ **Done** (0.30.0)
+
+### Issue #85 - 🛠 [Hotfix] Bypass OCR Fallback Trap to reduce Cloud Run latency
+- **GitHub:** [#85](https://gitlab.com/oatricedev/FonMaYang/-/issues/85)
+    - ✅ **Done** (0.30.0)
+
+### Issue #84 - 🚨 Critical Incident: Memory Leak & Billing Explosion from OCR Fallback & WebSocket
+- **GitHub:** [#84](https://gitlab.com/oatricedev/FonMaYang/-/issues/84)
+- **Status:** 🟢 **Ready**
+
+### Issue #83 - Optimization: Cleanup old Docker Images in Artifact Registry
+- **GitHub:** [#83](https://gitlab.com/oatricedev/FonMaYang/-/issues/83)
+- **Status:** 🟢 **Ready**
+
+### Issue #82 - Feature: Manage GCP Budget and Alerts via Terraform (IaC)
+- **GitHub:** [#82](https://gitlab.com/oatricedev/FonMaYang/-/issues/82)
+- **Status:** 🟢 **Ready**
+
+### Issue #81 - Feature: Adjust GCP Budget via Telegram command (/setbudget)
+- **GitHub:** [#81](https://gitlab.com/oatricedev/FonMaYang/-/issues/81)
+- **Status:** 🟢 **Ready**
+
+### Issue #80 - Feature: Route billing and system alerts to dedicated DevBot
+- **GitHub:** [#80](https://gitlab.com/oatricedev/FonMaYang/-/issues/80)
+- **Status:** 🟢 **Ready**
+
+### Issue #79 - Infrastructure: Setup System Uptime Monitoring & Status Dashboard
+- **GitHub:** [#79](https://gitlab.com/oatricedev/FonMaYang/-/issues/79)
+- **Status:** 🟢 **Ready**
+
+### Issue #78 - Architecture: Implement Dedicated Users (Private Cloud Run) with Reverse Proxy / API Gateway
+- **GitHub:** [#78](https://gitlab.com/oatricedev/FonMaYang/-/issues/78)
+- **Status:** 🟢 **Ready**
+
 ### Issue #76 - Security: Enforce minimal IAM permissions for Cloud Run
 - **GitHub:** [#76](https://gitlab.com/oatricedev/FonMaYang/-/issues/76)
     - ✅ **Done** (0.28.0) 

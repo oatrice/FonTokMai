@@ -69,7 +69,7 @@ deploy_cloud_run:
         --cpu 1 \
         --timeout 120 \
         --service-min-instances 0 \
-        --service-max-instances 3 \
+        --service-max-instances 2 \
         --concurrency 40 \
         --cpu-boost \
         --set-env-vars "\
