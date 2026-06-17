@@ -8,8 +8,7 @@ WorkingDirectory=/home/ubuntu/emsc_worker
 ExecStart=/home/ubuntu/emsc_worker/venv/bin/python main.py
 Restart=always
 RestartSec=10
-Environment="FONMAYANG_API_URL=https://fontokmai-api-xxxxxxxx-as.a.run.app"
-Environment="INTERNAL_WEBHOOK_SECRET=your_secret_here"
+EnvironmentFile=/home/ubuntu/emsc_worker/.env
 
 [Install]
 WantedBy=multi-user.target

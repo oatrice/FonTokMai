@@ -21,9 +21,13 @@ This decouples the persistent WebSocket connection from the Cloud Run instances,
    source venv/bin/activate
    pip install -r requirements.txt
    ```
-5. **Configure the Systemd Service**:
-   - Edit `emsc_worker.service` and replace `FONMAYANG_API_URL` with your actual Cloud Run URL.
-   - Replace `INTERNAL_WEBHOOK_SECRET` with the secret you configured in GitLab CI.
+5. **Create the Environment File (`.env`)**:
+   - Copy the example file and edit it to include your actual Cloud Run URL and the secret:
+     ```bash
+     cp .env.example .env
+     nano .env
+     ```
+6. **Configure the Systemd Service**:
    - Copy the service file to systemd:
      ```bash
      sudo cp emsc_worker.service /etc/systemd/system/
@@ -31,7 +35,7 @@ This decouples the persistent WebSocket connection from the Cloud Run instances,
      sudo systemctl enable emsc_worker.service
      sudo systemctl start emsc_worker.service
      ```
-6. **Check Logs**:
+7. **Check Logs**:
    ```bash
    sudo journalctl -u emsc_worker -f
    ```
