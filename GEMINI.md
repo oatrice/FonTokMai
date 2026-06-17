@@ -26,7 +26,7 @@ Do not skip this step, as it lets the user know the outcome without needing to w
   "message": "Webhook created and tested successfully. Ready for deployment."
 }
 ```
-> ⚙️ **Prerequisite:** Ensure that you use your provided MCP client capabilities to call this tool. The Akasa backend must be running locally at `http://localhost:8000`.
+> ⚙️ **Prerequisite:** Ensure that you use your provided MCP client capabilities to call this tool. Refer to global knowledge (`akasa_backend_url.md`) for the correct backend URL configuration.
 
 # ✏️ Review Pending Notification (For IDE Agents)
 

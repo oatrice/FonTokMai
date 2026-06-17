@@ -61,7 +61,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #69 - Enhancement: System Infrastructure and Code Optimization (Latency & Billing)
 - **GitHub:** [#69](https://gitlab.com/oatricedev/FonMaYang/-/issues/69)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.29.0)
 
 ### Issue #68 - Feature: Export metrics via Telegram command (/metrics)
 - **GitHub:** [#68](https://gitlab.com/oatricedev/FonMaYang/-/issues/68)
@@ -330,13 +330,4 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ### Issue #1 - Implement Weather Services MVP (Base, RainViewer, Rainbow) with TDD
 - **GitHub:** [#1](https://gitlab.com/oatricedev/FonMaYang/-/issues/1)
 - **Status:** 🟢 **Ready**
-
-
-### Issue # - Implement Weather Services MVP (Base, RainViewer, Rainbow) with TDD
-- **State:** opened
-- ✅ **Done** (0.1.0)
-
-### Issue # - Security: Enforce minimal IAM permissions for Cloud Run
-- **State:** opened
-- ✅ **Done** (0.28.0)
 
