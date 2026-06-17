@@ -1,6 +1,0 @@
-- [x] อัปเดต Implementation Plan เพื่อสะท้อนถึง RainViewer และ Rainbow APIs
-- [x] ออกแบบและสร้างโครงสร้างโฟลเดอร์สำหรับ FastAPI
-- [x] พัฒนา `BaseWeatherService` (TDD)
-- [x] พัฒนา `RainViewerService` (TDD)
-- [x] พัฒนา `RainbowService` (TDD)
-- [x] แจ้งเตือนเมื่อทำงานเสร็จ (notify_task_complete)
