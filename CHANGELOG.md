@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.0] - 2026-06-17
+### Added
+- Documented Incident Recovery and Stability Batching Strategy (ADR 008) to manage high-latency and memory leak issues.
+
+### Changed
+- **Hotfix:** Bypassed the expensive Cloud Vision and Gemini OCR fallback chain. The system now directly calls OCR.space with a 10-second fail-fast timeout to drastically reduce latency and Cloud Run costs.
+- **Hotfix:** Temporarily disabled the EMSC WebSocket connection on startup to prevent memory leaks and scale-to-zero blockers.
+- Updated GitLab CI/CD configuration to limit the maximum Cloud Run instances from 3 to 2 for improved cost control during high load.
+
 ## [0.29.0] - 2026-06-16
 ### Added
 - Implemented a Budget Webhook auto-shutdown mechanism to automatically revoke Cloud Run public access when the billing budget limit is reached (Issue #72).

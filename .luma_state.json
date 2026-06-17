@@ -55,14 +55,16 @@
         "docs/architecture_decisions/007_cost_efficiency_and_billing_batching_strategy.md",
         "docs/architecture_decisions/008_incident_recovery_and_stability_batching_strategy.md",
         "gitlab-ci.yml",
-        "luma/prompts/prompt_20260617_145033_6c3d868e.md",
-        "luma/prompts/prompt_20260617_145034_20f30357.md",
+        "luma/prompts/prompt_20260617_145422_b2c3dcb8.md",
+        "luma/prompts/prompt_20260617_145423_0dff5587.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/app/main.py",
         "backend/app/services/ocr_service.py",
         "gitlab-ci.yml",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -137,5 +139,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-17T21:51:19.011621"
+  "last_updated": "2026-06-17T21:54:27.251174"
 }
