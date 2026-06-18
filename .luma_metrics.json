@@ -1958,6 +1958,28 @@
       "gh_mandays": null,
       "created_at": "2026-06-16T12:18:07.097Z",
       "updated_at": "2026-06-18T09:54:49.628252"
+    },
+    "oatricedev/FonMaYang#94": {
+      "issue_key": "oatricedev/FonMaYang#94",
+      "issue_number": 94,
+      "issue_title": "Infrastructure: Migrate GitLab CI/CD pipeline to GitHub Actions workflow",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/94",
+      "repository": "oatricedev/FonMaYang",
+      "project_name": "FonMaYang",
+      "issue_status": null,
+      "estimate_points": null,
+      "post_story_point": null,
+      "estimated_mandays": null,
+      "start_datetime": null,
+      "actual_mandays": 0.0,
+      "due_date": null,
+      "actual_completion_date": "2026-06-18T21:44:42",
+      "effort_level": null,
+      "notes": null,
+      "gh_closed_at": null,
+      "gh_mandays": null,
+      "created_at": "2026-06-18T21:44:42.719151",
+      "updated_at": "2026-06-18T21:44:42.719887"
     }
   }
 }
