@@ -9,7 +9,7 @@ PROJECT_ID=${GCP_PROJECT_ID}
 REGION=${GCP_REGION:-"asia-southeast1"}
 REPO_NAME=${GCP_ARTIFACT_REPO:-"cloud-run-source-deploy"}
 IMAGE_NAME="fontokmai-api"
-KEEP_LATEST=${KEEP_LATEST_IMAGES:-5}
+KEEP_LATEST=${KEEP_LATEST_IMAGES:-2}
 
 if [ -z "$PROJECT_ID" ]; then
     echo "Error: GCP_PROJECT_ID environment variable is not set."
