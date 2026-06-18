@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "preflight",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 88,
@@ -40,8 +40,8 @@
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/88-89-infra-fix-cloud-scheduler-retr",
-  "started_at": "2026-06-17T23:11:02.683275",
+  "active_branch": "feat/93-ops-increase-cloud-run-memory",
+  "started_at": "2026-06-18T10:32:27.825512",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -57,35 +57,19 @@
         "CHANGELOG.md",
         "README.md",
         "VERSION",
-        "backend/app/main.py",
-        "backend/app/routers/internal.py",
-        "backend/app/services/earthquake.py",
+        "agents/skills/api-endpoint-verification/SKILL.md",
+        "backend/app/services/tmd_radar_processor.py",
         "backend/scripts/cleanup_artifact_registry.sh",
-        "backend/scripts/setup_schedulers.sh",
+        "backend/scripts/setup_log_exclusions.sh",
         "docs/ROADMAP.md",
-        "docs/architecture_decisions/008_incident_recovery_and_stability_batching_strategy.md",
-        "emsc_worker/.env.example",
-        "emsc_worker/README.md",
-        "emsc_worker/emsc_worker.service",
-        "emsc_worker/main.py",
-        "emsc_worker/mock_server.py",
-        "emsc_worker/requirements.txt",
         "gitlab-ci.yml",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/main.py",
-        "backend/app/routers/internal.py",
-        "backend/app/services/earthquake.py",
+        "backend/app/services/tmd_radar_processor.py",
         "backend/scripts/cleanup_artifact_registry.sh",
-        "backend/scripts/setup_schedulers.sh",
-        "emsc_worker/.env.example",
-        "emsc_worker/emsc_worker.service",
-        "emsc_worker/main.py",
-        "emsc_worker/mock_server.py",
+        "backend/scripts/setup_log_exclusions.sh",
         "gitlab-ci.yml",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -158,7 +142,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/33",
   "pr_number": null,
-  "last_updated": "2026-06-18T09:56:40.793827"
+  "last_updated": "2026-06-18T20:04:24.020622"
 }

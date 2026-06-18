@@ -65,13 +65,14 @@ deploy_cloud_run:
         --service-account=cloud-run-runtime@fonmayang.iam.gserviceaccount.com \
         --region asia-southeast1 \
         --allow-unauthenticated \
-        --memory 512Mi \
+        --memory 1Gi \
         --cpu 1 \
         --timeout 60 \
         --service-min-instances 0 \
         --service-max-instances 2 \
         --concurrency 40 \
         --cpu-boost \
+        --cpu-throttling \
         --set-env-vars "\
       TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN},\
       RAINBOW_API_KEY=${RAINBOW_API_KEY},\

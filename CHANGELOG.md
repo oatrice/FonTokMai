@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.32.0] - 2026-06-18
+### Added
+- Added a script to configure Cloud Logging exclusion filters to drop high-frequency HTTP 403 debug noise, optimizing log storage costs.
+- Added a new AI skill (`api-endpoint-verification`) to prevent path hallucinations during automated agent operations.
+
+### Changed
+- Increased Cloud Run memory limit to 1GiB and optimized TMD radar frame processing to prevent Out Of Memory (OOM) errors.
+- Enforced `--cpu-throttling` (Request-based billing) for Cloud Run deployment in GitLab CI to prevent unnecessary background CPU billing.
+- Reduced the Artifact Registry keep limit to 2 images to ensure compliance with GCP free tier storage quotas.
+
+### Fixed
+- Fixed an issue with artifact version parsing to correctly identify and delete obsolete images during registry cleanup.
+
 ## [0.31.0] - 2026-06-18
 ### Added
 - Created a standalone `emsc_worker` microservice to manage EMSC WebSocket connections, fully decoupled from the main FastAPI server to resolve scale-to-zero issues.

@@ -908,6 +908,11 @@ class TMDRadarProcessor:
                 for frame in ImageSequence.Iterator(img):
                     frames.append(np.array(frame.copy().convert("RGB")))
                     
+                # Optimize memory: keep only the last 12 frames (approx 3 hours of radar data)
+                # to prevent OOM spikes during downstream high-res GIF generation.
+                if len(frames) > 12:
+                    frames = frames[-12:]
+                    
                 try:
                     ocr_svc = OCRService()
                     if len(frames) > 0:

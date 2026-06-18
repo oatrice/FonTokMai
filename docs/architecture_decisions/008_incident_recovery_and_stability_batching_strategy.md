@@ -97,8 +97,11 @@ gcloud run services update fontokmai-api --max-instances 2 --region asia-southea
 | Issue | รายละเอียด | ไฟล์ที่เกี่ยวข้อง | ขนาด MR |
 |-------|-----------|-----------------|---------|
 | [#88](https://gitlab.com/oatricedev/FonMaYang/-/work_items/88) | แก้ Cloud Scheduler Retry Policy (`--max-retry-attempts=0` หรือ 1 ครั้ง) + อัปเดต `setup_schedulers.sh` | `backend/scripts/setup_schedulers.sh` | Small (Script) |
+| - | **[Added in PR]** ขยาย Memory Cloud Run เป็น 1GiB และทำ Image Frame Optimization (เก็บแค่ 12 frames) ป้องกัน OOM | `backend/app/services/tmd_radar_processor.py` | Small |
+| - | **[Added in PR]** บังคับใช้ `--cpu-throttling` (Request-based billing) ป้องกัน Idle Cost | `.gitlab-ci.yml` | Small |
+| - | **[Added in PR]** เพิ่มสคริปต์กรอง HTTP 403 ออกจาก Cloud Logging เพื่อประหยัดค่า Ingestion | `backend/scripts/setup_log_exclusions.sh` | Small |
 
-**เหตุผลการจัดกลุ่ม:** แยกออกจาก Phase 0 เพราะนี่คือการแก้ให้ถูกต้องถาวร (Policy Fix) ไม่ใช่การปิดชั่วคราว ควรทำหลังจาก Monitor ระบบแล้ว 1-2 วัน เพื่อยืนยัน Root Cause
+**เหตุผลการจัดกลุ่ม:** แยกออกจาก Phase 0 เพราะนี่คือการแก้ให้ถูกต้องถาวร (Policy Fix) และเสริมความเสถียรด้าน Memory / FinOps (Log, CPU Billing) แบบเบ็ดเสร็จ
 
 ---
 
@@ -227,9 +230,9 @@ gcloud run services update fontokmai-api --max-instances 2 --region asia-southea
 |--------------|-------|--------|
 | Phase 0 — Stop Bleeding | 🔴 **รอดำเนินการ (Urgent)** | [#87](https://gitlab.com/oatricedev/FonMaYang/-/work_items/87) |
 | Phase 1 — Hotfix Code | 🔴 **รอดำเนินการ (Urgent)** | [#85](https://gitlab.com/oatricedev/FonMaYang/-/work_items/85), [#86](https://gitlab.com/oatricedev/FonMaYang/-/work_items/86) |
-| Phase 2 — Infra Hardening | 🟡 **Ready (รอ Phase 1)** | [#88](https://gitlab.com/oatricedev/FonMaYang/-/work_items/88) |
+| Phase 2 — Infra Hardening | 🟢 **Completed** | [#88](https://gitlab.com/oatricedev/FonMaYang/-/work_items/88) |
 | Phase 3 — Architecture | 🟢 **Completed (Option D)** | [#89](https://gitlab.com/oatricedev/FonMaYang/-/work_items/89) |
-| Batch M — Observability | 🟢 **Backlog** | [#73](https://gitlab.com/oatricedev/FonMaYang/-/issues/73), [#74](https://gitlab.com/oatricedev/FonMaYang/-/issues/74), [#79](https://gitlab.com/oatricedev/FonMaYang/-/issues/79), [#83](https://gitlab.com/oatricedev/FonMaYang/-/issues/83) |
+| Batch M — Observability | 🟡 **In Progress** | [#73](https://gitlab.com/oatricedev/FonMaYang/-/issues/73), [#74](https://gitlab.com/oatricedev/FonMaYang/-/issues/74), [#79](https://gitlab.com/oatricedev/FonMaYang/-/issues/79), 🟢 **Completed:** [#83](https://gitlab.com/oatricedev/FonMaYang/-/issues/83) |
 | Batch N — Budget Automation | 🟢 **Backlog** | [#80](https://gitlab.com/oatricedev/FonMaYang/-/issues/80), [#81](https://gitlab.com/oatricedev/FonMaYang/-/issues/81) |
 | Batch O — Security & Secrets | 🟢 **Backlog (Low Priority)** | [#75](https://gitlab.com/oatricedev/FonMaYang/-/issues/75) |
 | Batch P — Advanced Infra (IaC) | 🟢 **Backlog (Low Priority)** | [#82](https://gitlab.com/oatricedev/FonMaYang/-/issues/82), [#78](https://gitlab.com/oatricedev/FonMaYang/-/issues/78) |
