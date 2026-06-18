@@ -3,12 +3,12 @@ Description=FonMaYang EMSC WebSocket Worker
 After=network.target
 
 [Service]
-User=ubuntu
-WorkingDirectory=/home/ubuntu/emsc_worker
-ExecStart=/home/ubuntu/emsc_worker/venv/bin/python main.py
+User=root
+WorkingDirectory=/opt/fonmayang/emsc_worker
+ExecStart=/opt/fonmayang/emsc_worker/venv/bin/python main.py
 Restart=always
 RestartSec=10
-EnvironmentFile=/home/ubuntu/emsc_worker/.env
+EnvironmentFile=/opt/fonmayang/emsc_worker/.env
 
 [Install]
 WantedBy=multi-user.target

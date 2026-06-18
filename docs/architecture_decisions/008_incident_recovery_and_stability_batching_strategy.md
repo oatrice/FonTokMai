@@ -119,13 +119,18 @@ gcloud run services update fontokmai-api --max-instances 2 --region asia-southea
 | A | Cloud Run Worker แยก (CPU Always Allocated + maxScale:1) | **~฿2,300/เดือน** (1vCPU) หรือต่ำสุด **~฿350/เดือน** (Throttled Idle) | Medium |
 | B | เปลี่ยนเป็น Polling ผ่าน REST API | ต่ำมาก (< ฿1/เดือน) | Low |
 | C | ตั้งค่า CPU Always-On บน API Service เดิม | **~฿2,300/เดือน** | Low |
-| D | Compute Engine e2-micro (Free Tier) | ฟรี | High (ดูแล VM) |
+| D | Compute Engine e2-micro (Free Tier / or low-cost region) | ต่ำมาก | High (ดูแล VM) |
 
-**ขั้นตอน:**
-1. ตัดสินใจเลือก Option (ประชุมทีม)
-2. เขียน ADR ย่อยบันทึกเหตุผล
-3. Implement + เพิ่ม Monitoring
-4. ปิด Hotfix ใน Issue #86
+**✅ Decision Made (18 มิ.ย. 2568):** เลือก **Option D**
+- แยก WebSocket Worker ออกไปเป็น Standalone `emsc_worker` microservice รันบน Google Compute Engine (e2-micro)
+- ลดภาระ (Complexity) ในการดูแล VM ด้วยการทำ **CI/CD Automation ผ่าน GitLab** ให้เชื่อมต่อผ่าน OS Login และสั่งรัน shell script อัปเดต/restart `systemd` service อัตโนมัติเมื่อมีการ push code
+- การส่งข้อมูลกลับมาที่ระบบหลักใช้วิธีเรียก Internal Webhook (`/api/v1/internal/emsc-webhook`) ที่มี Secret header ป้องกัน
+
+**ขั้นตอนที่ได้ดำเนินการแล้ว:**
+1. ✅ แยก worker ออกมาเป็น `emsc_worker/main.py`
+2. ✅ สร้าง Mock Server สำหรับ Local Testing
+3. ✅ เพิ่ม CI/CD Pipeline `deploy_emsc_worker` ใน `.gitlab-ci.yml`
+4. ✅ ปิด Hotfix #86 และเชื่อมต่อระบบกลับสมบูรณ์
 
 ---
 
@@ -223,7 +228,7 @@ gcloud run services update fontokmai-api --max-instances 2 --region asia-southea
 | Phase 0 — Stop Bleeding | 🔴 **รอดำเนินการ (Urgent)** | [#87](https://gitlab.com/oatricedev/FonMaYang/-/work_items/87) |
 | Phase 1 — Hotfix Code | 🔴 **รอดำเนินการ (Urgent)** | [#85](https://gitlab.com/oatricedev/FonMaYang/-/work_items/85), [#86](https://gitlab.com/oatricedev/FonMaYang/-/work_items/86) |
 | Phase 2 — Infra Hardening | 🟡 **Ready (รอ Phase 1)** | [#88](https://gitlab.com/oatricedev/FonMaYang/-/work_items/88) |
-| Phase 3 — Architecture | 🟡 **Ready (รอ Phase 1)** | [#89](https://gitlab.com/oatricedev/FonMaYang/-/work_items/89) |
+| Phase 3 — Architecture | 🟢 **Completed (Option D)** | [#89](https://gitlab.com/oatricedev/FonMaYang/-/work_items/89) |
 | Batch M — Observability | 🟢 **Backlog** | [#73](https://gitlab.com/oatricedev/FonMaYang/-/issues/73), [#74](https://gitlab.com/oatricedev/FonMaYang/-/issues/74), [#79](https://gitlab.com/oatricedev/FonMaYang/-/issues/79), [#83](https://gitlab.com/oatricedev/FonMaYang/-/issues/83) |
 | Batch N — Budget Automation | 🟢 **Backlog** | [#80](https://gitlab.com/oatricedev/FonMaYang/-/issues/80), [#81](https://gitlab.com/oatricedev/FonMaYang/-/issues/81) |
 | Batch O — Security & Secrets | 🟢 **Backlog (Low Priority)** | [#75](https://gitlab.com/oatricedev/FonMaYang/-/issues/75) |

@@ -127,3 +127,41 @@ cleanup_artifact_registry:
     - if: $CI_PIPELINE_SOURCE == "web"
       when: manual
 
+deploy_emsc_worker:
+  stage: deploy
+  image: google/cloud-sdk:alpine
+  script:
+    - echo "Deploying EMSC worker to Compute Engine VM..."
+    - echo "$GCP_SA_KEY" | base64 -d > /tmp/gcp-sa-key.json
+    - gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json
+    - gcloud config set project $GCP_PROJECT_ID
+    - |
+      CLOUD_RUN_URL=$(gcloud run services describe fontokmai-api \
+        --platform managed \
+        --region asia-southeast1 \
+        --format 'value(status.url)')
+    - echo "Cloud Run URL is $CLOUD_RUN_URL"
+    - echo "Copying files to VM..."
+    - gcloud compute ssh --zone "us-west1-a" "emsc-worker-vm" --project "$GCP_PROJECT_ID" --command="sudo mkdir -p /opt/fonmayang && sudo chown -R \$USER:\$USER /opt/fonmayang" --quiet
+    - gcloud compute scp --recurse --zone "us-west1-a" --project "$GCP_PROJECT_ID" ./emsc_worker emsc-worker-vm:/opt/fonmayang/ --quiet
+    - echo "Setting up environment and restarting service..."
+    - |
+      gcloud compute ssh --zone "us-west1-a" "emsc-worker-vm" --project "$GCP_PROJECT_ID" --command="
+        cd /opt/fonmayang/emsc_worker
+        
+        echo \"FONMAYANG_API_URL=${CLOUD_RUN_URL}\" > .env
+        echo \"INTERNAL_WEBHOOK_SECRET=${INTERNAL_WEBHOOK_SECRET}\" >> .env
+        echo \"EMSC_WS_URL=wss://www.seismicportal.eu/standing_order/websocket\" >> .env
+        
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
+        
+        sudo cp emsc_worker.service /etc/systemd/system/
+        sudo systemctl daemon-reload
+        sudo systemctl enable emsc_worker.service
+        sudo systemctl restart emsc_worker.service
+      " --quiet
+  <<: *telegram_notify
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
