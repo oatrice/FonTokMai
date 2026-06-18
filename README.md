@@ -11,7 +11,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 - **Resilient Radar OCR Pipeline**: Utilizes an automated fallback chain (Google Cloud Vision -> Gemini -> OCR.space) for reliable radar timestamp extraction, safeguarded by a Firestore-based quota management system.
 - **Visual Radar Tracking & ETA Timelines**: Generates and sends high-quality radar animation loops (GIFs), tracked cloud visualizations, and human-readable ETA confidence timelines directly to users via Telegram webhooks and scheduled alerts.
 - **Advanced Lagrangian Cloud Modeling**: Employs spatial max dBZ search and lagrangian tracking to model rain cell growth, decay, and precise movement paths across multi-user environments.
-- **Natural Hazard Alerts**: Proactive monitoring for severe natural disasters including Earthquakes (via real-time EMSC WebSockets & USGS polling), Tropical Cyclones, and Wildfires, complete with broad geofencing and grouped notifications for users with multiple locations.
+- **Natural Hazard Alerts**: Proactive monitoring for severe natural disasters including Earthquakes (via a decoupled standalone EMSC WebSocket worker & USGS polling), Tropical Cyclones, and Wildfires, complete with broad geofencing and grouped notifications for users with multiple locations.
 - **Advanced Weather Alerts**: Proactively warns users about nearby severe weather, including convective stormcells and lightning strikes, using Xweather's premium data and Open-Meteo contingency data. Includes the `/rain_pro` manual command for on-demand premium reports.
 - **Privacy-First Notifications**: On-demand location sharing via Telegram without background tracking.
 - **Multiple Saved Locations**: Support for managing multiple user locations (e.g., Home, Work) for personalized proactive alerting.
@@ -22,7 +22,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 - **Interactive Ground Truth Feedback**: Inline buttons allowing users to report false alarms directly from notifications. This data feeds an automated API reliability system that auto-selects the most accurate weather source for future alerts.
 - **API Comparison & All-Clear Alerts**: Real-time comparison across all integrated weather APIs and automated cancellation notifications when forecasted rain dissipates.
 - **Interactive Radar**: Telegram `/radar` command providing multi-source visual tracking (Zoom Earth, Windy, TMD).
-- **Developer Mock Mode**: Built-in `/devmock` command and mock event servers for simulating weather states, API fallback errors, and natural disasters during testing without making live API calls.
+- **Developer Mock Mode**: Built-in `/devmock` command and standalone mock event servers (including a local WebSocket mock server) for simulating weather states, API fallback errors, and natural disasters during testing without making live API calls.
 - **Asynchronous Workload Queuing**: Deep integration with Google Cloud Tasks to offload long-running radar and forecasting processes, preventing Cloud Run CPU throttling and ensuring reliable delivery with exponential backoff.
 - **Budget Auto-Shutdown Mechanism**: Native GCP Billing Budget integration with Pub/Sub webhooks to automatically revoke Cloud Run public access when spending limits are reached, preventing unexpected billing spikes.
 - **Cost-Optimized Cloud Logging**: Pre-configured Logging Exclusion filters to drop high-frequency debug noise, drastically reducing log ingestion costs.

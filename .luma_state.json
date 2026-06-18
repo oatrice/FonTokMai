@@ -45,16 +45,18 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
         "backend/app/main.py",
         "backend/app/routers/internal.py",
         "backend/app/services/earthquake.py",
@@ -65,8 +67,11 @@
         "emsc_worker/README.md",
         "emsc_worker/emsc_worker.service",
         "emsc_worker/main.py",
+        "emsc_worker/mock_server.py",
         "emsc_worker/requirements.txt",
         "gitlab-ci.yml",
+        "luma/prompts/prompt_20260618_024935_fa372236.md",
+        "luma/prompts/prompt_20260618_024937_d33be497.md",
         "luma_state.json"
       ],
       "meaningful_files": [
@@ -78,6 +83,7 @@
         "emsc_worker/.env.example",
         "emsc_worker/emsc_worker.service",
         "emsc_worker/main.py",
+        "emsc_worker/mock_server.py",
         "gitlab-ci.yml",
         "luma_state.json"
       ],
@@ -153,5 +159,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-18T09:01:38.507542"
+  "last_updated": "2026-06-18T09:51:52.389724"
 }
