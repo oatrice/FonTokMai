@@ -29,15 +29,15 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ## Synced From GitHub
 ### Issue #90 - Optimization: Cleanup stale AI-generated context artifacts and establish ephemeral docs policy
 - **GitHub:** [#90](https://gitlab.com/oatricedev/FonMaYang/-/issues/90)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.31.0)
 
 ### Issue #89 - 🏗 [Architecture] Decouple EMSC WebSocket from Cloud Run API (Long-term Solution)
 - **GitHub:** [#89](https://gitlab.com/oatricedev/FonMaYang/-/issues/89)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.31.0)
 
 ### Issue #88 - 🛠 [Infra] Fix Cloud Scheduler Retry Policy to prevent retry flood
 - **GitHub:** [#88](https://gitlab.com/oatricedev/FonMaYang/-/issues/88)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.31.0)
 
 ### Issue #87 - 🛠 [Infra] Limit Cloud Run max-instances and pause check-rain Scheduler
 - **GitHub:** [#87](https://gitlab.com/oatricedev/FonMaYang/-/issues/87)
@@ -57,7 +57,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #83 - Optimization: Cleanup old Docker Images in Artifact Registry
 - **GitHub:** [#83](https://gitlab.com/oatricedev/FonMaYang/-/issues/83)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.31.0)
 
 ### Issue #82 - Feature: Manage GCP Budget and Alerts via Terraform (IaC)
 - **GitHub:** [#82](https://gitlab.com/oatricedev/FonMaYang/-/issues/82)

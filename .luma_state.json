@@ -1,38 +1,47 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "preflight",
   "active_issues": [
     {
-      "number": 87,
-      "title": "🛠 [Infra] Limit Cloud Run max-instances and pause check-rain Scheduler",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/87",
+      "number": 88,
+      "title": "🛠 [Infra] Fix Cloud Scheduler Retry Policy to prevent retry flood",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/88",
       "body": null,
-      "project_item_id": "GLAB_87",
+      "project_item_id": "GLAB_88",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 85,
-      "title": "🛠 [Hotfix] Bypass OCR Fallback Trap to reduce Cloud Run latency",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/85",
+      "number": 89,
+      "title": "🏗 [Architecture] Decouple EMSC WebSocket from Cloud Run API (Long-term Solution)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/89",
       "body": null,
-      "project_item_id": "GLAB_85",
+      "project_item_id": "GLAB_89",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 86,
-      "title": "🛠 [Hotfix] Temporarily disable EMSC WebSocket to prevent Cloud Run Memory Leak",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/86",
+      "number": 83,
+      "title": "Optimization: Cleanup old Docker Images in Artifact Registry",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/83",
       "body": null,
-      "project_item_id": "GLAB_86",
+      "project_item_id": "GLAB_83",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 90,
+      "title": "Optimization: Cleanup stale AI-generated context artifacts and establish ephemeral docs policy",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/90",
+      "body": null,
+      "project_item_id": "GLAB_90",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/87-85-86-infra-limit-cloud-run-max-inst",
-  "started_at": "2026-06-17T21:31:53.748615",
+  "active_branch": "feat/88-89-infra-fix-cloud-scheduler-retr",
+  "started_at": "2026-06-17T23:11:02.683275",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -43,25 +52,38 @@
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
-        "README.md"
-      ],
+      "pending": [],
       "changed_files": [
         "CHANGELOG.md",
-        "GEMINI.md",
+        "README.md",
         "VERSION",
         "backend/app/main.py",
-        "backend/app/services/ocr_service.py",
+        "backend/app/routers/internal.py",
+        "backend/app/services/earthquake.py",
+        "backend/scripts/cleanup_artifact_registry.sh",
+        "backend/scripts/setup_schedulers.sh",
         "docs/ROADMAP.md",
-        "docs/architecture_decisions/007_cost_efficiency_and_billing_batching_strategy.md",
         "docs/architecture_decisions/008_incident_recovery_and_stability_batching_strategy.md",
+        "emsc_worker/.env.example",
+        "emsc_worker/README.md",
+        "emsc_worker/emsc_worker.service",
+        "emsc_worker/main.py",
+        "emsc_worker/mock_server.py",
+        "emsc_worker/requirements.txt",
         "gitlab-ci.yml",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/app/main.py",
-        "backend/app/services/ocr_service.py",
+        "backend/app/routers/internal.py",
+        "backend/app/services/earthquake.py",
+        "backend/scripts/cleanup_artifact_registry.sh",
+        "backend/scripts/setup_schedulers.sh",
+        "emsc_worker/.env.example",
+        "emsc_worker/emsc_worker.service",
+        "emsc_worker/main.py",
+        "emsc_worker/mock_server.py",
         "gitlab-ci.yml",
         "luma_metrics.json",
         "luma_state.json"
@@ -136,7 +158,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/30",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-17T21:56:37.129603"
+  "last_updated": "2026-06-18T09:56:40.793827"
 }

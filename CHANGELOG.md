@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.31.0] - 2026-06-18
+### Added
+- Created a standalone `emsc_worker` microservice to manage EMSC WebSocket connections, fully decoupled from the main FastAPI server to resolve scale-to-zero issues.
+- Added a local mock WebSocket server (`mock_server.py`) inside `emsc_worker` to facilitate end-to-end local testing of earthquake alerts without waiting for live events.
+- Added a new artifact registry cleanup script (`cleanup_artifact_registry.sh`) and integrated it into the GitLab CI/CD pipeline to manage storage costs (Issue #83).
+
+### Changed
+- Hardened Cloud Scheduler by setting `--max-retry-attempts=0` to prevent retry floods during backend failures.
+- Reduced Cloud Run deployment timeout from 120s to 60s in the CI pipeline to fail-fast on startup errors.
+- Refactored `emsc_worker` to natively load configuration via a `.env` file instead of relying on hardcoded systemd Environment directives for an improved local developer experience.
+
+### Removed
+- Removed the inline EMSC WebSocket startup routine from the main FastAPI server (`app.services.earthquake`) to achieve architectural decoupling.
+
 ## [0.30.0] - 2026-06-17
 ### Added
 - Documented Incident Recovery and Stability Batching Strategy (ADR 008) to manage high-latency and memory leak issues.
