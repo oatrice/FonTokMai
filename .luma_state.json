@@ -1,75 +1,36 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 88,
-      "title": "🛠 [Infra] Fix Cloud Scheduler Retry Policy to prevent retry flood",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/88",
+      "number": 94,
+      "title": "Infrastructure: Migrate GitLab CI/CD pipeline to GitHub Actions workflow",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/94",
       "body": null,
-      "project_item_id": "GLAB_88",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 89,
-      "title": "🏗 [Architecture] Decouple EMSC WebSocket from Cloud Run API (Long-term Solution)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/89",
-      "body": null,
-      "project_item_id": "GLAB_89",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 83,
-      "title": "Optimization: Cleanup old Docker Images in Artifact Registry",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/83",
-      "body": null,
-      "project_item_id": "GLAB_83",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 90,
-      "title": "Optimization: Cleanup stale AI-generated context artifacts and establish ephemeral docs policy",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/90",
-      "body": null,
-      "project_item_id": "GLAB_90",
+      "project_item_id": "GLAB_94",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/93-ops-increase-cloud-run-memory",
-  "started_at": "2026-06-18T10:32:27.825512",
+  "active_branch": "feat/94-infrastructure-migrate-gitlab",
+  "started_at": "2026-06-18T20:24:28.994878",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "agents/skills/api-endpoint-verification/SKILL.md",
-        "backend/app/services/tmd_radar_processor.py",
-        "backend/scripts/cleanup_artifact_registry.sh",
-        "backend/scripts/setup_log_exclusions.sh",
+        "VERSION"
+      ],
+      "changed_files": [
         "docs/ROADMAP.md",
-        "gitlab-ci.yml",
+        "luma/prompts/prompt_20260618_132427_4adf1458.md",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/services/tmd_radar_processor.py",
-        "backend/scripts/cleanup_artifact_registry.sh",
-        "backend/scripts/setup_log_exclusions.sh",
-        "gitlab-ci.yml",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -142,7 +103,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/33",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-18T20:04:24.020622"
+  "last_updated": "2026-06-18T20:24:43.761147"
 }

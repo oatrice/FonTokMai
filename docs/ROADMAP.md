@@ -27,6 +27,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #94 - Infrastructure: Migrate GitLab CI/CD pipeline to GitHub Actions workflow
+- **GitHub:** [#94](https://gitlab.com/oatricedev/FonMaYang/-/issues/94)
+- **Status:** 🟢 **Ready**
+
 ### Issue #93 - ops: Increase Cloud Run memory limit to 1GiB for fontokmai-api to fix OOM crashes during radar processing
 - **GitHub:** [#93](https://gitlab.com/oatricedev/FonMaYang/-/issues/93)
 - **Status:** 🟢 **Ready**
