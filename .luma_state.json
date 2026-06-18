@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "preflight",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 88,
@@ -41,7 +41,7 @@
     }
   ],
   "active_branch": "feat/88-89-infra-fix-cloud-scheduler-retr",
-  "started_at": "2026-06-17T23:11:02.683275",
+  "started_at": "2026-06-18T10:32:27.825512",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -160,5 +160,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-18T09:56:40.793827"
+  "last_updated": "2026-06-18T10:32:27.825866"
 }

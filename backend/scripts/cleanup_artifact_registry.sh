@@ -25,7 +25,7 @@ echo "📦 Keeping the latest $KEEP_LATEST images..."
 # We only get the digests to avoid parsing complex text.
 DIGESTS=$(gcloud artifacts docker images list "$IMAGE_PATH" \
   --sort-by="~createTime" \
-  --format="value(digest)")
+  --format="value(version)")
 
 if [ -z "$DIGESTS" ]; then
     echo "No images found in $IMAGE_PATH."
