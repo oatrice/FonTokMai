@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "preflight",
   "active_issues": [
     {
       "number": 88,
@@ -40,7 +40,7 @@
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/88-89-infra-fix-cloud-scheduler-retr",
+  "active_branch": "feat/93-ops-increase-cloud-run-memory",
   "started_at": "2026-06-18T10:32:27.825512",
   "checklist": {
     "step_planning": true,
@@ -63,8 +63,6 @@
         "backend/scripts/setup_log_exclusions.sh",
         "docs/ROADMAP.md",
         "gitlab-ci.yml",
-        "luma/prompts/prompt_20260618_125925_ff9036fb.md",
-        "luma/prompts/prompt_20260618_125927_b488b43c.md",
         "luma_state.json"
       ],
       "meaningful_files": [
@@ -146,5 +144,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-18T19:59:34.175158"
+  "last_updated": "2026-06-18T20:04:04.130908"
 }
