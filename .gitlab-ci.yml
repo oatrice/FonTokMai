@@ -108,3 +108,21 @@ deploy_cloud_run:
   <<: *telegram_notify
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+
+cleanup_artifact_registry:
+  stage: deploy
+  image: google/cloud-sdk:alpine
+  script:
+    - echo "Cleaning up old Artifact Registry images..."
+    - echo "$GCP_SA_KEY" | base64 -d > /tmp/gcp-sa-key.json
+    - gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json
+    - gcloud config set project $GCP_PROJECT_ID
+    - cd backend
+    - chmod +x scripts/cleanup_artifact_registry.sh
+    - ./scripts/cleanup_artifact_registry.sh
+  <<: *telegram_notify
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+
