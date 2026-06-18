@@ -27,6 +27,18 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #93 - ops: Increase Cloud Run memory limit to 1GiB for fontokmai-api to fix OOM crashes during radar processing
+- **GitHub:** [#93](https://gitlab.com/oatricedev/FonMaYang/-/issues/93)
+- **Status:** 🟢 **Ready**
+
+### Issue #92 - Standardize Issue Description with Tasks and Implementation Plan
+- **GitHub:** [#92](https://gitlab.com/oatricedev/FonMaYang/-/issues/92)
+- **Status:** 🟢 **Ready**
+
+### Issue #91 - Chore: Add AI skill for verifying API endpoints to prevent path hallucinations
+- **GitHub:** [#91](https://gitlab.com/oatricedev/FonMaYang/-/issues/91)
+- **Status:** 🟢 **Ready**
+
 ### Issue #90 - Optimization: Cleanup stale AI-generated context artifacts and establish ephemeral docs policy
 - **GitHub:** [#90](https://gitlab.com/oatricedev/FonMaYang/-/issues/90)
     - ✅ **Done** (0.31.0)

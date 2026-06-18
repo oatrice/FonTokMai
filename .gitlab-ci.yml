@@ -65,7 +65,7 @@ deploy_cloud_run:
         --service-account=cloud-run-runtime@fonmayang.iam.gserviceaccount.com \
         --region asia-southeast1 \
         --allow-unauthenticated \
-        --memory 512Mi \
+        --memory 1Gi \
         --cpu 1 \
         --timeout 60 \
         --service-min-instances 0 \
