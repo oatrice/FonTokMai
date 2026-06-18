@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "preflight",
   "active_issues": [
     {
       "number": 88,
@@ -62,6 +62,7 @@
         "backend/app/services/earthquake.py",
         "backend/scripts/cleanup_artifact_registry.sh",
         "backend/scripts/setup_schedulers.sh",
+        "docs/ROADMAP.md",
         "docs/architecture_decisions/008_incident_recovery_and_stability_batching_strategy.md",
         "emsc_worker/.env.example",
         "emsc_worker/README.md",
@@ -70,8 +71,7 @@
         "emsc_worker/mock_server.py",
         "emsc_worker/requirements.txt",
         "gitlab-ci.yml",
-        "luma/prompts/prompt_20260618_024935_fa372236.md",
-        "luma/prompts/prompt_20260618_024937_d33be497.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
@@ -85,6 +85,7 @@
         "emsc_worker/main.py",
         "emsc_worker/mock_server.py",
         "gitlab-ci.yml",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -159,5 +160,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-18T09:51:52.389724"
+  "last_updated": "2026-06-18T09:56:40.793827"
 }
