@@ -39,3 +39,43 @@ This decouples the persistent WebSocket connection from the Cloud Run instances,
    ```bash
    sudo journalctl -u emsc_worker -f
    ```
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph External
+        EMSC[EMSC Seismic Portal]
+    end
+
+    subgraph Free Tier VM
+        Worker[emsc_worker\nContinuous Listener]
+    end
+
+    subgraph Google Cloud Run
+        API[FastAPI Server\n/api/v1/internal/emsc-webhook]
+        BG[Background Tasks\nDisaster Processing]
+    end
+
+    subgraph Services
+        DB[(Firestore DB)]
+        Users[Telegram / LINE Users]
+    end
+
+    EMSC == "1. WebSocket (wss://)\nALWAYS OPEN" === Worker
+    Worker -- "2. HTTP POST (Short-lived)\nX-Internal-Secret" --> API
+    API -. "3. Return 200 OK\n(Closes connection instantly)" .-> Worker
+    API -- "4. Handoff to Background" --> BG
+    BG -- "5. Process & Save" --> DB
+    BG -- "6. Broadcast Alert" --> Users
+
+    classDef external fill:#f9d0c4,stroke:#333,stroke-width:2px;
+    classDef worker fill:#d4e157,stroke:#333,stroke-width:2px;
+    classDef serverless fill:#81d4fa,stroke:#333,stroke-width:2px;
+    classDef db fill:#ffcc80,stroke:#333,stroke-width:2px;
+    
+    class EMSC external;
+    class Worker worker;
+    class API,BG serverless;
+    class DB,Users db;
+```

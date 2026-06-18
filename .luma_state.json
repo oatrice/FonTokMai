@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 88,
@@ -20,12 +20,32 @@
       "project_item_id": "GLAB_89",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 83,
+      "title": "Optimization: Cleanup old Docker Images in Artifact Registry",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/83",
+      "body": null,
+      "project_item_id": "GLAB_83",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 90,
+      "title": "Optimization: Cleanup stale AI-generated context artifacts and establish ephemeral docs policy",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/90",
+      "body": null,
+      "project_item_id": "GLAB_90",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
     }
   ],
   "active_branch": "feat/88-89-infra-fix-cloud-scheduler-retr",
   "started_at": "2026-06-17T23:11:02.683275",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -35,11 +55,30 @@
         "VERSION"
       ],
       "changed_files": [
-        "docs/ROADMAP.md",
-        "luma/prompts/prompt_20260617_161059_c57fe5d2.md",
+        "backend/app/main.py",
+        "backend/app/routers/internal.py",
+        "backend/app/services/earthquake.py",
+        "backend/scripts/cleanup_artifact_registry.sh",
+        "backend/scripts/setup_schedulers.sh",
+        "docs/architecture_decisions/008_incident_recovery_and_stability_batching_strategy.md",
+        "emsc_worker/.env.example",
+        "emsc_worker/README.md",
+        "emsc_worker/emsc_worker.service",
+        "emsc_worker/main.py",
+        "emsc_worker/requirements.txt",
+        "gitlab-ci.yml",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/app/main.py",
+        "backend/app/routers/internal.py",
+        "backend/app/services/earthquake.py",
+        "backend/scripts/cleanup_artifact_registry.sh",
+        "backend/scripts/setup_schedulers.sh",
+        "emsc_worker/.env.example",
+        "emsc_worker/emsc_worker.service",
+        "emsc_worker/main.py",
+        "gitlab-ci.yml",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -114,5 +153,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-18T08:59:47.849024"
+  "last_updated": "2026-06-18T09:01:38.507542"
 }

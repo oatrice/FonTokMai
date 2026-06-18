@@ -13,6 +13,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("emsc_worker")
 
+# Load .env file manually for local development (systemd does this automatically in prod)
+if os.path.exists(".env"):
+    with open(".env", "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, val = line.split("=", 1)
+                os.environ[key.strip()] = val.strip()
+
 # Configuration
 EMSC_WS_URL = os.getenv("EMSC_WS_URL", "wss://www.seismicportal.eu/standing_order/websocket")
 FONMAYANG_API_URL = os.getenv("FONMAYANG_API_URL", "http://localhost:8000")
@@ -65,7 +74,7 @@ async def start_worker():
                             logger.info(f"EMSC earthquake event [{action}]: mag={event.get('mag')}, place={event.get('place')}")
                             
                             # Forward event in a separate thread so we don't block the asyncio event loop
-                            asyncio.to_thread(forward_event, event)
+                            asyncio.create_task(asyncio.to_thread(forward_event, event))
                             
                         else:
                             if _msg_count % 100 == 0:
