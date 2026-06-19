@@ -1506,7 +1506,7 @@
       "project_name": "FonMaYang",
       "issue_status": "✅ Done (0.29.0)",
       "estimate_points": 3,
-      "post_story_point": null,
+      "post_story_point": 3.0,
       "estimated_mandays": 1.5,
       "start_datetime": null,
       "actual_mandays": 0.0,
@@ -1517,7 +1517,7 @@
       "gh_closed_at": "2026-06-18T17:55:52.178Z",
       "gh_mandays": 10.0,
       "created_at": "2026-06-08T11:56:52.399Z",
-      "updated_at": "2026-06-19T12:19:23.963004"
+      "updated_at": "2026-06-19T12:23:58.944502"
     },
     "oatricedev/FonMaYang#68": {
       "issue_key": "oatricedev/FonMaYang#68",
@@ -1814,7 +1814,7 @@
       "project_name": "FonMaYang",
       "issue_status": "✅ Complete",
       "estimate_points": 3,
-      "post_story_point": null,
+      "post_story_point": 5.0,
       "estimated_mandays": 1.5,
       "start_datetime": null,
       "actual_mandays": 0.0,
@@ -1825,7 +1825,7 @@
       "gh_closed_at": "2026-06-18T04:21:16.798Z",
       "gh_mandays": 0.5,
       "created_at": "2026-06-17T12:58:16.183Z",
-      "updated_at": "2026-06-19T12:19:32.969892"
+      "updated_at": "2026-06-19T12:23:57.264358"
     },
     "oatricedev/FonMaYang#83": {
       "issue_key": "oatricedev/FonMaYang#83",
@@ -1968,7 +1968,7 @@
       "project_name": "FonMaYang",
       "issue_status": "✅ Complete",
       "estimate_points": 5,
-      "post_story_point": null,
+      "post_story_point": 5.0,
       "estimated_mandays": 3.0,
       "start_datetime": null,
       "actual_mandays": 0.0,
@@ -1979,7 +1979,7 @@
       "gh_closed_at": "2026-06-18T17:49:04.776Z",
       "gh_mandays": 0.5,
       "created_at": "2026-06-18T13:20:21.719Z",
-      "updated_at": "2026-06-19T12:19:38.069994"
+      "updated_at": "2026-06-19T12:23:56.900609"
     },
     "oatricedev/FonMaYang#96": {
       "issue_key": "oatricedev/FonMaYang#96",
@@ -2034,7 +2034,7 @@
       "project_name": "FonMaYang",
       "issue_status": "✅ Complete",
       "estimate_points": 2,
-      "post_story_point": null,
+      "post_story_point": 21.0,
       "estimated_mandays": 1.0,
       "start_datetime": null,
       "actual_mandays": 0.0,
@@ -2045,7 +2045,7 @@
       "gh_closed_at": "2026-06-18T17:49:16.227Z",
       "gh_mandays": 0.5,
       "created_at": "2026-06-18T12:45:50.845Z",
-      "updated_at": "2026-06-19T12:19:39.836904"
+      "updated_at": "2026-06-19T12:23:55.458035"
     },
     "oatricedev/FonMaYang#92": {
       "issue_key": "oatricedev/FonMaYang#92",

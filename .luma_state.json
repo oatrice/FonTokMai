@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 96,
@@ -42,8 +42,6 @@
         "github/workflows/cleanup.yml",
         "github/workflows/main.yml",
         "luma/prompts/prompt_20260619_041811_e1fa4422.md.response.md",
-        "luma/prompts/prompt_20260619_051016_4b1b9fde.md",
-        "luma/prompts/prompt_20260619_051020_3c4714f3.md",
         "luma_metrics.json",
         "luma_state.json",
         "migrate_vars.sh",
@@ -141,7 +139,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/35",
   "pr_number": null,
-  "last_updated": "2026-06-19T12:10:59.829687"
+  "last_updated": "2026-06-19T12:23:58.951589"
 }
