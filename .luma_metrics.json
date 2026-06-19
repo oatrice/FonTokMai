@@ -2090,6 +2090,28 @@
       "gh_mandays": null,
       "created_at": "2026-06-18T09:11:14.106Z",
       "updated_at": "2026-06-19T12:19:41.058232"
+    },
+    "oatricedev/FonMaYang#98": {
+      "issue_key": "oatricedev/FonMaYang#98",
+      "issue_number": 98,
+      "issue_title": "🛠️ [TMD Radar] Calibrate skn240 crop bounds and fix Location out of bounds for Nong Khai",
+      "issue_url": "",
+      "repository": "oatricedev/FonMaYang",
+      "project_name": "FonMaYang",
+      "issue_status": "✅ Complete",
+      "estimate_points": null,
+      "post_story_point": 21.0,
+      "estimated_mandays": null,
+      "start_datetime": null,
+      "actual_mandays": null,
+      "due_date": null,
+      "actual_completion_date": null,
+      "effort_level": null,
+      "notes": null,
+      "gh_closed_at": null,
+      "gh_mandays": null,
+      "created_at": "2026-06-19T20:59:38.590870",
+      "updated_at": "2026-06-19T20:59:40.199918"
     }
   }
 }

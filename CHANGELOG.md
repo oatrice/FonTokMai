@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.0] - 2026-06-19
+
+### Fixed
+- Fixed `NameError: name 'os' is not defined` in `weather_manager.py` that caused TMD radar (`kkn240`) to silently crash, triggering unnecessary fallbacks to other weather providers.
+- Corrected the Sakon Nakhon radar (`skn240`) bounding box (`SKN_BBOX`) from an incorrect 120km radius to the correct 240km coverage area, resolving "Location out of bounds" errors for users in Nong Khai and surrounding provinces.
+
+### Changed
+- Recalibrated `skn240` radar image crop coordinates (`static_crop_*` and `loop_crop_*`) using Hough Circle Detection on the live radar image for more accurate pixel-to-coordinate mapping.
+- Injected `CRON_SECRET` into the Cloud Scheduler job environment in the GitHub Actions CI/CD workflow.
+
+### Tests
+- Added `test_tmd_radar_bounds_nong_khai` to verify that Nong Khai coordinates are correctly covered by `kkn240` and `skn240`, and out of bounds for `kkn120`.
+
 ## [0.33.0] - 2026-06-19
 ### Added
 - Migrated CI/CD pipeline from GitLab to GitHub Actions, including a migration utility script.
