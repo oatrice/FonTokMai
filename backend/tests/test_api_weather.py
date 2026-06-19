@@ -87,3 +87,26 @@ def test_compare_weather_apis_e2e():
     assert "storm_distance_km" in data["xweather"]
     assert data["xweather"]["storm_distance_km"] == 10.0
 
+
+def test_tmd_radar_bounds_nong_khai():
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+    
+    # Nong Khai (หนองคาย) coordinates
+    nk_lat, nk_lng = 17.8785, 102.7420
+    
+    # kkn120 (Khon Kaen 120km) should not cover Nong Khai
+    proc_kkn120 = TMDRadarProcessor("kkn120")
+    px, py = proc_kkn120.latlng_to_pixel(nk_lat, nk_lng)
+    assert px is None and py is None
+    
+    # kkn240 (Khon Kaen 240km) should cover Nong Khai
+    proc_kkn240 = TMDRadarProcessor("kkn240")
+    px, py = proc_kkn240.latlng_to_pixel(nk_lat, nk_lng)
+    assert px is not None and py is not None
+    
+    # skn240 (Sakon Nakhon 240km) should now cover Nong Khai
+    proc_skn240 = TMDRadarProcessor("skn240")
+    px, py = proc_skn240.latlng_to_pixel(nk_lat, nk_lng)
+    assert px is not None and py is not None
+
+

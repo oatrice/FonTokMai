@@ -53,10 +53,10 @@ KKN_BBOX = BoundingBox(
 
 # SKN Center: ~17.16, 104.13
 SKN_BBOX = BoundingBox(
-    lat_max=18.26, 
-    lng_min=103.03, 
-    lat_min=16.06, 
-    lng_max=105.23
+    lat_max=19.32, 
+    lng_min=101.95, 
+    lat_min=15.00, 
+    lng_max=106.35
 )
 
 # KKN 240km Center: ~16.43, 102.83
@@ -121,7 +121,15 @@ STATIONS = {
         bbox=SKN_BBOX,
         center_lat=17.1607,
         center_lng=104.1486,
-        radius_km=240.0
+        radius_km=240.0,
+        static_crop_x=80,
+        static_crop_y=40,
+        static_crop_width=720,
+        static_crop_height=720,
+        loop_crop_x=80,
+        loop_crop_y=40,
+        loop_crop_width=600,
+        loop_crop_height=600
     )
 }
 
