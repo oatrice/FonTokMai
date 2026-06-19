@@ -14,7 +14,8 @@ from unittest.mock import AsyncMock, patch, MagicMock, call
 from app.main import app
 from app.services.disaster_manager import process_disaster_event, get_impact_radius_km
 
-INTERNAL_SECRET = "dev_secret"  # ค่า default ใน internal.py
+import os
+INTERNAL_SECRET = os.getenv("INTERNAL_WEBHOOK_SECRET", "dev_secret")
 
 
 # ────────────────────────────────────────────────────────────
