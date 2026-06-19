@@ -11,6 +11,15 @@ from app.services.rainbow import RainbowService
 from app.routers.webhook import handle_callback_query, telegram_webhook
 from fastapi import Request, BackgroundTasks
 
+# --- Autouse Fixtures ---
+@pytest.fixture(autouse=True)
+def mock_cloud_tasks():
+    with patch("app.services.cloud_tasks.CloudTasksService") as mock_cls:
+        mock_instance = MagicMock()
+        mock_instance.enqueue_task.return_value = None
+        mock_cls.return_value = mock_instance
+        yield mock_instance
+
 # --- SQLite Mock State Tests ---
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 engine = create_async_engine(TEST_DATABASE_URL, echo=False)

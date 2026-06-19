@@ -7,6 +7,14 @@ client = TestClient(app)
 
 from contextlib import asynccontextmanager
 
+@pytest.fixture(autouse=True)
+def mock_cloud_tasks():
+    with patch("app.services.cloud_tasks.CloudTasksService") as mock_cls:
+        mock_instance = MagicMock()
+        mock_instance.enqueue_task.return_value = None
+        mock_cls.return_value = mock_instance
+        yield mock_instance
+
 @pytest.fixture
 def mock_repo_context():
     mock_repo = AsyncMock()
@@ -98,7 +106,7 @@ def test_telegram_webhook_without_location():
         mock_wm_instance.predict_rain.assert_not_called()
 
 def test_telegram_webhook_mylocation_cmd():
-    with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+    with patch("app.services.telegram.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value.status_code = 200
         
         with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
@@ -123,7 +131,7 @@ def test_telegram_webhook_mylocation_cmd():
             assert mock_post.called
 
 def test_telegram_webhook_callback_query_2m():
-    with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+    with patch("app.services.telegram.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value.status_code = 200
         
         with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
@@ -152,7 +160,7 @@ def test_telegram_webhook_callback_query_2m():
             mock_repo.save_location.assert_called_once_with(7777, 13.75, 100.50, "TWO_MONTHS", "home")
 
 def test_telegram_webhook_radar_cmd_with_loc():
-    with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+    with patch("app.services.telegram.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value.status_code = 200
         
         with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
@@ -192,7 +200,7 @@ def test_telegram_webhook_radar_cmd_with_loc():
             assert kb[2][0]["url"] == "https://weather.tmd.go.th/"
 
 def test_telegram_webhook_callback_false_alarm():
-    with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+    with patch("app.services.telegram.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value.status_code = 200
         
         with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
@@ -223,7 +231,7 @@ def test_telegram_webhook_callback_false_alarm():
             )
 
 def test_telegram_webhook_callback_compare_api():
-    with patch("app.routers.webhook.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+    with patch("app.services.telegram.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value.status_code = 200
         
         with patch("app.routers.webhook.edit_telegram_message", new_callable=AsyncMock) as mock_edit:
