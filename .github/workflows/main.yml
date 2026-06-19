@@ -122,6 +122,8 @@ jobs:
             -d url="${CLOUD_RUN_URL}/api/v1/telegram/webhook"
 
       - name: Update Cloud Scheduler Jobs
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           echo "Updating Cloud Scheduler Jobs..."
           cd backend
