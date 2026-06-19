@@ -2161,7 +2161,7 @@
       "issue_key": "oatricedev/FonMaYang#100",
       "issue_number": 100,
       "issue_title": "Bug: Unawaited coroutine in render_hq_png & incorrect mock path in tests",
-      "issue_url": "",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/100",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Complete",
@@ -2169,15 +2169,15 @@
       "post_story_point": 8.0,
       "estimated_mandays": null,
       "start_datetime": null,
-      "actual_mandays": null,
+      "actual_mandays": 0.0,
       "due_date": null,
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-06-19T23:12:41",
       "effort_level": null,
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-19T23:09:43.772000",
-      "updated_at": "2026-06-19T23:09:44.640808"
+      "updated_at": "2026-06-19T23:12:41.336418"
     }
   }
 }
