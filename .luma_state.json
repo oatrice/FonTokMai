@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 100,
@@ -42,14 +42,14 @@
         "github/workflows/main.yml",
         "gitlab-ci.yml",
         "luma/prompts/prompt_20260619_160628_6c1b89ea.md.response.md",
-        "luma/prompts/prompt_20260619_160921_f9ac6b81.md",
-        "luma/prompts/prompt_20260619_160922_623d95b0.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/app/services/weather_manager.py",
         "github/workflows/main.yml",
         "gitlab-ci.yml",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -122,7 +122,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/40",
   "pr_number": null,
-  "last_updated": "2026-06-19T23:09:47.036061"
+  "last_updated": "2026-06-19T23:17:43.705496"
 }
