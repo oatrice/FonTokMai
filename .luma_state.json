@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 98,
@@ -36,14 +36,14 @@
         "docs/ROADMAP.md",
         "github/workflows/main.yml",
         "luma/prompts/prompt_20260619_133445_7fc29a03.md.response.md",
-        "luma/prompts/prompt_20260619_135920_d21dec2c.md",
-        "luma/prompts/prompt_20260619_135921_c3c85ae5.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/app/services/tmd_radar_config.py",
         "backend/app/services/weather_manager.py",
         "github/workflows/main.yml",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -116,7 +116,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/39",
   "pr_number": null,
-  "last_updated": "2026-06-19T20:59:42.439072"
+  "last_updated": "2026-06-19T21:09:59.899999"
 }
