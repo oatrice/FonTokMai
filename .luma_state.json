@@ -1,122 +1,15 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
-  "active_issues": [
-    {
-      "number": 98,
-      "title": "🛠️ [TMD Radar] Calibrate skn240 crop bounds and fix Location out of bounds for Nong Khai",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/98",
-      "body": null,
-      "project_item_id": "GLAB_98",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    }
-  ],
-  "active_branch": "feat/98-tmd-radar-calibrate-skn240-cro",
-  "started_at": "2026-06-19T20:34:30.823431",
-  "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
-  },
-  "context": {
-    "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
-        "CHANGELOG.md",
-        "README.md",
-        "VERSION",
-        "backend/app/services/tmd_radar_config.py",
-        "backend/app/services/weather_manager.py",
-        "backend/tests/test_api_weather.py",
-        "docs/ROADMAP.md",
-        "github/workflows/main.yml",
-        "luma/prompts/prompt_20260619_133445_7fc29a03.md.response.md",
-        "luma_metrics.json",
-        "luma_state.json"
-      ],
-      "meaningful_files": [
-        "backend/app/services/tmd_radar_config.py",
-        "backend/app/services/weather_manager.py",
-        "github/workflows/main.yml",
-        "luma_metrics.json",
-        "luma_state.json"
-      ],
-      "version_file": "VERSION",
-      "has_meaningful_changes": true
-    },
-    "target_planning_repos": [
-      {
-        "name": "FonMaYang",
-        "path": "/Users/oatrice/Software Project/FonMaYang",
-        "repo": "oatricedev/FonMaYang",
-        "slug": "fonmayang",
-        "kanban_number": 1,
-        "kanban_id": "",
-        "platform": "gitlab",
-        "status_workflow": {
-          "selectable_statuses": [
-            "Ready",
-            "In Progress",
-            "Todo"
-          ],
-          "selection_order": [
-            "In Progress",
-            "Ready",
-            "Todo"
-          ],
-          "active_statuses": [
-            "Backlog",
-            "Ready",
-            "Todo",
-            "In Progress",
-            "In Review"
-          ],
-          "active_sort_order": [
-            "In Progress",
-            "Ready",
-            "Todo",
-            "In Review",
-            "Backlog"
-          ],
-          "board_order": [
-            "Backlog",
-            "Ready",
-            "Todo",
-            "In Progress",
-            "In Review",
-            "Done",
-            "Closed"
-          ],
-          "done_statuses": [
-            "Done",
-            "Closed"
-          ],
-          "status_icons": {
-            "Backlog": "📥 ",
-            "Ready": "✅ ",
-            "Todo": "📝 ",
-            "In Progress": "🔥 ",
-            "In Review": "👀 ",
-            "Done": "✅ ",
-            "Closed": "✅ "
-          },
-          "action_status_map": {
-            "select_issue": "In Progress",
-            "create_pr": "In Review",
-            "pr_merged": "Done"
-          }
-        }
-      }
-    ]
-  },
+  "phase": "idle",
+  "active_issues": [],
+  "active_branch": null,
+  "started_at": null,
+  "checklist": {},
+  "context": {},
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/39",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-19T21:09:59.899999"
+  "last_updated": "2026-06-19T21:14:08.397779"
 }

@@ -4,6 +4,8 @@ stages:
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  GIT_STRATEGY: clone
+  GIT_DEPTH: "0"
 
 cache:
   key: "$CI_COMMIT_REF_SLUG"
