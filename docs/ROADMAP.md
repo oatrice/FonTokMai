@@ -27,6 +27,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #96 - Optimize Radar Pipeline Latency & Memory Footprint
+- **GitHub:** [#96](https://gitlab.com/oatricedev/FonMaYang/-/issues/96)
+- **Status:** 🟢 **Ready**
+
 ### Issue #95 - Setup local GitLab Runner with Docker executor
 - **GitHub:** [#95](https://gitlab.com/oatricedev/FonMaYang/-/issues/95)
 - **Status:** 🟢 **Ready**

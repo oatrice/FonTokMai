@@ -793,7 +793,7 @@ class TMDRadarProcessor:
             try:
                 async with get_repo_context() as repo:
                     cache = await repo.get_latest_radar_cache(self.station_code)
-                    if cache and cache.get("static_url"):
+                    if cache and cache.get("url_t"):
                         created_at = cache["created_at"]
                         if created_at.tzinfo is not None:
                             created_at = created_at.replace(tzinfo=None)
@@ -804,11 +804,11 @@ class TMDRadarProcessor:
                             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
-                            blob = bucket.blob(cache["static_url"])
+                            blob = bucket.blob(cache["url_t"])
                             # Blocking call, but since we're in async, it's a minor block for memory download
                             import asyncio
                             data = await asyncio.to_thread(blob.download_as_bytes)
-                            logger.info(f"Successfully loaded static_url {cache['static_url']} from Firebase Storage Cache")
+                            logger.info(f"Successfully loaded url_t {cache['url_t']} from Firebase Storage Cache")
                             return data
             except Exception as e:
                 print(f"Error reading static image from cache: {e}")
@@ -1223,7 +1223,7 @@ class TMDRadarProcessor:
             try:
                 async with get_repo_context() as repo:
                     cache = await repo.get_latest_radar_cache(self.station_code)
-                    if cache and cache.get("static_url"):
+                    if cache and cache.get("url_t"):
                         created_at = cache["created_at"]
                         if created_at.tzinfo is not None:
                             created_at = created_at.replace(tzinfo=None)
@@ -1234,11 +1234,11 @@ class TMDRadarProcessor:
                             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
-                            blob = bucket.blob(cache["static_url"])
+                            blob = bucket.blob(cache["url_t"])
                             # Blocking call, but since we're in async, it's a minor block for memory download
                             import asyncio
                             data = await asyncio.to_thread(blob.download_as_bytes)
-                            logger.info(f"Successfully loaded static_url {cache['static_url']} from Firebase Storage Cache")
+                            logger.info(f"Successfully loaded url_t {cache['url_t']} from Firebase Storage Cache")
                             return data
             except Exception as e:
                 print(f"Error reading static image from cache: {e}")
@@ -1263,7 +1263,7 @@ class TMDRadarProcessor:
             try:
                 async with get_repo_context() as repo:
                     cache = await repo.get_latest_radar_cache(self.station_code)
-                    if cache and cache.get("loop_url"):
+                    if cache and cache.get("url_t_minus_1"):
                         created_at = cache["created_at"]
                         if created_at.tzinfo is not None:
                             created_at = created_at.replace(tzinfo=None)
@@ -1272,11 +1272,11 @@ class TMDRadarProcessor:
                             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
-                            blob = bucket.blob(cache["loop_url"])
+                            blob = bucket.blob(cache["url_t_minus_1"])
                             import asyncio
                             loop_bytes = await asyncio.to_thread(blob.download_as_bytes)
                             dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
-                            logger.info(f"Successfully loaded loop_url {cache['loop_url']} from Firebase Storage Cache")
+                            logger.info(f"Successfully loaded url_t_minus_1 {cache['url_t_minus_1']} from Firebase Storage Cache")
             except Exception as e:
                 print(f"Error reading loop gif from cache: {e}")
                 
