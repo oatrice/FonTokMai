@@ -7,7 +7,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 
 ## Features
 - **Pluggable Architecture**: Easily switch between or combine weather providers (Xweather, Tomorrow.io, Open-Meteo, RainViewer, Rainbow, TMD Radar) with an automated fallback mechanism based on user feedback and reliability scoring.
-- **Automated TMD Radar Processing & Nowcasting**: Real-time extraction of rain intensity directly from TMD radar imagery, fully integrated as a highly accurate data source in the automated fallback system. Includes optical flow extrapolation, azimuthal projection, and a unified Firebase Storage/Firestore caching system for precise rain cell tracking, forecasting, and high-concurrency rate-limit prevention.
+- **Automated TMD Radar Processing & Nowcasting**: Real-time extraction of rain intensity directly from TMD radar imagery, fully integrated as a highly accurate data source in the automated fallback system. Includes optical flow extrapolation, azimuthal projection, and a unified Firebase Storage/Firestore caching system (`radar_latest_cache`) for precise rain cell tracking, forecasting, and high-concurrency rate-limit prevention using efficient static frame comparisons.
 - **Resilient Radar OCR Pipeline**: Utilizes an automated fallback chain (Google Cloud Vision -> Gemini -> OCR.space) for reliable radar timestamp extraction, safeguarded by a Firestore-based quota management system.
 - **Visual Radar Tracking & ETA Timelines**: Generates and sends high-quality radar animation loops (GIFs), tracked cloud visualizations, and human-readable ETA confidence timelines directly to users via Telegram webhooks and scheduled alerts.
 - **Advanced Lagrangian Cloud Modeling**: Employs spatial max dBZ search and lagrangian tracking to model rain cell growth, decay, and precise movement paths across multi-user environments.
@@ -16,9 +16,9 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 - **Privacy-First Notifications**: On-demand location sharing via Telegram without background tracking.
 - **Multiple Saved Locations**: Support for managing multiple user locations (e.g., Home, Work) for personalized proactive alerting.
 - **Extended Meteorological Data**: Real-time evaluation of rain intensity and estimated duration.
-- **Proactive Alerts & Scheduling**: Webhook endpoint designed for external cron services to continuously monitor rain vectors and alert users proactively before rain hits. Includes a Smart Cooldown system with severity escalation.
+- **Proactive Alerts & Scheduling**: Webhook endpoint designed for external cron services to continuously monitor rain vectors and alert users proactively before rain hits. Includes a Smart Cooldown system with severity escalation. Concurrent alert processing is highly modularized via asyncio semaphores.
 - **Responsive Webhooks**: Optimized inline request processing to ensure immediate acknowledgment and prevent Cloud Run CPU throttling during slow API fetches.
-- **System Telemetry & Metrics**: Includes lightweight telemetry and a secured internal API endpoint for exporting Cloud Run and scheduled routine metrics for performance analysis.
+- **System Telemetry & Metrics**: Includes lightweight telemetry and a secured internal API endpoint for exporting Cloud Run and scheduled routine metrics for performance analysis. Internal worker endpoints are protected by token-based authentication.
 - **Interactive Ground Truth Feedback**: Inline buttons allowing users to report false alarms directly from notifications. This data feeds an automated API reliability system that auto-selects the most accurate weather source for future alerts.
 - **API Comparison & All-Clear Alerts**: Real-time comparison across all integrated weather APIs and automated cancellation notifications when forecasted rain dissipates.
 - **Interactive Radar**: Telegram `/radar` command providing multi-source visual tracking (Zoom Earth, Windy, TMD).
@@ -27,7 +27,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 - **Budget Auto-Shutdown Mechanism**: Native GCP Billing Budget integration with Pub/Sub webhooks to automatically revoke Cloud Run public access when spending limits are reached, preventing unexpected billing spikes.
 - **Cost-Optimized Cloud Logging**: Pre-configured Logging Exclusion filters to drop high-frequency debug noise, drastically reducing log ingestion costs.
 - **FastAPI Backend**: Asynchronous, highly concurrent backend structure.
-- **Cloud Run Native**: Fully containerized and automated deployment to Google Cloud Run via GitLab CI/CD pipelines (Scale-to-zero optimized).
+- **Cloud Run Native**: Fully containerized and automated deployment to Google Cloud Run via GitHub Actions CI/CD pipelines (Scale-to-zero optimized).
 
 ## Usage & Commands
 
@@ -98,5 +98,5 @@ Used for testing alerts and system behaviors without waiting for real weather ev
    ```
    *For local Telegram webhook testing, use [localtunnel](https://github.com/localtunnel/localtunnel) to expose port 8081. See `docs/development_guide.md` for details on the Two Bots Strategy.*
 
-### Deployment (GitLab CI -> Google Cloud Run)
-Deployment is handled automatically by GitLab CI. Pushing to the `main` branch triggers a build and deploy process using the `Dockerfile` in the `backend/` directory, updating the Telegram Webhook automatically to the new Cloud Run URL.
+### Deployment (GitHub Actions -> Google Cloud Run)
+Deployment is handled automatically by GitHub Actions. Pushing to the `main` branch triggers a build and deploy process using the `Dockerfile` in the `backend/` directory, updating the Telegram Webhook automatically to the new Cloud Run URL.

@@ -18,16 +18,19 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
-        "CHANGELOG.md",
-        "VERSION"
-      ],
+      "pending": [],
       "changed_files": [
+        "CHANGELOG.md",
         "README.md",
+        "VERSION",
+        "backend/.env.example",
         "backend/app/models.py",
         "backend/app/repositories/base.py",
         "backend/app/repositories/firestore.py",
@@ -38,17 +41,19 @@
         "docs/ROADMAP.md",
         "github/workflows/cleanup.yml",
         "github/workflows/main.yml",
-        "luma/prompts/prompt_20260619_041513_c06ae1a3.md",
+        "luma/prompts/prompt_20260619_041811_e1fa4422.md.response.md",
+        "luma/prompts/prompt_20260619_051016_4b1b9fde.md",
+        "luma/prompts/prompt_20260619_051020_3c4714f3.md",
         "luma_metrics.json",
         "luma_state.json",
         "migrate_vars.sh",
-        "new_issue.md",
         "patch_fetch_routine.py",
         "patch_scheduler.py",
         "patch_tmd_processor.py",
         "patch_weather_manager.py"
       ],
       "meaningful_files": [
+        "backend/.env.example",
         "backend/app/models.py",
         "backend/app/repositories/base.py",
         "backend/app/repositories/firestore.py",
@@ -138,5 +143,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-19T11:18:11.420266"
+  "last_updated": "2026-06-19T12:10:59.829687"
 }
