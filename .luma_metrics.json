@@ -2156,6 +2156,28 @@
       "gh_mandays": null,
       "created_at": "2026-06-19T05:10:29.592Z",
       "updated_at": "2026-06-19T21:09:55.520515"
+    },
+    "oatricedev/FonMaYang#100": {
+      "issue_key": "oatricedev/FonMaYang#100",
+      "issue_number": 100,
+      "issue_title": "Bug: Unawaited coroutine in render_hq_png & incorrect mock path in tests",
+      "issue_url": "",
+      "repository": "oatricedev/FonMaYang",
+      "project_name": "FonMaYang",
+      "issue_status": "✅ Complete",
+      "estimate_points": null,
+      "post_story_point": 8.0,
+      "estimated_mandays": null,
+      "start_datetime": null,
+      "actual_mandays": null,
+      "due_date": null,
+      "actual_completion_date": null,
+      "effort_level": null,
+      "notes": null,
+      "gh_closed_at": null,
+      "gh_mandays": null,
+      "created_at": "2026-06-19T23:09:43.772000",
+      "updated_at": "2026-06-19T23:09:44.640808"
     }
   }
 }

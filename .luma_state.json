@@ -1,15 +1,128 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "idle",
-  "active_issues": [],
-  "active_branch": null,
-  "started_at": null,
-  "checklist": {},
-  "context": {},
+  "phase": "reviewing",
+  "active_issues": [
+    {
+      "number": 100,
+      "title": "Bug: Unawaited coroutine in render_hq_png & incorrect mock path in tests",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/100",
+      "body": null,
+      "project_item_id": "GLAB_100",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    }
+  ],
+  "active_branch": "feat/100-bug-unawaited-coroutine-in-ren",
+  "started_at": "2026-06-19T23:06:20.932558",
+  "checklist": {
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
+  },
+  "context": {
+    "pending_doc_updates": {
+      "pending": [],
+      "changed_files": [
+        "CHANGELOG.md",
+        "README.md",
+        "VERSION",
+        "backend/app/services/weather_manager.py",
+        "backend/tests/test_devmock.py",
+        "backend/tests/test_e2e_earthquake.py",
+        "backend/tests/test_e2e_ocr.py",
+        "backend/tests/test_e2e_weather_manager.py",
+        "backend/tests/test_e2e_worker_rain.py",
+        "backend/tests/test_tmd_radar_e2e.py",
+        "backend/tests/test_webhook.py",
+        "docs/ROADMAP.md",
+        "github/workflows/main.yml",
+        "gitlab-ci.yml",
+        "luma/prompts/prompt_20260619_160628_6c1b89ea.md.response.md",
+        "luma/prompts/prompt_20260619_160921_f9ac6b81.md",
+        "luma/prompts/prompt_20260619_160922_623d95b0.md",
+        "luma_state.json"
+      ],
+      "meaningful_files": [
+        "backend/app/services/weather_manager.py",
+        "github/workflows/main.yml",
+        "gitlab-ci.yml",
+        "luma_state.json"
+      ],
+      "version_file": "VERSION",
+      "has_meaningful_changes": true
+    },
+    "target_planning_repos": [
+      {
+        "name": "FonMaYang",
+        "path": "/Users/oatrice/Software Project/FonMaYang",
+        "repo": "oatricedev/FonMaYang",
+        "slug": "fonmayang",
+        "kanban_number": 1,
+        "kanban_id": "",
+        "platform": "gitlab",
+        "status_workflow": {
+          "selectable_statuses": [
+            "Ready",
+            "In Progress",
+            "Todo"
+          ],
+          "selection_order": [
+            "In Progress",
+            "Ready",
+            "Todo"
+          ],
+          "active_statuses": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review"
+          ],
+          "active_sort_order": [
+            "In Progress",
+            "Ready",
+            "Todo",
+            "In Review",
+            "Backlog"
+          ],
+          "board_order": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review",
+            "Done",
+            "Closed"
+          ],
+          "done_statuses": [
+            "Done",
+            "Closed"
+          ],
+          "status_icons": {
+            "Backlog": "📥 ",
+            "Ready": "✅ ",
+            "Todo": "📝 ",
+            "In Progress": "🔥 ",
+            "In Review": "👀 ",
+            "Done": "✅ ",
+            "Closed": "✅ "
+          },
+          "action_status_map": {
+            "select_issue": "In Progress",
+            "create_pr": "In Review",
+            "pr_merged": "Done"
+          }
+        }
+      }
+    ]
+  },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-19T21:14:08.397779"
+  "last_updated": "2026-06-19T23:09:47.036061"
 }
