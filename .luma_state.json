@@ -1,27 +1,22 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 96,
-      "title": "Optimize Radar Pipeline Latency & Memory Footprint",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/96",
+      "number": 95,
+      "title": "Setup local GitLab Runner with Docker executor",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/95",
       "body": null,
-      "project_item_id": "GLAB_96",
+      "project_item_id": "GLAB_95",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/96-optimize-radar-pipeline-latenc",
-  "started_at": "2026-06-19T11:15:15.296185",
+  "active_branch": "feat/95-setup-local-gitlab-runner-with",
+  "started_at": "2026-06-19T12:26:44.036736",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
@@ -39,9 +34,11 @@
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
         "docs/ROADMAP.md",
+        "github/pull_request_template.md",
         "github/workflows/cleanup.yml",
         "github/workflows/main.yml",
-        "luma/prompts/prompt_20260619_041811_e1fa4422.md.response.md",
+        "gitlab/merge_request_templates/Default.md",
+        "luma/prompts/prompt_20260619_052642_020144cb.md",
         "luma_metrics.json",
         "luma_state.json",
         "migrate_vars.sh",
@@ -139,7 +136,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/35",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-19T12:23:58.951589"
+  "last_updated": "2026-06-19T12:26:47.894498"
 }

@@ -27,6 +27,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #97 - Feature: Dynamic Config Toggle for TMD Radar Mode (Static vs Loop) via Telegram
+- **GitHub:** [#97](https://gitlab.com/oatricedev/FonMaYang/-/issues/97)
+- **Status:** 🟢 **Ready**
+
 ### Issue #96 - Optimize Radar Pipeline Latency & Memory Footprint
 - **GitHub:** [#96](https://gitlab.com/oatricedev/FonMaYang/-/issues/96)
     - ✅ **Done** (0.33.0)
