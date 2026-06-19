@@ -27,6 +27,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #95 - Setup local GitLab Runner with Docker executor
+- **GitHub:** [#95](https://gitlab.com/oatricedev/FonMaYang/-/issues/95)
+- **Status:** 🟢 **Ready**
+
 ### Issue #94 - Infrastructure: Migrate GitLab CI/CD pipeline to GitHub Actions workflow
 - **GitHub:** [#94](https://gitlab.com/oatricedev/FonMaYang/-/issues/94)
 - **Status:** 🟢 **Ready**

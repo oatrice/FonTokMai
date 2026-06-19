@@ -1,24 +1,29 @@
-import os
-import time
-import logging
-from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
-from app.dependencies import get_repo_context
-from app.services.weather_manager import WeatherManager
-from app.services.metrics_service import MetricsService
-from app.services.telegram import send_telegram_message, send_telegram_document, send_telegram_photo, get_radar_inline_keyboard, DEVELOPER_CHAT_IDS
+import re
 
-logger = logging.getLogger(__name__)
+with open("backend/app/scheduler_tasks.py", "r") as f:
+    content = f.read()
 
-# Minimum cooldown between alerts in minutes
-ALERT_COOLDOWN_MINUTES = int(os.getenv("ALERT_COOLDOWN_MINUTES", "120"))
-RAIN_TRIGGER_THRESHOLD_MM = float(os.getenv("RAIN_TRIGGER_THRESHOLD_MM", "0.5"))
+def extract_loop_body():
+    # We will just replace the entire check_rain_and_alert function.
+    pass
 
-# Use Thailand timezone for display
-BKK_TZ = ZoneInfo("Asia/Bangkok")
+# Read the original file
+lines = content.split('\n')
+start_idx = -1
+end_idx = -1
 
+for i, line in enumerate(lines):
+    if line.startswith("async def check_rain_and_alert():"):
+        start_idx = i
+    elif line.startswith("async def check_disasters_frequent_routine():"):
+        end_idx = i
+        break
 
-import asyncio
+if start_idx != -1 and end_idx != -1:
+    original_func = lines[start_idx:end_idx]
+    
+    # We will create the new functions
+    new_funcs = """import asyncio
 
 async def _process_location(loc, repo, weather_manager, now, sem):
     async with sem:
@@ -64,7 +69,7 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                 if loc.last_alert_max_rain and loc.last_alert_max_rain > 0.0:
                     logger.info(f"Sending All-Clear alert for chat_id {loc.chat_id}")
                     loc_name_str = f" '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else " "
-                    text = f"☀️ สภาพอากาศ ณ พิกัด{loc_name_str}เคลียร์แล้ว\n(ไม่มีแนวโน้มฝนตกในขณะนี้)"
+                    text = f"☀️ สภาพอากาศ ณ พิกัด{loc_name_str}เคลียร์แล้ว\\n(ไม่มีแนวโน้มฝนตกในขณะนี้)"
                     await send_telegram_message(loc.chat_id, text)
                     await repo.update_last_alerted(loc, now, max_rain=0.0)
                 else:
@@ -121,12 +126,12 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                 text = ""
                 if severity_escalated:
                     last_rain_val = loc.last_alert_max_rain or 0.0
-                    text += f"⚠️ *อัปเดต: ฝนทวีความรุนแรงขึ้น!*\n({last_rain_val:.1f} mm/hr → {max_rain:.1f} mm/hr)\n\n"
+                    text += f"⚠️ *อัปเดต: ฝนทวีความรุนแรงขึ้น!*\\n({last_rain_val:.1f} mm/hr → {max_rain:.1f} mm/hr)\\n\\n"
 
-                if eta_minutes == 0: text += f"🌧️ ฝนกำลังตกอยู่ที่พิกัด{loc_name_str}ของคุณ ณ ขณะนี้\n"
+                if eta_minutes == 0: text += f"🌧️ ฝนกำลังตกอยู่ที่พิกัด{loc_name_str}ของคุณ ณ ขณะนี้\\n"
                 else:
-                    text += f"🌧️ ฝนกำลังเคลื่อนมาทางพิกัด{loc_name_str}ของคุณ\n"
-                    text += f"⏰ จะเริ่มตกเวลา: {start_time_str} (ในอีก {eta_minutes} นาที)\n"
+                    text += f"🌧️ ฝนกำลังเคลื่อนมาทางพิกัด{loc_name_str}ของคุณ\\n"
+                    text += f"⏰ จะเริ่มตกเวลา: {start_time_str} (ในอีก {eta_minutes} นาที)\\n"
                 
                 duration_text = f"ตกต่อเนื่อง {duration_min} นาที"
                 if duration_min >= 60:
@@ -134,36 +139,36 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                     mins = duration_min % 60
                     duration_text = f"ตกต่อเนื่อง {hrs} ชม. {mins} นาที" if mins > 0 else f"ตกต่อเนื่อง {hrs} ชม."
                     
-                if duration_min > 0: text += f"🛑 คาดว่าจะหยุดเวลา: {end_time_str} ({duration_text})\n\n"
-                else: text += "\n"
+                if duration_min > 0: text += f"🛑 คาดว่าจะหยุดเวลา: {end_time_str} ({duration_text})\\n\\n"
+                else: text += "\\n"
                     
                 if intensity_str == "ไม่มีฝน" and eta_minutes > 0:
                     if max_rain > 10.0: max_int = "ฝนตกหนักมาก"
                     elif max_rain > 2.5: max_int = "ฝนตกหนัก"
                     elif max_rain > 0.5: max_int = "ฝนตกปานกลาง"
                     else: max_int = "ฝนตกเล็กน้อย"
-                    text += f"💧 ความรุนแรง (สูงสุด): {max_int} ({max_rain:.1f} mm/hr)\n"
+                    text += f"💧 ความรุนแรง (สูงสุด): {max_int} ({max_rain:.1f} mm/hr)\\n"
                 else:
-                    text += f"💧 ความรุนแรง: {intensity_str} ({max_rain:.1f} mm/hr)\n"
+                    text += f"💧 ความรุนแรง: {intensity_str} ({max_rain:.1f} mm/hr)\\n"
                 
                 wind_dir_text = result.get("wind_dir_text", "ไม่ทราบ")
-                if wind_speed_kmh > 0: text += f"🌬️ สภาพลม: {wind_speed_kmh:.1f} km/h (พัดไปทางทิศ {wind_dir_text})\n"
-                if eta_minutes > 0 and wind_speed_kmh > 0: text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\n"
+                if wind_speed_kmh > 0: text += f"🌬️ สภาพลม: {wind_speed_kmh:.1f} km/h (พัดไปทางทิศ {wind_dir_text})\\n"
+                if eta_minutes > 0 and wind_speed_kmh > 0: text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\\n"
                     
                 rain_summary = result.get("rain_summary")
                 if rain_summary:
-                    text += f"{rain_summary}\n"
+                    text += f"{rain_summary}\\n"
                 else:
                     growth_rate = result.get("growth_rate_pct")
                     if growth_rate is not None:
-                        if growth_rate > 5.0: text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%)\n"
-                        elif growth_rate < -5.0: text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%)\n"
-                        else: text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
+                        if growth_rate > 5.0: text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%)\\n"
+                        elif growth_rate < -5.0: text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%)\\n"
+                        else: text += f"➖ แนวโน้มกลุ่มฝน: คงที่\\n"
                         
-                text += f"📡 แหล่งข้อมูล: {source_name}\n"
+                text += f"📡 แหล่งข้อมูล: {source_name}\\n"
                 bkk_tz = timezone(timedelta(hours=7))
                 update_time_str = datetime.now(bkk_tz).strftime("%d/%m/%Y %H:%M:%S")
-                text += f"🔄 ข้อมูลอัปเดตล่าสุด: {update_time_str}\n"
+                text += f"🔄 ข้อมูลอัปเดตล่าสุด: {update_time_str}\\n"
                     
                 is_dev = str(loc.chat_id) in DEVELOPER_CHAT_IDS
                 reply_markup = get_radar_inline_keyboard(loc.latitude, loc.longitude, is_developer=is_dev)
@@ -198,25 +203,25 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                     has_stormcell = advanced_data.get("stormcell") is not None
                     
                     if has_advisory or has_lightning or has_stormcell:
-                        adv_text = "🚨 *ข้อมูลเตือนภัยขั้นสูงรอบตัวคุณ*\n\n"
+                        adv_text = "🚨 *ข้อมูลเตือนภัยขั้นสูงรอบตัวคุณ*\\n\\n"
                         if has_advisory:
-                            for adv in advanced_data["advisories"]: adv_text += f"⚠️ ประกาศเตือนภัย: {adv.get('name', '')}\n"
-                            adv_text += "\n"
+                            for adv in advanced_data["advisories"]: adv_text += f"⚠️ ประกาศเตือนภัย: {adv.get('name', '')}\\n"
+                            adv_text += "\\n"
                         if has_lightning:
                             lightning = advanced_data["lightning"]
-                            adv_text += f"⚡ ฟ้าผ่าระยะใกล้สุด: {lightning.get('distance_km', 0):.1f} กม.\n\n"
+                            adv_text += f"⚡ ฟ้าผ่าระยะใกล้สุด: {lightning.get('distance_km', 0):.1f} กม.\\n\\n"
                         if has_stormcell:
                             stormcell = advanced_data["stormcell"]
                             if stormcell.get('distance_km') is None:
-                                adv_text += f"🌪️ แนวโน้มกลุ่มฝน/ลม (Contingency):\n"
-                                adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
-                                adv_text += f"   - ความเร็วลม: {stormcell.get('speed_kmh', 0):.1f} km/h\n\n"
+                                adv_text += f"🌪️ แนวโน้มกลุ่มฝน/ลม (Contingency):\\n"
+                                adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\\n"
+                                adv_text += f"   - ความเร็วลม: {stormcell.get('speed_kmh', 0):.1f} km/h\\n\\n"
                                 adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Open-Meteo (Fallback)"
                             else:
-                                adv_text += f"🌪️ ตรวจพบกลุ่มพายุ: ระยะห่าง {stormcell.get('distance_km', 0):.1f} กม.\n"
-                                adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
-                                adv_text += f"   - ความเร็ว: {stormcell.get('speed_kmh', 0):.1f} km/h\n"
-                                adv_text += f"   - ความรุนแรงสูงสุด (dBZ): {stormcell.get('max_dbz', 0)}\n\n"
+                                adv_text += f"🌪️ ตรวจพบกลุ่มพายุ: ระยะห่าง {stormcell.get('distance_km', 0):.1f} กม.\\n"
+                                adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\\n"
+                                adv_text += f"   - ความเร็ว: {stormcell.get('speed_kmh', 0):.1f} km/h\\n"
+                                adv_text += f"   - ความรุนแรงสูงสุด (dBZ): {stormcell.get('max_dbz', 0)}\\n\\n"
                                 adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
                         elif has_advisory or has_lightning:
                             adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
@@ -278,181 +283,13 @@ async def check_rain_and_alert():
             )
         except Exception as e:
             logger.error(f"Failed to save metrics for check_rain: {e}")
+"""
 
-
-async def check_disasters_frequent_routine():
-    """Run frequently (e.g., every 1 min) for USGS Earthquakes."""
-    logger.info("Starting frequent disaster check (USGS Earthquakes)...")
-    from app.services.earthquake import fetch_usgs_geojson
-    from app.services.disaster_manager import process_disaster_event
+    new_content = "\n".join(lines[:start_idx]) + "\n\n" + new_funcs + "\n\n" + "\n".join(lines[end_idx:])
     
-    events = await fetch_usgs_geojson()
-    if not events:
-        return
-        
-    async with get_repo_context() as repo:
-        for event in events:
-            await process_disaster_event(repo, "earthquake", event)
+    with open("backend/app/scheduler_tasks.py", "w") as out_f:
+        out_f.write(new_content)
+    print("Patched scheduler_tasks.py successfully!")
+else:
+    print("Could not find start or end indices!")
 
-async def check_disasters_infrequent_routine():
-    """Run infrequently (e.g., every 30-60 mins) for Xweather Cyclones/Fires."""
-    logger.info("Starting infrequent disaster check (Xweather Cyclones & Fires)...")
-    from app.services.xweather import XweatherService
-    from app.services.disaster_manager import process_disaster_event
-    
-    xweather = XweatherService()
-    
-    cyclones = await xweather.get_active_tropical_cyclones()
-    fires = await xweather.get_active_fires()
-    
-    async with get_repo_context() as repo:
-        for event in cyclones:
-            await process_disaster_event(repo, "cyclone", event)
-        for event in fires:
-            await process_disaster_event(repo, "fire", event)
-
-async def fetch_tmd_radar_routine():
-    """Run frequently (e.g., every 5 mins) to fetch and cache TMD Radar images to Firebase Storage and Firestore.
-    
-    Processes all stations in PARALLEL using asyncio.gather for improved performance.
-    """
-    logger.info("Starting TMD Radar Cache Phase...")
-    import time
-    start_time = time.time()
-    errors = 0
-    stations_updated = 0
-
-    from app.services.tmd_radar_processor import TMDRadarProcessor
-    from app.dependencies import get_repo_context
-    from app.services.metrics_service import MetricsService
-    import httpx
-    import asyncio
-
-    stations_to_update = ["kkn120", "kkn240", "skn240"]
-
-    async def _process_station(station: str) -> dict:
-        result = {"station": station, "updated": False, "error": None}
-        try:
-            processor = TMDRadarProcessor(station_code=station)
-
-            # 1. Fetch static image bytes
-            static_bytes = await processor.fetch_latest_image_bytes(use_cache=False)
-            if not static_bytes:
-                logger.warning(f"[{station}] Could not fetch static image.")
-                return result
-
-            # 2. Extract timestamp via OCR
-            from app.services.ocr_service import OCRService
-            import numpy as np
-            import cv2
-            
-            np_arr = np.frombuffer(static_bytes, np.uint8)
-            frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-            
-            # Since OpenCV reads in BGR, we convert to RGB for consistency with original PIL logic
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-            ocr_svc = OCRService()
-            now_ts = int(datetime.now(timezone.utc).timestamp())
-            ts = await ocr_svc.get_frame_timestamp(frame, fallback_ts=now_ts)
-
-            # 3. Check cache
-            async with get_repo_context() as repo:
-                cache = await repo.get_latest_radar_cache(station)
-                
-                # If we already have this timestamp, do nothing
-                if cache and ts and ts <= cache.get("timestamp", 0):
-                    logger.debug(f"[{station}] Image unchanged (ts {ts}). Skipping.")
-                    return result
-                
-                # It's a new image!
-                new_url_t = await processor.save_polled_frame(static_bytes)
-                url_t_minus_1 = cache.get("url_t") if cache else None
-                
-                await repo.set_latest_radar_cache(
-                    station_code=station,
-                    url_t=new_url_t,
-                    url_t_minus_1=url_t_minus_1,
-                    timestamp=ts
-                )
-                logger.info(f"Updated Firestore radar cache for {station} with ts {ts}")
-
-            # Cleanup old frames
-            deleted = await processor.cleanup_old_frames(max_age_hours=3)
-            if deleted > 0:
-                logger.info(f"Cleaned up {deleted} old frames for {station}")
-
-            # Clean up memory explicitly
-            del frame
-            del np_arr
-            import gc
-            gc.collect()
-
-            result["updated"] = True
-        except Exception as e:
-            logger.error(f"Failed to cache TMD radar for {station}: {e}")
-            result["error"] = str(e)
-        return result
-
-    # Run all stations in PARALLEL — reduces total time from 3×T to max(T)
-    station_results = await asyncio.gather(
-        *[_process_station(s) for s in stations_to_update],
-        return_exceptions=True
-    )
-
-    for res in station_results:
-        if isinstance(res, Exception):
-            logger.error(f"Unhandled exception in station task: {res}")
-            errors += 1
-        elif isinstance(res, dict):
-            if res.get("updated"):
-                stations_updated += 1
-            if res.get("error"):
-                errors += 1
-
-    # Record Metrics
-    duration_s = time.time() - start_time
-    logger.info(f"TMD Radar Cache Phase complete: {stations_updated}/{len(stations_to_update)} stations, {duration_s:.1f}s")
-    try:
-        async with get_repo_context() as repo:
-            metrics_svc = MetricsService(repo)
-            await metrics_svc.record_cron_run(
-                routine_name="fetch_tmd_radar",
-                duration_s=duration_s,
-                errors=errors,
-                extra_data={"stations_updated": stations_updated}
-            )
-    except Exception as e:
-        logger.error(f"Failed to save metrics for fetch_tmd_radar: {e}")
-
-
-
-
-async def trigger_mock_disaster(payload_dict: dict):
-    """Process a mock disaster payload."""
-    import time
-    from app.dependencies import get_repo_context
-    from app.services.disaster_manager import process_disaster_event
-    
-    timestamp = int(time.time())
-    event_id = f"postman_mock_{timestamp}"
-    
-    event_data = {
-        "id": event_id,
-        "lat": payload_dict.get("lat"),
-        "lng": payload_dict.get("lng"),
-    }
-    
-    disaster_type = payload_dict.get("type", "earthquake")
-    
-    if disaster_type == "earthquake":
-        event_data["mag"] = payload_dict.get("mag")
-        event_data["place"] = payload_dict.get("name")
-    elif disaster_type == "cyclone":
-        event_data["name"] = payload_dict.get("name")
-        event_data["category"] = "Cat 4"
-    elif disaster_type == "fire":
-        event_data["name"] = payload_dict.get("name")
-        
-    async with get_repo_context() as repo:
-        await process_disaster_event(repo, disaster_type, event_data)

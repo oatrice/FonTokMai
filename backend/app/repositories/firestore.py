@@ -285,15 +285,16 @@ class FirestoreLocationRepository(LocationRepository):
             return doc.to_dict()
         return None
 
-    async def set_latest_radar_cache(self, station_code: str, static_url: str, loop_url: str, timestamp: int) -> None:
-        doc_ref = self.db.collection('radar_latest_cache').document(station_code)
-        await doc_ref.set({
-            "station_code": station_code,
-            "static_url": static_url,
-            "loop_url": loop_url,
+    async def set_latest_radar_cache(self, station_code: str, url_t: str, url_t_minus_1: Optional[str], timestamp: int) -> None:
+        from google.cloud import firestore
+        doc_ref = self.db.collection('radar_cache').document(station_code)
+        data = {
+            "url_t": url_t,
+            "url_t_minus_1": url_t_minus_1,
             "timestamp": timestamp,
-            "created_at": datetime.now(timezone.utc)
-        })
+            "created_at": firestore.SERVER_TIMESTAMP
+        }
+        await doc_ref.set(data)
 
     async def record_cron_run(
         self,
