@@ -122,14 +122,17 @@ STATIONS = {
         center_lat=17.1607,
         center_lng=104.1486,
         radius_km=240.0,
-        static_crop_x=80,
-        static_crop_y=40,
-        static_crop_width=720,
-        static_crop_height=720,
-        loop_crop_x=80,
-        loop_crop_y=40,
-        loop_crop_width=600,
-        loop_crop_height=600
+        # Calibrated via Hough Circle detection on skn240_latest.jpg (800x800)
+        # Detected circle: center=(436,392), radius=364px
+        static_crop_x=72,
+        static_crop_y=28,
+        static_crop_width=728,
+        static_crop_height=728,
+        # Loop GIF: scaled proportionally from static (x0.85), pending visual verification
+        loop_crop_x=61,
+        loop_crop_y=24,
+        loop_crop_width=620,
+        loop_crop_height=620
     )
 }
 
