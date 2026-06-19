@@ -27,6 +27,14 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #99 - ✨ [TMD Radar] Auto-calibration pipeline for new radar stations
+- **GitHub:** [#99](https://gitlab.com/oatricedev/FonMaYang/-/issues/99)
+- **Status:** 🟢 **Ready**
+
+### Issue #98 - 🛠️ [TMD Radar] Calibrate skn240 crop bounds and fix Location out of bounds for Nong Khai
+- **GitHub:** [#98](https://gitlab.com/oatricedev/FonMaYang/-/issues/98)
+    - ✅ **Done** (0.34.0)
+
 ### Issue #97 - Feature: Dynamic Config Toggle for TMD Radar Mode (Static vs Loop) via Telegram
 - **GitHub:** [#97](https://gitlab.com/oatricedev/FonMaYang/-/issues/97)
 - **Status:** 🟢 **Ready**

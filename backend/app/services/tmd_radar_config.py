@@ -53,10 +53,10 @@ KKN_BBOX = BoundingBox(
 
 # SKN Center: ~17.16, 104.13
 SKN_BBOX = BoundingBox(
-    lat_max=18.26, 
-    lng_min=103.03, 
-    lat_min=16.06, 
-    lng_max=105.23
+    lat_max=19.32, 
+    lng_min=101.95, 
+    lat_min=15.00, 
+    lng_max=106.35
 )
 
 # KKN 240km Center: ~16.43, 102.83
@@ -121,7 +121,18 @@ STATIONS = {
         bbox=SKN_BBOX,
         center_lat=17.1607,
         center_lng=104.1486,
-        radius_km=240.0
+        radius_km=240.0,
+        # Calibrated via Hough Circle detection on skn240_latest.jpg (800x800)
+        # Detected circle: center=(436,392), radius=364px
+        static_crop_x=72,
+        static_crop_y=28,
+        static_crop_width=728,
+        static_crop_height=728,
+        # Loop GIF: scaled proportionally from static (x0.85), pending visual verification
+        loop_crop_x=61,
+        loop_crop_y=24,
+        loop_crop_width=620,
+        loop_crop_height=620
     )
 }
 
