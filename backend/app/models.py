@@ -56,8 +56,8 @@ class RadarLatestCache(Base):
     __tablename__ = "radar_latest_cache"
 
     station_code = Column(String, primary_key=True, index=True)
-    static_url = Column(String, nullable=True)
-    loop_url = Column(String, nullable=True)
+    url_t = Column(String, nullable=True)
+    url_t_minus_1 = Column(String, nullable=True)
     timestamp = Column(Integer, nullable=False)
     created_at = Column(DateTime, nullable=False)
 

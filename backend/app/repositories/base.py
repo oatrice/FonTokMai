@@ -82,7 +82,7 @@ class LocationRepository(ABC):
         pass
 
     @abstractmethod
-    async def set_latest_radar_cache(self, station_code: str, static_url: str, loop_url: str, timestamp: int) -> None:
+    async def set_latest_radar_cache(self, station_code: str, url_t: str, url_t_minus_1: Optional[str], timestamp: int) -> None:
         """บันทึกข้อมูล Cache ล่าสุดของสถานีเรดาร์ลงฐานข้อมูล"""
         pass
 

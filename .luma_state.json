@@ -1,54 +1,22 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 88,
-      "title": "🛠 [Infra] Fix Cloud Scheduler Retry Policy to prevent retry flood",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/88",
+      "number": 95,
+      "title": "Setup local GitLab Runner with Docker executor",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/95",
       "body": null,
-      "project_item_id": "GLAB_88",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 89,
-      "title": "🏗 [Architecture] Decouple EMSC WebSocket from Cloud Run API (Long-term Solution)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/89",
-      "body": null,
-      "project_item_id": "GLAB_89",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 83,
-      "title": "Optimization: Cleanup old Docker Images in Artifact Registry",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/83",
-      "body": null,
-      "project_item_id": "GLAB_83",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 90,
-      "title": "Optimization: Cleanup stale AI-generated context artifacts and establish ephemeral docs policy",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/90",
-      "body": null,
-      "project_item_id": "GLAB_90",
+      "project_item_id": "GLAB_95",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/93-ops-increase-cloud-run-memory",
-  "started_at": "2026-06-18T10:32:27.825512",
+  "active_branch": "feat/95-setup-local-gitlab-runner-with",
+  "started_at": "2026-06-19T12:26:44.036736",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
@@ -57,20 +25,46 @@
         "CHANGELOG.md",
         "README.md",
         "VERSION",
-        "agents/skills/api-endpoint-verification/SKILL.md",
+        "backend/.env.example",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/scheduler_tasks.py",
         "backend/app/services/tmd_radar_processor.py",
-        "backend/scripts/cleanup_artifact_registry.sh",
-        "backend/scripts/setup_log_exclusions.sh",
+        "backend/app/services/weather_manager.py",
         "docs/ROADMAP.md",
-        "gitlab-ci.yml",
-        "luma_state.json"
+        "github/pull_request_template.md",
+        "github/workflows/cleanup.yml",
+        "github/workflows/main.yml",
+        "gitlab/merge_request_templates/Default.md",
+        "luma/prompts/prompt_20260619_052642_020144cb.md",
+        "luma_metrics.json",
+        "luma_state.json",
+        "migrate_vars.sh",
+        "patch_fetch_routine.py",
+        "patch_scheduler.py",
+        "patch_tmd_processor.py",
+        "patch_weather_manager.py"
       ],
       "meaningful_files": [
+        "backend/.env.example",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/scheduler_tasks.py",
         "backend/app/services/tmd_radar_processor.py",
-        "backend/scripts/cleanup_artifact_registry.sh",
-        "backend/scripts/setup_log_exclusions.sh",
-        "gitlab-ci.yml",
-        "luma_state.json"
+        "backend/app/services/weather_manager.py",
+        "github/workflows/cleanup.yml",
+        "github/workflows/main.yml",
+        "luma_metrics.json",
+        "luma_state.json",
+        "migrate_vars.sh",
+        "patch_fetch_routine.py",
+        "patch_scheduler.py",
+        "patch_tmd_processor.py",
+        "patch_weather_manager.py"
       ],
       "version_file": "VERSION",
       "has_meaningful_changes": true
@@ -142,7 +136,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/33",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-18T20:04:24.020622"
+  "last_updated": "2026-06-19T12:26:47.894498"
 }

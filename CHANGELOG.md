@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.0] - 2026-06-19
+### Added
+- Migrated CI/CD pipeline from GitLab to GitHub Actions, including a migration utility script.
+- Added comprehensive project documentation in `README.md` to replace old prompt boilerplates.
+- Added worker authentication to secure the backend worker endpoints.
+
+### Changed
+- Optimized TMD radar pipeline by transitioning to a highly efficient `radar_latest_cache` model, discarding loop GIF fetching in favor of lightweight T/T-1 static image comparisons.
+- Refactored and modularized rain alert processing with an asyncio semaphore for robust concurrent execution.
+
 ## [0.32.0] - 2026-06-18
 ### Added
 - Added a script to configure Cloud Logging exclusion filters to drop high-frequency HTTP 403 debug noise, optimizing log storage costs.

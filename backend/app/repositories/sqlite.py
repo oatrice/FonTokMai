@@ -236,14 +236,14 @@ class SQLiteLocationRepository(LocationRepository):
         if cache:
             return {
                 "station_code": cache.station_code,
-                "static_url": cache.static_url,
-                "loop_url": cache.loop_url,
+                "url_t": cache.url_t,
+                "url_t_minus_1": cache.url_t_minus_1,
                 "timestamp": cache.timestamp,
                 "created_at": cache.created_at
             }
         return None
 
-    async def set_latest_radar_cache(self, station_code: str, static_url: str, loop_url: str, timestamp: int) -> None:
+    async def set_latest_radar_cache(self, station_code: str, url_t: str, url_t_minus_1: Optional[str], timestamp: int) -> None:
         from app.models import RadarLatestCache
         result = await self.session.execute(select(RadarLatestCache).where(RadarLatestCache.station_code == station_code))
         cache = result.scalars().first()
@@ -251,15 +251,15 @@ class SQLiteLocationRepository(LocationRepository):
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         
         if cache:
-            cache.static_url = static_url
-            cache.loop_url = loop_url
+            cache.url_t = url_t
+            cache.url_t_minus_1 = url_t_minus_1
             cache.timestamp = timestamp
             cache.created_at = now
         else:
             cache = RadarLatestCache(
                 station_code=station_code,
-                static_url=static_url,
-                loop_url=loop_url,
+                url_t=url_t,
+                url_t_minus_1=url_t_minus_1,
                 timestamp=timestamp,
                 created_at=now
             )
