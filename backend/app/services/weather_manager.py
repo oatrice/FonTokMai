@@ -373,7 +373,7 @@ class WeatherManager:
                     wind_dir = processor.get_wind_direction_text(flow, px, py)
                     percent_change = 0.0
 
-                async def render_hq_png():
+                def render_hq_png():
                     from PIL import Image, ImageFont, ImageDraw
                     import cv2
                     # Copy to avoid mutating original for future tasks
@@ -435,8 +435,8 @@ class WeatherManager:
                     "growth_rate_pct":   percent_change,
                     "approaching_clouds": clouds,
                     "rain_summary":      summary_line,
-                    "radar_gif_bytes":   gif_bytes,
-                    "radar_hq_gif_bytes": hq_gif_bytes,
+                    "radar_gif_bytes":   None,
+                    "radar_hq_gif_bytes": None,
                     "radar_static_bytes": static_bytes,
                     "radar_tracking_bytes": tracking_bytes,
                     "rain_timeline_bytes": timeline_bytes,

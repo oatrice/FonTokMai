@@ -27,6 +27,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #100 - Bug: Unawaited coroutine in render_hq_png & incorrect mock path in tests
+- **GitHub:** [#100](https://gitlab.com/oatricedev/FonMaYang/-/issues/100)
+    - ✅ **Done** (0.35.0)
+
 ### Issue #99 - ✨ [TMD Radar] Auto-calibration pipeline for new radar stations
 - **GitHub:** [#99](https://gitlab.com/oatricedev/FonMaYang/-/issues/99)
 - **Status:** 🟢 **Ready**

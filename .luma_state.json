@@ -4,17 +4,17 @@
   "phase": "pr_pending",
   "active_issues": [
     {
-      "number": 98,
-      "title": "🛠️ [TMD Radar] Calibrate skn240 crop bounds and fix Location out of bounds for Nong Khai",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/98",
+      "number": 100,
+      "title": "Bug: Unawaited coroutine in render_hq_png & incorrect mock path in tests",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/100",
       "body": null,
-      "project_item_id": "GLAB_98",
+      "project_item_id": "GLAB_100",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/98-tmd-radar-calibrate-skn240-cro",
-  "started_at": "2026-06-19T20:34:30.823431",
+  "active_branch": "feat/100-bug-unawaited-coroutine-in-ren",
+  "started_at": "2026-06-19T23:06:20.932558",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -30,19 +30,25 @@
         "CHANGELOG.md",
         "README.md",
         "VERSION",
-        "backend/app/services/tmd_radar_config.py",
         "backend/app/services/weather_manager.py",
-        "backend/tests/test_api_weather.py",
+        "backend/tests/test_devmock.py",
+        "backend/tests/test_e2e_earthquake.py",
+        "backend/tests/test_e2e_ocr.py",
+        "backend/tests/test_e2e_weather_manager.py",
+        "backend/tests/test_e2e_worker_rain.py",
+        "backend/tests/test_tmd_radar_e2e.py",
+        "backend/tests/test_webhook.py",
         "docs/ROADMAP.md",
         "github/workflows/main.yml",
-        "luma/prompts/prompt_20260619_133445_7fc29a03.md.response.md",
+        "gitlab-ci.yml",
+        "luma/prompts/prompt_20260619_160628_6c1b89ea.md.response.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/services/tmd_radar_config.py",
         "backend/app/services/weather_manager.py",
         "github/workflows/main.yml",
+        "gitlab-ci.yml",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -116,7 +122,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/39",
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/40",
   "pr_number": null,
-  "last_updated": "2026-06-19T21:09:59.899999"
+  "last_updated": "2026-06-19T23:17:43.705496"
 }

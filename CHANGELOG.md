@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.0] - 2026-06-19
+
+### Added
+- Added comprehensive end-to-end (E2E) test suite for the EMSC earthquake webhook (`test_e2e_earthquake.py`), including impact radius tests, alert triggering, and duplication checks.
+- Added E2E test suite for the OCR service fallback chain (`test_e2e_ocr.py`) to verify behavior under normal parsing, garbage text inputs, and cache hit scenarios.
+- Added E2E test suite for the weather manager fallback logic (`test_e2e_weather_manager.py`).
+- Added E2E test suite for the Telegram worker command processing (`test_e2e_worker_rain.py`) and TMD radar pipeline (`test_tmd_radar_e2e.py`).
+
+### Changed
+- Refactored `render_hq_png` in `weather_manager.py` to a synchronous function to avoid unawaited coroutine warnings and prevent blocking the main asyncio event loop.
+- Optimized weather manager response payload by disabling heavy radar GIF generation by default (setting `radar_gif_bytes` and `radar_hq_gif_bytes` to `None`).
+- Updated GitHub Actions (`main.yml`) and GitLab CI (`.gitlab-ci.yml`) configurations to implement path-based conditional filters for deployments.
+
+### Fixed
+- Fixed integration and webhook tests by correcting the mock patch target of Telegram client requests to `app.services.telegram.httpx.AsyncClient.post` and adding an autouse mock for `CloudTasksService` to prevent real GCP Cloud Tasks creation.
+
 ## [0.34.0] - 2026-06-19
 
 ### Fixed

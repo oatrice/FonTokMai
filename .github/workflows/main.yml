@@ -10,6 +10,25 @@ env:
   PIP_CACHE_DIR: "${{ github.workspace }}/.cache/pip"
 
 jobs:
+  check_changes:
+    name: Check file changes
+    runs-on: ubuntu-latest
+    outputs:
+      emsc_worker: ${{ steps.filter.outputs.emsc_worker }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            emsc_worker:
+              - 'emsc_worker/**'
+              - '.github/workflows/main.yml'
+            backend:
+              - 'backend/**'
+              - '.github/workflows/main.yml'
+
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -58,8 +77,8 @@ jobs:
 
   deploy_cloud_run:
     name: Deploy to Cloud Run
-    needs: test
-    if: github.ref == 'refs/heads/main'
+    needs: [test, check_changes]
+    if: github.ref == 'refs/heads/main' && needs.check_changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -155,8 +174,8 @@ jobs:
 
   deploy_emsc_worker:
     name: Deploy EMSC Worker
-    needs: test
-    if: github.ref == 'refs/heads/main'
+    needs: [test, check_changes]
+    if: github.ref == 'refs/heads/main' && needs.check_changes.outputs.emsc_worker == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
