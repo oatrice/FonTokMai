@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 104,
@@ -25,7 +25,12 @@
   "active_branch": "feat/104-105-infrastructure-optimize-cloud",
   "started_at": "2026-06-20T11:39:49.375218",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
@@ -34,22 +39,19 @@
         "CHANGELOG.md",
         "README.md",
         "VERSION",
-        "backend/app/services/weather_manager.py",
-        "backend/test_concurrency.py",
-        "backend/test_concurrency_real.py",
-        "backend/tests/test_tmd_concurrency.py",
-        "backend/tests/test_tmd_radar_e2e.py",
-        "docs/ROADMAP.md",
-        "docs/fonmayang_cloudrun_metrics_report.md",
-        "docs/root_cause_analysis.md",
-        "luma/prompts/prompt_20260619_160628_6c1b89ea.md.response.md",
+        "backend/app/routers/budget_webhook.py",
+        "backend/test_budget_webhook.py",
+        "gitlab-ci.yml",
         "luma/prompts/prompt_20260620_032125_86b9f583.md.response.md",
-        "luma/prompts/prompt_20260620_043947_63ad8a63.md",
+        "luma/prompts/prompt_20260620_045024_31c28116.md.response.md",
+        "luma/prompts/prompt_20260620_051319_9a48cf74.md",
+        "luma/prompts/prompt_20260620_051323_548439d3.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/services/weather_manager.py",
+        "backend/app/routers/budget_webhook.py",
+        "gitlab-ci.yml",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -125,5 +127,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-20T11:39:54.945185"
+  "last_updated": "2026-06-20T12:13:49.288128"
 }

@@ -16,7 +16,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 - **Privacy-First Notifications**: On-demand location sharing via Telegram without background tracking.
 - **Multiple Saved Locations**: Support for managing multiple user locations (e.g., Home, Work) for personalized proactive alerting.
 - **Extended Meteorological Data**: Real-time evaluation of rain intensity and estimated duration.
-- **Proactive Alerts & Scheduling**: Webhook endpoint designed for external cron services to continuously monitor rain vectors and alert users proactively before rain hits. Includes a Smart Cooldown system with severity escalation. Concurrent alert processing is highly modularized via asyncio semaphores.
+- **Proactive Alerts & Scheduling**: Webhook endpoint designed for external cron services to continuously monitor rain vectors and alert users proactively before rain hits. Includes a Smart Cooldown system with severity escalation. Concurrent alert processing is highly modularized via asyncio semapests.
 - **Responsive Webhooks**: Optimized inline request processing to ensure immediate acknowledgment and prevent Cloud Run CPU throttling during slow API fetches.
 - **System Telemetry & Metrics**: Includes lightweight telemetry and a secured internal API endpoint for exporting Cloud Run and scheduled routine metrics for performance analysis. Internal worker endpoints are protected by token-based authentication.
 - **Interactive Ground Truth Feedback**: Inline buttons allowing users to report false alarms directly from notifications. This data feeds an automated API reliability system that auto-selects the most accurate weather source for future alerts.
@@ -24,7 +24,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 - **Interactive Radar**: Telegram `/radar` command providing multi-source visual tracking (Zoom Earth, Windy, TMD).
 - **Developer Mock Mode**: Built-in `/devmock` command and standalone mock event servers (including a local WebSocket mock server) for simulating weather states, API fallback errors, and natural disasters during testing without making live API calls.
 - **Asynchronous Workload Queuing**: Deep integration with Google Cloud Tasks to offload long-running radar and forecasting processes, preventing Cloud Run CPU throttling and ensuring reliable delivery with exponential backoff.
-- **Budget Auto-Shutdown Mechanism**: Native GCP Billing Budget integration with Pub/Sub webhooks to automatically revoke Cloud Run public access when spending limits are reached, preventing unexpected billing spikes.
+- **Budget Auto-Shutdown Mechanism**: Native GCP Billing Budget integration with Pub/Sub webhooks to automatically revoke Cloud Run public access when spending limits are reached, preventing unexpected billing spikes, with built-in alert deduplication to prevent duplicate notifications.
 - **Cost-Optimized Cloud Logging**: Pre-configured Logging Exclusion filters to drop high-frequency debug noise, drastically reducing log ingestion costs.
 - **FastAPI Backend**: Asynchronous, highly concurrent backend structure.
 - **Cloud Run Native**: Fully containerized and automated deployment to Google Cloud Run via GitHub Actions CI/CD pipelines (Scale-to-zero optimized).
