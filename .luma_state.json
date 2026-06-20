@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 106,
@@ -34,19 +34,20 @@
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
+      "pending": [
+        "README.md"
+      ],
       "changed_files": [
         "CHANGELOG.md",
-        "README.md",
         "VERSION",
         "backend/app/services/weather_manager.py",
         "backend/scripts/setup_cloudrun_alerts.sh",
         "cursorrules",
+        "docs/ROADMAP.md",
         "gitignore",
         "gitlab-ci.yml",
         "luma/prompts/prompt_20260620_062936_f62d721d.md.response.md",
-        "luma/prompts/prompt_20260620_161317_2cce02ea.md",
-        "luma/prompts/prompt_20260620_161318_f785a422.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
@@ -55,6 +56,7 @@
         "cursorrules",
         "gitignore",
         "gitlab-ci.yml",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -127,7 +129,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/43",
   "pr_number": null,
-  "last_updated": "2026-06-20T23:13:40.666674"
+  "last_updated": "2026-06-20T23:18:20.932332"
 }
