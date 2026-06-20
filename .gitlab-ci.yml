@@ -67,8 +67,8 @@ deploy_cloud_run:
         --allow-unauthenticated \
         --memory 1Gi \
         --cpu 1 \
-        --timeout 60 \
-        --service-min-instances 0 \
+        --timeout 300 \
+        --service-min-instances 1 \
         --service-max-instances 2 \
         --concurrency 40 \
         --cpu-boost \
@@ -112,7 +112,6 @@ deploy_cloud_run:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - backend/**/*
-        - .gitlab-ci.yml
 
 cleanup_artifact_registry:
   stage: deploy
@@ -171,4 +170,3 @@ deploy_emsc_worker:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - emsc_worker/**/*
-        - .gitlab-ci.yml

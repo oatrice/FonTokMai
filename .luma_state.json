@@ -1,36 +1,31 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 102,
-      "title": "Bug: Fix gif_bytes NameError in weather_manager.py",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/102",
+      "number": 104,
+      "title": "Infrastructure: Optimize Cloud Run Config for Stability",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/104",
       "body": null,
-      "project_item_id": "GLAB_102",
+      "project_item_id": "GLAB_104",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 103,
-      "title": "Bug: Fix render_hq_png coroutine leak",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/103",
+      "number": 105,
+      "title": "FinOps: Deduplicate Budget Alerts & Check Spending Limit",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/105",
       "body": null,
-      "project_item_id": "GLAB_103",
+      "project_item_id": "GLAB_105",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/102-103-bug-fix-gif_bytes-nameerror-in",
-  "started_at": "2026-06-20T09:58:22.672083",
+  "active_branch": "feat/104-105-infrastructure-optimize-cloud",
+  "started_at": "2026-06-20T11:39:49.375218",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
@@ -49,12 +44,13 @@
         "docs/root_cause_analysis.md",
         "luma/prompts/prompt_20260619_160628_6c1b89ea.md.response.md",
         "luma/prompts/prompt_20260620_032125_86b9f583.md.response.md",
-        "luma/prompts/prompt_20260620_042434_1e8b9cb9.md",
-        "luma/prompts/prompt_20260620_042436_97025aac.md",
+        "luma/prompts/prompt_20260620_043947_63ad8a63.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/app/services/weather_manager.py",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -129,5 +125,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-20T11:25:00.522243"
+  "last_updated": "2026-06-20T11:39:54.945185"
 }

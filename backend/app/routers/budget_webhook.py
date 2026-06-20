@@ -96,8 +96,11 @@ def _is_budget_exceeded(budget_data: dict[str, Any]) -> bool:
     return alert_threshold >= 1.0 or ratio >= 1.0
 
 
-def _revoke_public_access() -> bool:
-    """สั่งลบสิทธิ์ allUsers บน Cloud Run service (ทำให้เข้าถึงไม่ได้ = ปิด) ผ่าน REST API"""
+def _revoke_public_access() -> str:
+    """
+    สั่งลบสิทธิ์ allUsers บน Cloud Run service (ทำให้เข้าถึงไม่ได้ = ปิด) ผ่าน REST API
+    Returns: "REVOKED", "ALREADY_PRIVATE", or "ERROR"
+    """
     try:
         import google.auth
         from google.auth.transport.requests import Request as GoogleAuthRequest
@@ -122,7 +125,7 @@ def _revoke_public_access() -> bool:
             resp_get = client.get(url_get, headers=headers)
             if resp_get.status_code != 200:
                 logger.error(f"[BudgetAlert] ❌ Failed to get IAM policy: {resp_get.text}")
-                return False
+                return "ERROR"
                 
             policy = resp_get.json()
             
@@ -136,20 +139,20 @@ def _revoke_public_access() -> bool:
             
             if not modified:
                 logger.info(f"[BudgetAlert] ✅ Cloud Run '{CLOUD_RUN_SERVICE}' is already private.")
-                return True
+                return "ALREADY_PRIVATE"
                 
             # 3. Set updated policy
             resp_set = client.post(url_set, headers=headers, json={"policy": policy})
             if resp_set.status_code == 200:
                 logger.info(f"[BudgetAlert] ✅ Cloud Run '{CLOUD_RUN_SERVICE}' public access revoked (Suspended).")
-                return True
+                return "REVOKED"
             else:
                 logger.error(f"[BudgetAlert] ❌ Failed to set IAM policy: {resp_set.text}")
-                return False
+                return "ERROR"
 
     except Exception as e:
         logger.error(f"[BudgetAlert] ❌ Exception during IAM modification: {e}")
-        return False
+        return "ERROR"
 
 
 async def _send_telegram_alert(message: str) -> None:
@@ -246,9 +249,9 @@ async def handle_budget_alert(payload: PubSubPushPayload, request: Request):
     if _is_budget_exceeded(budget_data):
         logger.warning("[BudgetAlert] 🚨 Budget 100% exceeded! Initiating Cloud Run shutdown...")
 
-        scale_success = _revoke_public_access()
+        scale_status = _revoke_public_access()
 
-        if scale_success:
+        if scale_status == "REVOKED":
             shutdown_msg = (
                 f"🚨 <b>Budget Exceeded — Emergency Shutdown</b>\n\n"
                 f"⚡ สิทธิ์การเข้าถึงแบบ Public (allUsers) ของ <code>{CLOUD_RUN_SERVICE}</code> ถูกระงับแล้ว (ไม่มีการรับ traffic ใหม่)\n\n"
@@ -257,7 +260,14 @@ async def handle_budget_alert(payload: PubSubPushPayload, request: Request):
                 f"ℹ️ เพื่อ restore service ให้กลับมาออนไลน์:\n"
                 f"<code>gcloud run services add-iam-policy-binding {CLOUD_RUN_SERVICE} --region={GCP_REGION} --member=\"allUsers\" --role=\"roles/run.invoker\"</code>"
             )
-            status_result = "shutdown_success"
+            await _send_telegram_alert(shutdown_msg)
+            return {"status": "shutdown_success", "cost": cost_amount, "budget": budget_amount}
+            
+        elif scale_status == "ALREADY_PRIVATE":
+            # Deduplicate alert: if it's already private, we don't spam Telegram again
+            logger.info("[BudgetAlert] Muting duplicate Telegram alert because service is already private.")
+            return {"status": "already_private", "cost": cost_amount, "budget": budget_amount}
+
         else:
             shutdown_msg = (
                 f"🔴 <b>Budget Exceeded — Shutdown FAILED</b>\n\n"
@@ -266,10 +276,8 @@ async def handle_budget_alert(payload: PubSubPushPayload, request: Request):
                 f"🛠️ กรุณาระงับ manually:\n"
                 f"<code>gcloud run services remove-iam-policy-binding {CLOUD_RUN_SERVICE} --region={GCP_REGION} --member=\"allUsers\" --role=\"roles/run.invoker\"</code>"
             )
-            status_result = "shutdown_failed"
-
-        await _send_telegram_alert(shutdown_msg)
-        return {"status": status_result, "cost": cost_amount, "budget": budget_amount}
+            await _send_telegram_alert(shutdown_msg)
+            return {"status": "shutdown_failed", "cost": cost_amount, "budget": budget_amount}
 
     # ─── Normal notification (ไม่ถึง threshold สำคัญ) ───
     logger.info(f"[BudgetAlert] Notification received but no action needed (threshold={alert_threshold:.0%}).")
