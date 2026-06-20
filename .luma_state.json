@@ -1,36 +1,22 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 104,
-      "title": "Infrastructure: Optimize Cloud Run Config for Stability",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/104",
+      "number": 106,
+      "title": "Monitoring: Deploy GCP Alert Rules for Cloud Run",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/106",
       "body": null,
-      "project_item_id": "GLAB_104",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 105,
-      "title": "FinOps: Deduplicate Budget Alerts & Check Spending Limit",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/105",
-      "body": null,
-      "project_item_id": "GLAB_105",
+      "project_item_id": "GLAB_106",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/104-105-infrastructure-optimize-cloud",
-  "started_at": "2026-06-20T11:39:49.375218",
+  "active_branch": "feat/106-monitoring-deploy-gcp-alert-ru",
+  "started_at": "2026-06-20T12:25:58.670044",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
@@ -41,9 +27,11 @@
         "VERSION",
         "backend/app/routers/budget_webhook.py",
         "backend/test_budget_webhook.py",
+        "backend/tests/test_budget_webhook.py",
         "docs/ROADMAP.md",
         "gitlab-ci.yml",
         "luma/prompts/prompt_20260620_032125_86b9f583.md.response.md",
+        "luma/prompts/prompt_20260620_052556_8f489dbb.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -123,7 +111,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/42",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-20T12:17:04.604801"
+  "last_updated": "2026-06-20T12:26:03.144470"
 }
