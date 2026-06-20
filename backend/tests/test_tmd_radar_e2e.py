@@ -30,8 +30,10 @@ async def test_tmd_radar_e2e_prediction_success():
     processor = TMDRadarProcessor("skn240")
     dummy_flow = processor.calculate_optical_flow([dummy_image, dummy_image])
     
-    # Mock cache ตรงเข้าใน WeatherManager แทนการดักฟัง network
-    manager.tmd_frames_cache["skn240"] = (
+    from app.services import weather_manager as wm
+    
+    # Mock cache ตรงเข้าใน module-level แทน
+    wm._GLOBAL_TMD_CACHE["skn240"] = (
         [dummy_image, dummy_image], 
         datetime.now(timezone.utc), 
         time.time(), 
@@ -40,7 +42,7 @@ async def test_tmd_radar_e2e_prediction_success():
     # ตัด kkn120/kkn240 ออกเพื่อให้มัน fall through ไป skn240 ที่เรา mock ไว้
     # หรือ mock ทั้งหมดเลยก็ได้
     for st in ["kkn120", "kkn240", "skn240"]:
-        manager.tmd_frames_cache[st] = (
+        wm._GLOBAL_TMD_CACHE[st] = (
             [dummy_image, dummy_image], 
             datetime.now(timezone.utc), 
             time.time(), 
