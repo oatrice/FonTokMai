@@ -16,13 +16,19 @@ from .tmd_radar_processor import TMDRadarProcessor
 logger = logging.getLogger(__name__)
 from app.dependencies import get_repo_context
 
+_GLOBAL_TMD_CACHE = {}
+_GLOBAL_TMD_LOCKS = {
+    "kkn120": asyncio.Lock(),
+    "kkn240": asyncio.Lock(),
+    "skn240": asyncio.Lock(),
+}
+
 class WeatherManager:
     def __init__(self):
         self.xweather_svc = XweatherService()
         self.tomorrow_svc = TomorrowService()
         self.rainbow_svc = RainbowService()
         self.open_meteo_svc = OpenMeteoService()
-        self.tmd_frames_cache = {}
 
     async def predict_rain(
         self,
@@ -192,51 +198,56 @@ class WeatherManager:
                 if px is None or py is None:
                     continue
 
-                # Check cache with 10-minute TTL to prevent stale frames across cron runs
-                cached_data = self.tmd_frames_cache.get(station_code)
+                # Use module-level cache and lock to prevent cache stampede
+                lock = _GLOBAL_TMD_LOCKS.get(station_code)
+                if lock is None:
+                    continue
                 
-                if cached_data and (time.time() - cached_data[2]) < 600:
-                    frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
-                else:
-                    async with get_repo_context() as repo:
-                        cache = await repo.get_latest_radar_cache(station_code)
+                async with lock:
+                    cached_data = _GLOBAL_TMD_CACHE.get(station_code)
                     
-                    if not cache or not cache.get("url_t") or not cache.get("url_t_minus_1"):
-                        continue
+                    if cached_data and (time.time() - cached_data[2]) < 600:
+                        frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
+                    else:
+                        async with get_repo_context() as repo:
+                            cache = await repo.get_latest_radar_cache(station_code)
                         
-                    # download images
-                    bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
-                    from google.cloud import storage
-                    client = storage.Client()
-                    bucket = client.bucket(bucket_name)
-                    blob_t = bucket.blob(cache["url_t"])
-                    blob_t_minus_1 = bucket.blob(cache["url_t_minus_1"])
-                    
-                    import asyncio
-                    try:
-                        t_bytes, t_minus_1_bytes = await asyncio.gather(
-                            asyncio.to_thread(blob_t.download_as_bytes),
-                            asyncio.to_thread(blob_t_minus_1.download_as_bytes)
-                        )
-                    except Exception as e:
-                        logger.error(f"Failed to download frames for {station_code}: {e}")
-                        continue
-                    
-                    import cv2, numpy as np
-                    t_np = np.frombuffer(t_bytes, np.uint8)
-                    curr_frame = cv2.imdecode(t_np, cv2.IMREAD_COLOR)
-                    curr_frame = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2RGB)
-                    
-                    t_minus_1_np = np.frombuffer(t_minus_1_bytes, np.uint8)
-                    prev_frame = cv2.imdecode(t_minus_1_np, cv2.IMREAD_COLOR)
-                    prev_frame = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2RGB)
-                    
-                    frames = [prev_frame, curr_frame]
-                    last_modified_dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
-                    flow = processor.calculate_optical_flow(frames)
-                    
-                    # Cache it with flow to avoid recalculating
-                    self.tmd_frames_cache[station_code] = (frames, last_modified_dt, time.time(), flow)
+                        if not cache or not cache.get("url_t") or not cache.get("url_t_minus_1"):
+                            continue
+                        
+                        # download images
+                        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                        from google.cloud import storage
+                        client = storage.Client()
+                        bucket = client.bucket(bucket_name)
+                        blob_t = bucket.blob(cache["url_t"])
+                        blob_t_minus_1 = bucket.blob(cache["url_t_minus_1"])
+                        
+                        import asyncio
+                        try:
+                            t_bytes, t_minus_1_bytes = await asyncio.gather(
+                                asyncio.to_thread(blob_t.download_as_bytes),
+                                asyncio.to_thread(blob_t_minus_1.download_as_bytes)
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to download frames for {station_code}: {e}")
+                            continue
+                        
+                        import cv2, numpy as np
+                        t_np = np.frombuffer(t_bytes, np.uint8)
+                        curr_frame = cv2.imdecode(t_np, cv2.IMREAD_COLOR)
+                        curr_frame = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2RGB)
+                        
+                        t_minus_1_np = np.frombuffer(t_minus_1_bytes, np.uint8)
+                        prev_frame = cv2.imdecode(t_minus_1_np, cv2.IMREAD_COLOR)
+                        prev_frame = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2RGB)
+                        
+                        frames = [prev_frame, curr_frame]
+                        last_modified_dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
+                        flow = processor.calculate_optical_flow(frames)
+                        
+                        # Cache it with flow to avoid recalculating
+                        _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow)
 
                 if not frames or len(frames) < 2:
                     continue
@@ -373,16 +384,17 @@ class WeatherManager:
                     wind_dir = processor.get_wind_direction_text(flow, px, py)
                     percent_change = 0.0
 
-                def render_hq_png():
+                def render_hq_png(target_frame, pin_x, pin_y, time_utc, proc):
                     from PIL import Image, ImageFont, ImageDraw
                     import cv2
+                    import io
                     # Copy to avoid mutating original for future tasks
-                    cf = curr_frame.copy()
-                    processor.draw_pin_on_frame(cf, px, py)
+                    cf = target_frame.copy()
+                    proc.draw_pin_on_frame(cf, pin_x, pin_y)
                     img_orig = Image.fromarray(cf)
                     img_hq = img_orig.resize((int(img_orig.width * 3.0), int(img_orig.height * 3.0)), Image.Resampling.NEAREST)
                     
-                    time_str = now_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
+                    time_str = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
                     try:
                         fnt = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 96)
                     except:
@@ -401,7 +413,6 @@ class WeatherManager:
                     draw.rectangle([x_pos-pad, y_pos-pad, x_pos+text_w+pad, y_pos+text_h+pad], fill=(0, 0, 0, 200))
                     draw.text((x_pos, y_pos), time_str, fill=(255, 255, 255, 255), font=fnt)
                     
-                    import io
                     static_buffer = io.BytesIO()
                     img_hq.save(static_buffer, format='PNG')
                     return static_buffer.getvalue()
@@ -411,7 +422,7 @@ class WeatherManager:
                 timeline_bytes = None
                 try:
                     import asyncio
-                    static_bytes = await asyncio.to_thread(render_hq_png)
+                    static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), px, py, now_utc, processor)
                     tracking_bytes = await asyncio.to_thread(processor.generate_radar_tracking_image, curr_frame.copy(), px, py, clouds)
                     timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, clouds)
                 except Exception as e:

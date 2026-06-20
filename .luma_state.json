@@ -1,20 +1,29 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "reviewing",
   "active_issues": [
     {
-      "number": 100,
-      "title": "Bug: Unawaited coroutine in render_hq_png & incorrect mock path in tests",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/100",
+      "number": 102,
+      "title": "Bug: Fix gif_bytes NameError in weather_manager.py",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/102",
       "body": null,
-      "project_item_id": "GLAB_100",
+      "project_item_id": "GLAB_102",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 103,
+      "title": "Bug: Fix render_hq_png coroutine leak",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/103",
+      "body": null,
+      "project_item_id": "GLAB_103",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/100-bug-unawaited-coroutine-in-ren",
-  "started_at": "2026-06-19T23:06:20.932558",
+  "active_branch": "feat/102-103-bug-fix-gif_bytes-nameerror-in",
+  "started_at": "2026-06-20T09:58:22.672083",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -31,25 +40,21 @@
         "README.md",
         "VERSION",
         "backend/app/services/weather_manager.py",
-        "backend/tests/test_devmock.py",
-        "backend/tests/test_e2e_earthquake.py",
-        "backend/tests/test_e2e_ocr.py",
-        "backend/tests/test_e2e_weather_manager.py",
-        "backend/tests/test_e2e_worker_rain.py",
+        "backend/test_concurrency.py",
+        "backend/test_concurrency_real.py",
+        "backend/tests/test_tmd_concurrency.py",
         "backend/tests/test_tmd_radar_e2e.py",
-        "backend/tests/test_webhook.py",
         "docs/ROADMAP.md",
-        "github/workflows/main.yml",
-        "gitlab-ci.yml",
+        "docs/fonmayang_cloudrun_metrics_report.md",
+        "docs/root_cause_analysis.md",
         "luma/prompts/prompt_20260619_160628_6c1b89ea.md.response.md",
-        "luma_metrics.json",
+        "luma/prompts/prompt_20260620_032125_86b9f583.md.response.md",
+        "luma/prompts/prompt_20260620_042434_1e8b9cb9.md",
+        "luma/prompts/prompt_20260620_042436_97025aac.md",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/app/services/weather_manager.py",
-        "github/workflows/main.yml",
-        "gitlab-ci.yml",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -122,7 +127,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/40",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-19T23:17:43.705496"
+  "last_updated": "2026-06-20T11:25:00.522243"
 }

@@ -27,6 +27,30 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #106 - Monitoring: Deploy GCP Alert Rules for Cloud Run
+- **GitHub:** [#106](https://gitlab.com/oatricedev/FonMaYang/-/issues/106)
+- **Status:** 🟢 **Ready**
+
+### Issue #105 - FinOps: Deduplicate Budget Alerts & Check Spending Limit
+- **GitHub:** [#105](https://gitlab.com/oatricedev/FonMaYang/-/issues/105)
+- **Status:** 🟢 **Ready**
+
+### Issue #104 - Infrastructure: Optimize Cloud Run Config for Stability
+- **GitHub:** [#104](https://gitlab.com/oatricedev/FonMaYang/-/issues/104)
+- **Status:** 🟢 **Ready**
+
+### Issue #103 - Bug: Fix render_hq_png coroutine leak
+- **GitHub:** [#103](https://gitlab.com/oatricedev/FonMaYang/-/issues/103)
+    - ✅ **Done** (0.36.0)
+
+### Issue #102 - Bug: Fix gif_bytes NameError in weather_manager.py
+- **GitHub:** [#102](https://gitlab.com/oatricedev/FonMaYang/-/issues/102)
+    - ✅ **Done** (0.36.0)
+
+### Issue #101 - Bug: Coordinate pin alignment shift on production radar image
+- **GitHub:** [#101](https://gitlab.com/oatricedev/FonMaYang/-/issues/101)
+- **Status:** 🟢 **Ready**
+
 ### Issue #100 - Bug: Unawaited coroutine in render_hq_png & incorrect mock path in tests
 - **GitHub:** [#100](https://gitlab.com/oatricedev/FonMaYang/-/issues/100)
     - ✅ **Done** (0.35.0)
