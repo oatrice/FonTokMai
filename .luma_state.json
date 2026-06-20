@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 104,
@@ -41,11 +41,9 @@
         "VERSION",
         "backend/app/routers/budget_webhook.py",
         "backend/test_budget_webhook.py",
+        "docs/ROADMAP.md",
         "gitlab-ci.yml",
         "luma/prompts/prompt_20260620_032125_86b9f583.md.response.md",
-        "luma/prompts/prompt_20260620_045024_31c28116.md.response.md",
-        "luma/prompts/prompt_20260620_051319_9a48cf74.md",
-        "luma/prompts/prompt_20260620_051323_548439d3.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -125,7 +123,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/42",
   "pr_number": null,
-  "last_updated": "2026-06-20T12:13:49.288128"
+  "last_updated": "2026-06-20T12:17:04.604801"
 }
