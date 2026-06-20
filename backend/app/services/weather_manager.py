@@ -428,12 +428,6 @@ class WeatherManager:
                 except Exception as e:
                     logger.error(f"Failed to generate radar PNGs: {e}")
                 
-                # Cleanup memory
-                del curr_frame
-                del prev_frame
-                import gc
-                gc.collect()
-
                 return {
                     "predictions":       predictions,
                     "intensity":         intensity,

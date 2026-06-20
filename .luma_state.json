@@ -11,10 +11,19 @@
       "project_item_id": "GLAB_106",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 107,
+      "title": "Infrastructure: Fix CPU Cold Start latency and misleading memory GC in radar processing",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/107",
+      "body": null,
+      "project_item_id": "GLAB_107",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
     }
   ],
   "active_branch": "feat/106-monitoring-deploy-gcp-alert-ru",
-  "started_at": "2026-06-20T12:25:58.670044",
+  "started_at": "2026-06-20T23:07:07.684581",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -22,25 +31,26 @@
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "backend/app/routers/budget_webhook.py",
-        "backend/test_budget_webhook.py",
-        "backend/tests/test_budget_webhook.py",
-        "docs/ROADMAP.md",
+        "VERSION"
+      ],
+      "changed_files": [
+        "backend/app/services/weather_manager.py",
+        "backend/scripts/setup_cloudrun_alerts.sh",
+        "cursorrules",
+        "gitignore",
         "gitlab-ci.yml",
-        "luma/prompts/prompt_20260620_032125_86b9f583.md.response.md",
-        "luma/prompts/prompt_20260620_052556_8f489dbb.md",
-        "luma_metrics.json",
+        "luma/prompts/prompt_20260620_062936_f62d721d.md.response.md",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/routers/budget_webhook.py",
+        "backend/app/services/weather_manager.py",
+        "backend/scripts/setup_cloudrun_alerts.sh",
+        "cursorrules",
+        "gitignore",
         "gitlab-ci.yml",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -115,5 +125,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-20T13:29:36.711347"
+  "last_updated": "2026-06-20T23:07:10.145820"
 }

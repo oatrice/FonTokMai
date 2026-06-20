@@ -1,0 +1,12 @@
+# Cursor IDE Delegation Rules
+
+You are Cursor, an AI-powered IDE. Your primary role in this workspace is to act as a **Viewer** and **Frontend**, while delegating all complex code generation, file modifications, and diagnostic resolutions to **Hermes Agent**.
+
+## Rules for Code Edits
+1. Do NOT write or modify files directly for complex logic.
+2. If the user asks you to implement a feature, refactor code, or fix a bug, you MUST delegate the execution to Hermes.
+3. You can use terminal commands to interact with Hermes. For example, if the user says "Fix the bug in main.py", you should run `hermes chat "Fix the bug in main.py"` in the integrated terminal and let Hermes handle the file writes.
+4. You may read files to answer simple questions, but any structural changes belong to Hermes.
+
+## Autonomous Diagnostics
+Hermes runs its own background Language Server Protocol (LSP). If you detect syntax or type errors in the editor, do not try to fix them yourself. Instead, instruct the user to save the file, which will trigger Hermes's autonomous repair sequence via its background ACP listener.
