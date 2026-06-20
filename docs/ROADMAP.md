@@ -29,7 +29,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ## Synced From GitHub
 ### Issue #106 - Monitoring: Deploy GCP Alert Rules for Cloud Run
 - **GitHub:** [#106](https://gitlab.com/oatricedev/FonMaYang/-/issues/106)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.38.0)
 
 ### Issue #105 - FinOps: Deduplicate Budget Alerts & Check Spending Limit
 - **GitHub:** [#105](https://gitlab.com/oatricedev/FonMaYang/-/issues/105)
@@ -446,4 +446,8 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ### Issue #1 - Implement Weather Services MVP (Base, RainViewer, Rainbow) with TDD
 - **GitHub:** [#1](https://gitlab.com/oatricedev/FonMaYang/-/issues/1)
 - **Status:** 🟢 **Ready**
+
+### Issue # - Infrastructure: Fix CPU Cold Start latency and misleading memory GC in radar processing
+- **State:** opened
+- ✅ **Done** (0.38.0)
 

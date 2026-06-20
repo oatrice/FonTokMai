@@ -2230,9 +2230,9 @@
       "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/106",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
-      "issue_status": "🟡 In Progress",
+      "issue_status": "✅ Complete",
       "estimate_points": 2,
-      "post_story_point": null,
+      "post_story_point": 21.0,
       "estimated_mandays": 1.0,
       "start_datetime": null,
       "actual_mandays": 0.0,
@@ -2243,7 +2243,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-20T02:53:04.514Z",
-      "updated_at": "2026-06-20T12:17:02.177757"
+      "updated_at": "2026-06-20T23:13:38.970621"
     },
     "oatricedev/FonMaYang#105": {
       "issue_key": "oatricedev/FonMaYang#105",
@@ -2310,6 +2310,28 @@
       "gh_mandays": null,
       "created_at": "2026-06-19T16:43:47.682Z",
       "updated_at": "2026-06-20T12:17:04.598984"
+    },
+    "oatricedev/FonMaYang#107": {
+      "issue_key": "oatricedev/FonMaYang#107",
+      "issue_number": 107,
+      "issue_title": "Infrastructure: Fix CPU Cold Start latency and misleading memory GC in radar processing",
+      "issue_url": "",
+      "repository": "oatricedev/FonMaYang",
+      "project_name": "FonMaYang",
+      "issue_status": "✅ Complete",
+      "estimate_points": null,
+      "post_story_point": 21.0,
+      "estimated_mandays": null,
+      "start_datetime": null,
+      "actual_mandays": null,
+      "due_date": null,
+      "actual_completion_date": null,
+      "effort_level": null,
+      "notes": null,
+      "gh_closed_at": null,
+      "gh_mandays": null,
+      "created_at": "2026-06-20T23:13:37.636258",
+      "updated_at": "2026-06-20T23:13:39.278987"
     }
   }
 }

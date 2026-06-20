@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.0] - 2026-06-20
+
+### Added
+- Added a monitoring script (`setup_cloudrun_alerts.sh`) to automate the deployment of GCP Cloud Run alert policies for memory, latency, error rates, and instance counts.
+- Added AI assistant configuration rules for Cursor and Aider to improve development workflows.
+
+### Changed
+- Updated GitLab CI configuration to disable CPU throttling (`--no-cpu-throttling`) for Cloud Run deployments to resolve severe CPU cold start latency issues during background tasks.
+- Removed redundant and misleading memory garbage collection calls in the `WeatherManager` radar processing pipeline for improved code hygiene.
+
 ## [0.37.0] - 2026-06-20
 
 ### Added
