@@ -41,11 +41,11 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #103 - Bug: Fix render_hq_png coroutine leak
 - **GitHub:** [#103](https://gitlab.com/oatricedev/FonMaYang/-/issues/103)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.36.0)
 
 ### Issue #102 - Bug: Fix gif_bytes NameError in weather_manager.py
 - **GitHub:** [#102](https://gitlab.com/oatricedev/FonMaYang/-/issues/102)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.36.0)
 
 ### Issue #101 - Bug: Coordinate pin alignment shift on production radar image
 - **GitHub:** [#101](https://gitlab.com/oatricedev/FonMaYang/-/issues/101)

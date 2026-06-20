@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.36.0] - 2026-06-20
+
+### Added
+- Added concurrency test scripts (`test_concurrency.py`, `test_concurrency_real.py`) and a mock test suite (`test_tmd_concurrency.py`) to verify the TMD radar cache locking mechanism under high concurrency.
+- Added a module-level global lock and cache in `WeatherManager` to prevent concurrency stampedes when multiple requests query the same radar station simultaneously.
+
+### Changed
+- Refactored `WeatherManager` to replace the instance-level cache with a module-level global cache (`_GLOBAL_TMD_CACHE` and `_GLOBAL_TMD_LOCKS`) for shared cache state across class instances.
+- Updated `test_tmd_radar_e2e.py` to assert against `_GLOBAL_TMD_CACHE` instead of `tmd_frames_cache`.
+
 ## [0.35.0] - 2026-06-19
 
 ### Added
