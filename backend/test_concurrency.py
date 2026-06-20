@@ -9,8 +9,8 @@ async def main():
     from app.services.weather_manager import WeatherManager
     wm = WeatherManager()
     
-    # พิกัดกรุงเทพมหานคร (ใช้งานสถานี skn240)
-    lat, lng = 13.75, 100.5
+    # พิกัดหนองคาย (ใช้งานสถานี skn240)
+    lat, lng = 17.8785, 102.7420
     
     print("🚀 ยิง 15 Requests พร้อมกัน (Concurrent) ไปที่ TMD Radar...")
     
@@ -19,8 +19,10 @@ async def main():
     results = await asyncio.gather(*tasks, return_exceptions=True)
     
     successes = sum(1 for r in results if not isinstance(r, Exception))
-    errors = sum(1 for r in results if isinstance(r, Exception))
-    print(f"✅ ทำงานเสร็จสิ้น! สำเร็จ: {successes}, เออเร่อ: {errors}")
+    error_objs = [r for r in results if isinstance(r, Exception)]
+    print(f"✅ ทำงานเสร็จสิ้น! สำเร็จ: {successes}, เออเร่อ: {len(error_objs)}")
+    if error_objs:
+        print(f"ตัวอย่าง Error: {repr(error_objs[0])}")
 
 if __name__ == "__main__":
     asyncio.run(main())
