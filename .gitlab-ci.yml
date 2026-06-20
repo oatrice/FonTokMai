@@ -72,7 +72,7 @@ deploy_cloud_run:
         --service-max-instances 2 \
         --concurrency 40 \
         --cpu-boost \
-        --cpu-throttling \
+        --no-cpu-throttling \
         --set-env-vars "\
       TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN},\
       RAINBOW_API_KEY=${RAINBOW_API_KEY},\
