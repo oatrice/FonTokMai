@@ -33,11 +33,11 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #105 - FinOps: Deduplicate Budget Alerts & Check Spending Limit
 - **GitHub:** [#105](https://gitlab.com/oatricedev/FonMaYang/-/issues/105)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.37.0)
 
 ### Issue #104 - Infrastructure: Optimize Cloud Run Config for Stability
 - **GitHub:** [#104](https://gitlab.com/oatricedev/FonMaYang/-/issues/104)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.37.0)
 
 ### Issue #103 - Bug: Fix render_hq_png coroutine leak
 - **GitHub:** [#103](https://gitlab.com/oatricedev/FonMaYang/-/issues/103)

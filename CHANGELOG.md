@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.37.0] - 2026-06-20
+
+### Added
+- Added a dedicated test suite (`test_budget_webhook.py`) to verify the budget alert webhook handling for new alerts, duplicate (already private) alerts, and API error scenarios.
+
+### Changed
+- Refactored `_revoke_public_access` in the budget webhook router to return descriptive string status codes (`"REVOKED"`, `"ALREADY_PRIVATE"`, or `"ERROR"`) instead of booleans to prevent duplicate Telegram notifications on consecutive budget alerts.
+- Updated GitLab CI configuration to adjust Cloud Run deployment options (`--timeout 300` and `--service-min-instances 1`), and cleaned up branch trigger rules to exclude CI/CD triggers on `.gitlab-ci.yml` changes for main branch backend and emsc_worker builds.
+
 ## [0.36.0] - 2026-06-20
 
 ### Added

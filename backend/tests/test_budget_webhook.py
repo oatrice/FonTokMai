@@ -50,7 +50,7 @@ def test_budget_alert_warning(mock_send_telegram):
 @patch("app.routers.budget_webhook._revoke_public_access")
 @patch("app.routers.budget_webhook._send_telegram_alert", new_callable=AsyncMock)
 def test_budget_alert_shutdown_success(mock_send_telegram, mock_revoke):
-    mock_revoke.return_value = True
+    mock_revoke.return_value = "REVOKED"
     data = {
         "budgetDisplayName": "Test Budget",
         "alertThresholdExceeded": 1.0,
@@ -63,5 +63,43 @@ def test_budget_alert_shutdown_success(mock_send_telegram, mock_revoke):
     
     assert response.status_code == 200
     assert response.json()["status"] == "shutdown_success"
+    mock_revoke.assert_called_once()
+    mock_send_telegram.assert_called_once()
+
+@patch("app.routers.budget_webhook._revoke_public_access")
+@patch("app.routers.budget_webhook._send_telegram_alert", new_callable=AsyncMock)
+def test_budget_alert_already_private(mock_send_telegram, mock_revoke):
+    mock_revoke.return_value = "ALREADY_PRIVATE"
+    data = {
+        "budgetDisplayName": "Test Budget",
+        "alertThresholdExceeded": 1.0,
+        "costAmount": 10.0,
+        "budgetAmount": 10.0,
+        "currencyCode": "USD"
+    }
+    payload = create_pubsub_payload(data)
+    response = client.post("/api/v1/internal/budget-alert", json=payload)
+    
+    assert response.status_code == 200
+    assert response.json()["status"] == "already_private"
+    mock_revoke.assert_called_once()
+    mock_send_telegram.assert_not_called()
+
+@patch("app.routers.budget_webhook._revoke_public_access")
+@patch("app.routers.budget_webhook._send_telegram_alert", new_callable=AsyncMock)
+def test_budget_alert_shutdown_failed(mock_send_telegram, mock_revoke):
+    mock_revoke.return_value = "ERROR"
+    data = {
+        "budgetDisplayName": "Test Budget",
+        "alertThresholdExceeded": 1.0,
+        "costAmount": 10.0,
+        "budgetAmount": 10.0,
+        "currencyCode": "USD"
+    }
+    payload = create_pubsub_payload(data)
+    response = client.post("/api/v1/internal/budget-alert", json=payload)
+    
+    assert response.status_code == 200
+    assert response.json()["status"] == "shutdown_failed"
     mock_revoke.assert_called_once()
     mock_send_telegram.assert_called_once()

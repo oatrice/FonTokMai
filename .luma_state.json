@@ -1,29 +1,29 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
-      "number": 102,
-      "title": "Bug: Fix gif_bytes NameError in weather_manager.py",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/102",
+      "number": 104,
+      "title": "Infrastructure: Optimize Cloud Run Config for Stability",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/104",
       "body": null,
-      "project_item_id": "GLAB_102",
+      "project_item_id": "GLAB_104",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 103,
-      "title": "Bug: Fix render_hq_png coroutine leak",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/103",
+      "number": 105,
+      "title": "FinOps: Deduplicate Budget Alerts & Check Spending Limit",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/105",
       "body": null,
-      "project_item_id": "GLAB_103",
+      "project_item_id": "GLAB_105",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/102-103-bug-fix-gif_bytes-nameerror-in",
-  "started_at": "2026-06-20T09:58:22.672083",
+  "active_branch": "feat/104-105-infrastructure-optimize-cloud",
+  "started_at": "2026-06-20T11:39:49.375218",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -39,22 +39,18 @@
         "CHANGELOG.md",
         "README.md",
         "VERSION",
-        "backend/app/services/weather_manager.py",
-        "backend/test_concurrency.py",
-        "backend/test_concurrency_real.py",
-        "backend/tests/test_tmd_concurrency.py",
-        "backend/tests/test_tmd_radar_e2e.py",
+        "backend/app/routers/budget_webhook.py",
+        "backend/test_budget_webhook.py",
         "docs/ROADMAP.md",
-        "docs/fonmayang_cloudrun_metrics_report.md",
-        "docs/root_cause_analysis.md",
-        "luma/prompts/prompt_20260619_160628_6c1b89ea.md.response.md",
+        "gitlab-ci.yml",
         "luma/prompts/prompt_20260620_032125_86b9f583.md.response.md",
-        "luma/prompts/prompt_20260620_042434_1e8b9cb9.md",
-        "luma/prompts/prompt_20260620_042436_97025aac.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/services/weather_manager.py",
+        "backend/app/routers/budget_webhook.py",
+        "gitlab-ci.yml",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -127,7 +123,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/42",
   "pr_number": null,
-  "last_updated": "2026-06-20T11:25:00.522243"
+  "last_updated": "2026-06-20T12:17:04.604801"
 }
