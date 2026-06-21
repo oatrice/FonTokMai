@@ -1,5 +1,6 @@
 stages:
   - test
+  - config
   - deploy
 
 variables:
@@ -11,7 +12,7 @@ cache:
     - .cache/pip
 
 # --- Shared Telegram Notification Template ---
-.telegram_notify: &telegram_notify
+.telegram_notify:
   after_script:
     - |
       if [ "$CI_JOB_STATUS" = "success" ]; then
@@ -34,97 +35,83 @@ cache:
         -d disable_web_page_preview="true" \
         --data-urlencode "text=${MESSAGE}"
 
+.gcloud_auth:
+  before_script:
+    - echo "$GCP_SA_KEY" | base64 -d > /tmp/gcp-sa-key.json
+    - gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json
+    - gcloud config set project "$GCP_PROJECT_ID"
+
+cloudrun_config_only:
+  stage: config
+  image: google/cloud-sdk:alpine
+  extends:
+    - .gcloud_auth
+    - .telegram_notify
+  script:
+    - cd backend
+    - chmod +x deploy/apply_cloudrun_config.sh
+    - ./deploy/apply_cloudrun_config.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - backend/deploy/cloudrun.env
+        - backend/app/**/*.py
+
+deploy_cloud_run:
+  stage: deploy
+  image: google/cloud-sdk:alpine
+  extends:
+    - .gcloud_auth
+    - .telegram_notify
+  script:
+    - cd backend
+    - chmod +x deploy/deploy_cloudrun.sh
+    - ./deploy/deploy_cloudrun.sh
+    - |
+      CLOUD_RUN_URL=$(gcloud run services describe "$(grep '^CLOUD_RUN_SERVICE=' deploy/cloudrun.env | cut -d= -f2)" \
+        --platform managed \
+        --region "$(grep '^CLOUD_RUN_REGION=' deploy/cloudrun.env | cut -d= -f2)" \
+        --format 'value(status.url)')
+    - echo "Updating Webhook to $CLOUD_RUN_URL/api/v1/telegram/webhook"
+    - |
+      curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
+        -d url="${CLOUD_RUN_URL}/api/v1/telegram/webhook"
+    - echo "Updating Cloud Scheduler Jobs..."
+    - chmod +x scripts/setup_schedulers.sh
+    - ./scripts/setup_schedulers.sh
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - backend/**/*
+
 unit_tests:
   stage: test
   image: python:3.11-slim
+  extends:
+    - .telegram_notify
   before_script:
     - apt-get update && apt-get install -y curl
     - cd backend
     - pip install -r requirements.txt
   script:
     - pytest tests/ -v
-  <<: *telegram_notify
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
 
-deploy_cloud_run:
-  stage: deploy
-  image: google/cloud-sdk:alpine
-  script:
-    - echo "Deploying to Google Cloud Run..."
-    # Note: Requires GCP_PROJECT_ID and GCP_SA_KEY (Base64 encoded Service Account JSON) set in GitLab CI/CD Variables
-    - echo "$GCP_SA_KEY" | base64 -d > /tmp/gcp-sa-key.json
-    - gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json
-    - gcloud config set project $GCP_PROJECT_ID
-    # Deploy to Cloud Run
-    - cd backend
-    - |
-      gcloud run deploy fontokmai-api \
-        --source . \
-        --service-account=cloud-run-runtime@fonmayang.iam.gserviceaccount.com \
-        --region asia-southeast1 \
-        --allow-unauthenticated \
-        --memory 1Gi \
-        --cpu 1 \
-        --timeout 300 \
-        --service-min-instances 1 \
-        --service-max-instances 2 \
-        --concurrency 40 \
-        --cpu-boost \
-        --no-cpu-throttling \
-        --set-env-vars "\
-      TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN},\
-      RAINBOW_API_KEY=${RAINBOW_API_KEY},\
-      TOMORROW_API_KEY=${TOMORROW_API_KEY},\
-      XWEATHER_CLIENT_ID=${XWEATHER_CLIENT_ID},\
-      XWEATHER_CLIENT_SECRET=${XWEATHER_CLIENT_SECRET},\
-      XWEATHER_ENABLED=${XWEATHER_ENABLED},\
-      DEVELOPER_CHAT_IDS=${DEVELOPER_CHAT_IDS},\
-      ENVIRONMENT=production,\
-      CRON_SECRET=${CRON_SECRET},\
-      STORAGE_BACKEND=firestore,\
-      FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET},\
-      ALERT_COOLDOWN_MINUTES=${ALERT_COOLDOWN_MINUTES},\
-      RAIN_TRIGGER_THRESHOLD_MM=${RAIN_TRIGGER_THRESHOLD_MM},\
-      GEMINI_API_KEY=${GEMINI_API_KEY},\
-      OCR_SPACE_API_KEY=${OCR_SPACE_API_KEY},\
-      WORKER_SECRET=${WORKER_SECRET},\
-      WORKER_BASE_URL=${WORKER_BASE_URL},\
-      INTERNAL_WEBHOOK_SECRET=${INTERNAL_WEBHOOK_SECRET}"
-    # Update Telegram Webhook
-    - |
-      CLOUD_RUN_URL=$(gcloud run services describe fontokmai-api \
-        --platform managed \
-        --region asia-southeast1 \
-        --format 'value(status.url)')
-    - echo "Updating Webhook to $CLOUD_RUN_URL/api/v1/telegram/webhook"
-    - |
-      curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
-        -d url="${CLOUD_RUN_URL}/api/v1/telegram/webhook"
-    # Update Cloud Scheduler Jobs
-    - echo "Updating Cloud Scheduler Jobs..."
-    - chmod +x scripts/setup_schedulers.sh
-    - ./scripts/setup_schedulers.sh
-
-  <<: *telegram_notify
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - backend/**/*
-
 cleanup_artifact_registry:
   stage: deploy
   image: google/cloud-sdk:alpine
+  extends:
+    - .gcloud_auth
+    - .telegram_notify
   script:
     - echo "Cleaning up old Artifact Registry images..."
-    - echo "$GCP_SA_KEY" | base64 -d > /tmp/gcp-sa-key.json
-    - gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json
-    - gcloud config set project $GCP_PROJECT_ID
     - cd backend
     - chmod +x scripts/cleanup_artifact_registry.sh
     - ./scripts/cleanup_artifact_registry.sh
-  <<: *telegram_notify
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == "web"
@@ -133,11 +120,11 @@ cleanup_artifact_registry:
 deploy_emsc_worker:
   stage: deploy
   image: google/cloud-sdk:alpine
+  extends:
+    - .gcloud_auth
+    - .telegram_notify
   script:
     - echo "Deploying EMSC worker to Compute Engine VM..."
-    - echo "$GCP_SA_KEY" | base64 -d > /tmp/gcp-sa-key.json
-    - gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json
-    - gcloud config set project $GCP_PROJECT_ID
     - |
       CLOUD_RUN_URL=$(gcloud run services describe fontokmai-api \
         --platform managed \
@@ -165,7 +152,6 @@ deploy_emsc_worker:
         sudo systemctl enable emsc_worker.service
         sudo systemctl restart emsc_worker.service
       " --quiet
-  <<: *telegram_notify
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
