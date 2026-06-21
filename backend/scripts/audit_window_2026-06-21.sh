@@ -139,29 +139,60 @@ run_metric_query() {
   local value_field="$2"
   local output_file="${3:-}"
 
-  gcloud_time_series_list_alpha() {
-    gcloud alpha monitoring time-series list \
-      --project="$PROJECT_ID" \
-      --filter="metric.type=\"${metric_type}\" AND resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${SERVICE_NAME}\"" \
-      --interval="start=${START_UTC},end=${END_UTC}" \
-      "$@"
-  }
+  local filter_expr
+  filter_expr="metric.type=\"${metric_type}\" AND resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${SERVICE_NAME}\""
 
-  gcloud_time_series_list_beta() {
-    gcloud beta monitoring time-series list \
-      --project="$PROJECT_ID" \
-      --filter="metric.type=\"${metric_type}\" AND resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${SERVICE_NAME}\"" \
-      --interval="start=${START_UTC},end=${END_UTC}" \
-      "$@"
-  }
+  local access_token
+  access_token="$(gcloud auth print-access-token)"
 
-  if [ "$OUTPUT_MODE" = "json" ]; then
-    gcloud_time_series_list_alpha --format=json > "$output_file" \
-      || gcloud_time_series_list_beta --format=json > "$output_file"
-  else
-    gcloud_time_series_list_alpha --format="table(point.properties.interval.startTime,point.value.${value_field},resource.labels.revision_name,metric.labels.response_code_class)" \
-      || gcloud_time_series_list_beta --format="table(point.properties.interval.startTime,point.value.${value_field},resource.labels.revision_name,metric.labels.response_code_class)"
-  fi
+  python3 - "$PROJECT_ID" "$metric_type" "$SERVICE_NAME" "$START_UTC" "$END_UTC" "$OUTPUT_MODE" "$value_field" "$output_file" "$access_token" <<'PY'
+import json
+import sys
+import urllib.parse
+import urllib.request
+
+project_id, metric_type, service_name, start_utc, end_utc, output_mode, value_field, output_file, access_token = sys.argv[1:10]
+
+params = {
+    "filter": (
+        f'metric.type="{metric_type}" '
+        f'AND resource.type="cloud_run_revision" '
+        f'AND resource.labels.service_name="{service_name}"'
+    ),
+    "interval.startTime": start_utc,
+    "interval.endTime": end_utc,
+}
+url = f"https://monitoring.googleapis.com/v3/projects/{project_id}/timeSeries?{urllib.parse.urlencode(params)}"
+req = urllib.request.Request(
+    url,
+    headers={"Authorization": f"Bearer {access_token}"},
+)
+
+with urllib.request.urlopen(req) as resp:
+    payload = json.loads(resp.read().decode("utf-8"))
+
+series = payload.get("timeSeries", [])
+
+if output_mode == "json":
+    with open(output_file, "w", encoding="utf-8") as fh:
+        json.dump(series, fh, indent=2, sort_keys=True)
+else:
+    rows = []
+    for ts in series:
+        metric_labels = ts.get("metric", {}).get("labels", {})
+        revision = ts.get("resource", {}).get("labels", {}).get("revision_name", "")
+        for point in ts.get("points", []):
+            value = point.get("value", {})
+            rows.append({
+                "startTime": point.get("interval", {}).get("endTime") or point.get("interval", {}).get("startTime", ""),
+                "value": value.get("int64Value") or value.get("doubleValue") or value.get("stringValue") or "",
+                "revision": revision,
+                "response_code_class": metric_labels.get("response_code_class", ""),
+            })
+
+    for row in rows:
+        print(f"{row['startTime']}\t{row['value']}\t{row['revision']}\t{row['response_code_class']}")
+PY
 }
 
 log_section "Audit Window"
