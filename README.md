@@ -27,7 +27,7 @@ FonMaYang integrates with multiple weather sources (Xweather, Tomorrow.io, Open-
 - **Budget Auto-Shutdown Mechanism**: Native GCP Billing Budget integration with Pub/Sub webhooks to automatically revoke Cloud Run public access when spending limits are reached, preventing unexpected billing spikes, with built-in alert deduplication to prevent duplicate notifications.
 - **Cost-Optimized Cloud Logging**: Pre-configured Logging Exclusion filters to drop high-frequency debug noise, drastically reducing log ingestion costs.
 - **FastAPI Backend**: Asynchronous, highly concurrent backend structure.
-- **Cloud Run Native**: Fully containerized and automated deployment to Google Cloud Run via GitHub Actions CI/CD pipelines (Scale-to-zero optimized).
+- **Cloud Run Native**: Fully containerized and automated deployment to Google Cloud Run via GitLab CI/CD pipelines, with a separate config-only update flow for non-code Cloud Run changes.
 
 ## Usage & Commands
 
@@ -98,5 +98,5 @@ Used for testing alerts and system behaviors without waiting for real weather ev
    ```
    *For local Telegram webhook testing, use [localtunnel](https://github.com/localtunnel/localtunnel) to expose port 8081. See `docs/development_guide.md` for details on the Two Bots Strategy.*
 
-### Deployment (GitHub Actions -> Google Cloud Run)
-Deployment is handled automatically by GitHub Actions. Pushing to the `main` branch triggers a build and deploy process using the `Dockerfile` in the `backend/` directory, updating the Telegram Webhook automatically to the new Cloud Run URL.
+### Deployment (GitLab CI/CD -> Google Cloud Run)
+Deployment is handled automatically by GitLab CI/CD. Pushing to the `main` branch triggers a build and deploy process using the `Dockerfile` in the `backend/` directory, updating the Telegram Webhook automatically to the new Cloud Run URL. Non-code Cloud Run configuration changes can be applied separately through the config-only workflow.

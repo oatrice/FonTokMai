@@ -13,6 +13,7 @@ fi
 : "${CLOUD_RUN_SERVICE:=fontokmai-api}"
 : "${CLOUD_RUN_REGION:=asia-southeast1}"
 : "${CLOUD_RUN_SERVICE_ACCOUNT:=cloud-run-runtime@fonmayang.iam.gserviceaccount.com}"
+: "${CLOUD_RUN_ALLOW_UNAUTHENTICATED:=true}"
 : "${CLOUD_RUN_MEMORY:=1Gi}"
 : "${CLOUD_RUN_CPU:=1}"
 : "${CLOUD_RUN_TIMEOUT:=300}"
@@ -23,11 +24,6 @@ fi
 : "${CLOUD_RUN_NO_CPU_THROTTLING:=true}"
 
 echo "Applying Cloud Run config for ${CLOUD_RUN_SERVICE}"
-
-ALLOW_FLAG="--allow-unauthenticated"
-if [ "$CLOUD_RUN_ALLOW_UNAUTHENTICATED" != "true" ]; then
-  ALLOW_FLAG="--no-allow-unauthenticated"
-fi
 
 CPU_BOOST_FLAG="--cpu-boost"
 if [ "$CLOUD_RUN_CPU_BOOST" != "true" ]; then
@@ -42,7 +38,6 @@ fi
 gcloud run services update "$CLOUD_RUN_SERVICE" \
   --region "$CLOUD_RUN_REGION" \
   --service-account="$CLOUD_RUN_SERVICE_ACCOUNT" \
-  $ALLOW_FLAG \
   --memory "$CLOUD_RUN_MEMORY" \
   --cpu "$CLOUD_RUN_CPU" \
   --timeout "$CLOUD_RUN_TIMEOUT" \
@@ -51,3 +46,16 @@ gcloud run services update "$CLOUD_RUN_SERVICE" \
   --concurrency "$CLOUD_RUN_CONCURRENCY" \
   $CPU_BOOST_FLAG \
   $CPU_THROTTLING_FLAG
+
+if [ "$CLOUD_RUN_ALLOW_UNAUTHENTICATED" = "true" ]; then
+  gcloud run services add-iam-policy-binding "$CLOUD_RUN_SERVICE" \
+    --region "$CLOUD_RUN_REGION" \
+    --member="allUsers" \
+    --role="roles/run.invoker"
+else
+  gcloud run services remove-iam-policy-binding "$CLOUD_RUN_SERVICE" \
+    --region "$CLOUD_RUN_REGION" \
+    --member="allUsers" \
+    --role="roles/run.invoker" \
+    --quiet || true
+fi

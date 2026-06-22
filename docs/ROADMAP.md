@@ -27,6 +27,10 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #108 - Infra: Sync Cloud Scheduler job definitions from GCP Console into repo
+- **GitHub:** [#108](https://gitlab.com/oatricedev/FonMaYang/-/issues/108)
+- **Status:** 🟢 **Ready**
+
 ### Issue #106 - Monitoring: Deploy GCP Alert Rules for Cloud Run
 - **GitHub:** [#106](https://gitlab.com/oatricedev/FonMaYang/-/issues/106)
     - ✅ **Done** (0.38.0)
@@ -49,7 +53,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #101 - Bug: Coordinate pin alignment shift on production radar image
 - **GitHub:** [#101](https://gitlab.com/oatricedev/FonMaYang/-/issues/101)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.39.0)
 
 ### Issue #100 - Bug: Unawaited coroutine in render_hq_png & incorrect mock path in tests
 - **GitHub:** [#100](https://gitlab.com/oatricedev/FonMaYang/-/issues/100)
@@ -450,4 +454,8 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ### Issue # - Infrastructure: Fix CPU Cold Start latency and misleading memory GC in radar processing
 - **State:** opened
 - ✅ **Done** (0.38.0)
+
+### Issue # - Infra: Track Cloud Run deploy config and monitoring export audit tooling
+- **State:** opened
+- ✅ **Done** (0.39.0)
 

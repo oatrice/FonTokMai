@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.39.0] - 2026-06-22
+
+### Added
+- Added Cloud Run deployment config files (`cloudrun.env`, `deploy_cloudrun.sh`, `apply_cloudrun_config.sh`) to keep non-secret runtime settings versioned and reusable for CI/manual updates.
+- Added an audit script (`audit_window_2026-06-21.sh`) for exporting Cloud Run logs and monitoring data for a specific incident window.
+
+### Changed
+- Refactored GitLab CI/CD to share Cloud Run auth handling, split config-only updates from source deploys, and keep deployment settings aligned with the versioned Cloud Run config.
+- Extended the audit script with custom time-window flags, JSON export, output directory selection, and a generated `summary.json`.
+- Reworked TMD radar pin mapping so cached static frames use static crop coordinates, fixing the production pin alignment shift.
+
+### Fixed
+- Fixed Cloud Run radar pin alignment on static frames by using the correct static coordinate mapping in `WeatherManager`.
+
 ## [0.38.0] - 2026-06-20
 
 ### Added

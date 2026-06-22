@@ -1,29 +1,29 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "reviewing",
   "active_issues": [
     {
-      "number": 106,
-      "title": "Monitoring: Deploy GCP Alert Rules for Cloud Run",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/106",
+      "number": 101,
+      "title": "Bug: Coordinate pin alignment shift on production radar image",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/101",
       "body": null,
-      "project_item_id": "GLAB_106",
+      "project_item_id": "GLAB_101",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 107,
-      "title": "Infrastructure: Fix CPU Cold Start latency and misleading memory GC in radar processing",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/107",
+      "number": 111,
+      "title": "Infra: Track Cloud Run deploy config and traffic spike audit tooling",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/111",
       "body": null,
-      "project_item_id": "GLAB_107",
+      "project_item_id": "GLAB_111",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/106-monitoring-deploy-gcp-alert-ru",
-  "started_at": "2026-06-20T23:07:07.684581",
+  "active_branch": "feat/101-bug-coordinate-pin-alignment-s",
+  "started_at": "2026-06-22T13:15:59.755118",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -34,29 +34,31 @@
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
-        "README.md"
-      ],
+      "pending": [],
       "changed_files": [
         "CHANGELOG.md",
+        "README.md",
         "VERSION",
         "backend/app/services/weather_manager.py",
-        "backend/scripts/setup_cloudrun_alerts.sh",
-        "cursorrules",
+        "backend/deploy/apply_cloudrun_config.sh",
+        "backend/deploy/cloudrun.env",
+        "backend/deploy/deploy_cloudrun.sh",
+        "backend/scripts/audit_window_2026-06-21.sh",
+        "backend/tests/test_tmd_radar_e2e.py",
         "docs/ROADMAP.md",
-        "gitignore",
         "gitlab-ci.yml",
-        "luma/prompts/prompt_20260620_062936_f62d721d.md.response.md",
-        "luma_metrics.json",
+        "luma/prompts/prompt_20260622_065340_2d0ea90d.md.response.md",
+        "luma/prompts/prompt_20260622_071028_41ce854e.md",
+        "luma/prompts/prompt_20260622_071030_a7ef70e2.md",
         "luma_state.json"
       ],
       "meaningful_files": [
         "backend/app/services/weather_manager.py",
-        "backend/scripts/setup_cloudrun_alerts.sh",
-        "cursorrules",
-        "gitignore",
+        "backend/deploy/apply_cloudrun_config.sh",
+        "backend/deploy/cloudrun.env",
+        "backend/deploy/deploy_cloudrun.sh",
+        "backend/scripts/audit_window_2026-06-21.sh",
         "gitlab-ci.yml",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -129,7 +131,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/43",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-20T23:18:20.932332"
+  "last_updated": "2026-06-22T14:12:20.320036"
 }
