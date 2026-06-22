@@ -90,7 +90,7 @@ Used for testing alerts and system behaviors without waiting for real weather ev
 3. Set up your `.env` file with your `TELEGRAM_BOT_TOKEN`, `TOMORROW_API_KEY`, `RAINBOW_API_KEY`, `XWEATHER_CLIENT_ID`, `XWEATHER_CLIENT_SECRET`, `CRON_SECRET`, `GEMINI_API_KEY`, `OCR_SPACE_API_KEY`, etc.
 4. Run unit tests:
    ```bash
-   pytest tests/
+   ./scripts/test.sh
    ```
 5. Run the FastAPI development server:
    ```bash
