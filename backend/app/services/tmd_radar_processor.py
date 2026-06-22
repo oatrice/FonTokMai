@@ -1253,8 +1253,8 @@ class TMDRadarProcessor:
             pass
         return None
 
-    async def fetch_loop_gif_and_extract_frames(self, use_cache: bool = True) -> Tuple[List[np.ndarray], Optional['datetime']]:
-        """Fetches the Loop.gif and extracts frames and the Last-Modified datetime."""
+    async def fetch_loop_gif_and_extract_frames(self, use_cache: bool = True) -> Tuple[List[np.ndarray], Optional['datetime'], Optional[bytes]]:
+        """Fetches the Loop.gif and extracts frames, the Last-Modified datetime, and raw GIF bytes."""
         
         loop_bytes = None
         dt = None
@@ -1289,7 +1289,7 @@ class TMDRadarProcessor:
                     f"[{self.station_code}] No loop_gif_url configured "
                     f"(station has no loop GIF from TMD). Returning empty frames."
                 )
-                return [], None
+                return [], None, None
             try:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.get(url)
@@ -1353,10 +1353,10 @@ class TMDRadarProcessor:
                 except Exception as e:
                     print(f"Error in OCR: {e}")
 
-                return frames, dt
+                return frames, dt, loop_bytes
             except Exception as e:
                 print(f"Error processing loop gif: {e}")
-        return [], None
+        return [], None, None
 
     async def fetch_loop_history_bytes(self) -> List[bytes]:
         """
@@ -1415,4 +1415,3 @@ class TMDRadarProcessor:
             return deleted_count
             
         return await asyncio.to_thread(_delete_sync)
-

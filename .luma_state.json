@@ -1,15 +1,124 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "idle",
-  "active_issues": [],
-  "active_branch": null,
-  "started_at": null,
-  "checklist": {},
-  "context": {},
+  "phase": "coding",
+  "active_issues": [
+    {
+      "number": 112,
+      "title": "TMD radar fallback cache for loop GIF frames",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/112",
+      "body": null,
+      "project_item_id": "GLAB_112",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    }
+  ],
+  "active_branch": "feat/112-tmd-radar-fallback-cache-for-l",
+  "started_at": "2026-06-22T14:53:05.526433",
+  "checklist": {
+    "step_planning": true
+  },
+  "context": {
+    "pending_doc_updates": {
+      "pending": [],
+      "changed_files": [
+        "CHANGELOG.md",
+        "README.md",
+        "VERSION",
+        "backend/app/services/weather_manager.py",
+        "backend/deploy/apply_cloudrun_config.sh",
+        "backend/deploy/cloudrun.env",
+        "backend/deploy/deploy_cloudrun.sh",
+        "backend/scripts/audit_window_2026-06-21.sh",
+        "backend/tests/test_tmd_radar_e2e.py",
+        "docs/ROADMAP.md",
+        "gitlab-ci.yml",
+        "luma/prompts/prompt_20260620_062936_f62d721d.md.response.md",
+        "luma/prompts/prompt_20260622_075304_6ec33e55.md",
+        "luma_metrics.json",
+        "luma_state.json"
+      ],
+      "meaningful_files": [
+        "backend/app/services/weather_manager.py",
+        "backend/deploy/apply_cloudrun_config.sh",
+        "backend/deploy/cloudrun.env",
+        "backend/deploy/deploy_cloudrun.sh",
+        "backend/scripts/audit_window_2026-06-21.sh",
+        "gitlab-ci.yml",
+        "luma_metrics.json",
+        "luma_state.json"
+      ],
+      "version_file": "VERSION",
+      "has_meaningful_changes": true
+    },
+    "target_planning_repos": [
+      {
+        "name": "FonMaYang",
+        "path": "/Users/oatrice/Software Project/FonMaYang",
+        "repo": "oatricedev/FonMaYang",
+        "slug": "fonmayang",
+        "kanban_number": 1,
+        "kanban_id": "",
+        "platform": "gitlab",
+        "status_workflow": {
+          "selectable_statuses": [
+            "Ready",
+            "In Progress",
+            "Todo"
+          ],
+          "selection_order": [
+            "In Progress",
+            "Ready",
+            "Todo"
+          ],
+          "active_statuses": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review"
+          ],
+          "active_sort_order": [
+            "In Progress",
+            "Ready",
+            "Todo",
+            "In Review",
+            "Backlog"
+          ],
+          "board_order": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review",
+            "Done",
+            "Closed"
+          ],
+          "done_statuses": [
+            "Done",
+            "Closed"
+          ],
+          "status_icons": {
+            "Backlog": "📥 ",
+            "Ready": "✅ ",
+            "Todo": "📝 ",
+            "In Progress": "🔥 ",
+            "In Review": "👀 ",
+            "Done": "✅ ",
+            "Closed": "✅ "
+          },
+          "action_status_map": {
+            "select_issue": "In Progress",
+            "create_pr": "In Review",
+            "pr_merged": "Done"
+          }
+        }
+      }
+    ]
+  },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-22T14:51:40.520376"
+  "last_updated": "2026-06-22T14:53:12.141417"
 }

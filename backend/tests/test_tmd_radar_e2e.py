@@ -131,3 +131,60 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping(monkeypatch):
 
     assert result["endpoint"] == "tmd-radar (kkn240)"
     assert ("kkn240", False) in calls
+
+
+@pytest.mark.asyncio
+async def test_tmd_radar_fresh_loop_fallback_warms_cache(monkeypatch):
+    _install_weather_manager_import_stubs(monkeypatch)
+
+    from contextlib import asynccontextmanager
+    from datetime import datetime, timezone
+    import time
+    import numpy as np
+    import cv2
+
+    from app.services.weather_manager import WeatherManager
+    from app.services import weather_manager as wm
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+    from unittest.mock import MagicMock, AsyncMock
+
+    lat, lng = 17.8785, 102.7420
+    frame_a = np.zeros((800, 800, 3), dtype=np.uint8)
+    frame_b = np.zeros((800, 800, 3), dtype=np.uint8)
+    cv2.circle(frame_b, (400, 400), 24, (0, 255, 0), -1)
+
+    repo = MagicMock()
+    repo.get_latest_radar_cache = AsyncMock(return_value=None)
+    repo.set_latest_radar_cache = AsyncMock()
+
+    @asynccontextmanager
+    async def mock_repo_context():
+        yield repo
+
+    original_cache = wm._GLOBAL_TMD_CACHE.copy()
+    wm._GLOBAL_TMD_CACHE.clear()
+
+    async def fake_fetch(self, use_cache=True):
+        if self.station_code == "kkn240":
+            return [frame_a, frame_b], datetime.now(timezone.utc), b"fresh-loop-bytes"
+        return [], None, None
+
+    async def fake_save(self, image_bytes):
+        assert image_bytes == b"fresh-loop-bytes"
+        return "radar/kkn240/kkn240_fresh.gif"
+
+    monkeypatch.setattr("app.services.weather_manager.get_repo_context", mock_repo_context)
+    monkeypatch.setattr(TMDRadarProcessor, "fetch_loop_gif_and_extract_frames", fake_fetch)
+    monkeypatch.setattr(TMDRadarProcessor, "save_polled_frame", fake_save)
+
+    try:
+        result = await WeatherManager()._get_tmd_prediction(lat, lng, mock_state="storm")
+    finally:
+        wm._GLOBAL_TMD_CACHE.clear()
+        wm._GLOBAL_TMD_CACHE.update(original_cache)
+
+    assert result["endpoint"] == "tmd-radar (kkn240)"
+    assert result["radar_static_bytes"] is not None
+    assert result["radar_tracking_bytes"] is not None
+    assert result["rain_timeline_bytes"] is not None
+    assert repo.set_latest_radar_cache.await_count == 1

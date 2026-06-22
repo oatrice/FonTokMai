@@ -59,10 +59,11 @@ async def test_fetch_loop_gif_and_extract_frames():
                 mock_np_array.return_value = np.zeros((100, 100, 3), dtype=np.uint8)
                 mock_iterator.return_value = [mock_frame] * 6
                 
-                frames, dt = await processor.fetch_loop_gif_and_extract_frames()
+                frames, dt, loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
                 
                 assert len(frames) == 6
                 assert frames[0].shape == (100, 100, 3)
+                assert loop_bytes == b"fake_gif_bytes"
                 mock_open.assert_called_once()
                 mock_iterator.assert_called_once_with(mock_img)
 

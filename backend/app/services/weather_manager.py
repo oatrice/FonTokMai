@@ -4,6 +4,7 @@ import os
 import asyncio
 import cv2
 import io
+import numpy as np
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from PIL import Image, ImageDraw, ImageFont
@@ -212,42 +213,64 @@ class WeatherManager:
                         async with get_repo_context() as repo:
                             cache = await repo.get_latest_radar_cache(station_code)
                         
-                        if not cache or not cache.get("url_t") or not cache.get("url_t_minus_1"):
-                            continue
-                        
-                        # download images
-                        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
-                        from google.cloud import storage
-                        client = storage.Client()
-                        bucket = client.bucket(bucket_name)
-                        blob_t = bucket.blob(cache["url_t"])
-                        blob_t_minus_1 = bucket.blob(cache["url_t_minus_1"])
-                        
-                        import asyncio
-                        try:
-                            t_bytes, t_minus_1_bytes = await asyncio.gather(
-                                asyncio.to_thread(blob_t.download_as_bytes),
-                                asyncio.to_thread(blob_t_minus_1.download_as_bytes)
-                            )
-                        except Exception as e:
-                            logger.error(f"Failed to download frames for {station_code}: {e}")
-                            continue
-                        
-                        import cv2, numpy as np
-                        t_np = np.frombuffer(t_bytes, np.uint8)
-                        curr_frame = cv2.imdecode(t_np, cv2.IMREAD_COLOR)
-                        curr_frame = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2RGB)
-                        
-                        t_minus_1_np = np.frombuffer(t_minus_1_bytes, np.uint8)
-                        prev_frame = cv2.imdecode(t_minus_1_np, cv2.IMREAD_COLOR)
-                        prev_frame = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2RGB)
-                        
-                        frames = [prev_frame, curr_frame]
-                        last_modified_dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
-                        flow = processor.calculate_optical_flow(frames)
-                        
-                        # Cache it with flow to avoid recalculating
-                        _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow)
+                        frames = []
+                        last_modified_dt = None
+                        flow = None
+
+                        if cache and cache.get("url_t") and cache.get("url_t_minus_1"):
+                            # download images
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                            from google.cloud import storage
+                            client = storage.Client()
+                            bucket = client.bucket(bucket_name)
+                            blob_t = bucket.blob(cache["url_t"])
+                            blob_t_minus_1 = bucket.blob(cache["url_t_minus_1"])
+                            
+                            try:
+                                t_bytes, t_minus_1_bytes = await asyncio.gather(
+                                    asyncio.to_thread(blob_t.download_as_bytes),
+                                    asyncio.to_thread(blob_t_minus_1.download_as_bytes)
+                                )
+                            except Exception as e:
+                                logger.warning(f"Failed to download cached frames for {station_code}: {e}")
+                                t_bytes = None
+                                t_minus_1_bytes = None
+
+                            if t_bytes and t_minus_1_bytes:
+                                t_np = np.frombuffer(t_bytes, np.uint8)
+                                curr_frame = cv2.imdecode(t_np, cv2.IMREAD_COLOR)
+                                curr_frame = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2RGB)
+                                
+                                t_minus_1_np = np.frombuffer(t_minus_1_bytes, np.uint8)
+                                prev_frame = cv2.imdecode(t_minus_1_np, cv2.IMREAD_COLOR)
+                                prev_frame = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2RGB)
+                                
+                                frames = [prev_frame, curr_frame]
+                                last_modified_dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
+                                flow = processor.calculate_optical_flow(frames)
+                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow)
+
+                        if not frames or len(frames) < 2:
+                            fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames(use_cache=False)
+                            if len(fresh_frames) >= 2:
+                                frames = fresh_frames[-2:]
+                                last_modified_dt = fresh_dt or datetime.now(timezone.utc)
+                                flow = processor.calculate_optical_flow(frames)
+                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow)
+                                if fresh_loop_bytes:
+                                    try:
+                                        new_url_t = await processor.save_polled_frame(fresh_loop_bytes)
+                                        async with get_repo_context() as repo:
+                                            await repo.set_latest_radar_cache(
+                                                station_code=station_code,
+                                                url_t=new_url_t,
+                                                url_t_minus_1=cache.get("url_t") if cache else None,
+                                                timestamp=int((fresh_dt or datetime.now(timezone.utc)).timestamp()),
+                                            )
+                                    except Exception as e:
+                                        logger.warning(f"Failed to warm radar cache for {station_code}: {e}")
+                            else:
+                                continue
 
                 if not frames or len(frames) < 2:
                     continue
