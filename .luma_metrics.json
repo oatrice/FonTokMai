@@ -2303,13 +2303,13 @@
       "start_datetime": null,
       "actual_mandays": 0.0,
       "due_date": "2026-06-21T23:59:59",
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-06-22T14:15:02",
       "effort_level": "Low",
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-19T16:43:47.682Z",
-      "updated_at": "2026-06-22T14:12:18.620893"
+      "updated_at": "2026-06-22T14:15:02.497961"
     },
     "oatricedev/FonMaYang#107": {
       "issue_key": "oatricedev/FonMaYang#107",
@@ -2336,8 +2336,8 @@
     "oatricedev/FonMaYang#111": {
       "issue_key": "oatricedev/FonMaYang#111",
       "issue_number": 111,
-      "issue_title": "Infra: Track Cloud Run deploy config and monitoring export audit tooling",
-      "issue_url": "",
+      "issue_title": "Infra: Track Cloud Run deploy config and traffic spike audit tooling",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/111",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Complete",
@@ -2345,15 +2345,15 @@
       "post_story_point": 21.0,
       "estimated_mandays": null,
       "start_datetime": null,
-      "actual_mandays": null,
+      "actual_mandays": 0.0,
       "due_date": null,
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-06-22T14:15:02",
       "effort_level": null,
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-22T14:12:17.729882",
-      "updated_at": "2026-06-22T14:12:18.879601"
+      "updated_at": "2026-06-22T14:15:02.501134"
     }
   }
 }
