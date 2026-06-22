@@ -1,12 +1,28 @@
 
 import pytest
 
+
+def _install_weather_manager_import_stubs(monkeypatch):
+    import sys
+    import types
+
+    ocr_stub = types.ModuleType("app.services.ocr_service")
+    ocr_stub.OCRService = object
+    monkeypatch.setitem(sys.modules, "app.services.ocr_service", ocr_stub)
+
+    storage_stub = types.ModuleType("google.cloud.storage")
+    storage_stub.Client = object
+    monkeypatch.setitem(sys.modules, "google.cloud.storage", storage_stub)
+
+
 @pytest.mark.asyncio
-async def test_tmd_radar_e2e_prediction_success():
+async def test_tmd_radar_e2e_prediction_success(monkeypatch):
     """
     E2E Test สำหรับ TMD Radar Pipeline ป้องกันบั๊กพวก NameError หรือ Unawaited coroutine
     โดยจะ Mock แค่การดาวน์โหลดภาพเรดาร์จากเว็บ TMD เท่านั้น
     """
+    _install_weather_manager_import_stubs(monkeypatch)
+
     from app.services.weather_manager import WeatherManager
     from unittest.mock import AsyncMock, patch
     import numpy as np
@@ -66,3 +82,52 @@ async def test_tmd_radar_e2e_prediction_success():
     assert result["radar_static_bytes"] is not None
     assert len(result["radar_static_bytes"]) > 0
 
+
+def test_tmd_radar_cached_static_frames_use_static_pixel_mapping(monkeypatch):
+    """
+    The Cloud Run radar pipeline reads T/T-1 static images from radar_latest_cache.
+    User coordinates must therefore be mapped with static crop settings, not loop GIF
+    crop settings, before drawing the pin or sampling rain at that pixel.
+    """
+    import asyncio
+    from datetime import datetime, timezone
+    import time
+    import cv2
+    import numpy as np
+
+    _install_weather_manager_import_stubs(monkeypatch)
+
+    from app.services.weather_manager import WeatherManager
+    from app.services import weather_manager as wm
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+
+    lat, lng = 17.8785, 102.7420  # Nong Khai: covered by kkn240.
+    dummy_image = np.zeros((800, 800, 3), dtype=np.uint8)
+    cv2.circle(dummy_image, (425, 158), 10, (0, 255, 0), -1)
+
+    processor = TMDRadarProcessor("kkn240")
+    dummy_flow = processor.calculate_optical_flow([dummy_image, dummy_image])
+    cached_entry = ([dummy_image, dummy_image], datetime.now(timezone.utc), time.time(), dummy_flow)
+
+    original_cache = wm._GLOBAL_TMD_CACHE.copy()
+    wm._GLOBAL_TMD_CACHE.clear()
+    for station_code in ["kkn120", "kkn240", "skn240"]:
+        wm._GLOBAL_TMD_CACHE[station_code] = cached_entry
+
+    calls = []
+    original_latlng_to_pixel = TMDRadarProcessor.latlng_to_pixel
+
+    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None):
+        calls.append((self.station_code, is_loop))
+        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection)
+
+    monkeypatch.setattr(TMDRadarProcessor, "latlng_to_pixel", record_latlng_to_pixel)
+
+    try:
+        result = asyncio.run(WeatherManager()._get_tmd_prediction(lat, lng))
+    finally:
+        wm._GLOBAL_TMD_CACHE.clear()
+        wm._GLOBAL_TMD_CACHE.update(original_cache)
+
+    assert result["endpoint"] == "tmd-radar (kkn240)"
+    assert ("kkn240", False) in calls

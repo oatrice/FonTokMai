@@ -194,7 +194,7 @@ class WeatherManager:
         for station_code in ["kkn120", "kkn240", "skn240"]:
             try:
                 processor = TMDRadarProcessor(station_code)
-                px, py = processor.latlng_to_pixel(lat, lng)
+                px, py = processor.latlng_to_pixel(lat, lng, is_loop=False)
                 if px is None or py is None:
                     continue
 
@@ -451,4 +451,3 @@ class WeatherManager:
                 pass
 
         raise Exception("Location out of bounds for active TMD Radars.")
-
