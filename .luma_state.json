@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 112,
@@ -16,7 +16,9 @@
   "active_branch": "feat/112-tmd-radar-fallback-cache-for-l",
   "started_at": "2026-06-22T14:53:05.526433",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -120,5 +122,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-22T14:53:12.141417"
+  "last_updated": "2026-06-22T15:13:11.112318"
 }

@@ -209,6 +209,7 @@ class WeatherManager:
                     
                     if cached_data and (time.time() - cached_data[2]) < 600:
                         frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
+                        frame_source = cached_data[4] if len(cached_data) > 4 else "static_cache"
                     else:
                         async with get_repo_context() as repo:
                             cache = await repo.get_latest_radar_cache(station_code)
@@ -216,6 +217,7 @@ class WeatherManager:
                         frames = []
                         last_modified_dt = None
                         flow = None
+                        frame_source = "static_cache"
 
                         if cache and cache.get("url_t") and cache.get("url_t_minus_1"):
                             # download images
@@ -244,19 +246,33 @@ class WeatherManager:
                                 t_minus_1_np = np.frombuffer(t_minus_1_bytes, np.uint8)
                                 prev_frame = cv2.imdecode(t_minus_1_np, cv2.IMREAD_COLOR)
                                 prev_frame = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2RGB)
+
+                                if prev_frame.shape[:2] != curr_frame.shape[:2]:
+                                    prev_frame = cv2.resize(
+                                        prev_frame,
+                                        (curr_frame.shape[1], curr_frame.shape[0]),
+                                        interpolation=cv2.INTER_AREA,
+                                    )
                                 
                                 frames = [prev_frame, curr_frame]
                                 last_modified_dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
                                 flow = processor.calculate_optical_flow(frames)
-                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow)
+                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source)
 
                         if not frames or len(frames) < 2:
                             fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames(use_cache=False)
                             if len(fresh_frames) >= 2:
                                 frames = fresh_frames[-2:]
+                                if frames[0].shape[:2] != frames[1].shape[:2]:
+                                    frames[0] = cv2.resize(
+                                        frames[0],
+                                        (frames[1].shape[1], frames[1].shape[0]),
+                                        interpolation=cv2.INTER_AREA,
+                                    )
                                 last_modified_dt = fresh_dt or datetime.now(timezone.utc)
                                 flow = processor.calculate_optical_flow(frames)
-                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow)
+                                frame_source = "loop_gif"
+                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source)
                                 if fresh_loop_bytes:
                                     try:
                                         new_url_t = await processor.save_polled_frame(fresh_loop_bytes)
@@ -277,10 +293,14 @@ class WeatherManager:
 
                 curr_frame = frames[-1].copy()
                 prev_frame = frames[-2].copy()
+                use_loop_mapping = frame_source == "loop_gif"
+                user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=use_loop_mapping)
+                if user_px is None or user_py is None:
+                    continue
 
                 # Find all cloud clusters approaching the user
                 clouds = processor.find_approaching_clouds(
-                    curr_frame, prev_frame, flow, px, py,
+                    curr_frame, prev_frame, flow, user_px, user_py,
                     search_radius=80, min_dbz=20.0, cluster_dist=20,
                 )
 
@@ -324,7 +344,7 @@ class WeatherManager:
                                 })
 
                         for mc in mock_configs:
-                            cx, cy = px + mc["offset"][0], py + mc["offset"][1]
+                            cx, cy = user_px + mc["offset"][0], user_py + mc["offset"][1]
                             vx, vy = 3.0, -3.0  # Move towards NE
                             clouds.append({
                                 "cx": cx, "cy": cy,
@@ -337,7 +357,6 @@ class WeatherManager:
                             })
                             
                             if mock_state == "storm":
-                                import cv2
                                 cv2.circle(curr_frame, (cx, cy), 22, mc["color"], -1)
                     else:
                         for c in clouds:
@@ -409,7 +428,6 @@ class WeatherManager:
 
                 def render_hq_png(target_frame, pin_x, pin_y, time_utc, proc):
                     from PIL import Image, ImageFont, ImageDraw
-                    import cv2
                     import io
                     # Copy to avoid mutating original for future tasks
                     cf = target_frame.copy()
@@ -444,9 +462,8 @@ class WeatherManager:
                 tracking_bytes = None
                 timeline_bytes = None
                 try:
-                    import asyncio
-                    static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), px, py, now_utc, processor)
-                    tracking_bytes = await asyncio.to_thread(processor.generate_radar_tracking_image, curr_frame.copy(), px, py, clouds)
+                    static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor)
+                    tracking_bytes = await asyncio.to_thread(processor.generate_radar_tracking_image, curr_frame.copy(), user_px, user_py, clouds)
                     timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, clouds)
                 except Exception as e:
                     logger.error(f"Failed to generate radar PNGs: {e}")

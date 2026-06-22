@@ -164,6 +164,13 @@ async def test_tmd_radar_fresh_loop_fallback_warms_cache(monkeypatch):
     original_cache = wm._GLOBAL_TMD_CACHE.copy()
     wm._GLOBAL_TMD_CACHE.clear()
 
+    calls = []
+    original_latlng_to_pixel = TMDRadarProcessor.latlng_to_pixel
+
+    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None):
+        calls.append((self.station_code, is_loop))
+        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection)
+
     async def fake_fetch(self, use_cache=True):
         if self.station_code == "kkn240":
             return [frame_a, frame_b], datetime.now(timezone.utc), b"fresh-loop-bytes"
@@ -176,6 +183,7 @@ async def test_tmd_radar_fresh_loop_fallback_warms_cache(monkeypatch):
     monkeypatch.setattr("app.services.weather_manager.get_repo_context", mock_repo_context)
     monkeypatch.setattr(TMDRadarProcessor, "fetch_loop_gif_and_extract_frames", fake_fetch)
     monkeypatch.setattr(TMDRadarProcessor, "save_polled_frame", fake_save)
+    monkeypatch.setattr(TMDRadarProcessor, "latlng_to_pixel", record_latlng_to_pixel)
 
     try:
         result = await WeatherManager()._get_tmd_prediction(lat, lng, mock_state="storm")
@@ -188,3 +196,4 @@ async def test_tmd_radar_fresh_loop_fallback_warms_cache(monkeypatch):
     assert result["radar_tracking_bytes"] is not None
     assert result["rain_timeline_bytes"] is not None
     assert repo.set_latest_radar_cache.await_count == 1
+    assert ("kkn240", True) in calls

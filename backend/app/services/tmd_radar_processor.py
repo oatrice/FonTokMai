@@ -1337,6 +1337,15 @@ class TMDRadarProcessor:
                 frames = []
                 for frame in ImageSequence.Iterator(img):
                     frames.append(np.array(frame.copy().convert("RGB")))
+
+                if frames:
+                    target_h, target_w = frames[0].shape[:2]
+                    normalized_frames = []
+                    for frame in frames:
+                        if frame.shape[:2] != (target_h, target_w):
+                            frame = cv2.resize(frame, (target_w, target_h), interpolation=cv2.INTER_AREA)
+                        normalized_frames.append(frame)
+                    frames = normalized_frames
                     
                 # Optimize memory: keep only the last 12 frames (approx 3 hours of radar data)
                 # to prevent OOM spikes during downstream high-res GIF generation.
