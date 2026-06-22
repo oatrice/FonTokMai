@@ -659,6 +659,18 @@ async def handle_devmock_command(chat_id: int, command: str):
 
 
 async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False):
+    import re
+    coords_match = re.search(r'([+-]?\d+\.\d+)[,\s]+([+-]?\d+\.\d+)', command)
+    custom_lat = None
+    custom_lng = None
+    if coords_match:
+        try:
+            custom_lat = float(coords_match.group(1))
+            custom_lng = float(coords_match.group(2))
+            command = command.replace(coords_match.group(0), "").strip()
+        except ValueError:
+            pass
+
     parts = command.strip().split()
     force_provider = None
     target_location_name = None
@@ -680,25 +692,34 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
     if force_provider in provider_aliases:
         force_provider = provider_aliases[force_provider]
     
-    async with get_repo_context() as repo:
-        locs = await repo.get_user_locations(chat_id)
-        
-    if not locs:
-        await send_telegram_message(chat_id, "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")
-        return
-        
     loc = None
-    if target_location_name:
-        for l in locs:
-            if (l.name and l.name.lower() == target_location_name) or (target_location_name == "default" and l.name is None):
-                loc = l
-                break
-        if not loc:
-            available_locs = ", ".join([l.name for l in locs if l.name])
-            await send_telegram_message(chat_id, f"⚠️ ไม่พบพิกัดชื่อ '{target_location_name}'\nพิกัดที่มี: {available_locs or 'default'}")
-            return
+    if custom_lat is not None and custom_lng is not None:
+        from app.models import UserLocation
+        loc = UserLocation(
+            chat_id=chat_id,
+            latitude=custom_lat,
+            longitude=custom_lng,
+            name=f"{custom_lat}, {custom_lng}"
+        )
     else:
-        loc = locs[0]
+        async with get_repo_context() as repo:
+            locs = await repo.get_user_locations(chat_id)
+            
+        if not locs:
+            await send_telegram_message(chat_id, "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")
+            return
+            
+        if target_location_name:
+            for l in locs:
+                if (l.name and l.name.lower() == target_location_name) or (target_location_name == "default" and l.name is None):
+                    loc = l
+                    break
+            if not loc:
+                available_locs = ", ".join([l.name for l in locs if l.name])
+                await send_telegram_message(chat_id, f"⚠️ ไม่พบพิกัดชื่อ '{target_location_name}'\nพิกัดที่มี: {available_locs or 'default'}")
+                return
+        else:
+            loc = locs[0]
         
     loc_display = loc.name.capitalize() if loc.name else "ระบบอัตโนมัติ"
     msg_text = f"⏳ กำลังตรวจสอบสภาพอากาศที่ '{loc_display}' "

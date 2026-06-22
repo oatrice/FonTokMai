@@ -163,4 +163,25 @@ IGNORED_COLORS = [
     (32, 45, 93),    # Dark brown/grey map background
     (153, 153, 153), # Gray
     # Add actual map background RGB here during calibration
+    (110, 127, 91),  # Map background green 1
+    (108, 125, 89),  # Map background green 2
+    (87, 156, 73),   # Map background bright green 1
+    (79, 151, 67),   # Map background bright green 2
+    (84, 148, 89),   # Map background bright green 3
+    # Additional problematic map pixels
+    (77, 159, 74),
+    (61, 156, 64),
+    (66, 172, 71),
+    (75, 169, 73),
+    (73, 170, 77),
+    (68, 159, 64),
+    (77, 162, 79),
+    (67, 156, 74),
+    (77, 156, 77),
+    (65, 159, 71),
+    (66, 156, 68),
+    (79, 160, 67),
+    (71, 161, 73),
+    (76, 161, 78),
+    (69, 155, 84),
 ]

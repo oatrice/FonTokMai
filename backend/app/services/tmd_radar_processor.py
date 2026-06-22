@@ -126,8 +126,8 @@ class TMDRadarProcessor:
         if min_dist_ignored <= min_dist_dbz:
             return 0.0
             
-        # Tighter threshold (40) reduces false positives from map features
-        if min_dist_dbz < 40:
+        # Tighter threshold (15) reduces false positives from map features
+        if min_dist_dbz < 15:
             return best_dbz
             
         return 0.0
@@ -135,7 +135,7 @@ class TMDRadarProcessor:
         """Converts an RGB radar frame into a grayscale mask representing rain intensity."""
         img_float = img.astype(np.float32)
         
-        min_dists = np.full(img.shape[:2], 40.0, dtype=np.float32)
+        min_dists = np.full(img.shape[:2], 15.0, dtype=np.float32)
         best_intensity = np.zeros(img.shape[:2], dtype=np.uint8)
         
         # Calculate min distance to any ignored color
