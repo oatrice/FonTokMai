@@ -313,6 +313,8 @@ class WeatherManager:
                 prev_frame = frames[-2].copy()
                 use_loop_mapping = frame_source == "loop_gif"
                 user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=use_loop_mapping)
+                import logging
+                logging.info(f"DEBUG_LOCATION: lat={lat}, lng={lng} -> user_px={user_px}, user_py={user_py} (station: {station_code}, is_loop={use_loop_mapping})")
                 if user_px is None or user_py is None:
                     continue
 
@@ -481,7 +483,11 @@ class WeatherManager:
                 timeline_bytes = None
                 try:
                     static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor)
+                    with open("backend/tmp/debug_static.png", "wb") as f:
+                        f.write(static_bytes)
                     tracking_bytes = await asyncio.to_thread(processor.generate_radar_tracking_image, curr_frame.copy(), user_px, user_py, clouds)
+                    with open("backend/tmp/debug_tracking.png", "wb") as f:
+                        f.write(tracking_bytes)
                     timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, clouds)
                 except Exception as e:
                     logger.error(f"Failed to generate radar PNGs: {e}")
