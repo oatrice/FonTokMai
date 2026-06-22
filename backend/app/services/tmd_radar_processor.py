@@ -603,8 +603,8 @@ class TMDRadarProcessor:
         uy = int((user_y - y1) * scale)
         
         # Draw user pin in blue to match the main location target
-        cv2.circle(img, (ux, uy), radius=int(8 * scale), color=(255, 255, 255), thickness=int(2 * scale))
-        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(12 * scale), int(2 * scale))
+        cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
+        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(10 * scale), int(3 * scale))
         
         # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest to avoid overlap
         incoming = [c for c in clouds if c["eta_min"] >= -5]
@@ -1034,8 +1034,8 @@ class TMDRadarProcessor:
         uy = int((user_y - y1) * scale)
         
         # Draw user pin in blue to match the main location target
-        cv2.circle(img, (ux, uy), radius=int(8 * scale), color=(255, 255, 255), thickness=int(2 * scale))
-        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(12 * scale), int(2 * scale))
+        cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
+        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(8 * scale), int(3 * scale))
         
         # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest to avoid overlap
         incoming = [c for c in clouds if c["eta_min"] >= -5]
