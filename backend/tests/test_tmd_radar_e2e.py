@@ -133,6 +133,53 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping(monkeypatch):
     assert ("kkn240", False) in calls
 
 
+def test_tmd_radar_cached_static_frames_use_static_pixel_mapping_skn(monkeypatch):
+    """
+    SKN 240km cached static frames should still use static mapping for the user pin.
+    """
+    import asyncio
+    from datetime import datetime, timezone
+    import time
+    import cv2
+    import numpy as np
+
+    _install_weather_manager_import_stubs(monkeypatch)
+
+    from app.services.weather_manager import WeatherManager
+    from app.services import weather_manager as wm
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+
+    lat, lng = 17.8785, 102.7420  # Nong Khai still reaches kkn240 first, but skn can be forced by cache setup.
+    dummy_image = np.zeros((800, 800, 3), dtype=np.uint8)
+    cv2.circle(dummy_image, (425, 158), 10, (0, 255, 0), -1)
+
+    processor = TMDRadarProcessor("skn240")
+    dummy_flow = processor.calculate_optical_flow([dummy_image, dummy_image])
+    cached_entry = ([dummy_image, dummy_image], datetime.now(timezone.utc), time.time(), dummy_flow)
+
+    original_cache = wm._GLOBAL_TMD_CACHE.copy()
+    wm._GLOBAL_TMD_CACHE.clear()
+    wm._GLOBAL_TMD_CACHE["skn240"] = cached_entry
+
+    calls = []
+    original_latlng_to_pixel = TMDRadarProcessor.latlng_to_pixel
+
+    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None):
+        calls.append((self.station_code, is_loop))
+        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection)
+
+    monkeypatch.setattr(TMDRadarProcessor, "latlng_to_pixel", record_latlng_to_pixel)
+
+    try:
+        result = asyncio.run(WeatherManager()._get_tmd_prediction(lat, lng))
+    finally:
+        wm._GLOBAL_TMD_CACHE.clear()
+        wm._GLOBAL_TMD_CACHE.update(original_cache)
+
+    assert result["endpoint"] == "tmd-radar (skn240)"
+    assert ("skn240", False) in calls
+
+
 @pytest.mark.asyncio
 async def test_tmd_radar_fresh_loop_fallback_warms_cache(monkeypatch):
     _install_weather_manager_import_stubs(monkeypatch)

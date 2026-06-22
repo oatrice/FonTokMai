@@ -73,10 +73,9 @@ STATIONS = {
         name="Khon Kaen (120km)",
         static_image_url="https://weather.tmd.go.th/kkn/kkn120_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
-        # TMD does not provide a 120km loop GIF (verified: returns 404).
-        # Processor will fallback to static image for frame data.
         loop_gif_url="",
         bbox=KKN_BBOX,
+        projection_type="azimuthal",
         center_lat=16.4322,
         center_lng=102.8236,
         radius_km=120.0,
@@ -94,14 +93,12 @@ STATIONS = {
         name="Khon Kaen (240km)",
         static_image_url="https://weather.tmd.go.th/kkn/kkn240_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
-        # Verified: https://weather.tmd.go.th/kkn/kkn240Loop.gif returns 200 OK
         loop_gif_url="https://weather.tmd.go.th/kkn/kkn240Loop.gif",
         bbox=KKN240_BBOX,
+        projection_type="azimuthal",
         center_lat=16.4322,
         center_lng=102.8236,
         radius_km=240.0,
-        # Image is 680x680. Legend on left is approx 80px.
-        # Radar circle is approx 600x600, vertically centered.
         static_crop_x=80,
         static_crop_y=40,
         static_crop_width=720,
@@ -116,19 +113,16 @@ STATIONS = {
         name="Sakon Nakhon (240km)",
         static_image_url="https://weather.tmd.go.th/skn/skn240_latest.jpg",
         loop_page_url="https://weather.tmd.go.th/sknLoop.php",
-        # Verified: https://weather.tmd.go.th/skn/skn240Loop.gif returns 200 OK
         loop_gif_url="https://weather.tmd.go.th/skn/skn240Loop.gif",
         bbox=SKN_BBOX,
+        projection_type="azimuthal",
         center_lat=17.1607,
         center_lng=104.1486,
         radius_km=240.0,
-        # Calibrated via Hough Circle detection on skn240_latest.jpg (800x800)
-        # Detected circle: center=(436,392), radius=364px
         static_crop_x=72,
         static_crop_y=28,
         static_crop_width=728,
         static_crop_height=728,
-        # Loop GIF: scaled proportionally from static (x0.85), pending visual verification
         loop_crop_x=61,
         loop_crop_y=24,
         loop_crop_width=620,

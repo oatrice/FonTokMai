@@ -298,18 +298,18 @@ class TMDRadarProcessor:
         
         return float(dbz)
 
-    def draw_pin_on_frame(self, img: np.ndarray, x: int, y: int) -> None:
-        """Draws a red marker on the image at the specified pixel coordinates."""
+    @staticmethod
+    def draw_pin_on_frame(img: np.ndarray, x: int, y: int) -> None:
+        """Draws the blue location pin on the image at the specified pixel coordinates."""
         if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
             return
-        # Draw thick white shadow/border first for high contrast
-        cv2.circle(img, (x, y), radius=6, color=(255, 255, 255), thickness=4)
-        cv2.drawMarker(img, (x, y), color=(255, 255, 255), markerType=cv2.MARKER_CROSS, markerSize=14, thickness=4)
-        
-        # Draw the red pin inside the white border
-        color = (0, 0, 255) # BGR Red
-        cv2.circle(img, (x, y), radius=6, color=color, thickness=2)
-        cv2.drawMarker(img, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=14, thickness=2)
+        # White halo for contrast
+        cv2.circle(img, (x, y), radius=14, color=(255, 255, 255), thickness=5)
+        cv2.circle(img, (x, y), radius=20, color=(255, 255, 255), thickness=3)
+        # Blue target body. The frame data is RGB, so this must be RGB blue.
+        color = (0, 0, 255)
+        cv2.circle(img, (x, y), radius=12, color=color, thickness=4)
+        cv2.drawMarker(img, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=24, thickness=4)
 
     def get_wind_speed_kmh_from_vector(self, vx: float, vy: float) -> float:
         pixel_speed_15m = math.sqrt(vx**2 + vy**2)
@@ -602,8 +602,9 @@ class TMDRadarProcessor:
         ux = int((user_x - x1) * scale)
         uy = int((user_y - y1) * scale)
         
-        # Draw user pin (but remove the large search radius circle to reduce clutter)
-        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(20 * scale), int(2 * scale))
+        # Draw user pin in blue to match the main location target
+        cv2.circle(img, (ux, uy), radius=int(8 * scale), color=(255, 255, 255), thickness=int(2 * scale))
+        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(12 * scale), int(2 * scale))
         
         # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest to avoid overlap
         incoming = [c for c in clouds if c["eta_min"] >= -5]
@@ -1032,8 +1033,9 @@ class TMDRadarProcessor:
         ux = int((user_x - x1) * scale)
         uy = int((user_y - y1) * scale)
         
-        # Draw user pin (but remove the large search radius circle to reduce clutter)
-        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(20 * scale), int(2 * scale))
+        # Draw user pin in blue to match the main location target
+        cv2.circle(img, (ux, uy), radius=int(8 * scale), color=(255, 255, 255), thickness=int(2 * scale))
+        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(12 * scale), int(2 * scale))
         
         # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest to avoid overlap
         incoming = [c for c in clouds if c["eta_min"] >= -5]

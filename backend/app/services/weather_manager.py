@@ -51,7 +51,10 @@ class WeatherManager:
             "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
             "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
             "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state)
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state),
+            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state),
+            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state),
+            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state)
         }
 
         # --- โหมดบังคับ endpoint (ไม่ผ่าน fallback) ---
@@ -185,14 +188,29 @@ class WeatherManager:
                 logger.error(f"Open-Meteo Contingency failed: {e_meteo}")
                 return {"advisories": [], "lightning": None, "stormcell": None}
 
-    async def _get_tmd_prediction(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
+    async def _get_tmd_prediction(self, lat: float, lng: float, force_station: Optional[str] = None, mock_state: Optional[str] = None) -> dict:
         """
         Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
         Uses dot-product approach vector filter to find approaching cloud clusters,
         then ranks by ETA and generates a smart summary with growth/decay rates.
         """
+        
+        if force_station:
+            stations_to_check = [force_station]
+        else:
+            from app.services.tmd_radar_config import STATIONS
+            stations = ["kkn120", "kkn240", "skn240"]
+            
+            def get_dist(code):
+                conf = STATIONS.get(code)
+                if not conf: return float('inf')
+                # Simple euclidean distance for sorting priority
+                import math
+                return math.hypot(lat - conf.center_lat, lng - conf.center_lng)
+                
+            stations_to_check = sorted(stations, key=get_dist)
 
-        for station_code in ["kkn120", "kkn240", "skn240"]:
+        for station_code in stations_to_check:
             try:
                 processor = TMDRadarProcessor(station_code)
                 px, py = processor.latlng_to_pixel(lat, lng, is_loop=False)

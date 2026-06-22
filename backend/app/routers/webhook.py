@@ -51,9 +51,12 @@ def _build_forecast_text(result: dict) -> str:
         "tomorrow": "Tomorrow.io",
         "rainbow-local": "Rainbow Local Radar",
         "rainbow-global": "Rainbow Global",
+        "tmd-radar": "TMD Radar",
         "error": "ไม่สามารถเชื่อมต่อได้",
     }
     endpoint_label = endpoint_label_map.get(actual_endpoint, actual_endpoint)
+    if actual_endpoint.startswith("tmd-radar (") and actual_endpoint.endswith(")"):
+        endpoint_label = actual_endpoint.replace("tmd-radar", "TMD Radar", 1)
 
     # คำนวณ ETA
     eta_minutes = None
@@ -660,7 +663,7 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
     force_provider = None
     target_location_name = None
     
-    known_providers = ["tmd-radar", "tomorrow", "rainbow-local", "rainbow-global", "xweather", "open-meteo", "tmd"]
+    known_providers = ["tmd-radar", "tomorrow", "rainbow-local", "rainbow-global", "xweather", "open-meteo", "tmd", "kkn120", "kkn240", "skn240"]
     provider_aliases = {"tmd": "tmd-radar"}
     
     if len(parts) > 1:
@@ -798,4 +801,3 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
         logger.debug(f"[WEBHOOK] Unrecognized command or text, returning ignored. text='{text}'")
 
     return {"status": "ignored"}
-
