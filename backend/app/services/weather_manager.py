@@ -239,7 +239,7 @@ class WeatherManager:
 
                         if cache and cache.get("url_t") and cache.get("url_t_minus_1"):
                             # download images
-                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
                             from google.cloud import storage
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)

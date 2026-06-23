@@ -802,7 +802,7 @@ class TMDRadarProcessor:
                         if age_secs < 900: # 15 minutes max age
                             import logging
                             logger = logging.getLogger(__name__)
-                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(cache["url_t"])
@@ -1233,7 +1233,7 @@ class TMDRadarProcessor:
                         if age_secs < 900: # 15 minutes max age
                             import logging
                             logger = logging.getLogger(__name__)
-                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(cache["url_t"])
@@ -1271,7 +1271,7 @@ class TMDRadarProcessor:
                             created_at = created_at.replace(tzinfo=None)
                         age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
                         if age_secs < 900: # 15 mins
-                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(cache["url_t_minus_1"])
@@ -1384,7 +1384,7 @@ class TMDRadarProcessor:
         
         timestamp = int(time.time())
         filename = f"radar/{self.station_code}/{self.station_code}_{timestamp}.gif"
-        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
         
         # Use sync GCS upload with asyncio.to_thread
         client = storage.Client()
@@ -1405,7 +1405,7 @@ class TMDRadarProcessor:
         cutoff_time = now - max_age_seconds
         
         def _delete_sync():
-            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
             client = storage.Client()
             bucket = client.bucket(bucket_name)
             prefix = f"radar/{self.station_code}/"
