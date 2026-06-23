@@ -488,7 +488,7 @@ class WeatherManager:
                 timeline_bytes = None
                 try:
                     static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor)
-                    tracking_bytes = await asyncio.to_thread(processor.generate_radar_tracking_image, curr_frame.copy(), user_px, user_py, clouds)
+                    tracking_bytes = await asyncio.to_thread(processor.generate_radar_tracking_image, curr_frame.copy(), user_px, user_py, clouds, now_utc)
                     timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, clouds)
                 except Exception as e:
                     logger.error(f"Failed to generate radar PNGs: {e}")

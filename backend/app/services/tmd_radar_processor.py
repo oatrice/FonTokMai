@@ -1011,7 +1011,7 @@ class TMDRadarProcessor:
             )
 
     @staticmethod
-    def generate_radar_tracking_image(frame: np.ndarray, user_x: int, user_y: int, clouds: list) -> Optional[bytes]:
+    def generate_radar_tracking_image(frame: np.ndarray, user_x: int, user_y: int, clouds: list, time_utc: datetime = None) -> Optional[bytes]:
         if frame is None or not clouds:
             return None
         
@@ -1083,6 +1083,21 @@ class TMDRadarProcessor:
                 
             cv2.putText(img, f"{sign}{time_str}", (cx + int(15 * scale), cy), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, (255, 255, 255), int(1.5 * scale))
+
+        if time_utc:
+            from zoneinfo import ZoneInfo
+            time_str = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
+            (text_w, text_h), _ = cv2.getTextSize(time_str, cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, int(1.5 * scale))
+            pad = int(8 * scale)
+            # Place at top right
+            x_pos = img.shape[1] - text_w - int(10 * scale)
+            y_pos = int(10 * scale)
+            
+            overlay = img.copy()
+            cv2.rectangle(overlay, (x_pos - pad, y_pos), (x_pos + text_w + pad, y_pos + text_h + pad * 2), (0, 0, 0), -1)
+            cv2.addWeighted(overlay, 0.6, img, 0.4, 0, img)
+            
+            cv2.putText(img, time_str, (x_pos, y_pos + text_h + pad), cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, (255, 255, 255), int(1.5 * scale))
 
         # Convert RGB back to BGR for cv2.imencode
         img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
