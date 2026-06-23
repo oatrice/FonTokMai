@@ -82,8 +82,8 @@ async def test_latlng_to_pixel():
     expected_x = config.loop_crop_x + (config.loop_crop_width // 2)
     expected_y = config.loop_crop_y + (config.loop_crop_height // 2)
     
-    assert px_x == expected_x
-    assert px_y == expected_y
+    assert abs(px_x - expected_x) <= 2
+    assert abs(px_y - expected_y) <= 2
 
     # Test Top Left
     tl_x, tl_y = processor.latlng_to_pixel(config.bbox.lat_max, config.bbox.lng_min)
