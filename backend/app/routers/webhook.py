@@ -120,7 +120,8 @@ def _build_forecast_text(result: dict) -> str:
                     text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
     else:
         text = f"ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
-        text += "\n(ระบบงดแสดงภาพ Timeline และ Zoom-in Tracking เนื่องจากตรวจไม่พบกลุ่มฝน)\n"
+        if "tmd-radar" in actual_endpoint:
+            text += "\n(ระบบงดแสดงภาพ Timeline และ Zoom-in Tracking เนื่องจากตรวจไม่พบกลุ่มฝน)\n"
 
     return text, actual_endpoint, eta_minutes
 
