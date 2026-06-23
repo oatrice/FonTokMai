@@ -57,7 +57,7 @@ cloudrun_config_only:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - backend/deploy/cloudrun.env
-        - backend/app/**/*.py
+      when: manual
 
 deploy_cloud_run:
   stage: deploy

@@ -3,6 +3,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Safety Guard: Prevent accidental local runs
+if [ -z "${CI:-}" ]; then
+  if [ "${1:-}" != "--danger-local-run" ]; then
+    echo "❌ ERROR: This script is intended to be run by GitLab CI/CD."
+    echo "If you absolutely must run this locally, pass the '--danger-local-run' flag."
+    echo "Usage: ./deploy_cloudrun.sh --danger-local-run"
+    exit 1
+  fi
+  echo "⚠️ WARNING: Deploying Cloud Run locally because --danger-local-run was provided."
+fi
+
 if [ -f "$SCRIPT_DIR/cloudrun.env" ]; then
   # shellcheck disable=SC1091
   set -a
