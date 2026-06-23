@@ -275,6 +275,11 @@ class WeatherManager:
                                 frames = [prev_frame, curr_frame]
                                 last_modified_dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
                                 flow = processor.calculate_optical_flow(frames)
+                                
+                                # Detect if cached image is from loop GIF (height < 800) or static image
+                                is_loop = curr_frame.shape[0] <= processor.config.loop_crop_height + processor.config.loop_crop_y + 10
+                                frame_source = "loop_gif" if is_loop else "static_cache"
+                                
                                 _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source)
 
                         if not frames or len(frames) < 2:
