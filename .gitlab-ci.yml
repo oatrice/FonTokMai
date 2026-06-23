@@ -84,7 +84,11 @@ deploy_cloud_run:
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
-        - backend/**/*
+        - backend/app/**/*
+        - backend/tests/**/*
+        - backend/Dockerfile
+        - backend/requirements.txt
+        - backend/main.py
 
 unit_tests:
   stage: test
