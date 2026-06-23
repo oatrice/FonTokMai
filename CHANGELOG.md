@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.40.0] - 2026-06-23
+
+### Added
+- Added a cache warming mechanism to pre-populate the TMD radar cache directly from fresh loop GIFs.
+- Added a fallback polling/fetching mechanism to weather manager to retrieve fresh radar frames when cache downloads fail or cache is empty/stale.
+- Added diagnostic scripts and tools (`find_crop.py`, `visualize_radar.py`, `analyze_image.py`, OCR, and geolocation/coordinate testing) for auditing radar coordinate mapping and border detection.
+- Added a new unit test run script (`backend/fix_tests.py`, `test.sh`, and test runner setups) and comprehensive E2E tests (`test_tmd_radar_e2e.py`) for TMD radar processing.
+- Added an azimuthal projection mapping configuration for the Sakon Nakhon (skn240) radar station.
+
+### Changed
+- Improved `WeatherManager` and radar cache resilience by automatically caching freshly polled loop GIF frames back to Cloud Storage / Firestore to improve recovery from network and cache issues.
+- Updated backend weather processing logic and enhanced TMD radar visualization overlay marker dimensions/pin markers.
+- Refactored TMD radar frame fetching logic to simplify visual timeline rendering code.
+- Cleaned up redundant prototype scripts to maintain project workspace hygiene.
+
+### Fixed
+- Fixed mapping issues with the `skn240` radar by using Azimuthal projection for improved coordinate accuracy.
+- Fixed database initialization issues.
+
 ## [0.39.0] - 2026-06-22
 
 ### Added

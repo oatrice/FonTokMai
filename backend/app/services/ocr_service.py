@@ -22,6 +22,11 @@ try:
 except ImportError:
     genai = None
 
+try:
+    import pytesseract
+except ImportError:
+    pytesseract = None
+
 from app.repositories.firestore import FirestoreLocationRepository
 
 class OCRService:
@@ -131,6 +136,35 @@ class OCRService:
             print(f"OCR.space Exception: {e}")
             return None
 
+    async def _call_pytesseract(self, frame: np.ndarray) -> Optional[str]:
+        """Call local Tesseract OCR engine."""
+        if pytesseract is None:
+            print("pytesseract is not installed. Skipping local OCR.")
+            return None
+            
+        import shutil
+        tesseract_cmd = shutil.which("tesseract")
+        if not tesseract_cmd:
+            if os.path.exists("/opt/homebrew/bin/tesseract"):
+                tesseract_cmd = "/opt/homebrew/bin/tesseract"
+            elif os.path.exists("/usr/local/bin/tesseract"):
+                tesseract_cmd = "/usr/local/bin/tesseract"
+                
+        if tesseract_cmd:
+            pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+        else:
+            print("Tesseract binary not found in PATH or standard locations.")
+            return None
+            
+        try:
+            import asyncio
+            # frame is numpy array, pytesseract can handle it directly
+            text = await asyncio.to_thread(pytesseract.image_to_string, frame)
+            return text
+        except Exception as e:
+            print(f"pytesseract Exception: {e}")
+            return None
+
     def _extract_timestamp_from_text(self, text: str) -> Optional[int]:
         """
         Parse text like "06 Jun 2026 09:30" or "2026-06-06 09:30:00"
@@ -192,6 +226,12 @@ class OCRService:
         #     print("Running OCR: Gemini")
         #     text = await self._call_gemini(png_bytes)
         #     ts = self._extract_timestamp_from_text(text)
+            
+        # Try Local Tesseract First
+        if ts is None:
+            print("Running OCR: Local Tesseract")
+            text = await self._call_pytesseract(frame)
+            ts = self._extract_timestamp_from_text(text)
             
         # Primary Engine: OCR.space (Issue #85)
         if ts is None:

@@ -4,6 +4,7 @@ import os
 import asyncio
 import cv2
 import io
+import numpy as np
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from PIL import Image, ImageDraw, ImageFont
@@ -50,7 +51,10 @@ class WeatherManager:
             "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
             "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
             "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state)
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state),
+            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state),
+            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state),
+            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state)
         }
 
         # --- โหมดบังคับ endpoint (ไม่ผ่าน fallback) ---
@@ -184,14 +188,29 @@ class WeatherManager:
                 logger.error(f"Open-Meteo Contingency failed: {e_meteo}")
                 return {"advisories": [], "lightning": None, "stormcell": None}
 
-    async def _get_tmd_prediction(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
+    async def _get_tmd_prediction(self, lat: float, lng: float, force_station: Optional[str] = None, mock_state: Optional[str] = None) -> dict:
         """
         Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
         Uses dot-product approach vector filter to find approaching cloud clusters,
         then ranks by ETA and generates a smart summary with growth/decay rates.
         """
+        
+        if force_station:
+            stations_to_check = [force_station]
+        else:
+            from app.services.tmd_radar_config import STATIONS
+            stations = ["kkn120", "kkn240", "skn240"]
+            
+            def get_dist(code):
+                conf = STATIONS.get(code)
+                if not conf: return float('inf')
+                # Simple euclidean distance for sorting priority
+                import math
+                return math.hypot(lat - conf.center_lat, lng - conf.center_lng)
+                
+            stations_to_check = sorted(stations, key=get_dist)
 
-        for station_code in ["kkn120", "kkn240", "skn240"]:
+        for station_code in stations_to_check:
             try:
                 processor = TMDRadarProcessor(station_code)
                 px, py = processor.latlng_to_pixel(lat, lng, is_loop=False)
@@ -208,56 +227,105 @@ class WeatherManager:
                     
                     if cached_data and (time.time() - cached_data[2]) < 600:
                         frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
+                        frame_source = cached_data[4] if len(cached_data) > 4 else "static_cache"
                     else:
                         async with get_repo_context() as repo:
                             cache = await repo.get_latest_radar_cache(station_code)
                         
-                        if not cache or not cache.get("url_t") or not cache.get("url_t_minus_1"):
-                            continue
-                        
-                        # download images
-                        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
-                        from google.cloud import storage
-                        client = storage.Client()
-                        bucket = client.bucket(bucket_name)
-                        blob_t = bucket.blob(cache["url_t"])
-                        blob_t_minus_1 = bucket.blob(cache["url_t_minus_1"])
-                        
-                        import asyncio
-                        try:
-                            t_bytes, t_minus_1_bytes = await asyncio.gather(
-                                asyncio.to_thread(blob_t.download_as_bytes),
-                                asyncio.to_thread(blob_t_minus_1.download_as_bytes)
-                            )
-                        except Exception as e:
-                            logger.error(f"Failed to download frames for {station_code}: {e}")
-                            continue
-                        
-                        import cv2, numpy as np
-                        t_np = np.frombuffer(t_bytes, np.uint8)
-                        curr_frame = cv2.imdecode(t_np, cv2.IMREAD_COLOR)
-                        curr_frame = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2RGB)
-                        
-                        t_minus_1_np = np.frombuffer(t_minus_1_bytes, np.uint8)
-                        prev_frame = cv2.imdecode(t_minus_1_np, cv2.IMREAD_COLOR)
-                        prev_frame = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2RGB)
-                        
-                        frames = [prev_frame, curr_frame]
-                        last_modified_dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
-                        flow = processor.calculate_optical_flow(frames)
-                        
-                        # Cache it with flow to avoid recalculating
-                        _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow)
+                        frames = []
+                        last_modified_dt = None
+                        flow = None
+                        frame_source = "static_cache"
+
+                        if cache and cache.get("url_t") and cache.get("url_t_minus_1"):
+                            # download images
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
+                            from google.cloud import storage
+                            client = storage.Client()
+                            bucket = client.bucket(bucket_name)
+                            blob_t = bucket.blob(cache["url_t"])
+                            blob_t_minus_1 = bucket.blob(cache["url_t_minus_1"])
+                            
+                            try:
+                                t_bytes, t_minus_1_bytes = await asyncio.gather(
+                                    asyncio.to_thread(blob_t.download_as_bytes),
+                                    asyncio.to_thread(blob_t_minus_1.download_as_bytes)
+                                )
+                            except Exception as e:
+                                logger.warning(f"Failed to download cached frames for {station_code}: {e}")
+                                t_bytes = None
+                                t_minus_1_bytes = None
+
+                            if t_bytes and t_minus_1_bytes:
+                                t_np = np.frombuffer(t_bytes, np.uint8)
+                                curr_frame = cv2.imdecode(t_np, cv2.IMREAD_COLOR)
+                                curr_frame = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2RGB)
+                                
+                                t_minus_1_np = np.frombuffer(t_minus_1_bytes, np.uint8)
+                                prev_frame = cv2.imdecode(t_minus_1_np, cv2.IMREAD_COLOR)
+                                prev_frame = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2RGB)
+
+                                if prev_frame.shape[:2] != curr_frame.shape[:2]:
+                                    prev_frame = cv2.resize(
+                                        prev_frame,
+                                        (curr_frame.shape[1], curr_frame.shape[0]),
+                                        interpolation=cv2.INTER_AREA,
+                                    )
+                                
+                                frames = [prev_frame, curr_frame]
+                                last_modified_dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
+                                flow = processor.calculate_optical_flow(frames)
+                                
+                                # Detect if cached image is from loop GIF (height < 800) or static image
+                                is_loop = curr_frame.shape[0] < 800 or curr_frame.shape[1] < 800
+                                frame_source = "loop_gif" if is_loop else "static_cache"
+                                
+                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source)
+
+                        if not frames or len(frames) < 2:
+                            fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames(use_cache=False)
+                            if len(fresh_frames) >= 2:
+                                frames = fresh_frames[-2:]
+                                if frames[0].shape[:2] != frames[1].shape[:2]:
+                                    frames[0] = cv2.resize(
+                                        frames[0],
+                                        (frames[1].shape[1], frames[1].shape[0]),
+                                        interpolation=cv2.INTER_AREA,
+                                    )
+                                last_modified_dt = fresh_dt or datetime.now(timezone.utc)
+                                flow = processor.calculate_optical_flow(frames)
+                                frame_source = "loop_gif"
+                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source)
+                                if fresh_loop_bytes:
+                                    try:
+                                        new_url_t = await processor.save_polled_frame(fresh_loop_bytes)
+                                        async with get_repo_context() as repo:
+                                            await repo.set_latest_radar_cache(
+                                                station_code=station_code,
+                                                url_t=new_url_t,
+                                                url_t_minus_1=cache.get("url_t") if cache else None,
+                                                timestamp=int((fresh_dt or datetime.now(timezone.utc)).timestamp()),
+                                            )
+                                    except Exception as e:
+                                        logger.warning(f"Failed to warm radar cache for {station_code}: {e}")
+                            else:
+                                continue
 
                 if not frames or len(frames) < 2:
                     continue
 
                 curr_frame = frames[-1].copy()
                 prev_frame = frames[-2].copy()
+                use_loop_mapping = frame_source == "loop_gif"
+                user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=use_loop_mapping)
+                import logging
+                logging.info(f"DEBUG_LOCATION: lat={lat}, lng={lng} -> user_px={user_px}, user_py={user_py} (station: {station_code}, is_loop={use_loop_mapping})")
+                if user_px is None or user_py is None:
+                    continue
 
                 # Find all cloud clusters approaching the user
                 clouds = processor.find_approaching_clouds(
-                    curr_frame, prev_frame, flow, px, py,
+                    curr_frame, prev_frame, flow, user_px, user_py,
                     search_radius=80, min_dbz=20.0, cluster_dist=20,
                 )
 
@@ -301,7 +369,7 @@ class WeatherManager:
                                 })
 
                         for mc in mock_configs:
-                            cx, cy = px + mc["offset"][0], py + mc["offset"][1]
+                            cx, cy = user_px + mc["offset"][0], user_py + mc["offset"][1]
                             vx, vy = 3.0, -3.0  # Move towards NE
                             clouds.append({
                                 "cx": cx, "cy": cy,
@@ -314,7 +382,6 @@ class WeatherManager:
                             })
                             
                             if mock_state == "storm":
-                                import cv2
                                 cv2.circle(curr_frame, (cx, cy), 22, mc["color"], -1)
                     else:
                         for c in clouds:
@@ -386,7 +453,6 @@ class WeatherManager:
 
                 def render_hq_png(target_frame, pin_x, pin_y, time_utc, proc):
                     from PIL import Image, ImageFont, ImageDraw
-                    import cv2
                     import io
                     # Copy to avoid mutating original for future tasks
                     cf = target_frame.copy()
@@ -421,9 +487,8 @@ class WeatherManager:
                 tracking_bytes = None
                 timeline_bytes = None
                 try:
-                    import asyncio
-                    static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), px, py, now_utc, processor)
-                    tracking_bytes = await asyncio.to_thread(processor.generate_radar_tracking_image, curr_frame.copy(), px, py, clouds)
+                    static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor)
+                    tracking_bytes = await asyncio.to_thread(processor.generate_radar_tracking_image, curr_frame.copy(), user_px, user_py, clouds, now_utc)
                     timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, clouds)
                 except Exception as e:
                     logger.error(f"Failed to generate radar PNGs: {e}")

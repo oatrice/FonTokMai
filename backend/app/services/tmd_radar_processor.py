@@ -126,8 +126,8 @@ class TMDRadarProcessor:
         if min_dist_ignored <= min_dist_dbz:
             return 0.0
             
-        # Tighter threshold (40) reduces false positives from map features
-        if min_dist_dbz < 40:
+        # Tighter threshold (15) reduces false positives from map features
+        if min_dist_dbz < 15:
             return best_dbz
             
         return 0.0
@@ -135,7 +135,7 @@ class TMDRadarProcessor:
         """Converts an RGB radar frame into a grayscale mask representing rain intensity."""
         img_float = img.astype(np.float32)
         
-        min_dists = np.full(img.shape[:2], 40.0, dtype=np.float32)
+        min_dists = np.full(img.shape[:2], 15.0, dtype=np.float32)
         best_intensity = np.zeros(img.shape[:2], dtype=np.uint8)
         
         # Calculate min distance to any ignored color
@@ -298,18 +298,18 @@ class TMDRadarProcessor:
         
         return float(dbz)
 
-    def draw_pin_on_frame(self, img: np.ndarray, x: int, y: int) -> None:
-        """Draws a red marker on the image at the specified pixel coordinates."""
+    @staticmethod
+    def draw_pin_on_frame(img: np.ndarray, x: int, y: int) -> None:
+        """Draws the blue location pin on the image at the specified pixel coordinates."""
         if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
             return
-        # Draw thick white shadow/border first for high contrast
-        cv2.circle(img, (x, y), radius=6, color=(255, 255, 255), thickness=4)
-        cv2.drawMarker(img, (x, y), color=(255, 255, 255), markerType=cv2.MARKER_CROSS, markerSize=14, thickness=4)
-        
-        # Draw the red pin inside the white border
-        color = (0, 0, 255) # BGR Red
-        cv2.circle(img, (x, y), radius=6, color=color, thickness=2)
-        cv2.drawMarker(img, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=14, thickness=2)
+        # White halo for contrast
+        cv2.circle(img, (x, y), radius=14, color=(255, 255, 255), thickness=5)
+        cv2.circle(img, (x, y), radius=20, color=(255, 255, 255), thickness=3)
+        # Blue target body. The frame data is RGB, so this must be RGB blue.
+        color = (0, 0, 255)
+        cv2.circle(img, (x, y), radius=12, color=color, thickness=4)
+        cv2.drawMarker(img, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=24, thickness=4)
 
     def get_wind_speed_kmh_from_vector(self, vx: float, vy: float) -> float:
         pixel_speed_15m = math.sqrt(vx**2 + vy**2)
@@ -425,7 +425,7 @@ class TMDRadarProcessor:
           cx, cy, dbz_now, dbz_prev, growth_rate, predicted_dbz, dist, eta_min
         """
         # Restrict search to the valid radar crop area to exclude legend strips
-        is_loop = flow.shape[0] <= self.config.loop_crop_height + self.config.loop_crop_y + 10
+        is_loop = flow.shape[0] < 800 or flow.shape[1] < 800
         crop_x0 = self.config.loop_crop_x if is_loop else self.config.static_crop_x
         crop_y0 = self.config.loop_crop_y if is_loop else self.config.static_crop_y
         crop_w  = self.config.loop_crop_width if is_loop else self.config.static_crop_width
@@ -602,8 +602,9 @@ class TMDRadarProcessor:
         ux = int((user_x - x1) * scale)
         uy = int((user_y - y1) * scale)
         
-        # Draw user pin (but remove the large search radius circle to reduce clutter)
-        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(20 * scale), int(2 * scale))
+        # Draw user pin in blue to match the main location target
+        cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
+        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(10 * scale), int(3 * scale))
         
         # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest to avoid overlap
         incoming = [c for c in clouds if c["eta_min"] >= -5]
@@ -801,7 +802,7 @@ class TMDRadarProcessor:
                         if age_secs < 900: # 15 minutes max age
                             import logging
                             logger = logging.getLogger(__name__)
-                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(cache["url_t"])
@@ -855,7 +856,7 @@ class TMDRadarProcessor:
           cx, cy, dbz_now, dbz_prev, growth_rate, predicted_dbz, dist, eta_min
         """
         # Restrict search to the valid radar crop area to exclude legend strips
-        is_loop = flow.shape[0] <= self.config.loop_crop_height + self.config.loop_crop_y + 10
+        is_loop = flow.shape[0] < 800 or flow.shape[1] < 800
         crop_x0 = self.config.loop_crop_x if is_loop else self.config.static_crop_x
         crop_y0 = self.config.loop_crop_y if is_loop else self.config.static_crop_y
         crop_w  = self.config.loop_crop_width if is_loop else self.config.static_crop_width
@@ -1010,7 +1011,7 @@ class TMDRadarProcessor:
             )
 
     @staticmethod
-    def generate_radar_tracking_image(frame: np.ndarray, user_x: int, user_y: int, clouds: list) -> Optional[bytes]:
+    def generate_radar_tracking_image(frame: np.ndarray, user_x: int, user_y: int, clouds: list, time_utc: datetime = None) -> Optional[bytes]:
         if frame is None or not clouds:
             return None
         
@@ -1032,8 +1033,9 @@ class TMDRadarProcessor:
         ux = int((user_x - x1) * scale)
         uy = int((user_y - y1) * scale)
         
-        # Draw user pin (but remove the large search radius circle to reduce clutter)
-        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(20 * scale), int(2 * scale))
+        # Draw user pin in blue to match the main location target
+        cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
+        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(8 * scale), int(3 * scale))
         
         # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest to avoid overlap
         incoming = [c for c in clouds if c["eta_min"] >= -5]
@@ -1081,6 +1083,21 @@ class TMDRadarProcessor:
                 
             cv2.putText(img, f"{sign}{time_str}", (cx + int(15 * scale), cy), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, (255, 255, 255), int(1.5 * scale))
+
+        if time_utc:
+            from zoneinfo import ZoneInfo
+            time_str = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
+            (text_w, text_h), _ = cv2.getTextSize(time_str, cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, int(1.5 * scale))
+            pad = int(8 * scale)
+            # Place at top right
+            x_pos = img.shape[1] - text_w - int(10 * scale)
+            y_pos = int(10 * scale)
+            
+            overlay = img.copy()
+            cv2.rectangle(overlay, (x_pos - pad, y_pos), (x_pos + text_w + pad, y_pos + text_h + pad * 2), (0, 0, 0), -1)
+            cv2.addWeighted(overlay, 0.6, img, 0.4, 0, img)
+            
+            cv2.putText(img, time_str, (x_pos, y_pos + text_h + pad), cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, (255, 255, 255), int(1.5 * scale))
 
         # Convert RGB back to BGR for cv2.imencode
         img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
@@ -1231,7 +1248,7 @@ class TMDRadarProcessor:
                         if age_secs < 900: # 15 minutes max age
                             import logging
                             logger = logging.getLogger(__name__)
-                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(cache["url_t"])
@@ -1253,8 +1270,8 @@ class TMDRadarProcessor:
             pass
         return None
 
-    async def fetch_loop_gif_and_extract_frames(self, use_cache: bool = True) -> Tuple[List[np.ndarray], Optional['datetime']]:
-        """Fetches the Loop.gif and extracts frames and the Last-Modified datetime."""
+    async def fetch_loop_gif_and_extract_frames(self, use_cache: bool = True) -> Tuple[List[np.ndarray], Optional['datetime'], Optional[bytes]]:
+        """Fetches the Loop.gif and extracts frames, the Last-Modified datetime, and raw GIF bytes."""
         
         loop_bytes = None
         dt = None
@@ -1269,7 +1286,7 @@ class TMDRadarProcessor:
                             created_at = created_at.replace(tzinfo=None)
                         age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
                         if age_secs < 900: # 15 mins
-                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
                             blob = bucket.blob(cache["url_t_minus_1"])
@@ -1289,7 +1306,7 @@ class TMDRadarProcessor:
                     f"[{self.station_code}] No loop_gif_url configured "
                     f"(station has no loop GIF from TMD). Returning empty frames."
                 )
-                return [], None
+                return [], None, None
             try:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.get(url)
@@ -1337,6 +1354,15 @@ class TMDRadarProcessor:
                 frames = []
                 for frame in ImageSequence.Iterator(img):
                     frames.append(np.array(frame.copy().convert("RGB")))
+
+                if frames:
+                    target_h, target_w = frames[0].shape[:2]
+                    normalized_frames = []
+                    for frame in frames:
+                        if frame.shape[:2] != (target_h, target_w):
+                            frame = cv2.resize(frame, (target_w, target_h), interpolation=cv2.INTER_AREA)
+                        normalized_frames.append(frame)
+                    frames = normalized_frames
                     
                 # Optimize memory: keep only the last 12 frames (approx 3 hours of radar data)
                 # to prevent OOM spikes during downstream high-res GIF generation.
@@ -1353,10 +1379,10 @@ class TMDRadarProcessor:
                 except Exception as e:
                     print(f"Error in OCR: {e}")
 
-                return frames, dt
+                return frames, dt, loop_bytes
             except Exception as e:
                 print(f"Error processing loop gif: {e}")
-        return [], None
+        return [], None, None
 
     async def fetch_loop_history_bytes(self) -> List[bytes]:
         """
@@ -1373,7 +1399,7 @@ class TMDRadarProcessor:
         
         timestamp = int(time.time())
         filename = f"radar/{self.station_code}/{self.station_code}_{timestamp}.gif"
-        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
         
         # Use sync GCS upload with asyncio.to_thread
         client = storage.Client()
@@ -1394,7 +1420,7 @@ class TMDRadarProcessor:
         cutoff_time = now - max_age_seconds
         
         def _delete_sync():
-            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.appspot.com")
+            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
             client = storage.Client()
             bucket = client.bucket(bucket_name)
             prefix = f"radar/{self.station_code}/"
@@ -1415,4 +1441,3 @@ class TMDRadarProcessor:
             return deleted_count
             
         return await asyncio.to_thread(_delete_sync)
-

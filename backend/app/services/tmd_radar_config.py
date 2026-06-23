@@ -73,10 +73,9 @@ STATIONS = {
         name="Khon Kaen (120km)",
         static_image_url="https://weather.tmd.go.th/kkn/kkn120_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
-        # TMD does not provide a 120km loop GIF (verified: returns 404).
-        # Processor will fallback to static image for frame data.
         loop_gif_url="",
         bbox=KKN_BBOX,
+        projection_type="azimuthal",
         center_lat=16.4322,
         center_lng=102.8236,
         radius_km=120.0,
@@ -94,14 +93,12 @@ STATIONS = {
         name="Khon Kaen (240km)",
         static_image_url="https://weather.tmd.go.th/kkn/kkn240_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
-        # Verified: https://weather.tmd.go.th/kkn/kkn240Loop.gif returns 200 OK
         loop_gif_url="https://weather.tmd.go.th/kkn/kkn240Loop.gif",
         bbox=KKN240_BBOX,
+        projection_type="azimuthal",
         center_lat=16.4322,
         center_lng=102.8236,
         radius_km=240.0,
-        # Image is 680x680. Legend on left is approx 80px.
-        # Radar circle is approx 600x600, vertically centered.
         static_crop_x=80,
         static_crop_y=40,
         static_crop_width=720,
@@ -116,19 +113,16 @@ STATIONS = {
         name="Sakon Nakhon (240km)",
         static_image_url="https://weather.tmd.go.th/skn/skn240_latest.jpg",
         loop_page_url="https://weather.tmd.go.th/sknLoop.php",
-        # Verified: https://weather.tmd.go.th/skn/skn240Loop.gif returns 200 OK
         loop_gif_url="https://weather.tmd.go.th/skn/skn240Loop.gif",
         bbox=SKN_BBOX,
+        projection_type="azimuthal",
         center_lat=17.1607,
         center_lng=104.1486,
         radius_km=240.0,
-        # Calibrated via Hough Circle detection on skn240_latest.jpg (800x800)
-        # Detected circle: center=(436,392), radius=364px
         static_crop_x=72,
         static_crop_y=28,
         static_crop_width=728,
         static_crop_height=728,
-        # Loop GIF: scaled proportionally from static (x0.85), pending visual verification
         loop_crop_x=61,
         loop_crop_y=24,
         loop_crop_width=620,
@@ -169,4 +163,25 @@ IGNORED_COLORS = [
     (32, 45, 93),    # Dark brown/grey map background
     (153, 153, 153), # Gray
     # Add actual map background RGB here during calibration
+    (110, 127, 91),  # Map background green 1
+    (108, 125, 89),  # Map background green 2
+    (87, 156, 73),   # Map background bright green 1
+    (79, 151, 67),   # Map background bright green 2
+    (84, 148, 89),   # Map background bright green 3
+    # Additional problematic map pixels
+    (77, 159, 74),
+    (61, 156, 64),
+    (66, 172, 71),
+    (75, 169, 73),
+    (73, 170, 77),
+    (68, 159, 64),
+    (77, 162, 79),
+    (67, 156, 74),
+    (77, 156, 77),
+    (65, 159, 71),
+    (66, 156, 68),
+    (79, 160, 67),
+    (71, 161, 73),
+    (76, 161, 78),
+    (69, 155, 84),
 ]

@@ -27,6 +27,14 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #112 - TMD radar fallback cache for loop GIF frames
+- **GitHub:** [#112](https://gitlab.com/oatricedev/FonMaYang/-/issues/112)
+    - ✅ **Done** (0.40.0)
+
+### Issue #110 - Meta: Link Cloud Run deploy, scheduler, monitoring, and radar follow-up issues
+- **GitHub:** [#110](https://gitlab.com/oatricedev/FonMaYang/-/issues/110)
+- **Status:** 🟢 **Ready**
+
 ### Issue #108 - Infra: Sync Cloud Scheduler job definitions from GCP Console into repo
 - **GitHub:** [#108](https://gitlab.com/oatricedev/FonMaYang/-/issues/108)
 - **Status:** 🟢 **Ready**

@@ -51,9 +51,12 @@ def _build_forecast_text(result: dict) -> str:
         "tomorrow": "Tomorrow.io",
         "rainbow-local": "Rainbow Local Radar",
         "rainbow-global": "Rainbow Global",
+        "tmd-radar": "TMD Radar",
         "error": "ไม่สามารถเชื่อมต่อได้",
     }
     endpoint_label = endpoint_label_map.get(actual_endpoint, actual_endpoint)
+    if actual_endpoint.startswith("tmd-radar (") and actual_endpoint.endswith(")"):
+        endpoint_label = actual_endpoint.replace("tmd-radar", "TMD Radar", 1)
 
     # คำนวณ ETA
     eta_minutes = None
@@ -117,6 +120,8 @@ def _build_forecast_text(result: dict) -> str:
                     text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
     else:
         text = f"ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
+        if "tmd-radar" in actual_endpoint:
+            text += "\n(ระบบงดแสดงภาพ Timeline และ Zoom-in Tracking เนื่องจากตรวจไม่พบกลุ่มฝน)\n"
 
     return text, actual_endpoint, eta_minutes
 
@@ -176,7 +181,7 @@ async def process_telegram_location(
         keyboard = []
 
         if has_existing_loc:
-            text += "(คุณมีพิกัดเดิมบันทึกไว้อยู่แล้ว ต้องการบันทึกพิกัดนี้เป็นอะไร หรือลบของเดิมทิ้ง?)"
+            text += "\n(คุณมีพิกัดเดิมบันทึกไว้อยู่แล้ว ต้องการบันทึกพิกัดนี้เป็นอะไร หรือลบของเดิมทิ้ง?)"
             keyboard.append([
                 {"text": "🏠 บ้าน (2 ด.)", "callback_data": f"loc_save_Home_2m_{r_lat}_{r_lng}"},
                 {"text": "🏠 บ้าน (ตป.)", "callback_data": f"loc_save_Home_inf_{r_lat}_{r_lng}"}
@@ -656,11 +661,23 @@ async def handle_devmock_command(chat_id: int, command: str):
 
 
 async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False):
+    import re
+    coords_match = re.search(r'([+-]?\d+\.\d+)[,\s]+([+-]?\d+\.\d+)', command)
+    custom_lat = None
+    custom_lng = None
+    if coords_match:
+        try:
+            custom_lat = float(coords_match.group(1))
+            custom_lng = float(coords_match.group(2))
+            command = command.replace(coords_match.group(0), "").strip()
+        except ValueError:
+            pass
+
     parts = command.strip().split()
     force_provider = None
     target_location_name = None
     
-    known_providers = ["tmd-radar", "tomorrow", "rainbow-local", "rainbow-global", "xweather", "open-meteo", "tmd"]
+    known_providers = ["tmd-radar", "tomorrow", "rainbow-local", "rainbow-global", "xweather", "open-meteo", "tmd", "kkn120", "kkn240", "skn240"]
     provider_aliases = {"tmd": "tmd-radar"}
     
     if len(parts) > 1:
@@ -677,25 +694,34 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
     if force_provider in provider_aliases:
         force_provider = provider_aliases[force_provider]
     
-    async with get_repo_context() as repo:
-        locs = await repo.get_user_locations(chat_id)
-        
-    if not locs:
-        await send_telegram_message(chat_id, "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")
-        return
-        
     loc = None
-    if target_location_name:
-        for l in locs:
-            if (l.name and l.name.lower() == target_location_name) or (target_location_name == "default" and l.name is None):
-                loc = l
-                break
-        if not loc:
-            available_locs = ", ".join([l.name for l in locs if l.name])
-            await send_telegram_message(chat_id, f"⚠️ ไม่พบพิกัดชื่อ '{target_location_name}'\nพิกัดที่มี: {available_locs or 'default'}")
-            return
+    if custom_lat is not None and custom_lng is not None:
+        from app.models import UserLocation
+        loc = UserLocation(
+            chat_id=chat_id,
+            latitude=custom_lat,
+            longitude=custom_lng,
+            name=f"{custom_lat}, {custom_lng}"
+        )
     else:
-        loc = locs[0]
+        async with get_repo_context() as repo:
+            locs = await repo.get_user_locations(chat_id)
+            
+        if not locs:
+            await send_telegram_message(chat_id, "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")
+            return
+            
+        if target_location_name:
+            for l in locs:
+                if (l.name and l.name.lower() == target_location_name) or (target_location_name == "default" and l.name is None):
+                    loc = l
+                    break
+            if not loc:
+                available_locs = ", ".join([l.name for l in locs if l.name])
+                await send_telegram_message(chat_id, f"⚠️ ไม่พบพิกัดชื่อ '{target_location_name}'\nพิกัดที่มี: {available_locs or 'default'}")
+                return
+        else:
+            loc = locs[0]
         
     loc_display = loc.name.capitalize() if loc.name else "ระบบอัตโนมัติ"
     msg_text = f"⏳ กำลังตรวจสอบสภาพอากาศที่ '{loc_display}' "
@@ -798,4 +824,3 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
         logger.debug(f"[WEBHOOK] Unrecognized command or text, returning ignored. text='{text}'")
 
     return {"status": "ignored"}
-

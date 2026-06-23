@@ -25,7 +25,9 @@ def test_bug():
     processor.draw_pin_on_frame(frame, user_x, user_y)
     img_bytes = processor.generate_radar_tracking_image(frame, user_x, user_y, clouds)
     
-    with open("tests/tracking_test.png", "wb") as f:
+    import os
+    out_path = os.path.join(os.path.dirname(__file__), "tracking_test.png")
+    with open(out_path, "wb") as f:
         f.write(img_bytes)
         
     print("Test image saved.")

@@ -25,7 +25,9 @@ def test_visual():
     # Generate image
     img_bytes = processor.generate_radar_tracking_image(frame, user_x, user_y, clouds)
     
-    with open("tests/test_output.png", "wb") as f:
+    import os
+    out_path = os.path.join(os.path.dirname(__file__), "test_output.png")
+    with open(out_path, "wb") as f:
         f.write(img_bytes)
 
 if __name__ == '__main__':
