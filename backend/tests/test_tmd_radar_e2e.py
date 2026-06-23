@@ -171,7 +171,7 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping_skn(monkeypatch
     monkeypatch.setattr(TMDRadarProcessor, "latlng_to_pixel", record_latlng_to_pixel)
 
     try:
-        result = asyncio.run(WeatherManager()._get_tmd_prediction(lat, lng))
+        result = asyncio.run(WeatherManager()._get_tmd_prediction(lat, lng, force_station="skn240"))
     finally:
         wm._GLOBAL_TMD_CACHE.clear()
         wm._GLOBAL_TMD_CACHE.update(original_cache)
