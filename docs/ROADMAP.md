@@ -29,7 +29,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ## Synced From GitHub
 ### Issue #112 - TMD radar fallback cache for loop GIF frames
 - **GitHub:** [#112](https://gitlab.com/oatricedev/FonMaYang/-/issues/112)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.40.0)
 
 ### Issue #110 - Meta: Link Cloud Run deploy, scheduler, monitoring, and radar follow-up issues
 - **GitHub:** [#110](https://gitlab.com/oatricedev/FonMaYang/-/issues/110)

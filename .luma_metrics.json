@@ -2376,6 +2376,28 @@
       "gh_mandays": null,
       "created_at": "2026-06-21T09:02:24.1Z",
       "updated_at": "2026-06-22T14:21:36.690516"
+    },
+    "oatricedev/FonMaYang#112": {
+      "issue_key": "oatricedev/FonMaYang#112",
+      "issue_number": 112,
+      "issue_title": "TMD radar fallback cache for loop GIF frames",
+      "issue_url": "",
+      "repository": "oatricedev/FonMaYang",
+      "project_name": "FonMaYang",
+      "issue_status": "✅ Complete",
+      "estimate_points": null,
+      "post_story_point": 21.0,
+      "estimated_mandays": null,
+      "start_datetime": null,
+      "actual_mandays": null,
+      "due_date": null,
+      "actual_completion_date": null,
+      "effort_level": null,
+      "notes": null,
+      "gh_closed_at": null,
+      "gh_mandays": null,
+      "created_at": "2026-06-23T20:10:28.581016",
+      "updated_at": "2026-06-23T20:10:30.347696"
     }
   }
 }
