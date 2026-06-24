@@ -505,6 +505,7 @@ class WeatherManager:
                     "growth_rate_pct":   percent_change,
                     "approaching_clouds": clouds,
                     "rain_summary":      summary_line,
+                    "is_outdated":       time_offset_min > 45,
                     "radar_gif_bytes":   None,
                     "radar_hq_gif_bytes": None,
                     "radar_static_bytes": static_bytes,

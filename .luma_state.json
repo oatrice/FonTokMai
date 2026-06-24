@@ -1,73 +1,46 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 112,
-      "title": "TMD radar fallback cache for loop GIF frames",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/112",
+      "number": 114,
+      "title": "เช็ค timestamp จากภาพเรดาร์ว่า out of date หรือไม่ก่อนประมวลผล",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/114",
       "body": null,
-      "project_item_id": "GLAB_112",
+      "project_item_id": "GLAB_114",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 113,
+      "title": "เพิ่ม timestamp +7 IDC สำหรับภาพ Zoom in/Tracking",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/113",
+      "body": null,
+      "project_item_id": "GLAB_113",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/112-tmd-radar-fallback-cache-for-l",
-  "started_at": "2026-06-23T19:34:17.028508",
+  "active_branch": "feat/114-113-timestamp-out-of-date",
+  "started_at": "2026-06-24T12:21:09.523158",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "backend/app/main.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/services/ocr_service.py",
-        "backend/app/services/tmd_radar_config.py",
-        "backend/app/services/tmd_radar_processor.py",
-        "backend/app/services/weather_manager.py",
-        "backend/fix_tests.py",
-        "backend/tests/analyze_image.py",
-        "backend/tests/test_tmd_processor.py",
-        "backend/tests/test_tmd_radar_e2e.py",
-        "backend/tests/test_visual_bug.py",
-        "backend/tests/test_visualize.py",
-        "backend/tmp/find_crop.py",
-        "backend/tmp/radar_verification_animated.gif",
-        "backend/tmp/radar_verification_static.png",
-        "backend/tmp/saved_frames_kkn240.pkl",
-        "backend/tmp/visualize_radar.py",
+        "VERSION"
+      ],
+      "changed_files": [
         "docs/ROADMAP.md",
-        "docs/issues/001_tmd_radar_pin_in_laos_bug.md",
-        "luma/prompts/prompt_20260623_123426_10cd2e0d.md",
-        "luma/prompts/prompt_20260623_123427_e4d4e97a.md",
+        "luma/prompts/prompt_20260624_052107_cd2b14a1.md",
         "luma_metrics.json",
-        "luma_state.json",
-        "test_station_select.py"
+        "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/main.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/services/ocr_service.py",
-        "backend/app/services/tmd_radar_config.py",
-        "backend/app/services/tmd_radar_processor.py",
-        "backend/app/services/weather_manager.py",
-        "backend/fix_tests.py",
-        "backend/tmp/find_crop.py",
-        "backend/tmp/radar_verification_animated.gif",
-        "backend/tmp/radar_verification_static.png",
-        "backend/tmp/saved_frames_kkn240.pkl",
-        "backend/tmp/visualize_radar.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -143,5 +116,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-23T20:10:32.063790"
+  "last_updated": "2026-06-24T12:21:13.226033"
 }

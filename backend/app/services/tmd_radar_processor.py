@@ -580,7 +580,7 @@ class TMDRadarProcessor:
             )
 
     @staticmethod
-    def generate_radar_tracking_image(frame: np.ndarray, user_x: int, user_y: int, clouds: list) -> Optional[bytes]:
+    def generate_radar_tracking_image(frame: np.ndarray, user_x: int, user_y: int, clouds: list, time_utc: datetime = None) -> Optional[bytes]:
         if frame is None or not clouds:
             return None
         
@@ -652,6 +652,27 @@ class TMDRadarProcessor:
                 
             cv2.putText(img, f"{sign}{time_str}", (cx + int(15 * scale), cy), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, (255, 255, 255), int(1.5 * scale))
+
+        # Add IDC timestamp overlay
+        if time_utc:
+            time_str_idc = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
+            # Text size calculation for background box
+            font_scale = 0.6 * scale
+            thickness = max(1, int(1.5 * scale))
+            (tw, th), baseline = cv2.getTextSize(time_str_idc, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+            
+            # Position at top right
+            pad = int(8 * scale)
+            x_pos = img.shape[1] - tw - pad
+            y_pos = th + pad
+            
+            # Draw semi-transparent background box
+            overlay = img.copy()
+            cv2.rectangle(overlay, (x_pos - int(pad/2), y_pos - th - int(pad/2)), (x_pos + tw + int(pad/2), y_pos + int(pad/2)), (0, 0, 0), -1)
+            cv2.addWeighted(overlay, 0.6, img, 0.4, 0, img)
+            
+            # Draw text
+            cv2.putText(img, time_str_idc, (x_pos, y_pos), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness)
 
         # Convert RGB back to BGR for cv2.imencode
         img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
