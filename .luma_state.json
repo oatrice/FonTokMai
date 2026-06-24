@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 115,
@@ -16,7 +16,9 @@
   "active_branch": "feat/115-architecture-migrate-from-gif",
   "started_at": "2026-06-24T17:00:13.961162",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -115,5 +117,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-24T17:00:17.486773"
+  "last_updated": "2026-06-24T18:37:07.209080"
 }

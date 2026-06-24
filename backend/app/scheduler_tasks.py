@@ -401,7 +401,7 @@ async def fetch_tmd_radar_routine():
 
                 if needs_fallback:
                     logger.info(f"[{station}] Executing GIF fallback recovery...")
-                    fallback_frames_data, fallback_dt, loop_bytes = await processor.fetch_loop_gif_and_extract_frames(use_cache=False)
+                    fallback_frames_data, fallback_dt, loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
                     if fallback_frames_data and len(fallback_frames_data) >= 2:
                         logger.info(f"[{station}] GIF fallback found {len(fallback_frames_data)} frames")
                         # Keep up to 6 newest frames and reverse so newest is first
