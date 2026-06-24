@@ -156,7 +156,7 @@ async def process_telegram_location(
         text, actual_endpoint, eta_minutes = _build_forecast_text(result)
 
         if result.get("is_outdated"):
-            text += "\n\n⚠️ **ยังไม่มีข้อมูลล่าสุดจากกรมอุตุฯ (TMD Radar)**\nแนะนำให้เปลี่ยนไปใช้ API อื่น (เช่น Tomorrow.io หรือ Open-Meteo) แทนชั่วคราวครับ"
+            text = "⚠️ **ยังไม่มีข้อมูลล่าสุดจากกรมอุตุฯ (TMD Radar)**\nแนะนำให้เปลี่ยนไปใช้ API อื่น (เช่น Tomorrow.io หรือ Open-Meteo) แทนชั่วคราวครับ\n"
 
         # ถ้าทุก API พัง แสดงข้อความ error ชัดเจน แทนการบอกว่า "ไม่มีฝน"
         if actual_endpoint == "error":
