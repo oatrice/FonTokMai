@@ -360,22 +360,54 @@ async def fetch_tmd_radar_routine():
             async with get_repo_context() as repo:
                 cache = await repo.get_latest_radar_cache(station)
                 
+                frames = cache.get("frames", []) if cache else []
+                latest_ts = frames[0]["timestamp"] if frames else 0
+                
                 # If we already have this timestamp, do nothing
-                if cache and ts and ts <= cache.get("timestamp", 0):
+                if ts and ts <= latest_ts:
                     logger.debug(f"[{station}] Image unchanged (ts {ts}). Skipping.")
                     return result
                 
                 # It's a new image!
-                new_url_t = await processor.save_polled_frame(static_bytes)
-                url_t_minus_1 = cache.get("url_t") if cache else None
+                new_url = await processor.save_polled_frame(static_bytes)
+                
+                frames.insert(0, {"url": new_url, "timestamp": ts})
+                
+                # Check if we need GIF fallback (missing frames or gap > 30 mins between latest two)
+                needs_fallback = len(frames) < 4
+                if len(frames) > 1 and (frames[0]["timestamp"] - frames[1]["timestamp"]) > 1800:
+                    needs_fallback = True
+                    
+                if needs_fallback:
+                    logger.info(f"[{station}] Missing history or gap detected. Fetching GIF fallback...")
+                    fallback_frames_data, fallback_dt, loop_bytes = await processor.fetch_loop_gif_and_extract_frames(use_cache=False)
+                    if fallback_frames_data and len(fallback_frames_data) >= 2:
+                        logger.info(f"[{station}] GIF fallback found {len(fallback_frames_data)} frames")
+                        # Keep up to 6 newest frames and reverse so newest is first
+                        recent_fallback = fallback_frames_data[-6:]
+                        recent_fallback.reverse()
+                        
+                        new_frames_list = []
+                        for i, f_img in enumerate(recent_fallback):
+                            f_ts = await ocr_svc.get_frame_timestamp(f_img, fallback_ts=ts - i * 900)
+                            is_success, buffer = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
+                            if is_success:
+                                f_url = await processor.save_polled_frame(buffer.tobytes())
+                                new_frames_list.append({"url": f_url, "timestamp": f_ts})
+                        
+                        if new_frames_list:
+                            # If the polled static image is newer than the newest GIF frame, we merge them
+                            if new_frames_list[0]["timestamp"] < ts:
+                                new_frames_list.insert(0, {"url": new_url, "timestamp": ts})
+                            frames = new_frames_list
+                
+                frames = frames[:6] # Keep max 6 frames
                 
                 await repo.set_latest_radar_cache(
                     station_code=station,
-                    url_t=new_url_t,
-                    url_t_minus_1=url_t_minus_1,
-                    timestamp=ts
+                    frames=frames
                 )
-                logger.info(f"Updated Firestore radar cache for {station} with ts {ts}")
+                logger.info(f"Updated Firestore radar cache for {station} with {len(frames)} frames, latest ts {ts}")
 
             # Cleanup old frames
             deleted = await processor.cleanup_old_frames(max_age_hours=3)

@@ -234,36 +234,32 @@ class SQLiteLocationRepository(LocationRepository):
         result = await self.session.execute(select(RadarLatestCache).where(RadarLatestCache.station_code == station_code))
         cache = result.scalars().first()
         if cache:
+            import json
             return {
                 "station_code": cache.station_code,
-                "url_t": cache.url_t,
-                "url_t_minus_1": cache.url_t_minus_1,
-                "timestamp": cache.timestamp,
+                "frames": json.loads(cache.frames_json) if cache.frames_json else [],
                 "created_at": cache.created_at
             }
         return None
 
-    async def set_latest_radar_cache(self, station_code: str, url_t: str, url_t_minus_1: Optional[str], timestamp: int) -> None:
+    async def set_latest_radar_cache(self, station_code: str, frames: list) -> None:
         from app.models import RadarLatestCache
+        import json
         result = await self.session.execute(select(RadarLatestCache).where(RadarLatestCache.station_code == station_code))
         cache = result.scalars().first()
         
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         
         if cache:
-            cache.url_t = url_t
-            cache.url_t_minus_1 = url_t_minus_1
-            cache.timestamp = timestamp
+            cache.frames_json = json.dumps(frames)
             cache.created_at = now
         else:
-            cache = RadarLatestCache(
+            new_cache = RadarLatestCache(
                 station_code=station_code,
-                url_t=url_t,
-                url_t_minus_1=url_t_minus_1,
-                timestamp=timestamp,
+                frames_json=json.dumps(frames),
                 created_at=now
             )
-            self.session.add(cache)
+            self.session.add(new_cache)
             
         await self.session.commit()
 

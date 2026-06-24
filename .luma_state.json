@@ -1,36 +1,22 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 114,
-      "title": "เช็ค timestamp จากภาพเรดาร์ว่า out of date หรือไม่ก่อนประมวลผล",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/114",
+      "number": 115,
+      "title": "[Architecture] Migrate from GIF extraction to Polled Static Frames (T, T-1, T-2, T-3)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/115",
       "body": null,
-      "project_item_id": "GLAB_114",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 113,
-      "title": "เพิ่ม timestamp +7 IDC สำหรับภาพ Zoom in/Tracking",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/113",
-      "body": null,
-      "project_item_id": "GLAB_113",
+      "project_item_id": "GLAB_115",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/114-113-timestamp-out-of-date",
-  "started_at": "2026-06-24T12:21:09.523158",
+  "active_branch": "feat/115-architecture-migrate-from-gif",
+  "started_at": "2026-06-24T17:00:13.961162",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
@@ -45,6 +31,7 @@
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
         "docs/ROADMAP.md",
+        "luma/prompts/prompt_20260624_100012_fdd0c55f.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -126,7 +113,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/46",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-24T16:46:47.558698"
+  "last_updated": "2026-06-24T17:00:17.486773"
 }
