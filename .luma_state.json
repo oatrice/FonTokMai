@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 115,
@@ -25,10 +25,11 @@
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
+      "pending": [
+        "README.md"
+      ],
       "changed_files": [
         "CHANGELOG.md",
-        "README.md",
         "VERSION",
         "backend/app/models.py",
         "backend/app/repositories/base.py",
@@ -39,14 +40,9 @@
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
         "backend/tests/test_tmd_radar_e2e.py",
-        "code_review.md",
-        "draft_code_review.md",
-        "luma/prompts/prompt_20260624_113707_943fefde.md",
+        "docs/ROADMAP.md",
         "luma/prompts/prompt_20260624_113707_943fefde.md.response.md",
-        "luma/prompts/prompt_20260624_113707_f5ea12f5.md",
-        "luma/prompts/prompt_20260624_113707_f5ea12f5.md.response.md",
-        "luma/prompts/prompt_20260624_125907_92bc10fa.md",
-        "luma/prompts/prompt_20260624_125908_be479eee.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
@@ -58,6 +54,7 @@
         "backend/app/scheduler_tasks.py",
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -130,7 +127,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/47",
   "pr_number": null,
-  "last_updated": "2026-06-24T19:59:28.623164"
+  "last_updated": "2026-06-24T20:03:10.889803"
 }
