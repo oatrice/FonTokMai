@@ -606,6 +606,43 @@ async def handle_radar_command(chat_id: int):
         await send_telegram_message(chat_id, text, reply_markup=reply_markup)
 
 
+async def handle_tmd_fallback_command(chat_id: int, command: str):
+    """
+    /tmd_fallback on
+    /tmd_fallback off
+    """
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        return
+
+    parts = command.strip().split()
+    if len(parts) < 2:
+        async with get_repo_context() as repo:
+            sys_settings = await repo.get_system_settings()
+            current_status = sys_settings.get("enable_gif_fallback", True)
+            
+        status_str = "ON 🟢" if current_status else "OFF 🔴"
+        await send_telegram_message(
+            chat_id,
+            f"ℹ️ สถานะ GIF Fallback ปัจจุบัน: {status_str}\n"
+            "พิมพ์ `/tmd_fallback on` หรือ `/tmd_fallback off` เพื่อเปลี่ยน"
+        )
+        return
+
+    action = parts[1].lower()
+    enable = True if action == "on" else False
+
+    async with get_repo_context() as repo:
+        sys_settings = await repo.get_system_settings()
+        sys_settings["enable_gif_fallback"] = enable
+        await repo.set_system_settings(sys_settings)
+
+    status_str = "ON 🟢" if enable else "OFF 🔴"
+    await send_telegram_message(
+        chat_id,
+        f"✅ ตั้งค่า GIF Fallback เป็น {status_str} เรียบร้อยแล้ว"
+    )
+
+
 async def handle_devmock_command(chat_id: int, command: str):
     if str(chat_id) not in DEVELOPER_CHAT_IDS:
         return
@@ -815,6 +852,10 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
         if text.startswith("/devmock") and chat_id:
             if not tasks_svc.enqueue_task("worker/handle-devmock", {"chat_id": chat_id, "command": text.strip()}):
                 background_tasks.add_task(handle_devmock_command, chat_id, text.strip())
+            return {"status": "ok"}
+
+        if text.startswith("/tmd_fallback") and chat_id:
+            background_tasks.add_task(handle_tmd_fallback_command, chat_id, text.strip())
             return {"status": "ok"}
 
         # /check — shorthand alias for /rain tmd-radar (for manual testing)

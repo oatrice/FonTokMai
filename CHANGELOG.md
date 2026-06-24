@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.42.0] - 2026-06-24
+
+### Added
+- Implemented a multi-frame radar caching mechanism that automatically downloads and processes static radar images continuously.
+- Added a smart automated GIF fallback recovery system. When static images are broken or unavailable, the system automatically falls back to downloading the full Loop GIF to prevent forecast outages, protected by a 30-minute cooldown.
+- Added a low-confidence warning label (`⚠️ ข้อมูลขาดช่วง (ความแม่นยำต่ำ)`) to the rain summary in Telegram if the TMD radar data is older than 30 minutes.
+- Added a new Telegram developer command (`/tmd_fallback [on|off]`) to dynamically toggle the GIF fallback logic on the fly.
+- Implemented `system_settings` persistence across both Firestore and SQLite repositories for dynamic state management.
+
+### Changed
+- Improved optical flow normalization by accurately calculating time gaps between frames, standardizing all cloud movements to a 15-minute timeframe.
+- Refactored radar fetching tasks to remove deprecated cache parameters and streamline the data processing pipeline.
+
 ## [0.41.0] - 2026-06-24
 
 ### Added

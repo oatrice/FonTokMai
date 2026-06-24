@@ -535,7 +535,7 @@ class TMDRadarProcessor:
         return clusters
 
     @staticmethod
-    def render_rain_summary(clouds: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0) -> str:
+    def render_rain_summary(clouds: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0) -> str:
         """
         Generates a smart, non-redundant rain summary line for Telegram.
 
@@ -543,6 +543,8 @@ class TMDRadarProcessor:
         - If first cloud = strongest: merges into one line.
         - If a stronger cloud follows: shows two distinct lines.
         """
+        warning = "\n⚠️ ข้อมูลขาดช่วง (ความแม่นยำต่ำ)" if confidence_score < 1.0 else ""
+        
         def fmt_eta(minutes: float) -> str:
             m = int(round(minutes - time_offset_min))
             if m < 0:
@@ -563,20 +565,20 @@ class TMDRadarProcessor:
         reliable = [c for c in clouds if c["predicted_dbz"] >= 15 and -10 <= c["eta_min"] <= confidence_cutoff_min]
 
         if not reliable:
-            return "ℹ️ ไม่พบฝนในระยะ 90 นาทีข้างหน้า"
+            return f"ℹ️ ไม่พบฝนในระยะ 90 นาทีข้างหน้า{warning}"
 
         first    = reliable[0]
         strongest = max(reliable, key=lambda c: c["predicted_dbz"])
 
         if first is strongest:
             lbl = dbz_label(first["predicted_dbz"])
-            return f"⚡ ฝนกำลังจะมาใน {fmt_eta(first['eta_min'])} ({int(first['predicted_dbz'])} dBZ — {lbl})"
+            return f"⚡ ฝนกำลังจะมาใน {fmt_eta(first['eta_min'])} ({int(first['predicted_dbz'])} dBZ — {lbl}){warning}"
         else:
             lbl_f = dbz_label(first["predicted_dbz"])
             lbl_s = dbz_label(strongest["predicted_dbz"])
             return (
                 f"⏱ ฝนก้อนแรกใน {fmt_eta(first['eta_min'])} ({int(first['predicted_dbz'])} dBZ — {lbl_f})\n"
-                f"⚡ ก้อนหนักกว่ามาทีหลัง {fmt_eta(strongest['eta_min'])} ({int(strongest['predicted_dbz'])} dBZ — {lbl_s})"
+                f"⚡ ก้อนหนักกว่ามาทีหลัง {fmt_eta(strongest['eta_min'])} ({int(strongest['predicted_dbz'])} dBZ — {lbl_s}){warning}"
             )
 
     @staticmethod
@@ -821,33 +823,9 @@ class TMDRadarProcessor:
         growth_pct = ((curr_dbz - past_dbz) / past_dbz) * 100.0
         return max(-100.0, min(100.0, growth_pct))
 
-    async def fetch_latest_image_bytes(self, use_cache: bool = True) -> Optional[bytes]:
+    async def fetch_latest_image_bytes(self) -> Optional[bytes]:
         """Fetches the latest static radar image (Polling method)."""
         
-        if use_cache:
-            try:
-                async with get_repo_context() as repo:
-                    cache = await repo.get_latest_radar_cache(self.station_code)
-                    if cache and cache.get("url_t"):
-                        created_at = cache["created_at"]
-                        if created_at.tzinfo is not None:
-                            created_at = created_at.replace(tzinfo=None)
-                        age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
-                        if age_secs < 900: # 15 minutes max age
-                            import logging
-                            logger = logging.getLogger(__name__)
-                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
-                            client = storage.Client()
-                            bucket = client.bucket(bucket_name)
-                            blob = bucket.blob(cache["url_t"])
-                            # Blocking call, but since we're in async, it's a minor block for memory download
-                            import asyncio
-                            data = await asyncio.to_thread(blob.download_as_bytes)
-                            logger.info(f"Successfully loaded url_t {cache['url_t']} from Firebase Storage Cache")
-                            return data
-            except Exception as e:
-                print(f"Error reading static image from cache: {e}")
-                
         url = self.config.static_image_url
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -856,34 +834,11 @@ class TMDRadarProcessor:
                     return response.content
         except Exception:
             pass
-        return None
-
-    async def fetch_loop_gif_and_extract_frames(self, use_cache: bool = True) -> Tuple[List[np.ndarray], Optional['datetime'], Optional[bytes]]:
+    async def fetch_loop_gif_and_extract_frames(self) -> Tuple[List[np.ndarray], Optional['datetime'], Optional[bytes]]:
         """Fetches the Loop.gif and extracts frames, the Last-Modified datetime, and raw GIF bytes."""
         
         loop_bytes = None
         dt = None
-        
-        if use_cache:
-            try:
-                async with get_repo_context() as repo:
-                    cache = await repo.get_latest_radar_cache(self.station_code)
-                    if cache and cache.get("url_t_minus_1"):
-                        created_at = cache["created_at"]
-                        if created_at.tzinfo is not None:
-                            created_at = created_at.replace(tzinfo=None)
-                        age_secs = (datetime.now(timezone.utc).replace(tzinfo=None) - created_at).total_seconds()
-                        if age_secs < 900: # 15 mins
-                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
-                            client = storage.Client()
-                            bucket = client.bucket(bucket_name)
-                            blob = bucket.blob(cache["url_t_minus_1"])
-                            import asyncio
-                            loop_bytes = await asyncio.to_thread(blob.download_as_bytes)
-                            dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
-                            logger.info(f"Successfully loaded url_t_minus_1 {cache['url_t_minus_1']} from Firebase Storage Cache")
-            except Exception as e:
-                print(f"Error reading loop gif from cache: {e}")
                 
         if not loop_bytes:
             # Use the verified loop_gif_url from station config.

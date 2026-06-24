@@ -33,7 +33,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #115 - [Architecture] Migrate from GIF extraction to Polled Static Frames (T, T-1, T-2, T-3)
 - **GitHub:** [#115](https://gitlab.com/oatricedev/FonMaYang/-/issues/115)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.42.0)
 
 ### Issue #114 - เช็ค timestamp จากภาพเรดาร์ว่า out of date หรือไม่ก่อนประมวลผล
 - **GitHub:** [#114](https://gitlab.com/oatricedev/FonMaYang/-/issues/114)

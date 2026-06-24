@@ -285,16 +285,26 @@ class FirestoreLocationRepository(LocationRepository):
             return doc.to_dict()
         return None
 
-    async def set_latest_radar_cache(self, station_code: str, url_t: str, url_t_minus_1: Optional[str], timestamp: int) -> None:
+    async def set_latest_radar_cache(self, station_code: str, frames: list, last_gif_fallback_time: float = 0.0) -> None:
         from google.cloud import firestore
         doc_ref = self.db.collection('radar_latest_cache').document(station_code)
         data = {
-            "url_t": url_t,
-            "url_t_minus_1": url_t_minus_1,
-            "timestamp": timestamp,
-            "created_at": firestore.SERVER_TIMESTAMP
+            "frames": frames,
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "last_gif_fallback_time": last_gif_fallback_time
         }
-        await doc_ref.set(data)
+        await doc_ref.set(data, merge=True)
+
+    async def get_system_settings(self) -> dict:
+        doc_ref = self.db.collection('system_settings').document('tmd_radar')
+        doc = await doc_ref.get()
+        if doc.exists:
+            return doc.to_dict()
+        return {}
+
+    async def set_system_settings(self, settings: dict):
+        doc_ref = self.db.collection('system_settings').document('tmd_radar')
+        await doc_ref.set(settings, merge=True)
 
     async def record_cron_run(
         self,

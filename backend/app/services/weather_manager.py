@@ -228,6 +228,7 @@ class WeatherManager:
                     if cached_data and (time.time() - cached_data[2]) < 600:
                         frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
                         frame_source = cached_data[4] if len(cached_data) > 4 else "static_cache"
+                        data_gap_minutes = cached_data[5] if len(cached_data) > 5 else 15.0
                     else:
                         async with get_repo_context() as repo:
                             cache = await repo.get_latest_radar_cache(station_code)
@@ -237,77 +238,74 @@ class WeatherManager:
                         flow = None
                         frame_source = "static_cache"
 
-                        if cache and cache.get("url_t") and cache.get("url_t_minus_1"):
-                            # download images
+                        if cache and (cache.get("frames") or (cache.get("url_t") and cache.get("url_t_minus_1"))):
                             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
                             from google.cloud import storage
                             client = storage.Client()
                             bucket = client.bucket(bucket_name)
-                            blob_t = bucket.blob(cache["url_t"])
-                            blob_t_minus_1 = bucket.blob(cache["url_t_minus_1"])
                             
-                            try:
-                                t_bytes, t_minus_1_bytes = await asyncio.gather(
-                                    asyncio.to_thread(blob_t.download_as_bytes),
-                                    asyncio.to_thread(blob_t_minus_1.download_as_bytes)
-                                )
-                            except Exception as e:
-                                logger.warning(f"Failed to download cached frames for {station_code}: {e}")
-                                t_bytes = None
-                                t_minus_1_bytes = None
-
-                            if t_bytes and t_minus_1_bytes:
-                                t_np = np.frombuffer(t_bytes, np.uint8)
-                                curr_frame = cv2.imdecode(t_np, cv2.IMREAD_COLOR)
-                                curr_frame = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2RGB)
+                            cache_frames = cache.get("frames")
+                            if not cache_frames:
+                                cache_frames = [
+                                    {"url": cache.get("url_t"), "timestamp": cache.get("timestamp")},
+                                    {"url": cache.get("url_t_minus_1"), "timestamp": cache.get("timestamp") - 900}
+                                ]
                                 
-                                t_minus_1_np = np.frombuffer(t_minus_1_bytes, np.uint8)
-                                prev_frame = cv2.imdecode(t_minus_1_np, cv2.IMREAD_COLOR)
-                                prev_frame = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2RGB)
-
-                                if prev_frame.shape[:2] != curr_frame.shape[:2]:
-                                    prev_frame = cv2.resize(
-                                        prev_frame,
-                                        (curr_frame.shape[1], curr_frame.shape[0]),
-                                        interpolation=cv2.INTER_AREA,
-                                    )
-                                
-                                frames = [prev_frame, curr_frame]
-                                last_modified_dt = datetime.fromtimestamp(cache["timestamp"], timezone.utc)
+                            cache_frames = sorted(cache_frames, key=lambda x: x["timestamp"])
+                            
+                            async def fetch_blob(f_data):
+                                blob = bucket.blob(f_data["url"])
+                                try:
+                                    img_bytes = await asyncio.to_thread(blob.download_as_bytes)
+                                    return img_bytes, f_data["timestamp"]
+                                except Exception as e:
+                                    logger.warning(f"Failed to download cached frame {f_data['url']}: {e}")
+                                    return None, None
+                                    
+                            results = await asyncio.gather(*[fetch_blob(f) for f in cache_frames])
+                            valid_frames_data = [res for res in results if res[0] is not None]
+                            valid_frames_data.sort(key=lambda x: x[1])
+                            
+                            if len(valid_frames_data) >= 2:
+                                decoded_frames = []
+                                target_shape = None
+                                for f_bytes, ts in valid_frames_data[-6:]:
+                                    t_np = np.frombuffer(f_bytes, np.uint8)
+                                    frame = cv2.imdecode(t_np, cv2.IMREAD_COLOR)
+                                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                                    if target_shape is None:
+                                        target_shape = frame.shape[:2]
+                                    elif frame.shape[:2] != target_shape:
+                                        frame = cv2.resize(frame, (target_shape[1], target_shape[0]), interpolation=cv2.INTER_AREA)
+                                    decoded_frames.append(frame)
+                                    
+                                frames = decoded_frames
+                                last_modified_dt = datetime.fromtimestamp(valid_frames_data[-1][1], timezone.utc)
                                 flow = processor.calculate_optical_flow(frames)
                                 
-                                # Detect if cached image is from loop GIF (height < 800) or static image
-                                is_loop = curr_frame.shape[0] < 800 or curr_frame.shape[1] < 800
+                                data_gap_minutes = (valid_frames_data[-1][1] - valid_frames_data[-2][1]) / 60.0
+                                if data_gap_minutes > 16.0:
+                                    # Normalize flow to represent exactly 15 minutes of displacement
+                                    flow = flow / (data_gap_minutes / 15.0)
+                                    
+                                is_loop = frames[-1].shape[0] < 800 or frames[-1].shape[1] < 800
                                 frame_source = "loop_gif" if is_loop else "static_cache"
                                 
-                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source)
+                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source, data_gap_minutes)
 
                         if not frames or len(frames) < 2:
-                            fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames(use_cache=False)
+                            fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
                             if len(fresh_frames) >= 2:
-                                frames = fresh_frames[-2:]
-                                if frames[0].shape[:2] != frames[1].shape[:2]:
-                                    frames[0] = cv2.resize(
-                                        frames[0],
-                                        (frames[1].shape[1], frames[1].shape[0]),
-                                        interpolation=cv2.INTER_AREA,
-                                    )
+                                frames = fresh_frames[-6:]
+                                target_shape = frames[-1].shape[:2]
+                                for i in range(len(frames)-1):
+                                    if frames[i].shape[:2] != target_shape:
+                                        frames[i] = cv2.resize(frames[i], (target_shape[1], target_shape[0]), interpolation=cv2.INTER_AREA)
                                 last_modified_dt = fresh_dt or datetime.now(timezone.utc)
                                 flow = processor.calculate_optical_flow(frames)
+                                data_gap_minutes = 15.0 # Loop GIFs are assumed to be exactly 15m apart
                                 frame_source = "loop_gif"
-                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source)
-                                if fresh_loop_bytes:
-                                    try:
-                                        new_url_t = await processor.save_polled_frame(fresh_loop_bytes)
-                                        async with get_repo_context() as repo:
-                                            await repo.set_latest_radar_cache(
-                                                station_code=station_code,
-                                                url_t=new_url_t,
-                                                url_t_minus_1=cache.get("url_t") if cache else None,
-                                                timestamp=int((fresh_dt or datetime.now(timezone.utc)).timestamp()),
-                                            )
-                                    except Exception as e:
-                                        logger.warning(f"Failed to warm radar cache for {station_code}: {e}")
+                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source, data_gap_minutes)
                             else:
                                 continue
 
@@ -393,8 +391,24 @@ class WeatherManager:
                 now_utc = last_modified_dt if last_modified_dt else datetime.now(timezone.utc)
                 current_utc = datetime.now(timezone.utc)
                 time_offset_min = (current_utc - now_utc).total_seconds() / 60.0
+                data_age_minutes = time_offset_min
+                
+                confidence_score = 1.0
+                # Using data_gap_minutes which was computed earlier (defaults to 15.0 if not bound)
+                try:
+                    gap_min = data_gap_minutes
+                except NameError:
+                    gap_min = 15.0
+                    
+                if gap_min > 20 or data_age_minutes > 30:
+                    confidence_score = 0.5
 
-                summary_line = processor.render_rain_summary(clouds, confidence_cutoff_min=90, time_offset_min=time_offset_min)
+                summary_line = processor.render_rain_summary(
+                    clouds, 
+                    confidence_cutoff_min=90, 
+                    time_offset_min=time_offset_min,
+                    confidence_score=confidence_score
+                )
 
                 def dbz_to_intensity(d: float) -> str:
                     if d >= 55: return "ฝนตกหนักมาก"

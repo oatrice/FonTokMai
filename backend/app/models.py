@@ -56,10 +56,9 @@ class RadarLatestCache(Base):
     __tablename__ = "radar_latest_cache"
 
     station_code = Column(String, primary_key=True, index=True)
-    url_t = Column(String, nullable=True)
-    url_t_minus_1 = Column(String, nullable=True)
-    timestamp = Column(Integer, nullable=False)
+    frames_json = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False)
+    last_gif_fallback_time = Column(Float, default=0.0, nullable=False)
 
 class CronRunLog(Base):
     __tablename__ = "cron_run_logs"

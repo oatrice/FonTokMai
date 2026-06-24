@@ -234,38 +234,46 @@ class SQLiteLocationRepository(LocationRepository):
         result = await self.session.execute(select(RadarLatestCache).where(RadarLatestCache.station_code == station_code))
         cache = result.scalars().first()
         if cache:
+            import json
             return {
                 "station_code": cache.station_code,
-                "url_t": cache.url_t,
-                "url_t_minus_1": cache.url_t_minus_1,
-                "timestamp": cache.timestamp,
-                "created_at": cache.created_at
+                "frames": json.loads(cache.frames_json) if cache.frames_json else [],
+                "created_at": cache.created_at,
+                "last_gif_fallback_time": cache.last_gif_fallback_time
             }
         return None
 
-    async def set_latest_radar_cache(self, station_code: str, url_t: str, url_t_minus_1: Optional[str], timestamp: int) -> None:
+    async def set_latest_radar_cache(self, station_code: str, frames: list, last_gif_fallback_time: float = 0.0) -> None:
         from app.models import RadarLatestCache
+        import json
         result = await self.session.execute(select(RadarLatestCache).where(RadarLatestCache.station_code == station_code))
         cache = result.scalars().first()
         
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         
         if cache:
-            cache.url_t = url_t
-            cache.url_t_minus_1 = url_t_minus_1
-            cache.timestamp = timestamp
+            cache.frames_json = json.dumps(frames)
             cache.created_at = now
+            cache.last_gif_fallback_time = last_gif_fallback_time
         else:
-            cache = RadarLatestCache(
+            new_cache = RadarLatestCache(
                 station_code=station_code,
-                url_t=url_t,
-                url_t_minus_1=url_t_minus_1,
-                timestamp=timestamp,
-                created_at=now
+                frames_json=json.dumps(frames),
+                created_at=now,
+                last_gif_fallback_time=last_gif_fallback_time
             )
-            self.session.add(cache)
+            self.session.add(new_cache)
             
         await self.session.commit()
+
+    async def get_system_settings(self) -> dict:
+        # SQLite implementation for local dev can just return defaults
+        # or implement a simple JSON file read if needed. 
+        # For simplicity, default to True for local testing.
+        return getattr(self, "_mock_system_settings", {"enable_gif_fallback": True})
+
+    async def set_system_settings(self, settings: dict):
+        self._mock_system_settings = settings
 
     async def record_cron_run(
         self,

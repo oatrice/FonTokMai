@@ -181,7 +181,7 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping_skn(monkeypatch
 
 
 @pytest.mark.asyncio
-async def test_tmd_radar_fresh_loop_fallback_warms_cache(monkeypatch):
+async def test_tmd_radar_fresh_loop_fallback_works(monkeypatch):
     _install_weather_manager_import_stubs(monkeypatch)
 
     from contextlib import asynccontextmanager
@@ -242,5 +242,4 @@ async def test_tmd_radar_fresh_loop_fallback_warms_cache(monkeypatch):
     assert result["radar_static_bytes"] is not None
     assert result["radar_tracking_bytes"] is not None
     assert result["rain_timeline_bytes"] is not None
-    assert repo.set_latest_radar_cache.await_count == 1
     assert ("kkn240", True) in calls

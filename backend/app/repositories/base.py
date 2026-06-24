@@ -78,12 +78,22 @@ class LocationRepository(ABC):
 
     @abstractmethod
     async def get_latest_radar_cache(self, station_code: str) -> Optional[dict]:
-        """ดึงข้อมูล Cache ล่าสุดของสถานีเรดาร์ (คืนค่าเป็น dict ที่มี static_url, loop_url, timestamp, created_at)"""
+        """ดึงข้อมูล Cache ล่าสุดของสถานีเรดาร์ (คืนค่าเป็น dict ที่มี frames (list of dict with url, timestamp), created_at)"""
         pass
 
     @abstractmethod
-    async def set_latest_radar_cache(self, station_code: str, url_t: str, url_t_minus_1: Optional[str], timestamp: int) -> None:
-        """บันทึกข้อมูล Cache ล่าสุดของสถานีเรดาร์ลงฐานข้อมูล"""
+    async def set_latest_radar_cache(self, station_code: str, frames: list, last_gif_fallback_time: float = 0.0) -> None:
+        """บันทึกข้อมูล Cache ล่าสุดของสถานีเรดาร์ลงฐานข้อมูลแบบ Array 4 เฟรม"""
+        pass
+
+    @abstractmethod
+    async def get_system_settings(self) -> dict:
+        """ดึงข้อมูล System Settings จากฐานข้อมูล"""
+        pass
+
+    @abstractmethod
+    async def set_system_settings(self, settings: dict):
+        """บันทึกข้อมูล System Settings ลงฐานข้อมูล"""
         pass
 
     @abstractmethod
