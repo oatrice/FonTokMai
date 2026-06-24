@@ -87,6 +87,11 @@ class LocationRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_system_settings(self) -> dict:
+        """ดึงข้อมูล System Settings จากฐานข้อมูล"""
+        pass
+
+    @abstractmethod
     async def record_cron_run(
         self,
         routine_name: str,

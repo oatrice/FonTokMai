@@ -295,6 +295,13 @@ class FirestoreLocationRepository(LocationRepository):
         }
         await doc_ref.set(data, merge=True)
 
+    async def get_system_settings(self) -> dict:
+        doc_ref = self.db.collection('system_settings').document('tmd_radar')
+        doc = await doc_ref.get()
+        if doc.exists:
+            return doc.to_dict()
+        return {}
+
     async def record_cron_run(
         self,
         routine_name: str,

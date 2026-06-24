@@ -369,7 +369,12 @@ async def fetch_tmd_radar_routine():
                 fallback_reason = ""
                 
                 # Check for dead static image BEFORE the early return
-                if frames:
+                sys_settings = await repo.get_system_settings()
+                enable_fallback_db = sys_settings.get("enable_gif_fallback", True)
+                enable_fallback_env = os.environ.get("ENABLE_TMD_GIF_FALLBACK", "true").lower() == "true"
+                enable_fallback = enable_fallback_db and enable_fallback_env
+                
+                if frames and enable_fallback:
                     gap_to_now = (now_ts - latest_ts) / 60.0
                     if gap_to_now > 60.0 and (now_ts - last_gif_fallback_time) > 1800.0:
                         needs_fallback = True
@@ -386,7 +391,7 @@ async def fetch_tmd_radar_routine():
                     frames.insert(0, {"url": new_url, "timestamp": ts})
 
                 # Also fallback if we have <2 frames (e.g., startup)
-                if len(frames) < 2:
+                if len(frames) < 2 and enable_fallback:
                     needs_fallback = True
                     fallback_reason = f"Cache has <2 frames ({len(frames)})"
                     

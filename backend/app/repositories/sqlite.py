@@ -266,6 +266,12 @@ class SQLiteLocationRepository(LocationRepository):
             
         await self.session.commit()
 
+    async def get_system_settings(self) -> dict:
+        # SQLite implementation for local dev can just return defaults
+        # or implement a simple JSON file read if needed. 
+        # For simplicity, default to True for local testing.
+        return {"enable_gif_fallback": True}
+
     async def record_cron_run(
         self,
         routine_name: str,
