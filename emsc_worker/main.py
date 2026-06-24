@@ -71,6 +71,26 @@ async def start_worker():
                                 "depth": props.get("depth"),
                                 "source": "EMSC"
                             }
+                            
+                            # Safely extract values for filtering
+                            try:
+                                mag = float(event.get("mag") or 0.0)
+                                lat = float(event.get("lat") or 0.0)
+                                lng = float(event.get("lng") or 0.0)
+                            except (ValueError, TypeError):
+                                mag, lat, lng = 0.0, 0.0, 0.0
+                            
+                            # Filter small or irrelevant earthquakes
+                            if mag < 4.0:
+                                logger.info(f"Skipped EMSC event {event.get('id')}: mag={mag} < 4.0")
+                                continue
+                                
+                            # Geographically relevant bounding box (approx. Asia/SE Asia + 3000km)
+                            # Includes lat -15 to 45, lng 70 to 130
+                            if not (-15.0 <= lat <= 45.0) or not (70.0 <= lng <= 130.0):
+                                logger.info(f"Skipped EMSC event {event.get('id')}: geographically irrelevant (lat={lat}, lng={lng})")
+                                continue
+
                             logger.info(f"EMSC earthquake event [{action}]: mag={event.get('mag')}, place={event.get('place')}")
                             
                             # Forward event in a separate thread so we don't block the asyncio event loop

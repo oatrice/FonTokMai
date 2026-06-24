@@ -1,60 +1,40 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 115,
-      "title": "[Architecture] Migrate from GIF extraction to Polled Static Frames (T, T-1, T-2, T-3)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/115",
+      "number": 116,
+      "title": "Optimize EMSC Worker webhook to reduce Cloud Run costs",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/116",
       "body": null,
-      "project_item_id": "GLAB_115",
+      "project_item_id": "GLAB_116",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/115-architecture-migrate-from-gif",
-  "started_at": "2026-06-24T17:00:13.961162",
+  "active_branch": "feat/116-optimize-emsc-worker-webhook-t",
+  "started_at": "2026-06-24T20:50:09.063353",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
       "pending": [
-        "README.md"
+        "CHANGELOG.md",
+        "README.md",
+        "VERSION"
       ],
       "changed_files": [
-        "CHANGELOG.md",
-        "VERSION",
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/tmd_radar_processor.py",
-        "backend/app/services/weather_manager.py",
-        "backend/tests/test_tmd_radar_e2e.py",
-        "docs/ROADMAP.md",
-        "luma/prompts/prompt_20260624_113707_943fefde.md.response.md",
-        "luma_metrics.json",
+        "docs/architecture_decisions/002_issue_batching_strategy.md",
+        "docs/architecture_decisions/008_incident_recovery_and_stability_batching_strategy.md",
+        "docs/architecture_decisions/009_tmd_radar_high_res_polling_architecture.md",
+        "emsc_worker/main.py",
+        "luma/prompts/prompt_20260624_135007_868f591a.md",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/tmd_radar_processor.py",
-        "backend/app/services/weather_manager.py",
-        "luma_metrics.json",
+        "emsc_worker/main.py",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -127,7 +107,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/47",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-24T20:03:10.889803"
+  "last_updated": "2026-06-24T20:50:13.942668"
 }
