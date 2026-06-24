@@ -270,7 +270,10 @@ class SQLiteLocationRepository(LocationRepository):
         # SQLite implementation for local dev can just return defaults
         # or implement a simple JSON file read if needed. 
         # For simplicity, default to True for local testing.
-        return {"enable_gif_fallback": True}
+        return getattr(self, "_mock_system_settings", {"enable_gif_fallback": True})
+
+    async def set_system_settings(self, settings: dict):
+        self._mock_system_settings = settings
 
     async def record_cron_run(
         self,

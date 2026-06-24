@@ -302,6 +302,10 @@ class FirestoreLocationRepository(LocationRepository):
             return doc.to_dict()
         return {}
 
+    async def set_system_settings(self, settings: dict):
+        doc_ref = self.db.collection('system_settings').document('tmd_radar')
+        await doc_ref.set(settings, merge=True)
+
     async def record_cron_run(
         self,
         routine_name: str,
