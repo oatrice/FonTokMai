@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 114,
@@ -34,18 +34,17 @@
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
+      "pending": [
+        "README.md"
+      ],
       "changed_files": [
         "CHANGELOG.md",
-        "README.md",
         "VERSION",
         "backend/app/routers/webhook.py",
         "backend/app/services/telegram.py",
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
         "docs/ROADMAP.md",
-        "luma/prompts/prompt_20260624_094156_90023c5c.md",
-        "luma/prompts/prompt_20260624_094157_8092e117.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -127,7 +126,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/46",
   "pr_number": null,
-  "last_updated": "2026-06-24T16:42:25.515376"
+  "last_updated": "2026-06-24T16:46:47.558698"
 }
