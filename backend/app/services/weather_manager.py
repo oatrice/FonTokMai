@@ -228,6 +228,7 @@ class WeatherManager:
                     if cached_data and (time.time() - cached_data[2]) < 600:
                         frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
                         frame_source = cached_data[4] if len(cached_data) > 4 else "static_cache"
+                        data_gap_minutes = cached_data[5] if len(cached_data) > 5 else 15.0
                     else:
                         async with get_repo_context() as repo:
                             cache = await repo.get_latest_radar_cache(station_code)
@@ -282,10 +283,15 @@ class WeatherManager:
                                 last_modified_dt = datetime.fromtimestamp(valid_frames_data[-1][1], timezone.utc)
                                 flow = processor.calculate_optical_flow(frames)
                                 
+                                data_gap_minutes = (valid_frames_data[-1][1] - valid_frames_data[-2][1]) / 60.0
+                                if data_gap_minutes > 16.0:
+                                    # Normalize flow to represent exactly 15 minutes of displacement
+                                    flow = flow / (data_gap_minutes / 15.0)
+                                    
                                 is_loop = frames[-1].shape[0] < 800 or frames[-1].shape[1] < 800
                                 frame_source = "loop_gif" if is_loop else "static_cache"
                                 
-                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source)
+                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source, data_gap_minutes)
 
                         if not frames or len(frames) < 2:
                             fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
@@ -297,8 +303,9 @@ class WeatherManager:
                                         frames[i] = cv2.resize(frames[i], (target_shape[1], target_shape[0]), interpolation=cv2.INTER_AREA)
                                 last_modified_dt = fresh_dt or datetime.now(timezone.utc)
                                 flow = processor.calculate_optical_flow(frames)
+                                data_gap_minutes = 15.0 # Loop GIFs are assumed to be exactly 15m apart
                                 frame_source = "loop_gif"
-                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source)
+                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source, data_gap_minutes)
                             else:
                                 continue
 
@@ -384,8 +391,24 @@ class WeatherManager:
                 now_utc = last_modified_dt if last_modified_dt else datetime.now(timezone.utc)
                 current_utc = datetime.now(timezone.utc)
                 time_offset_min = (current_utc - now_utc).total_seconds() / 60.0
+                data_age_minutes = time_offset_min
+                
+                confidence_score = 1.0
+                # Using data_gap_minutes which was computed earlier (defaults to 15.0 if not bound)
+                try:
+                    gap_min = data_gap_minutes
+                except NameError:
+                    gap_min = 15.0
+                    
+                if gap_min > 20 or data_age_minutes > 30:
+                    confidence_score = 0.5
 
-                summary_line = processor.render_rain_summary(clouds, confidence_cutoff_min=90, time_offset_min=time_offset_min)
+                summary_line = processor.render_rain_summary(
+                    clouds, 
+                    confidence_cutoff_min=90, 
+                    time_offset_min=time_offset_min,
+                    confidence_score=confidence_score
+                )
 
                 def dbz_to_intensity(d: float) -> str:
                     if d >= 55: return "ฝนตกหนักมาก"

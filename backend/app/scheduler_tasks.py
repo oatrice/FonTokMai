@@ -370,16 +370,27 @@ async def fetch_tmd_radar_routine():
                 
                 # It's a new image!
                 new_url = await processor.save_polled_frame(static_bytes)
-                
                 frames.insert(0, {"url": new_url, "timestamp": ts})
-                
-                # Check if we need GIF fallback (missing frames or gap > 30 mins between latest two)
-                needs_fallback = len(frames) < 4
-                if len(frames) > 1 and (frames[0]["timestamp"] - frames[1]["timestamp"]) > 1800:
+
+                # Only fallback to GIF if we have <2 frames, OR if static has been dead for > 60 minutes
+                # AND the GIF is actually newer than our static image.
+                needs_fallback = False
+                if len(frames) < 2:
                     needs_fallback = True
-                    
+                    logger.warning(f"[{station}] Need GIF fallback: Cache has <2 frames ({len(frames)}).")
+                elif frames:
+                    gap_to_now = (datetime.now(timezone.utc).timestamp() - frames[-1]["timestamp"]) / 60.0
+                    if gap_to_now > 60:
+                        # Check if GIF is actually newer before downloading the full 1-2MB GIF
+                        gif_info = await processor.get_loop_gif_info()
+                        if gif_info and gif_info["last_modified"]:
+                            gif_ts = gif_info["last_modified"].timestamp()
+                            if gif_ts > frames[-1]["timestamp"] + 300: # GIF is at least 5 mins newer
+                                needs_fallback = True
+                                logger.warning(f"[{station}] Need GIF fallback: Static dead for {gap_to_now:.1f}m but GIF is newer.")
+
                 if needs_fallback:
-                    logger.info(f"[{station}] Missing history or gap detected. Fetching GIF fallback...")
+                    logger.info(f"[{station}] Executing GIF fallback recovery...")
                     fallback_frames_data, fallback_dt, loop_bytes = await processor.fetch_loop_gif_and_extract_frames(use_cache=False)
                     if fallback_frames_data and len(fallback_frames_data) >= 2:
                         logger.info(f"[{station}] GIF fallback found {len(fallback_frames_data)} frames")
