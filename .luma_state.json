@@ -18,31 +18,46 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
-        "README.md"
-      ],
+      "pending": [],
       "changed_files": [
         "CHANGELOG.md",
+        "README.md",
         "VERSION",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
         "backend/app/routers/webhook.py",
-        "backend/app/services/telegram.py",
+        "backend/app/scheduler_tasks.py",
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
-        "docs/ROADMAP.md",
-        "luma/prompts/prompt_20260624_100012_fdd0c55f.md",
-        "luma_metrics.json",
+        "backend/tests/test_tmd_radar_e2e.py",
+        "code_review.md",
+        "draft_code_review.md",
+        "luma/prompts/prompt_20260624_113707_943fefde.md",
+        "luma/prompts/prompt_20260624_113707_943fefde.md.response.md",
+        "luma/prompts/prompt_20260624_113707_f5ea12f5.md",
+        "luma/prompts/prompt_20260624_113707_f5ea12f5.md.response.md",
+        "luma/prompts/prompt_20260624_125907_92bc10fa.md",
+        "luma/prompts/prompt_20260624_125908_be479eee.md",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
         "backend/app/routers/webhook.py",
-        "backend/app/services/telegram.py",
+        "backend/app/scheduler_tasks.py",
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
-        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -117,5 +132,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-24T18:37:07.209080"
+  "last_updated": "2026-06-24T19:59:28.623164"
 }
