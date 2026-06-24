@@ -834,8 +834,6 @@ class TMDRadarProcessor:
                     return response.content
         except Exception:
             pass
-        return None
-
     async def fetch_loop_gif_and_extract_frames(self) -> Tuple[List[np.ndarray], Optional['datetime'], Optional[bytes]]:
         """Fetches the Loop.gif and extracts frames, the Last-Modified datetime, and raw GIF bytes."""
         

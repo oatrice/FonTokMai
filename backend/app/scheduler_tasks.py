@@ -362,32 +362,37 @@ async def fetch_tmd_radar_routine():
                 
                 frames = cache.get("frames", []) if cache else []
                 latest_ts = frames[0]["timestamp"] if frames else 0
+                last_gif_fallback_time = cache.get("last_gif_fallback_time", 0.0) if cache else 0.0
                 
-                # If we already have this timestamp, do nothing
-                if ts and ts <= latest_ts:
+                now_ts = datetime.now(timezone.utc).timestamp()
+                needs_fallback = False
+                fallback_reason = ""
+                
+                # Check for dead static image BEFORE the early return
+                if frames:
+                    gap_to_now = (now_ts - latest_ts) / 60.0
+                    if gap_to_now > 60.0 and (now_ts - last_gif_fallback_time) > 1800.0:
+                        needs_fallback = True
+                        fallback_reason = f"Static dead for {gap_to_now:.1f}m"
+
+                # If we already have this timestamp and no fallback is needed, do nothing
+                if ts and ts <= latest_ts and not needs_fallback:
                     logger.debug(f"[{station}] Image unchanged (ts {ts}). Skipping.")
                     return result
                 
-                # It's a new image!
-                new_url = await processor.save_polled_frame(static_bytes)
-                frames.insert(0, {"url": new_url, "timestamp": ts})
+                # It's a new image! (only insert if it's actually new)
+                if ts and ts > latest_ts:
+                    new_url = await processor.save_polled_frame(static_bytes)
+                    frames.insert(0, {"url": new_url, "timestamp": ts})
 
-                # Only fallback to GIF if we have <2 frames, OR if static has been dead for > 60 minutes
-                # AND the GIF is actually newer than our static image.
-                needs_fallback = False
+                # Also fallback if we have <2 frames (e.g., startup)
                 if len(frames) < 2:
                     needs_fallback = True
-                    logger.warning(f"[{station}] Need GIF fallback: Cache has <2 frames ({len(frames)}).")
-                elif frames:
-                    gap_to_now = (datetime.now(timezone.utc).timestamp() - frames[-1]["timestamp"]) / 60.0
-                    if gap_to_now > 60:
-                        # Check if GIF is actually newer before downloading the full 1-2MB GIF
-                        gif_info = await processor.get_loop_gif_info()
-                        if gif_info and gif_info["last_modified"]:
-                            gif_ts = gif_info["last_modified"].timestamp()
-                            if gif_ts > frames[-1]["timestamp"] + 300: # GIF is at least 5 mins newer
-                                needs_fallback = True
-                                logger.warning(f"[{station}] Need GIF fallback: Static dead for {gap_to_now:.1f}m but GIF is newer.")
+                    fallback_reason = f"Cache has <2 frames ({len(frames)})"
+                    
+                if needs_fallback:
+                    logger.warning(f"[{station}] GIF fallback triggered: {fallback_reason}")
+                    last_gif_fallback_time = now_ts # Update the attempt time
 
                 if needs_fallback:
                     logger.info(f"[{station}] Executing GIF fallback recovery...")
@@ -407,16 +412,25 @@ async def fetch_tmd_radar_routine():
                                 new_frames_list.append({"url": f_url, "timestamp": f_ts})
                         
                         if new_frames_list:
-                            # If the polled static image is newer than the newest GIF frame, we merge them
-                            if new_frames_list[0]["timestamp"] < ts:
-                                new_frames_list.insert(0, {"url": new_url, "timestamp": ts})
-                            frames = new_frames_list
+                            # Verify if the GIF is ACTUALLY newer than what we have
+                            gif_newest_ts = new_frames_list[0]["timestamp"]
+                            current_newest_ts = frames[0]["timestamp"] if frames else 0
+                            
+                            if gif_newest_ts > current_newest_ts + 300:
+                                logger.info(f"[{station}] GIF data is newer (GIF: {gif_newest_ts}, Static: {current_newest_ts}). Adopting GIF frames.")
+                                # If the polled static image is newer than the newest GIF frame, we merge them
+                                if ts and ts > gif_newest_ts:
+                                    new_frames_list.insert(0, {"url": new_url, "timestamp": ts})
+                                frames = new_frames_list
+                            else:
+                                logger.warning(f"[{station}] GIF data is NOT newer (GIF: {gif_newest_ts}, Static: {current_newest_ts}). Discarding GIF.")
                 
                 frames = frames[:6] # Keep max 6 frames
                 
                 await repo.set_latest_radar_cache(
                     station_code=station,
-                    frames=frames
+                    frames=frames,
+                    last_gif_fallback_time=last_gif_fallback_time
                 )
                 logger.info(f"Updated Firestore radar cache for {station} with {len(frames)} frames, latest ts {ts}")
 

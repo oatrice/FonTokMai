@@ -238,11 +238,12 @@ class SQLiteLocationRepository(LocationRepository):
             return {
                 "station_code": cache.station_code,
                 "frames": json.loads(cache.frames_json) if cache.frames_json else [],
-                "created_at": cache.created_at
+                "created_at": cache.created_at,
+                "last_gif_fallback_time": cache.last_gif_fallback_time
             }
         return None
 
-    async def set_latest_radar_cache(self, station_code: str, frames: list) -> None:
+    async def set_latest_radar_cache(self, station_code: str, frames: list, last_gif_fallback_time: float = 0.0) -> None:
         from app.models import RadarLatestCache
         import json
         result = await self.session.execute(select(RadarLatestCache).where(RadarLatestCache.station_code == station_code))
@@ -253,11 +254,13 @@ class SQLiteLocationRepository(LocationRepository):
         if cache:
             cache.frames_json = json.dumps(frames)
             cache.created_at = now
+            cache.last_gif_fallback_time = last_gif_fallback_time
         else:
             new_cache = RadarLatestCache(
                 station_code=station_code,
                 frames_json=json.dumps(frames),
-                created_at=now
+                created_at=now,
+                last_gif_fallback_time=last_gif_fallback_time
             )
             self.session.add(new_cache)
             
