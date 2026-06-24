@@ -2425,7 +2425,7 @@
       "issue_key": "oatricedev/FonMaYang#114",
       "issue_number": 114,
       "issue_title": "เช็ค timestamp จากภาพเรดาร์ว่า out of date หรือไม่ก่อนประมวลผล",
-      "issue_url": "",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/114",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Complete",
@@ -2433,21 +2433,21 @@
       "post_story_point": 1.0,
       "estimated_mandays": null,
       "start_datetime": null,
-      "actual_mandays": null,
+      "actual_mandays": 0.0,
       "due_date": null,
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-06-24T16:44:20",
       "effort_level": null,
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-24T16:42:22.026922",
-      "updated_at": "2026-06-24T16:42:22.983574"
+      "updated_at": "2026-06-24T16:44:20.215027"
     },
     "oatricedev/FonMaYang#113": {
       "issue_key": "oatricedev/FonMaYang#113",
       "issue_number": 113,
       "issue_title": "เพิ่ม timestamp +7 IDC สำหรับภาพ Zoom in/Tracking",
-      "issue_url": "",
+      "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/113",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
       "issue_status": "✅ Complete",
@@ -2455,15 +2455,15 @@
       "post_story_point": 3.0,
       "estimated_mandays": null,
       "start_datetime": null,
-      "actual_mandays": null,
+      "actual_mandays": 0.0,
       "due_date": null,
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-06-24T16:44:20",
       "effort_level": null,
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-24T16:42:22.028280",
-      "updated_at": "2026-06-24T16:42:23.619112"
+      "updated_at": "2026-06-24T16:44:20.218186"
     }
   }
 }
