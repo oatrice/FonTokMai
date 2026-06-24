@@ -37,11 +37,11 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #114 - เช็ค timestamp จากภาพเรดาร์ว่า out of date หรือไม่ก่อนประมวลผล
 - **GitHub:** [#114](https://gitlab.com/oatricedev/FonMaYang/-/issues/114)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.41.0)
 
 ### Issue #113 - เพิ่ม timestamp +7 IDC สำหรับภาพ Zoom in/Tracking
 - **GitHub:** [#113](https://gitlab.com/oatricedev/FonMaYang/-/issues/113)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.41.0)
 
 ### Issue #112 - TMD radar fallback cache for loop GIF frames
 - **GitHub:** [#112](https://gitlab.com/oatricedev/FonMaYang/-/issues/112)

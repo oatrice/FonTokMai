@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.41.0] - 2026-06-24
+
+### Added
+- Implemented outdated radar data detection (`is_outdated` flag) with automatic warning notifications sent to users via Telegram if the TMD Radar data is older than 45 minutes.
+- Added IDC (+7 ICT) timestamp overlays to both zoomed tracking images and full-resolution radar images.
+
+### Changed
+- Increased the timestamp font size, padding, and layout margins on the full-resolution radar images to proportionally match the tracking image overlay.
+- Updated Telegram Webhook responses to prioritize warning messages when data is outdated, hiding irrelevant ETA forecasts.
+- Removed over 400 lines of duplicated code in the `TMDRadarProcessor` which was shadowing updated visual overlays.
+
+### Fixed
+- Fixed an issue where `send_telegram_photo` would sporadically fail with empty `ReadTimeout` exceptions due to the default 5-second `httpx` timeout. A 30-second timeout was added to ensure reliable delivery of image batches.
+
 ## [0.40.0] - 2026-06-23
 
 ### Added
