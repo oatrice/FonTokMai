@@ -336,25 +336,31 @@ async def fetch_tmd_radar_routine():
             processor = TMDRadarProcessor(station_code=station)
 
             # 1. Fetch static image bytes
-            static_bytes = await processor.fetch_latest_image_bytes(use_cache=False)
+            static_bytes = await processor.fetch_latest_image_bytes()
             if not static_bytes:
                 logger.warning(f"[{station}] Could not fetch static image.")
-                return result
+                # We do not return early here because we might still want to trigger GIF fallback!
 
             # 2. Extract timestamp via OCR
             from app.services.ocr_service import OCRService
             import numpy as np
             import cv2
             
-            np_arr = np.frombuffer(static_bytes, np.uint8)
-            frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-            
-            # Since OpenCV reads in BGR, we convert to RGB for consistency with original PIL logic
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
             ocr_svc = OCRService()
             now_ts = int(datetime.now(timezone.utc).timestamp())
-            ts = await ocr_svc.get_frame_timestamp(frame, fallback_ts=now_ts)
+            
+            ts = None
+            frame = None
+            np_arr = None
+            
+            if static_bytes:
+                np_arr = np.frombuffer(static_bytes, np.uint8)
+                frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+                
+                # Since OpenCV reads in BGR, we convert to RGB for consistency with original PIL logic
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                ts = await ocr_svc.get_frame_timestamp(frame, fallback_ts=now_ts)
 
             # 3. Check cache
             async with get_repo_context() as repo:
@@ -364,7 +370,6 @@ async def fetch_tmd_radar_routine():
                 latest_ts = frames[0]["timestamp"] if frames else 0
                 last_gif_fallback_time = cache.get("last_gif_fallback_time", 0.0) if cache else 0.0
                 
-                now_ts = datetime.now(timezone.utc).timestamp()
                 needs_fallback = False
                 fallback_reason = ""
                 
@@ -374,15 +379,20 @@ async def fetch_tmd_radar_routine():
                 enable_fallback_env = os.environ.get("ENABLE_TMD_GIF_FALLBACK", "true").lower() == "true"
                 enable_fallback = enable_fallback_db and enable_fallback_env
                 
-                if frames and enable_fallback:
-                    gap_to_now = (now_ts - latest_ts) / 60.0
-                    if gap_to_now > 60.0 and (now_ts - last_gif_fallback_time) > 1800.0:
-                        needs_fallback = True
-                        fallback_reason = f"Static dead for {gap_to_now:.1f}m"
+                if enable_fallback:
+                    if frames:
+                        gap_to_now = (now_ts - latest_ts) / 60.0
+                        if gap_to_now > 60.0 and (now_ts - last_gif_fallback_time) > 1800.0:
+                            needs_fallback = True
+                            fallback_reason = f"Static dead for {gap_to_now:.1f}m"
+                    else:
+                        if (now_ts - last_gif_fallback_time) > 1800.0:
+                            needs_fallback = True
+                            fallback_reason = "Cache is empty"
 
-                # If we already have this timestamp and no fallback is needed, do nothing
-                if ts and ts <= latest_ts and not needs_fallback:
-                    logger.debug(f"[{station}] Image unchanged (ts {ts}). Skipping.")
+                # If we already have this timestamp (or static is down) and no fallback is needed, do nothing
+                if not needs_fallback and ((ts and ts <= latest_ts) or not static_bytes):
+                    logger.debug(f"[{station}] Image unchanged or unavailable (ts {ts}). Skipping.")
                     return result
                 
                 # It's a new image! (only insert if it's actually new)
@@ -391,9 +401,10 @@ async def fetch_tmd_radar_routine():
                     frames.insert(0, {"url": new_url, "timestamp": ts})
 
                 # Also fallback if we have <2 frames (e.g., startup)
-                if len(frames) < 2 and enable_fallback:
-                    needs_fallback = True
-                    fallback_reason = f"Cache has <2 frames ({len(frames)})"
+                if len(frames) < 2 and enable_fallback and not needs_fallback:
+                    if (now_ts - last_gif_fallback_time) > 1800.0:
+                        needs_fallback = True
+                        fallback_reason = f"Cache has <2 frames ({len(frames)})"
                     
                 if needs_fallback:
                     logger.warning(f"[{station}] GIF fallback triggered: {fallback_reason}")
@@ -409,8 +420,9 @@ async def fetch_tmd_radar_routine():
                         recent_fallback.reverse()
                         
                         new_frames_list = []
+                        base_ts = ts if ts else now_ts
                         for i, f_img in enumerate(recent_fallback):
-                            f_ts = await ocr_svc.get_frame_timestamp(f_img, fallback_ts=ts - i * 900)
+                            f_ts = await ocr_svc.get_frame_timestamp(f_img, fallback_ts=base_ts - i * 900)
                             is_success, buffer = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
                             if is_success:
                                 f_url = await processor.save_polled_frame(buffer.tobytes())
@@ -445,8 +457,10 @@ async def fetch_tmd_radar_routine():
                 logger.info(f"Cleaned up {deleted} old frames for {station}")
 
             # Clean up memory explicitly
-            del frame
-            del np_arr
+            if frame is not None:
+                del frame
+            if np_arr is not None:
+                del np_arr
             import gc
             gc.collect()
 
