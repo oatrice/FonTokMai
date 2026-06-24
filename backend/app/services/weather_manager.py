@@ -462,20 +462,24 @@ class WeatherManager:
                     
                     time_str = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
                     try:
-                        fnt = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 96)
+                        fnt = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 120)
                     except:
                         try:
-                            fnt = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 96)
+                            fnt = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 140)
                         except:
                             fnt = ImageFont.load_default()
                             
                     draw = ImageDraw.Draw(img_hq, "RGBA")
-                    left, top, right, bottom = draw.textbbox((0, 0), time_str, font=fnt)
-                    text_w, text_h = right - left, bottom - top
                     
-                    x_pos = img_hq.width - text_w - 30
-                    y_pos = 30
-                    pad = 15
+                    if hasattr(draw, 'textbbox'):
+                        left, top, right, bottom = draw.textbbox((0, 0), time_str, font=fnt)
+                        text_w, text_h = right - left, bottom - top
+                    else:
+                        text_w, text_h = draw.textsize(time_str, font=fnt)
+                    
+                    x_pos = img_hq.width - text_w - 80
+                    y_pos = 80
+                    pad = 40
                     draw.rectangle([x_pos-pad, y_pos-pad, x_pos+text_w+pad, y_pos+text_h+pad], fill=(0, 0, 0, 200))
                     draw.text((x_pos, y_pos), time_str, fill=(255, 255, 255, 255), font=fnt)
                     
@@ -505,6 +509,7 @@ class WeatherManager:
                     "growth_rate_pct":   percent_change,
                     "approaching_clouds": clouds,
                     "rain_summary":      summary_line,
+                    "is_outdated":       time_offset_min > 45,
                     "radar_gif_bytes":   None,
                     "radar_hq_gif_bytes": None,
                     "radar_static_bytes": static_bytes,

@@ -138,7 +138,7 @@ async def send_telegram_photo(chat_id: int, photo_data: bytes, filename: str) ->
     Sends a photo to a specific Telegram chat_id.
     """
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             files = {"photo": (filename, photo_data, "image/png")}
             data = {"chat_id": chat_id}
             response = await client.post(TELEGRAM_SEND_PHOTO_URL, data=data, files=files)
@@ -147,7 +147,7 @@ async def send_telegram_photo(chat_id: int, photo_data: bytes, filename: str) ->
                 return False
             return True
     except Exception as e:
-        logger.error(f"Failed to send telegram photo to {chat_id}: {e}")
+        logger.error(f"Failed to send telegram photo to {chat_id}: {type(e).__name__} - {e}")
         return False
 
 def get_radar_inline_keyboard(lat: float, lng: float, is_developer: bool = False) -> dict:

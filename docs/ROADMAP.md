@@ -27,6 +27,22 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #116 - Optimize EMSC Worker webhook to reduce Cloud Run costs
+- **GitHub:** [#116](https://gitlab.com/oatricedev/FonMaYang/-/issues/116)
+- **Status:** 🟢 **Ready**
+
+### Issue #115 - [Architecture] Migrate from GIF extraction to Polled Static Frames (T, T-1, T-2, T-3)
+- **GitHub:** [#115](https://gitlab.com/oatricedev/FonMaYang/-/issues/115)
+- **Status:** 🟢 **Ready**
+
+### Issue #114 - เช็ค timestamp จากภาพเรดาร์ว่า out of date หรือไม่ก่อนประมวลผล
+- **GitHub:** [#114](https://gitlab.com/oatricedev/FonMaYang/-/issues/114)
+    - ✅ **Done** (0.41.0)
+
+### Issue #113 - เพิ่ม timestamp +7 IDC สำหรับภาพ Zoom in/Tracking
+- **GitHub:** [#113](https://gitlab.com/oatricedev/FonMaYang/-/issues/113)
+    - ✅ **Done** (0.41.0)
+
 ### Issue #112 - TMD radar fallback cache for loop GIF frames
 - **GitHub:** [#112](https://gitlab.com/oatricedev/FonMaYang/-/issues/112)
     - ✅ **Done** (0.40.0)
