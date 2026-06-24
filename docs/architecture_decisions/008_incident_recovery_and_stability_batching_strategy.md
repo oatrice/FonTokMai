@@ -151,8 +151,16 @@ gcloud run services update fontokmai-api --max-instances 2 --region asia-southea
 | [#74](https://gitlab.com/oatricedev/FonMaYang/-/issues/74) | Add Cloud Tasks Queue Monitoring & API endpoint |
 | [#79](https://gitlab.com/oatricedev/FonMaYang/-/issues/79) | Infrastructure: Setup System Uptime Monitoring & Status Dashboard |
 | [#83](https://gitlab.com/oatricedev/FonMaYang/-/issues/83) | Optimization: Cleanup old Docker Images in Artifact Registry |
+| [#116](https://gitlab.com/oatricedev/FonMaYang/-/issues/116) | Optimize EMSC Worker webhook to reduce Cloud Run costs |
+| [#108](https://gitlab.com/oatricedev/FonMaYang/-/issues/108) | Infra: Sync Cloud Scheduler job definitions from GCP Console into repo |
 
 **เหตุผลการจัดกลุ่ม:** ทั้งหมดเป็น Observability และ Housekeeping ที่ไม่มี Dependency ซับซ้อนต่อกัน สามารถทำคู่ขนานได้
+
+**การแบ่งย่อย Merge Request (MR Strategy สำหรับ Batch M):**
+เพื่อลดความซับซ้อน (Avoid Large MR) งานใน Batch M ถูกวางแผนให้แบ่งออกเป็น 3 MR ดังนี้:
+- **MR 1 (Application Metrics):** Issue #74, #79, #73 (เพิ่ม `GET /metrics/queue` และผูก UptimeRobot เข้ากับ API หลัก)
+- **MR 2 (EMSC Worker Optimization):** Issue #116 (แยกแก้เฉพาะไฟล์บน Standalone VM เพื่อกรองแผ่นดินไหว)
+- **MR 3 (Infra Automation):** Issue #108 (เขียน Bash script `sync_schedulers.sh` ในฝั่ง DevOps)
 
 **ขนาด MR คาดการณ์:** Small–Medium ต่อ Issue
 
