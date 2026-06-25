@@ -34,17 +34,22 @@ We use Google Cloud Tasks for background webhook processing and scheduling. To p
 
 ## 3. GCP Performance & Memory Verification Checklist
 
-When deploying new versions or investigating incidents, use the following checklist in the Google Cloud Console:
+When deploying new versions (especially those containing caching or performance optimizations like in #71) or investigating incidents, use the following checklist in the Google Cloud Console:
 
 - [ ] **Cloud Run Revisions:** Go to Cloud Run -> Service -> Metrics.
   - [ ] Check **Container Instance Count**: Ensure instances scale up and down correctly. Are there idle instances lingering?
-  - [ ] Check **Container Memory Utilization**: Ensure it remains below 80% to avoid Out-Of-Memory (OOM) errors during heavy image processing.
+  - [ ] Check **Container Memory Utilization**: Ensure it remains below 80% to avoid Out-Of-Memory (OOM) errors during heavy image processing. Monitor for steady memory growth over time which could indicate memory leaks in the event loop or in-memory caches.
   - [ ] Check **Container CPU Utilization**: Monitor for CPU spikes that correlate with image OCR or prediction tasks.
+  - [ ] Check **Request Latency (p50 & p99)**: Verify that latencies meet optimization targets. For instance, post-optimization target for p50 latency is typically `< 5s` (reduced from ~34s).
+  - [ ] Check **Billable Container Instance Time**: Ensure container starts and active durations correlate with expected scheduling rates.
+- [ ] **Cloud Run Network Metrics:**
+  - [ ] Check **Network Ingress**: Verify that bandwidth usage matches the caching implementation. Ingress should be flat and only spike during cache misses or new data fetches (e.g., downloading loop GIFs once per cron instead of per user request).
 - [ ] **Cloud Run Logs:** Go to the Logs tab.
   - [ ] Search for `severity >= ERROR` to identify crashes or failed API requests.
 - [ ] **Cloud Tasks Dashboard:** Go to Cloud Tasks.
   - [ ] Check **Tasks in Queue**: A high number indicates workers are failing or not keeping up with the dispatch rate.
   - [ ] Check **Retry Rates**: Frequent retries indicate transient errors in the webhook receiver.
+
 
 ## 4. Cloud Scheduler Synchronization (Infra Automation)
 
