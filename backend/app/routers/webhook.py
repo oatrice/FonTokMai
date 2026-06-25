@@ -691,7 +691,86 @@ async def handle_devmock_command(chat_id: int, command: str):
                 await process_telegram_location(chat_id, locs[0].latitude, locs[0].longitude, message_id_to_edit=None)
             else:
                 await send_telegram_message(chat_id, "ไม่พบตำแหน่งที่บันทึกไว้ โปรดส่ง Location มาใหม่เพื่อทดสอบ error")
-            
+
+        elif command.startswith("/devmock scenario"):
+            import json as _json
+            from app.services.weather_manager import _parse_scenario_params
+
+            params_str = command.removeprefix("/devmock scenario").strip()
+            if not params_str:
+                await send_telegram_message(
+                    chat_id,
+                    "🛠️ [DEV MOCK] ต้องระบุพารามิเตอร์ เช่น:\n"
+                    "/devmock scenario rain_in:20 dbz:40 wind:60 wind_dir:N\n"
+                    "พิมพ์ /devmock help เพื่อดูตัวเลือกทั้งหมด"
+                )
+                return
+
+            scenario = _parse_scenario_params(params_str)
+            mock_state_json = _json.dumps(scenario, ensure_ascii=False)
+            await repo.set_mock_state(chat_id, mock_state_json)
+
+            # Reset cooldown เพื่อให้ alert ยิงทันที
+            locs = await repo.get_user_locations(chat_id)
+            for loc in locs:
+                await repo.update_last_alerted(loc, None)
+
+            # Build a human-readable summary of the scenario
+            parts = []
+            if "rain_in" in scenario:
+                parts.append(f"🕐 ฝนจะมาใน {scenario['rain_in']} นาที")
+            if "rain_stopping" in scenario:
+                parts.append(f"🌤 ฝนจะหยุดใน {scenario['rain_stopping']} นาที")
+            if scenario.get("no_rain"):
+                parts.append("☀️ ไม่มีฝน")
+            if "dbz" in scenario:
+                parts.append(f"📡 dBZ: {scenario['dbz']}")
+            if "wind" in scenario:
+                wind_dir = scenario.get("wind_dir", "?")
+                parts.append(f"💨 ลม: {scenario['wind']} km/h จากทิศ {wind_dir}")
+            if "growth" in scenario:
+                sign = "+" if float(scenario["growth"]) >= 0 else ""
+                parts.append(f"📈 Growth: {sign}{scenario['growth']}")
+            if "clusters" in scenario:
+                parts.append(f"☁️ เมฆ: {scenario['clusters']} ก้อน")
+
+            summary = "\n".join(parts) if parts else "(ไม่มีพารามิเตอร์พิเศษ)"
+            await send_telegram_message(
+                chat_id,
+                f"🛠️ [DEV MOCK] Scenario จำลอง:\n{summary}\n\n⏳ กำลังสร้างแจ้งเตือน..."
+            )
+
+            from app.scheduler_tasks import check_rain_and_alert
+            await check_rain_and_alert()
+
+        elif command in ("/devmock help", "/devmock"):
+            help_text = (
+                "🛠️ *DEV MOCK — คำสั่งทั้งหมด*\n\n"
+                "*โหมดพื้นฐาน:*\n"
+                "`/devmock rain` — ฝนตกหนัก \\(Boost เมฆจริง\\)\n"
+                "`/devmock storm` — พายุจำลอง 5 ก้อนเมฆ\n"
+                "`/devmock clear` — ท้องฟ้าแจ่มใส\n"
+                "`/devmock error` — API ล้มเหลวทั้งหมด\n"
+                "`/devmock off` — ปิด mock mode\n\n"
+                "*โหมด Parametric Scenario:*\n"
+                "`/devmock scenario <params>`\n\n"
+                "*พารามิเตอร์ที่รองรับ:*\n"
+                "`rain_in:N` — ฝนจะมาใน N นาที\n"
+                "`rain_stopping:N` — ฝนจะหยุดใน N นาที\n"
+                "`no_rain` — ไม่มีฝน \\(ทดสอบลมอย่างเดียว\\)\n"
+                "`dbz:N` — ความเข้มฝน dBZ \\(15–75, default 35\\)\n"
+                "`wind:N` — ความเร็วลม km/h \\(default 20\\)\n"
+                "`wind_dir:X` — ทิศลม: N/NE/E/SE/S/SW/W/NW\n"
+                "`growth:N` — อัตราการเติบโต ±0\\.0–1\\.0\n"
+                "`clusters:N` — จำนวนก้อนเมฆ 1–5 \\(default 1\\)\n\n"
+                "*ตัวอย่าง:*\n"
+                "`/devmock scenario rain_in:20 dbz:40 wind:60 wind_dir:N`\n"
+                "`/devmock scenario rain_stopping:10 dbz:30`\n"
+                "`/devmock scenario no_rain wind:45 wind_dir:SE`\n"
+                "`/devmock scenario rain_in:5 dbz:55 growth:0.3 clusters:3`"
+            )
+            await send_telegram_message(chat_id, help_text, parse_mode="MarkdownV2")
+
         elif command == "/devmock off":
             await repo.set_mock_state(chat_id, None)
             await send_telegram_message(chat_id, "🛠️ [DEV MOCK] ปิดใช้งานโหมดจำลองเรียบร้อยแล้ว\n⏳ กำลังส่งสถานะ All-Clear...")

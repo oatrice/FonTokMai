@@ -2,11 +2,13 @@ import logging
 import time
 import os
 import asyncio
+import json
+import math
 import cv2
 import io
 import numpy as np
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
 from PIL import Image, ImageDraw, ImageFont
 from zoneinfo import ZoneInfo
 from .tomorrow import TomorrowService
@@ -16,6 +18,144 @@ from .open_meteo import OpenMeteoService
 from .tmd_radar_processor import TMDRadarProcessor
 logger = logging.getLogger(__name__)
 from app.dependencies import get_repo_context
+
+
+# ─── Parametric Mock Scenario Helpers ────────────────────────────────────────
+
+# Direction abbreviation → compass bearing (degrees, 0=N, 90=E)
+_CARDINAL_TO_DEG: Dict[str, float] = {
+    "N": 0.0, "NNE": 22.5, "NE": 45.0, "ENE": 67.5,
+    "E": 90.0, "ESE": 112.5, "SE": 135.0, "SSE": 157.5,
+    "S": 180.0, "SSW": 202.5, "SW": 225.0, "WSW": 247.5,
+    "W": 270.0, "WNW": 292.5, "NW": 315.0, "NNW": 337.5,
+}
+
+
+def _parse_scenario_params(params_str: str) -> Dict[str, Any]:
+    """
+    Parse a /devmock scenario parameter string into a dict.
+
+    Examples
+    --------
+    "rain_in:20 dbz:40 wind:60 wind_dir:N"  →  {"rain_in": 20, "dbz": 40, "wind": 60, "wind_dir": "N"}
+    "rain_stopping:10 dbz:30"               →  {"rain_stopping": 10, "dbz": 30}
+    "no_rain wind:45 wind_dir:SE"           →  {"no_rain": True, "wind": 45, "wind_dir": "SE"}
+    """
+    result: Dict[str, Any] = {}
+    for token in params_str.strip().split():
+        if ":" in token:
+            key, _, raw_val = token.partition(":")
+            key = key.strip().lower()
+            raw_val = raw_val.strip()
+            # Try numeric conversion first
+            try:
+                result[key] = float(raw_val) if "." in raw_val else int(raw_val)
+            except ValueError:
+                result[key] = raw_val.upper()
+        else:
+            # Flag-style token (e.g. "no_rain")
+            result[token.lower()] = True
+    return result
+
+
+def _build_mock_clouds_from_scenario(
+    scenario: Dict[str, Any],
+    user_px: int,
+    user_py: int,
+    km_per_pixel: float = 1.5,
+) -> list:
+    """
+    Build a synthetic list of cloud dicts from a parametric scenario.
+
+    The cloud dicts are identical in structure to what
+    `TMDRadarProcessor.find_approaching_clouds()` returns, so they
+    feed seamlessly into the rest of the prediction pipeline.
+
+    Parameters
+    ----------
+    scenario : dict from _parse_scenario_params()
+    user_px, user_py : pixel coordinate of the user's location
+    km_per_pixel : rough scale factor for converting wind_speed → vx/vy
+    """
+    if scenario.get("no_rain"):
+        return []  # Caller will use only wind data
+
+    # ── Resolve dBZ (default 35) ──────────────────────────────────────────
+    dbz = float(scenario.get("dbz", 35.0))
+    dbz = max(15.0, min(75.0, dbz))
+
+    # ── Resolve wind vector ───────────────────────────────────────────────
+    # In image coordinates: vx > 0 = East, vy < 0 = North
+    # vx/vy units = pixels per 15 minutes
+    wind_kmh = float(scenario.get("wind", 20.0))
+    wind_dir_str = str(scenario.get("wind_dir", "N")).upper()
+    bearing_deg = _CARDINAL_TO_DEG.get(wind_dir_str, 0.0)  # degrees from North
+    bearing_rad = math.radians(bearing_deg)
+    # Pixels the cloud travels in 15 minutes
+    km_per_15m = wind_kmh / 4.0
+    pixels_per_15m = km_per_15m / max(0.01, km_per_pixel)
+    vx = pixels_per_15m * math.sin(bearing_rad)   # East component
+    vy = -pixels_per_15m * math.cos(bearing_rad)  # North component (image y is inverted)
+
+    growth_rate = float(scenario.get("growth", 0.0))
+    num_clusters = int(scenario.get("clusters", 1))
+    num_clusters = max(1, min(5, num_clusters))
+
+    clouds = []
+
+    # ── rain_stopping: cloud is currently on top of the user (eta < 0) ───
+    if "rain_stopping" in scenario:
+        stop_in = float(scenario["rain_stopping"])
+        # eta_min < 0 means rain already here; cloud moves away in stop_in mins
+        eta = -stop_in
+        # Place cloud at user location (it's already overhead)
+        cx = user_px
+        cy = user_py
+        clouds.append({
+            "cx": cx, "cy": cy,
+            "vx": vx, "vy": vy,
+            "dbz_now": dbz, "dbz_prev": max(15.0, dbz - 5.0),
+            "predicted_dbz": max(0.0, dbz * ((1 + growth_rate) ** max(0.0, -eta / 15.0))),
+            "eta_min": eta,
+            "growth_rate": growth_rate,
+            "dist": 0.0,
+        })
+        return clouds
+
+    # ── rain_in: cloud is approaching, will arrive in N minutes ──────────
+    base_eta = float(scenario.get("rain_in", scenario.get("eta", 15.0)))
+    base_eta = max(0.0, base_eta)
+
+    for i in range(num_clusters):
+        # Spread multiple clusters slightly around the arrival time
+        eta_offset = i * 10.0
+        eta = base_eta + eta_offset
+
+        # Distance from user = speed × time
+        dist_px = pixels_per_15m * (eta / 15.0)
+
+        # Cloud is upstream: opposite of its travel direction
+        cx = int(user_px - vx * (eta / 15.0))
+        cy = int(user_py - vy * (eta / 15.0))
+
+        # Slightly vary dBZ between clusters
+        c_dbz = max(15.0, dbz - i * 5.0)
+        predicted = max(0.0, min(75.0, c_dbz * ((1 + growth_rate) ** (eta / 15.0))))
+
+        clouds.append({
+            "cx": cx, "cy": cy,
+            "vx": vx, "vy": vy,
+            "dbz_now": c_dbz, "dbz_prev": max(15.0, c_dbz - 3.0),
+            "predicted_dbz": predicted,
+            "eta_min": eta,
+            "growth_rate": growth_rate,
+            "dist": dist_px,
+        })
+
+    return clouds
+
+
+# ─── End Parametric Mock Helpers ──────────────────────────────────────────────
 
 _GLOBAL_TMD_CACHE = {}
 _GLOBAL_TMD_LOCKS = {
@@ -327,8 +467,23 @@ class WeatherManager:
                     search_radius=80, min_dbz=20.0, cluster_dist=20,
                 )
 
+                # ── Parametric scenario mock (JSON mock_state) ────────────────────
+                if mock_state and mock_state.startswith("{"):
+                    try:
+                        scenario = json.loads(mock_state)
+                        # Override clouds completely with synthetic data
+                        # Estimate km_per_pixel from station config
+                        lon_diff = processor.config.bbox.lng_max - processor.config.bbox.lng_min
+                        width_km = lon_diff * 111.0
+                        est_km_per_pixel = width_km / max(1, processor.config.loop_crop_width)
+                        clouds = _build_mock_clouds_from_scenario(
+                            scenario, user_px, user_py, km_per_pixel=est_km_per_pixel
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to parse JSON mock_state scenario: {e}")
+
                 # Apply mock overrides
-                if mock_state in ("rain", "storm"):
+                elif mock_state in ("rain", "storm"):
                     if mock_state == "storm" or not clouds:
                         if mock_state == "storm":
                             clouds = []  # Forcefully clear real clouds to ensure mock storm always shows
