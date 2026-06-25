@@ -29,7 +29,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ## Synced From GitHub
 ### Issue #116 - Optimize EMSC Worker webhook to reduce Cloud Run costs
 - **GitHub:** [#116](https://gitlab.com/oatricedev/FonMaYang/-/issues/116)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.43.0)
 
 ### Issue #115 - [Architecture] Migrate from GIF extraction to Polled Static Frames (T, T-1, T-2, T-3)
 - **GitHub:** [#115](https://gitlab.com/oatricedev/FonMaYang/-/issues/115)
@@ -53,7 +53,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #108 - Infra: Sync Cloud Scheduler job definitions from GCP Console into repo
 - **GitHub:** [#108](https://gitlab.com/oatricedev/FonMaYang/-/issues/108)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.43.0)
 
 ### Issue #106 - Monitoring: Deploy GCP Alert Rules for Cloud Run
 - **GitHub:** [#106](https://gitlab.com/oatricedev/FonMaYang/-/issues/106)
@@ -165,7 +165,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #79 - Infrastructure: Setup System Uptime Monitoring & Status Dashboard
 - **GitHub:** [#79](https://gitlab.com/oatricedev/FonMaYang/-/issues/79)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.43.0)
 
 ### Issue #78 - Architecture: Implement Dedicated Users (Private Cloud Run) with Reverse Proxy / API Gateway
 - **GitHub:** [#78](https://gitlab.com/oatricedev/FonMaYang/-/issues/78)
@@ -185,11 +185,11 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #74 - Add Cloud Tasks Queue Monitoring & API endpoint
 - **GitHub:** [#74](https://gitlab.com/oatricedev/FonMaYang/-/issues/74)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.43.0)
 
 ### Issue #73 - Verify Performance Gains & Monitor Memory Usage Post-Deployment of #71
 - **GitHub:** [#73](https://gitlab.com/oatricedev/FonMaYang/-/issues/73)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.43.0)
 
 ### Issue #72 - Feature: Budget-based Auto-shutdown Mechanism for Cloud Run
 - **GitHub:** [#72](https://gitlab.com/oatricedev/FonMaYang/-/issues/72)
