@@ -1,98 +1,48 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "reviewing",
   "active_issues": [
     {
-      "number": 116,
-      "title": "Optimize EMSC Worker webhook to reduce Cloud Run costs",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/116",
+      "number": 121,
+      "title": "Feature: Parametric Mock Scenario System for TMD Radar (/devmock scenario)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/121",
       "body": null,
-      "project_item_id": "GLAB_116",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 108,
-      "title": "Infra: Sync Cloud Scheduler job definitions from GCP Console into repo",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/108",
-      "body": null,
-      "project_item_id": "GLAB_108",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 73,
-      "title": "Verify Performance Gains & Monitor Memory Usage Post-Deployment of #71",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/73",
-      "body": null,
-      "project_item_id": "GLAB_73",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 74,
-      "title": "Add Cloud Tasks Queue Monitoring & API endpoint",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/74",
-      "body": null,
-      "project_item_id": "GLAB_74",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 79,
-      "title": "Infrastructure: Setup System Uptime Monitoring & Status Dashboard",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/79",
-      "body": null,
-      "project_item_id": "GLAB_79",
+      "project_item_id": "GLAB_121",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/116-optimize-emsc-worker-webhook-t",
-  "started_at": "2026-06-25T15:51:08.594498",
+  "active_branch": "feat/121-feature-parametric-mock-scenar",
+  "started_at": "2026-06-25T21:08:45.329370",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
       "pending": [
-        "README.md"
+        "CHANGELOG.md",
+        "README.md",
+        "VERSION"
       ],
       "changed_files": [
-        "CHANGELOG.md",
-        "VERSION",
-        "backend/config/schedulers.json",
-        "backend/scripts/audit_window_2026-06-21.sh",
-        "backend/scripts/setup_schedulers.sh",
-        "backend/scripts/sync_schedulers.py",
-        "backend/tests/test_metrics.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/app/services/weather_manager.py",
+        "backend/scripts/check_public_access.sh",
+        "backend/tests/test_e2e_mock_scenario.py",
+        "backend/tests/test_multiframe_analysis.py",
         "docs/ROADMAP.md",
-        "docs/architecture_decisions/002_issue_batching_strategy.md",
-        "docs/architecture_decisions/008_incident_recovery_and_stability_batching_strategy.md",
-        "docs/architecture_decisions/009_tmd_radar_high_res_polling_architecture.md",
-        "docs/cloud_tasks_dashboard_analysis.md",
-        "docs/observability.md",
-        "emsc_worker/main.py",
-        "emsc_worker/mock_server.py",
-        "luma/prompts/prompt_20260624_135007_868f591a.md",
-        "luma_metrics.json",
-        "luma_state.json",
-        "test_patch.py"
+        "luma/prompts/prompt_20260625_140844_67c150b9.md",
+        "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/config/schedulers.json",
-        "backend/scripts/audit_window_2026-06-21.sh",
-        "backend/scripts/setup_schedulers.sh",
-        "backend/scripts/sync_schedulers.py",
-        "emsc_worker/main.py",
-        "emsc_worker/mock_server.py",
-        "luma_metrics.json",
+        "backend/app/routers/webhook.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/app/services/weather_manager.py",
+        "backend/scripts/check_public_access.sh",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -165,7 +115,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/48",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-25T15:56:14.056566"
+  "last_updated": "2026-06-25T21:08:56.878001"
 }
