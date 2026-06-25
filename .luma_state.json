@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 116,
@@ -61,16 +61,18 @@
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
+      "pending": [
+        "README.md"
+      ],
       "changed_files": [
         "CHANGELOG.md",
-        "README.md",
         "VERSION",
         "backend/config/schedulers.json",
         "backend/scripts/audit_window_2026-06-21.sh",
         "backend/scripts/setup_schedulers.sh",
         "backend/scripts/sync_schedulers.py",
         "backend/tests/test_metrics.py",
+        "docs/ROADMAP.md",
         "docs/architecture_decisions/002_issue_batching_strategy.md",
         "docs/architecture_decisions/008_incident_recovery_and_stability_batching_strategy.md",
         "docs/architecture_decisions/009_tmd_radar_high_res_polling_architecture.md",
@@ -79,8 +81,7 @@
         "emsc_worker/main.py",
         "emsc_worker/mock_server.py",
         "luma/prompts/prompt_20260624_135007_868f591a.md",
-        "luma/prompts/prompt_20260625_085129_57aa0db9.md",
-        "luma/prompts/prompt_20260625_085130_8d9b26a4.md",
+        "luma_metrics.json",
         "luma_state.json",
         "test_patch.py"
       ],
@@ -91,6 +92,7 @@
         "backend/scripts/sync_schedulers.py",
         "emsc_worker/main.py",
         "emsc_worker/mock_server.py",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -163,7 +165,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/48",
   "pr_number": null,
-  "last_updated": "2026-06-25T15:52:22.586969"
+  "last_updated": "2026-06-25T15:56:14.056566"
 }
