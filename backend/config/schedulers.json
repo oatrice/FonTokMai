@@ -1,0 +1,30 @@
+[
+  {
+    "job_name": "fonmayang-check-rain",
+    "schedule": "*/20 * * * *",
+    "endpoint_path": "check-rain",
+    "time_zone": "Asia/Bangkok",
+    "description": "⚠️ DO NOT EDIT - Managed by CI/CD setup_schedulers.sh"
+  },
+  {
+    "job_name": "fonmayang-disasters-freq",
+    "schedule": "*/5 * * * *",
+    "endpoint_path": "check-disasters-frequent",
+    "time_zone": "Asia/Bangkok",
+    "description": "⚠️ DO NOT EDIT - Managed by CI/CD setup_schedulers.sh"
+  },
+  {
+    "job_name": "fonmayang-disasters-infreq",
+    "schedule": "0 * * * *",
+    "endpoint_path": "check-disasters-infrequent",
+    "time_zone": "Asia/Bangkok",
+    "description": "⚠️ DO NOT EDIT - Managed by CI/CD setup_schedulers.sh"
+  },
+  {
+    "job_name": "fonmayang-fetch-radar",
+    "schedule": "*/5 * * * *",
+    "endpoint_path": "fetch-tmd-radar",
+    "time_zone": "Asia/Bangkok",
+    "description": "⚠️ DO NOT EDIT - Managed by CI/CD setup_schedulers.sh"
+  }
+]
