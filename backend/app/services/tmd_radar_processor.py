@@ -782,6 +782,292 @@ class TMDRadarProcessor:
         img.save(buf, format="PNG")
         return buf.getvalue()
 
+    @staticmethod
+    def generate_multiframe_analysis_image(
+        frames: "List[np.ndarray]",
+        flow: "np.ndarray",
+        user_x: int,
+        user_y: int,
+        clouds: list,
+        processor: "TMDRadarProcessor",
+        time_utc: "Optional[datetime]" = None,
+        gap_minutes: float = 15.0,
+    ) -> "Optional[bytes]":
+        """
+        Produces a horizontal strip of radar frame thumbnails with cloud-cluster
+        trajectory overlays and per-frame growth/decay measurements.
+
+        Layout (one column per frame, oldest → newest left to right):
+
+            ┌──────────┬──────────┬──────────┬──────────┐
+            │ t-45m    │ t-30m    │ t-15m    │ NOW      │  ← timestamp row
+            │[radar]   │[radar]   │[radar]   │[radar]   │  ← cropped thumbnail
+            │ ●──→     │  ●──→   │   ●──→  │    ●     │  ← cluster dot+arrow
+            │ 32 dBZ   │ 38 dBZ  │ 42 dBZ  │ 45 dBZ  │  ← dBZ per frame
+            │  +14%    │  +19%   │  +11%   │    --   │  ← growth/decay Δ
+            └──────────┴──────────┴──────────┴──────────┘
+
+        Parameters
+        ----------
+        frames      : RGB numpy frames (oldest first), at most 6 are used.
+        flow        : Dense optical flow computed from the last 2 frames.
+        user_x/y    : Pixel coordinate of the user's location in each frame.
+        clouds      : Cloud cluster list from find_approaching_clouds().
+        processor   : TMDRadarProcessor instance (for dbz/wind helpers).
+        time_utc    : Timestamp of the LATEST frame (for labelling).
+        gap_minutes : Minutes between consecutive frames (default 15).
+        """
+        try:
+            from PIL import Image as PILImage, ImageDraw as PILDraw, ImageFont as PILFont
+        except ImportError:
+            return None
+
+        if not frames or len(frames) < 2:
+            return None
+
+        # ── Layout constants ────────────────────────────────────────────────
+        MAX_FRAMES = 6
+        use_frames = frames[-MAX_FRAMES:]          # up to 6, oldest first
+        n = len(use_frames)
+
+        THUMB_W, THUMB_H = 200, 200                # thumbnail size (px)
+        HEADER_H = 28                              # timestamp row height
+        DBZ_ROW_H = 22                             # dBZ label row
+        GROWTH_ROW_H = 20                          # growth/decay row
+        PANEL_H = THUMB_H + HEADER_H + DBZ_ROW_H + GROWTH_ROW_H
+        TOTAL_W = THUMB_W * n
+        TOTAL_H = PANEL_H
+
+        BG_COLOR   = (18, 18, 30, 255)            # near-black bg
+        GRID_COLOR = (50, 50, 70, 255)
+        TEXT_WHITE = (230, 230, 230, 255)
+        TEXT_DIM   = (140, 140, 160, 255)
+        NOW_BORDER = (74, 144, 226, 255)           # blue highlight for NOW panel
+
+        canvas = PILImage.new("RGBA", (TOTAL_W, TOTAL_H), BG_COLOR)
+        draw   = PILDraw.Draw(canvas, "RGBA")
+
+        # ── Font loading ─────────────────────────────────────────────────────
+        def _load_font(size: int):
+            for path in [
+                "/System/Library/Fonts/Helvetica.ttc",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            ]:
+                try:
+                    return PILFont.truetype(path, size)
+                except Exception:
+                    pass
+            return PILFont.load_default()
+
+        font_sm  = _load_font(11)
+        font_med = _load_font(13)
+
+        # ── Helper: dBZ → colour (RGB) ───────────────────────────────────────
+        def _dbz_color(dbz: float):
+            if dbz >= 60: return (155, 89, 182)   # Purple
+            if dbz >= 50: return (231, 76,  60)   # Red
+            if dbz >= 40: return (243, 156, 18)   # Orange
+            if dbz >= 30: return (241, 196, 15)   # Yellow
+            if dbz >= 15: return (46,  204, 113)  # Green
+            return (100, 100, 100)                # Gray (trace)
+
+        # ── Identify top clouds to trace (max 2 strongest) ──────────────────
+        incoming = sorted(
+            [c for c in clouds if c.get("eta_min", 0) >= -30],
+            key=lambda c: c.get("predicted_dbz", 0),
+            reverse=True,
+        )[:2]
+
+        # ── Per-frame cluster positions & dBZ ───────────────────────────────
+        # For cloud c in the CURRENT frame (index = n-1),
+        # its position in frame[i] is back-traced by (n-1-i) steps.
+        # cluster_data[cloud_idx][frame_idx] = {"px": int, "py": int, "dbz": float}
+        cluster_data: list = []
+        for c in incoming:
+            vx, vy = c.get("vx", 0.0), c.get("vy", 0.0)
+            cx_now, cy_now = int(c["cx"]), int(c["cy"])
+            pts = []
+            for fi in range(n):
+                steps_back = (n - 1 - fi)          # 0 for latest frame
+                px = int(round(cx_now - vx * steps_back))
+                py = int(round(cy_now - vy * steps_back))
+                dbz = processor._get_max_dbz_in_radius(use_frames[fi], px, py, radius=12)
+                pts.append({"px": px, "py": py, "dbz": dbz})
+            cluster_data.append(pts)
+
+        # ── Build each panel ─────────────────────────────────────────────────
+        crop_r = THUMB_W // 2
+
+        for fi in range(n):
+            frame = use_frames[fi]
+            is_now = (fi == n - 1)
+            panel_x = fi * THUMB_W
+
+            # Frame timestamp label
+            if time_utc is not None:
+                delta_back = (n - 1 - fi) * gap_minutes
+                frame_dt = time_utc - timedelta(minutes=delta_back)
+                ts_label = frame_dt.astimezone(ZoneInfo("Asia/Bangkok")).strftime("%H:%M")
+                if delta_back == 0:
+                    ts_label = f"NOW  {ts_label}"
+                else:
+                    ts_label = f"-{int(delta_back)}m  {ts_label}"
+            else:
+                ts_label = "NOW" if is_now else f"-{(n-1-fi)*int(gap_minutes)}m"
+
+            # Header background
+            hdr_color = (30, 60, 100, 255) if is_now else (28, 28, 45, 255)
+            draw.rectangle([panel_x, 0, panel_x + THUMB_W - 1, HEADER_H - 1], fill=hdr_color)
+            draw.text((panel_x + 6, 6), ts_label, font=font_med,
+                      fill=(255, 255, 255, 255) if is_now else TEXT_DIM)
+
+            # Vertical separator
+            if fi > 0:
+                draw.line([(panel_x, 0), (panel_x, PANEL_H)], fill=GRID_COLOR, width=1)
+
+            # "NOW" border highlight
+            if is_now:
+                draw.rectangle(
+                    [panel_x, 0, panel_x + THUMB_W - 1, PANEL_H - 1],
+                    outline=NOW_BORDER, width=2,
+                )
+
+            # ── Crop thumbnail from frame ─────────────────────────────────
+            fh, fw = frame.shape[:2]
+            x1 = max(0, user_x - crop_r)
+            y1 = max(0, user_y - crop_r)
+            x2 = min(fw, user_x + crop_r)
+            y2 = min(fh, user_y + crop_r)
+            crop = frame[y1:y2, x1:x2].copy()
+
+            if crop.shape[0] == 0 or crop.shape[1] == 0:
+                continue
+
+            # Resize to fixed THUMB_W × THUMB_H
+            crop_resized = cv2.resize(crop, (THUMB_W, THUMB_H), interpolation=cv2.INTER_LANCZOS4)
+            thumb_pil = PILImage.fromarray(crop_resized, mode="RGB").convert("RGBA")
+            thumb_draw = PILDraw.Draw(thumb_pil, "RGBA")
+
+            # Scale factors for mapping original coords into thumbnail
+            sx = THUMB_W / max(1, x2 - x1)
+            sy = THUMB_H / max(1, y2 - y1)
+            # User pin position in thumbnail
+            ux_t = int((user_x - x1) * sx)
+            uy_t = int((user_y - y1) * sy)
+            # Clamp
+            ux_t = max(4, min(THUMB_W - 4, ux_t))
+            uy_t = max(4, min(THUMB_H - 4, uy_t))
+
+            # Draw user pin (white ring + blue cross)
+            thumb_draw.ellipse([ux_t - 6, uy_t - 6, ux_t + 6, uy_t + 6],
+                               outline=(255, 255, 255, 220), width=2)
+            thumb_draw.line([(ux_t - 5, uy_t), (ux_t + 5, uy_t)], fill=(0, 120, 255, 255), width=2)
+            thumb_draw.line([(ux_t, uy_t - 5), (ux_t, uy_t + 5)], fill=(0, 120, 255, 255), width=2)
+
+            # ── Draw each tracked cluster in this frame ───────────────────
+            for ci, pts in enumerate(cluster_data):
+                pt = pts[fi]
+                dbz = pt["dbz"]
+                if dbz == 0 and not any(pts[j]["dbz"] > 0 for j in range(fi + 1, n)):
+                    continue  # Nothing to show
+
+                # Cluster pixel in thumbnail coords
+                cpx = int((pt["px"] - x1) * sx)
+                cpy = int((pt["py"] - y1) * sy)
+                cpx = max(4, min(THUMB_W - 4, cpx))
+                cpy = max(4, min(THUMB_H - 4, cpy))
+
+                c_rgb = _dbz_color(dbz) if dbz > 0 else (80, 80, 80)
+                c_rgba = c_rgb + (200,)
+
+                # Cluster circle
+                r = 8
+                thumb_draw.ellipse([cpx - r, cpy - r, cpx + r, cpy + r],
+                                   outline=c_rgba, width=2)
+
+                # Arrow pointing toward user (or next position)
+                vx_ci = incoming[ci].get("vx", 0.0)
+                vy_ci = incoming[ci].get("vy", 0.0)
+                arrow_len = 18
+                mag = math.sqrt(vx_ci**2 + vy_ci**2) or 1
+                ax = int(cpx + (vx_ci / mag) * arrow_len)
+                ay = int(cpy + (vy_ci / mag) * arrow_len)
+                if abs(ax - cpx) > 2 or abs(ay - cpy) > 2:
+                    thumb_draw.line([(cpx, cpy), (ax, ay)],
+                                    fill=(255, 255, 0, 200), width=2)
+                    # Arrowhead (simple triangle)
+                    dx, dy = ax - cpx, ay - cpy
+                    perp_x, perp_y = -dy, dx
+                    pmag = math.sqrt(perp_x**2 + perp_y**2) or 1
+                    tip1 = (ax - int((dx - perp_x / pmag * 4) * 0.4),
+                            ay - int((dy - perp_y / pmag * 4) * 0.4))
+                    tip2 = (ax - int((dx + perp_x / pmag * 4) * 0.4),
+                            ay - int((dy + perp_y / pmag * 4) * 0.4))
+                    thumb_draw.polygon([ax, ay, tip1[0], tip1[1], tip2[0], tip2[1]],
+                                       fill=(255, 255, 0, 200))
+
+                # Trajectory line connecting cluster across frames
+                if fi > 0:
+                    prev_pt = pts[fi - 1]
+                    ppx = int((prev_pt["px"] - x1) * sx)
+                    ppy = int((prev_pt["py"] - y1) * sy)
+                    ppx = max(0, min(THUMB_W - 1, ppx))
+                    ppy = max(0, min(THUMB_H - 1, ppy))
+                    thumb_draw.line([(ppx, ppy), (cpx, cpy)],
+                                    fill=(255, 200, 0, 80), width=1)
+
+            # Paste thumbnail onto canvas
+            canvas.paste(thumb_pil, (panel_x, HEADER_H))
+
+            # ── dBZ row ───────────────────────────────────────────────────
+            dbz_y = HEADER_H + THUMB_H
+            draw.rectangle([panel_x, dbz_y, panel_x + THUMB_W - 1, dbz_y + DBZ_ROW_H - 1],
+                           fill=(22, 22, 38, 255))
+
+            # Report max dBZ across tracked clusters in this frame
+            max_dbz_frame = max(
+                (pts[fi]["dbz"] for pts in cluster_data), default=0.0
+            )
+            if max_dbz_frame > 0:
+                dbz_col = _dbz_color(max_dbz_frame) + (230,)
+                dbz_lbl = f"{int(max_dbz_frame)} dBZ"
+            else:
+                dbz_col = TEXT_DIM
+                dbz_lbl = "-- dBZ"
+            draw.text((panel_x + 6, dbz_y + 4), dbz_lbl, font=font_sm, fill=dbz_col)
+
+            # ── Growth/decay row ──────────────────────────────────────────
+            gd_y = dbz_y + DBZ_ROW_H
+            draw.rectangle([panel_x, gd_y, panel_x + THUMB_W - 1, gd_y + GROWTH_ROW_H - 1],
+                           fill=(16, 16, 30, 255))
+
+            if fi == 0 or max_dbz_frame == 0:
+                gd_lbl = "  --"
+                gd_col = TEXT_DIM
+            else:
+                prev_max = max(
+                    (pts[fi - 1]["dbz"] for pts in cluster_data), default=0.0
+                )
+                if prev_max == 0:
+                    gd_lbl = " new"
+                    gd_col = (46, 204, 113, 230)
+                else:
+                    delta_pct = ((max_dbz_frame - prev_max) / prev_max) * 100.0
+                    sign = "+" if delta_pct >= 0 else ""
+                    gd_lbl = f"{sign}{delta_pct:.0f}%"
+                    gd_col = (46, 204, 113, 230) if delta_pct >= 0 else (231, 76, 60, 230)
+
+            draw.text((panel_x + 6, gd_y + 3), gd_lbl, font=font_sm, fill=gd_col)
+
+        # ── Title bar at the very top of NOW panel ───────────────────────────
+        title = f"📡 Multi-Frame Radar Analysis  ({n} frames × {int(gap_minutes)}m)"
+        draw.text((6, 6), title, font=font_sm, fill=(180, 180, 200, 200))
+
+        buf = io.BytesIO()
+        canvas.convert("RGB").save(buf, format="PNG")
+        return buf.getvalue()
+
     def calculate_lagrangian_growth(self, frames: list, flow: np.ndarray, target_x: int, target_y: int, steps_ahead: int, max_lookback_frames: int = 2) -> float:
         """
         Calculates the true growth of the specific air mass that will hit target_x, target_y in `steps_ahead` frames.

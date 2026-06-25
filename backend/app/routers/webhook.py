@@ -236,6 +236,7 @@ async def process_telegram_location(
         static_bytes = result.get("radar_static_bytes")
         tracking_bytes = result.get("radar_tracking_bytes")
         timeline_bytes = result.get("rain_timeline_bytes")
+        multiframe_bytes = result.get("radar_multiframe_bytes")
         
         from app.services.telegram import send_telegram_photo, send_telegram_document, send_telegram_raw_document
         
@@ -247,6 +248,9 @@ async def process_telegram_location(
             
         if tracking_bytes:
             await send_telegram_photo(chat_id, tracking_bytes, "radar_tracking.png")
+
+        if multiframe_bytes:
+            await send_telegram_photo(chat_id, multiframe_bytes, "radar_multiframe.png")
             
         if gif_bytes:
             await send_telegram_document(chat_id, gif_bytes, "radar_nowcast.gif")

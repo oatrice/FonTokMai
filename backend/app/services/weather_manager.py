@@ -659,10 +659,16 @@ class WeatherManager:
                 static_bytes = None
                 tracking_bytes = None
                 timeline_bytes = None
+                multiframe_bytes = None
                 try:
                     static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor)
                     tracking_bytes = await asyncio.to_thread(processor.generate_radar_tracking_image, curr_frame.copy(), user_px, user_py, clouds, now_utc)
                     timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, clouds)
+                    if len(frames) >= 2:
+                        multiframe_bytes = await asyncio.to_thread(
+                            processor.generate_multiframe_analysis_image,
+                            frames, flow, user_px, user_py, clouds, processor, now_utc,
+                        )
                 except Exception as e:
                     logger.error(f"Failed to generate radar PNGs: {e}")
                 
@@ -684,6 +690,7 @@ class WeatherManager:
                     "radar_static_bytes": static_bytes,
                     "radar_tracking_bytes": tracking_bytes,
                     "rain_timeline_bytes": timeline_bytes,
+                    "radar_multiframe_bytes": multiframe_bytes,
                 }
             except Exception as e:
                 logger.warning(f"Failed to process TMD radar {station_code}: {e}")
