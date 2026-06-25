@@ -384,3 +384,53 @@ class TestSchedulerMetricsIntegration:
         assert call_kwargs["routine_name"] == "check_rain"
         assert "duration_s" in call_kwargs
         assert call_kwargs["duration_s"] >= 0
+
+
+# ===========================
+# Integration Tests: Queue Metrics Endpoint
+# ===========================
+
+class TestQueueMetricsEndpoint:
+    """Tests for GET /api/v1/metrics/queue"""
+
+    @pytest.fixture(autouse=True)
+    def setup_client(self):
+        os.environ["CRON_SECRET"] = "test_secret_123"
+        from app.main import app
+        self.client = TestClient(app)
+        self.secret = "test_secret_123"
+
+    def test_queue_metrics_unauthorized_no_header(self):
+        """ไม่มี header → ต้องได้ 401"""
+        response = self.client.get("/api/v1/metrics/queue")
+        assert response.status_code == 401
+
+    def test_queue_metrics_unauthorized_wrong_secret(self):
+        """header ผิด → ต้องได้ 401"""
+        response = self.client.get(
+            "/api/v1/metrics/queue",
+            headers={"X-Cron-Secret": "wrong_secret"}
+        )
+        assert response.status_code == 401
+
+    @patch("app.services.cloud_tasks.CloudTasksService")
+    def test_queue_metrics_success(self, mock_cloud_tasks_service):
+        """header ถูก → ต้องได้ queue depth JSON"""
+        mock_instance = AsyncMock()
+        mock_instance.get_queue_metrics.return_value = {
+            "queue_name": "test-queue",
+            "depth": 5,
+            "status": "success"
+        }
+        mock_cloud_tasks_service.return_value = mock_instance
+
+        response = self.client.get(
+            "/api/v1/metrics/queue",
+            headers={"X-Cron-Secret": self.secret}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["depth"] == 5
+        assert data["queue_name"] == "test-queue"
+        assert "query_duration_ms" in data
+        assert "timestamp" in data

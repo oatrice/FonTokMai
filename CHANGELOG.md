@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.43.0] - 2026-06-25
+
+### Added
+- Added Cloud Scheduler configuration management via `backend/config/schedulers.json` and scripts to apply or sync scheduler jobs from GCP.
+- Added observability documentation covering uptime monitoring, queue metrics, Cloud Scheduler synchronization, and post-deployment performance checks.
+- Added Cloud Tasks queue metrics endpoint tests.
+- Added a Cloud Tasks historical dashboard analysis document for future queue depth tracking.
+
+### Changed
+- Updated EMSC worker processing to filter out low-magnitude and geographically irrelevant earthquake events before triggering webhook processing.
+- Updated architecture decision records for incident recovery, radar polling, and issue batching strategies.
+
 ## [0.42.0] - 2026-06-24
 
 ### Added

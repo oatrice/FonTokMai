@@ -59,6 +59,14 @@
   - #16 (Integrate external meteorological APIs - Superseded)
 * **สถานะ:** เสร็จสมบูรณ์ นำ Xweather มาใช้แจ้งเตือนฟ้าผ่า, ทิศทางพายุ, และมีระบบ Circuit Breaker กันโควต้าเต็ม
 
+### ✅ Batch N: TMD Radar High-Res Polling & Reliability (Completed)
+*(เปลี่ยนผ่านสถาปัตยกรรม TMD Radar)*
+* **ขอบเขตงาน:** 
+  - #113 (Add +7 IDC overlay)
+  - #114 (Radar out of date validation)
+  - #115 (Migrate to Polled Static Frames)
+* **สถานะ:** เสร็จสมบูรณ์ นำระบบ Polling Static Image มาใช้ร่วมกับ Smart GIF Fallback Recovery ลดการโหลด GIF ขนาดใหญ่ และเพิ่มความน่าเชื่อถือของการพยากรณ์
+
 ### 📦 Batch G: Comprehensive Weather & Air Quality
 *(ฟีเจอร์พยากรณ์อากาศแบบครบวงจรประจำวัน)*
 * **ขอบเขตงาน:** 
@@ -101,3 +109,30 @@
   - #8 (Develop Cross-Platform Mobile App)
   - #5 (Integrate Notification Services for Line OA)
 * **ความคาดหวัง:** เปลี่ยนไปใช้ Infrastructure as Code (Terraform) ให้ระบบความปลอดภัยสูงสุด และเตรียมเชื่อมต่อแอปแยก/Line OA
+
+---
+
+## Post-Incident Batches (Added June 2026)
+*หมวดหมู่ที่ถูกเพิ่มเข้ามาใหม่เพื่อรองรับการขยายตัวและคุมงบประมาณ*
+
+### 📦 Batch M: Observability & FinOps
+*(ดูรายละเอียดและแผนการแยก MR เชิงลึกได้ที่ `ADR 008`)*
+* **ขอบเขตงาน:** 
+  - #73, #74, #79, #108, #116
+* **ความคาดหวัง:** ตรวจสอบสุขภาพระบบ, ดึง Metrics ของคิว, กรองแผ่นดินไหวจากต้นทาง และทำสคริปต์ซิงค์ข้อมูล Cloud Scheduler
+
+### 📦 Batch O: Bot Intelligence & Cost Automation
+*(นำระบบการควบคุมทรัพยากรและแจ้งเตือนเข้าสู่ Telegram)*
+* **ขอบเขตงาน:** 
+  - #80 (Route billing and system alerts to dedicated DevBot)
+  - #81 (Adjust GCP Budget via Telegram command `/setbudget`)
+  - #82 (Manage GCP Budget and Alerts via Terraform IaC)
+* **ความคาดหวัง:** แยกการแจ้งเตือนของนักพัฒนาออกจากกลุ่มผู้ใช้ทั่วไป และสามารถสั่งลด/เพิ่มงบ GCP ได้จากปลายนิ้วผ่าน Telegram
+
+### 📦 Batch P: Nationwide Radar Expansion & Calibration
+*(ยกระดับความครอบคลุมของเรดาร์)*
+* **ขอบเขตงาน:** 
+  - #99 (Auto-calibration pipeline for new radar stations)
+  - #52 (Expand TMD Radar integration to nationwide coverage)
+  - #40 (AI Training via Radar Image / JSON Uploads)
+* **ความคาดหวัง:** สร้าง Pipeline ที่ทำให้การเพิ่มสถานีเรดาร์ใหม่ๆ ของกรมอุตุฯ ทำได้อัตโนมัติ และครอบคลุมผู้ใช้งานทั่วประเทศ

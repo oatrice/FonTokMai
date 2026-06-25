@@ -4,17 +4,53 @@
   "phase": "pr_pending",
   "active_issues": [
     {
-      "number": 115,
-      "title": "[Architecture] Migrate from GIF extraction to Polled Static Frames (T, T-1, T-2, T-3)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/115",
+      "number": 116,
+      "title": "Optimize EMSC Worker webhook to reduce Cloud Run costs",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/116",
       "body": null,
-      "project_item_id": "GLAB_115",
+      "project_item_id": "GLAB_116",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 108,
+      "title": "Infra: Sync Cloud Scheduler job definitions from GCP Console into repo",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/108",
+      "body": null,
+      "project_item_id": "GLAB_108",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 73,
+      "title": "Verify Performance Gains & Monitor Memory Usage Post-Deployment of #71",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/73",
+      "body": null,
+      "project_item_id": "GLAB_73",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 74,
+      "title": "Add Cloud Tasks Queue Monitoring & API endpoint",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/74",
+      "body": null,
+      "project_item_id": "GLAB_74",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 79,
+      "title": "Infrastructure: Setup System Uptime Monitoring & Status Dashboard",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/79",
+      "body": null,
+      "project_item_id": "GLAB_79",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/115-architecture-migrate-from-gif",
-  "started_at": "2026-06-24T17:00:13.961162",
+  "active_branch": "feat/116-optimize-emsc-worker-webhook-t",
+  "started_at": "2026-06-25T15:51:08.594498",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -31,29 +67,31 @@
       "changed_files": [
         "CHANGELOG.md",
         "VERSION",
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/tmd_radar_processor.py",
-        "backend/app/services/weather_manager.py",
-        "backend/tests/test_tmd_radar_e2e.py",
+        "backend/config/schedulers.json",
+        "backend/scripts/audit_window_2026-06-21.sh",
+        "backend/scripts/setup_schedulers.sh",
+        "backend/scripts/sync_schedulers.py",
+        "backend/tests/test_metrics.py",
         "docs/ROADMAP.md",
-        "luma/prompts/prompt_20260624_113707_943fefde.md.response.md",
+        "docs/architecture_decisions/002_issue_batching_strategy.md",
+        "docs/architecture_decisions/008_incident_recovery_and_stability_batching_strategy.md",
+        "docs/architecture_decisions/009_tmd_radar_high_res_polling_architecture.md",
+        "docs/cloud_tasks_dashboard_analysis.md",
+        "docs/observability.md",
+        "emsc_worker/main.py",
+        "emsc_worker/mock_server.py",
+        "luma/prompts/prompt_20260624_135007_868f591a.md",
         "luma_metrics.json",
-        "luma_state.json"
+        "luma_state.json",
+        "test_patch.py"
       ],
       "meaningful_files": [
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/tmd_radar_processor.py",
-        "backend/app/services/weather_manager.py",
+        "backend/config/schedulers.json",
+        "backend/scripts/audit_window_2026-06-21.sh",
+        "backend/scripts/setup_schedulers.sh",
+        "backend/scripts/sync_schedulers.py",
+        "emsc_worker/main.py",
+        "emsc_worker/mock_server.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -127,7 +165,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/47",
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/48",
   "pr_number": null,
-  "last_updated": "2026-06-24T20:03:10.889803"
+  "last_updated": "2026-06-25T15:56:14.056566"
 }
