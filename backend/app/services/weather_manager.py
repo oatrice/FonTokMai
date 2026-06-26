@@ -172,24 +172,22 @@ async def _resolve_radar_overlay_utc(
     Pick the UTC timestamp stamped on radar overlays.
 
     Priority:
-    1. TMD station PHP metadata (authoritative; works for kkn + skn)
+    1. Per-frame timestamp from Firestore cache (most accurate for cached frames)
     2. Live OCR on the static 800×800 image
     3. Live OCR on the cached latest frame / timestamp crop
-    4. Per-frame timestamp from Firestore cache
     """
     cache_ts: Optional[int] = None
     if frame_timestamps:
         cache_ts = frame_timestamps[-1]
+        logger.info(f"DEBUG_RESOLVE: Using frame_timestamps[-1] = {cache_ts}")
     elif last_modified_dt:
         cache_ts = int(last_modified_dt.timestamp())
+        logger.info(f"DEBUG_RESOLVE: Using last_modified_dt = {cache_ts}")
 
-    if processor is not None:
-        try:
-            html_dt = await processor.fetch_station_timestamp_utc()
-            if html_dt is not None:
-                return html_dt
-        except Exception as e:
-            logger.warning(f"TMD HTML timestamp lookup failed: {e}")
+    # Priority 1: Use frame_timestamps from cache (most accurate for the actual frame)
+    if cache_ts is not None:
+        logger.info(f"DEBUG_RESOLVE: Returning cache timestamp: {datetime.fromtimestamp(cache_ts, timezone.utc)}")
+        return datetime.fromtimestamp(cache_ts, timezone.utc)
 
     ocr_frame = latest_frame
     if processor is not None:
@@ -211,21 +209,26 @@ async def _resolve_radar_overlay_utc(
             parsed_ts = await ocr_svc.extract_parsed_timestamp(
                 latest_frame, skip_hash_cache=True, use_crop=True,
             )
+        logger.info(f"DEBUG_RESOLVE: OCR parsed_ts = {parsed_ts}")
     except Exception as e:
         logger.warning(f"Failed to OCR frame timestamp: {e}")
 
     if parsed_ts is not None:
         if cache_ts is None or abs(parsed_ts - cache_ts) <= _MAX_OCR_CACHE_DRIFT_SEC:
+            logger.info(f"DEBUG_RESOLVE: Using OCR timestamp: {datetime.fromtimestamp(parsed_ts, timezone.utc)}")
             return datetime.fromtimestamp(parsed_ts, timezone.utc)
         logger.warning(
             "OCR timestamp drifted %.0fm from cache; keeping cache value",
             abs(parsed_ts - cache_ts) / 60.0,
         )
 
-    if cache_ts is not None:
-        return datetime.fromtimestamp(cache_ts, timezone.utc)
     if last_modified_dt is not None:
+        logger.info(f"DEBUG_RESOLVE: Using last_modified_dt fallback: {last_modified_dt}")
         return last_modified_dt
+    if cache_ts is not None:
+        logger.info(f"DEBUG_RESOLVE: Using cache_ts fallback: {datetime.fromtimestamp(cache_ts, timezone.utc)}")
+        return datetime.fromtimestamp(cache_ts, timezone.utc)
+    logger.warning(f"DEBUG_RESOLVE: No timestamp available, using current time: {datetime.now(timezone.utc)}")
     return datetime.now(timezone.utc)
 
 
@@ -551,6 +554,7 @@ class WeatherManager:
                     processor=processor,
                     frame_source=frame_source,
                 )
+                logger.info(f"DEBUG_NOW_UTC: station={station_code}, now_utc={now_utc}, frame_timestamps={frame_timestamps}")
 
                 use_loop_mapping = frame_source == "loop_gif"
                 user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=use_loop_mapping)
@@ -726,7 +730,7 @@ class WeatherManager:
                     img_orig = Image.fromarray(cf)
                     img_hq = img_orig.resize((int(img_orig.width * 3.0), int(img_orig.height * 3.0)), Image.Resampling.NEAREST)
 
-                    # Large IDC (+7) timestamp — top-right, easier to read than TMD's small UTC stamp
+                    # Add IDC timestamp overlay
                     time_str = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
                     try:
                         fnt = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 120)
@@ -789,6 +793,8 @@ class WeatherManager:
                     "radar_tracking_bytes": tracking_bytes,
                     "rain_timeline_bytes": timeline_bytes,
                     "radar_multiframe_bytes": multiframe_bytes,
+                    "tmd_timestamp_utc": now_utc.isoformat(),
+                    "tmd_timestamp_bkk": now_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M'),
                 }
             except Exception as e:
                 logger.warning(f"Failed to process TMD radar {station_code}: {e}")

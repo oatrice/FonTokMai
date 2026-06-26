@@ -698,23 +698,23 @@ class TMDRadarProcessor:
                     fnt = _load_thai_font(int(14 * scale))
                 except:
                     fnt = _load_thai_font(int(14 * scale))
-                        
+
                 draw = ImageDraw.Draw(img_pil, "RGBA")
-                
+
                 # Handling older Pillow versions where textbbox might not be available
                 if hasattr(draw, 'textbbox'):
                     left, top, right, bottom = draw.textbbox((0, 0), time_str_idc, font=fnt)
                     text_w, text_h = right - left, bottom - top
                 else:
                     text_w, text_h = draw.textsize(time_str_idc, font=fnt)
-                
+
                 pad = int(4 * scale)
                 x_pos = img_pil.width - text_w - int(8 * scale)
                 y_pos = int(8 * scale)
-                
+
                 draw.rectangle([x_pos-pad, y_pos-pad, x_pos+text_w+pad, y_pos+text_h+pad], fill=(0, 0, 0, 200))
                 draw.text((x_pos, y_pos), time_str_idc, fill=(255, 255, 255, 255), font=fnt)
-                
+
                 img = np.array(img_pil.convert("RGB"))
             except Exception as e:
                 print("PIL ERROR:", e)
