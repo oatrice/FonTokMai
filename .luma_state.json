@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 121,
@@ -18,7 +18,10 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
@@ -115,7 +118,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
-  "pr_number": null,
-  "last_updated": "2026-06-25T21:08:56.878001"
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/49",
+  "pr_number": 49,
+  "last_updated": "2026-06-26T10:33:22.096949"
 }

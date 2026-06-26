@@ -53,7 +53,7 @@ async def answer_callback_query(callback_query_id: str, text: Optional[str] = No
     except Exception as e:
         logger.error(f"Failed to answer callback query {callback_query_id}: {type(e).__name__} - {e}")
         return False
-async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
+async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[dict] = None, parse_mode: Optional[str] = None) -> bool:
     """
     Sends a message to a specific Telegram chat_id.
     """
@@ -63,6 +63,8 @@ async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[
     }
     if reply_markup:
         payload["reply_markup"] = reply_markup
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
         
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
