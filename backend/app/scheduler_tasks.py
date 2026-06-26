@@ -486,7 +486,7 @@ async def fetch_tmd_radar_routine():
                             # (frame.shape < 800) does NOT misfire on these frames,
                             # ensuring static pixel coordinates are used for optical flow.
                             if f_img.shape[0] != 800 or f_img.shape[1] != 800:
-                                f_img = cv2.resize(f_img, (800, 800), interpolation=cv2.INTER_AREA)
+                                f_img = cv2.resize(f_img, (800, 800), interpolation=cv2.INTER_NEAREST)
                             is_success, buffer = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
                             if is_success:
                                 f_url = await processor.save_polled_frame(buffer.tobytes())

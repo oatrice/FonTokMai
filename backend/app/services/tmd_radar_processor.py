@@ -159,8 +159,8 @@ class TMDRadarProcessor:
         if min_dist_ignored <= min_dist_dbz:
             return 0.0
             
-        # Tighter threshold (15) reduces false positives from map features
-        if min_dist_dbz < 15:
+        # Tighter threshold (25) reduces false positives from map features while allowing JPEG artifact tolerance
+        if min_dist_dbz < 25:
             return best_dbz
             
         return 0.0
@@ -168,7 +168,7 @@ class TMDRadarProcessor:
         """Converts an RGB radar frame into a grayscale mask representing rain intensity."""
         img_float = img.astype(np.float32)
         
-        min_dists = np.full(img.shape[:2], 15.0, dtype=np.float32)
+        min_dists = np.full(img.shape[:2], 25.0, dtype=np.float32)
         best_intensity = np.zeros(img.shape[:2], dtype=np.uint8)
         
         # Calculate min distance to any ignored color
@@ -469,8 +469,12 @@ class TMDRadarProcessor:
         valid_y_max = crop_y0 + crop_h
 
         candidates = []
+        dbz_pass = 0
+        dot_pass = 0
+        total_scanned = 0
         for dy in range(-search_radius, search_radius + 1, 2):
             for dx in range(-search_radius, search_radius + 1, 2):
+                total_scanned += 1
                 sx = user_x + dx
                 sy = user_y + dy
                 # Skip pixels outside the valid radar area (legend, borders)
@@ -481,6 +485,7 @@ class TMDRadarProcessor:
                 d = self.get_dbz_at_pixel(curr_frame, sx, sy)
                 if d < min_dbz:
                     continue
+                dbz_pass += 1
                 cvx, cvy = self.get_flow_vector_at(flow, sx, sy)
                 to_x = user_x - sx
                 to_y = user_y - sy
@@ -491,6 +496,7 @@ class TMDRadarProcessor:
                 # Only keep pixels whose flow APPROACHES the user (dot > 0)
                 if dot <= 0:
                     continue
+                dot_pass += 1
                 
                 v_mag = math.sqrt(cvx ** 2 + cvy ** 2)
                 if v_mag < 0.1:
@@ -505,6 +511,12 @@ class TMDRadarProcessor:
                 prev_y = int(round(sy - cvy))
                 d_prev = self.get_dbz_at_pixel(prev_frame, prev_x, prev_y) if prev_frame is not None else d
                 candidates.append((sx, sy, cvx, cvy, d, d_prev, dist, dot))
+
+        logger.info(
+            f"[DEBUG_APPROACH] user_x={user_x}, user_y={user_y}, min_dbz={min_dbz}, "
+            f"scanned={total_scanned}, dbz_pass={dbz_pass}, dot_pass={dot_pass}, "
+            f"candidates={len(candidates)}"
+        )
 
         if not candidates:
             return []
@@ -1297,7 +1309,7 @@ class TMDRadarProcessor:
                     normalized_frames = []
                     for frame in frames:
                         if frame.shape[:2] != (target_h, target_w):
-                            frame = cv2.resize(frame, (target_w, target_h), interpolation=cv2.INTER_AREA)
+                            frame = cv2.resize(frame, (target_w, target_h), interpolation=cv2.INTER_NEAREST)
                         normalized_frames.append(frame)
                     frames = normalized_frames
                     
