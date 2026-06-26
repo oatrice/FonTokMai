@@ -779,34 +779,36 @@ async def handle_devmock_command(chat_id: int, command: str):
 
         elif command in ("/devmock help", "/devmock"):
             help_text = (
-                "🛠️ *DEV MOCK — คำสั่งทั้งหมด*\n\n"
-                "*โหมดพื้นฐาน:*\n"
-                "`/devmock rain` — ฝนตกหนัก \\(Boost เมฆจริง\\)\n"
-                "`/devmock storm` — พายุจำลอง 5 ก้อนเมฆ\n"
-                "`/devmock clear` — ท้องฟ้าแจ่มใส\n"
-                "`/devmock error` — API ล้มเหลวทั้งหมด\n"
-                "`/devmock off` — ปิด mock mode\n\n"
-                "*โหมด Parametric Scenario:*\n"
-                "`/devmock scenario <params>`\n\n"
-                "*พารามิเตอร์ที่รองรับ:*\n"
-                "`rain_in:N` — ฝนจะมาใน N นาที\n"
-                "`rain_stopping:N` — ฝนจะหยุดใน N นาที\n"
-                "`no_rain` — ไม่มีฝน \\(ทดสอบลมอย่างเดียว\\)\n"
-                "`dbz:N` — ความเข้มฝน dBZ \\(15–75, default 35\\)\n"
-                "`wind:N` — ความเร็วลม km/h \\(default 20\\)\n"
-                "`wind_dir:X` — ทิศลม: N/NE/E/SE/S/SW/W/NW\n"
-                "`growth:N` — อัตราการเติบโต ±0\\.0–1\\.0\n"
-                "`clusters:N` — จำนวนก้อนเมฆ 1–5 \\(default 1\\)\n"
-                "`loc:NAME` — เจาะจงพิกัด \\(เช่น home, work\\) แทนทุกพิกัด\n\n"
-                "*ตัวอย่าง:*\n"
-                "`/devmock scenario rain_in:20 dbz:40 wind:60 wind_dir:N`\n"
-                "`/devmock scenario rain_in:10 dbz:55 growth:0\\.3 loc:work`\n"
-                "`/devmock scenario rain_stopping:10 dbz:30 loc:home`\n"
-                "`/devmock scenario no_rain wind:45 wind_dir:SE loc:home`\n\n"
-                "*คำสั่ง Dev/Test:*\n"
-                "`/devmock flush_cache` — ล้าง in-memory TMD cache \\(บังคับ GIF fallback test\\)"
+                "🛠️ <b>DEV MOCK — คำสั่งทั้งหมด</b>\n\n"
+                "<b>โหมดพื้นฐาน:</b>\n"
+                "<code>/devmock rain</code> — ฝนตกหนัก (Boost เมฆจริง)\n"
+                "<code>/devmock storm</code> — พายุจำลอง 5 ก้อนเมฆ\n"
+                "<code>/devmock clear</code> — ท้องฟ้าแจ่มใส\n"
+                "<code>/devmock error</code> — API ล้มเหลวทั้งหมด\n"
+                "<code>/devmock off</code> — ปิด mock mode\n\n"
+                "<b>โหมด Parametric Scenario:</b>\n"
+                "<code>/devmock scenario &lt;params&gt;</code>\n\n"
+                "<b>พารามิเตอร์ที่รองรับ:</b>\n"
+                "<code>rain_in:N</code> — ฝนจะมาใน N นาที\n"
+                "<code>rain_stopping:N</code> — ฝนจะหยุดใน N นาที\n"
+                "<code>no_rain</code> — ไม่มีฝน (ทดสอบลมอย่างเดียว)\n"
+                "<code>dbz:N</code> — ความเข้มฝน dBZ (15–75, default 35)\n"
+                "<code>wind:N</code> — ความเร็วลม km/h (default 20)\n"
+                "<code>wind_dir:X</code> — ทิศลม: N/NE/E/SE/S/SW/W/NW\n"
+                "<code>growth:N</code> — อัตราการเติบโต ±0.0–1.0\n"
+                "<code>clusters:N</code> — จำนวนก้อนเมฆ 1–5 (default 1)\n"
+                "<code>loc:NAME</code> — เจาะจงพิกัด (เช่น home, work)\n\n"
+                "<b>ตัวอย่าง:</b>\n"
+                "<code>/devmock scenario rain_in:20 dbz:40 wind:60 wind_dir:N</code>\n"
+                "<code>/devmock scenario rain_in:10 dbz:55 growth:0.3 loc:work</code>\n"
+                "<code>/devmock scenario rain_stopping:10 dbz:30 loc:home</code>\n"
+                "<code>/devmock scenario no_rain wind:45 wind_dir:SE loc:home</code>\n\n"
+                "<b>Dev/Test:</b>\n"
+                "<code>/devmock flush_cache</code> — ล้าง in-memory cache (บังคับ GIF fallback)\n"
+                "<code>/devmock cache_status</code> — ดูสถานะ cache ทุก layer"
             )
-            await send_telegram_message(chat_id, help_text, parse_mode="MarkdownV2")
+            await send_telegram_message(chat_id, help_text, parse_mode="HTML")
+
 
         elif command == "/devmock off":
             await repo.set_mock_state(chat_id, None)
@@ -819,13 +821,15 @@ async def handle_devmock_command(chat_id: int, command: str):
             from app.services.weather_manager import _GLOBAL_TMD_CACHE, _GLOBAL_TMD_LOCKS
             stations_cleared = list(_GLOBAL_TMD_CACHE.keys())
             _GLOBAL_TMD_CACHE.clear()
+            stations_str = ", ".join(f"<code>{s}</code>" for s in stations_cleared) if stations_cleared else "<i>(ว่างอยู่แล้ว)</i>"
             msg = (
-                "🗑️ [DEV MOCK] *In-memory TMD cache cleared*\n\n"
-                f"สถานีที่ล้าง: `{'`, `'.join(stations_cleared) if stations_cleared else 'ว่างอยู่แล้ว'}`\n\n"
-                "👉 ยิง `/devmock scenario ...` ต่อเพื่อทดสอบ GIF fallback\n"
-                "_(ระบบจะโหลดจาก Firestore หรือ loop GIF แทน in-memory)_"
+                "🗑️ <b>In-memory TMD cache cleared</b>\n\n"
+                f"สถานีที่ล้าง: {stations_str}\n\n"
+                "👉 ยิง <code>/devmock scenario ...</code> ต่อเพื่อทดสอบ GIF fallback\n"
+                "<i>(ระบบจะโหลดจาก Firestore หรือ loop GIF แทน in-memory)</i>"
             )
-            await send_telegram_message(chat_id, msg, parse_mode="MarkdownV2")
+            await send_telegram_message(chat_id, msg, parse_mode="HTML")
+
         elif command == "/devmock cache_status":
             from app.services.weather_manager import _GLOBAL_TMD_CACHE
             import time as _time
