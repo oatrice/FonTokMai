@@ -607,7 +607,7 @@ class WeatherManager:
                 # Find all cloud clusters approaching the user
                 clouds = processor.find_approaching_clouds(
                     curr_frame, prev_frame, flow, user_px, user_py,
-                    search_radius=80, min_dbz=20.0, cluster_dist=20,
+                    search_radius=80, min_dbz=10.0, cluster_dist=20,
                 )
 
                 # ── Parametric scenario mock (JSON mock_state) ────────────────────
