@@ -4,6 +4,7 @@ import time
 import logging
 import math
 import io
+import re
 import cv2
 import httpx
 import numpy as np
@@ -1173,6 +1174,36 @@ class TMDRadarProcessor:
         growth_pct = ((curr_dbz - past_dbz) / past_dbz) * 100.0
         return max(-100.0, min(100.0, growth_pct))
 
+    @staticmethod
+    def parse_html_timestamp(html: str) -> Optional[datetime]:
+        """Parse TMD station PHP embed version string, e.g. v=250626_1030 → UTC datetime."""
+        match = re.search(r'v=(\d{6})_(\d{4})', html)
+        if not match:
+            return None
+        date_str = match.group(1)
+        time_str = match.group(2)
+        year = int('20' + date_str[0:2])
+        month = int(date_str[2:4])
+        day = int(date_str[4:6])
+        hour = int(time_str[0:2])
+        minute = int(time_str[2:4])
+        bkk_tz = ZoneInfo('Asia/Bangkok')
+        dt_bkk = datetime(year, month, day, hour, minute, tzinfo=bkk_tz)
+        return dt_bkk.astimezone(timezone.utc)
+
+    async def fetch_station_timestamp_utc(self) -> Optional[datetime]:
+        """Fetch the authoritative latest-frame timestamp from the TMD station PHP page."""
+        prefix = self.station_code[:3]
+        php_url = f"https://weather.tmd.go.th/{prefix}.php"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(php_url)
+                if resp.status_code == 200:
+                    return self.parse_html_timestamp(resp.text)
+        except Exception as e:
+            logger.warning(f"[{self.station_code}] HTML timestamp fetch failed: {e}")
+        return None
+
     async def fetch_latest_image_bytes(self) -> Optional[bytes]:
         """Fetches the latest static radar image (Polling method)."""
         
@@ -1184,6 +1215,19 @@ class TMDRadarProcessor:
                     return response.content
         except Exception:
             pass
+        return None
+
+    async def decode_static_frame(self) -> Optional[np.ndarray]:
+        """Download and decode the latest static radar image as an RGB numpy frame."""
+        static_bytes = await self.fetch_latest_image_bytes()
+        if not static_bytes:
+            return None
+        arr = np.frombuffer(static_bytes, np.uint8)
+        frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if frame is None:
+            return None
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
     async def fetch_loop_gif_and_extract_frames(self) -> Tuple[List[np.ndarray], Optional['datetime'], Optional[bytes]]:
         """Fetches the Loop.gif and extracts frames, the Last-Modified datetime, and raw GIF bytes."""
         
@@ -1211,20 +1255,7 @@ class TMDRadarProcessor:
                             php_url = f"https://weather.tmd.go.th/{self.station_code[:3]}.php"
                             php_resp = await client.get(php_url)
                             if php_resp.status_code == 200:
-                                import re
-                                from zoneinfo import ZoneInfo
-                                match = re.search(r'v=(\d{6})_(\d{4})', php_resp.text)
-                                if match:
-                                    date_str = match.group(1)
-                                    time_str = match.group(2)
-                                    year = int('20' + date_str[0:2])
-                                    month = int(date_str[2:4])
-                                    day = int(date_str[4:6])
-                                    hour = int(time_str[0:2])
-                                    minute = int(time_str[2:4])
-                                    bkk_tz = ZoneInfo('Asia/Bangkok')
-                                    dt_bkk = datetime(year, month, day, hour, minute, tzinfo=bkk_tz)
-                                    dt = dt_bkk.astimezone(timezone.utc)
+                                dt = self.parse_html_timestamp(php_resp.text)
                         except Exception as e:
                             print(f"Error fetching exact timestamp from HTML: {e}")
                             

@@ -8,7 +8,7 @@ import cv2
 import io
 import numpy as np
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from PIL import Image, ImageDraw, ImageFont
 from zoneinfo import ZoneInfo
 from .tomorrow import TomorrowService
@@ -156,6 +156,78 @@ def _build_mock_clouds_from_scenario(
 
 
 # ─── End Parametric Mock Helpers ──────────────────────────────────────────────
+
+_MAX_OCR_CACHE_DRIFT_SEC = 90 * 60  # reject live OCR mis-parses far from polled cache ts
+
+
+async def _resolve_radar_overlay_utc(
+    latest_frame: np.ndarray,
+    last_modified_dt: Optional[datetime],
+    frame_timestamps: Optional[List[int]] = None,
+    *,
+    processor: Optional[TMDRadarProcessor] = None,
+    frame_source: str = "static_cache",
+) -> datetime:
+    """
+    Pick the UTC timestamp stamped on radar overlays.
+
+    Priority:
+    1. TMD station PHP metadata (authoritative; works for kkn + skn)
+    2. Live OCR on the static 800×800 image
+    3. Live OCR on the cached latest frame / timestamp crop
+    4. Per-frame timestamp from Firestore cache
+    """
+    cache_ts: Optional[int] = None
+    if frame_timestamps:
+        cache_ts = frame_timestamps[-1]
+    elif last_modified_dt:
+        cache_ts = int(last_modified_dt.timestamp())
+
+    if processor is not None:
+        try:
+            html_dt = await processor.fetch_station_timestamp_utc()
+            if html_dt is not None:
+                return html_dt
+        except Exception as e:
+            logger.warning(f"TMD HTML timestamp lookup failed: {e}")
+
+    ocr_frame = latest_frame
+    if processor is not None:
+        try:
+            static_frame = await processor.decode_static_frame()
+            if static_frame is not None:
+                ocr_frame = static_frame
+        except Exception as e:
+            logger.warning(f"Static image decode for overlay timestamp failed: {e}")
+
+    parsed_ts: Optional[int] = None
+    try:
+        from app.services.ocr_service import OCRService
+        ocr_svc = OCRService()
+        parsed_ts = await ocr_svc.extract_parsed_timestamp(
+            ocr_frame, skip_hash_cache=True, use_crop=True,
+        )
+        if parsed_ts is None and ocr_frame is not latest_frame:
+            parsed_ts = await ocr_svc.extract_parsed_timestamp(
+                latest_frame, skip_hash_cache=True, use_crop=True,
+            )
+    except Exception as e:
+        logger.warning(f"Failed to OCR frame timestamp: {e}")
+
+    if parsed_ts is not None:
+        if cache_ts is None or abs(parsed_ts - cache_ts) <= _MAX_OCR_CACHE_DRIFT_SEC:
+            return datetime.fromtimestamp(parsed_ts, timezone.utc)
+        logger.warning(
+            "OCR timestamp drifted %.0fm from cache; keeping cache value",
+            abs(parsed_ts - cache_ts) / 60.0,
+        )
+
+    if cache_ts is not None:
+        return datetime.fromtimestamp(cache_ts, timezone.utc)
+    if last_modified_dt is not None:
+        return last_modified_dt
+    return datetime.now(timezone.utc)
+
 
 _GLOBAL_TMD_CACHE = {}
 _GLOBAL_TMD_LOCKS = {
@@ -369,6 +441,7 @@ class WeatherManager:
                         frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
                         frame_source = cached_data[4] if len(cached_data) > 4 else "static_cache"
                         data_gap_minutes = cached_data[5] if len(cached_data) > 5 else 15.0
+                        frame_timestamps = list(cached_data[6]) if len(cached_data) > 6 else []
                     else:
                         async with get_repo_context() as repo:
                             cache = await repo.get_latest_radar_cache(station_code)
@@ -377,6 +450,7 @@ class WeatherManager:
                         last_modified_dt = None
                         flow = None
                         frame_source = "static_cache"
+                        frame_timestamps = []
 
                         if cache and (cache.get("frames") or (cache.get("url_t") and cache.get("url_t_minus_1"))):
                             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
@@ -420,10 +494,11 @@ class WeatherManager:
                                     decoded_frames.append(frame)
                                     
                                 frames = decoded_frames
-                                last_modified_dt = datetime.fromtimestamp(valid_frames_data[-1][1], timezone.utc)
+                                frame_timestamps = [ts for _, ts in valid_frames_data[-6:]]
+                                last_modified_dt = datetime.fromtimestamp(frame_timestamps[-1], timezone.utc)
                                 flow = processor.calculate_optical_flow(frames)
                                 
-                                data_gap_minutes = (valid_frames_data[-1][1] - valid_frames_data[-2][1]) / 60.0
+                                data_gap_minutes = (frame_timestamps[-1] - frame_timestamps[-2]) / 60.0
                                 if data_gap_minutes > 16.0:
                                     # Normalize flow to represent exactly 15 minutes of displacement
                                     flow = flow / (data_gap_minutes / 15.0)
@@ -431,7 +506,10 @@ class WeatherManager:
                                 is_loop = frames[-1].shape[0] < 800 or frames[-1].shape[1] < 800
                                 frame_source = "loop_gif" if is_loop else "static_cache"
                                 
-                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source, data_gap_minutes)
+                                _GLOBAL_TMD_CACHE[station_code] = (
+                                    frames, last_modified_dt, time.time(), flow,
+                                    frame_source, data_gap_minutes, frame_timestamps,
+                                )
 
                         if not frames or len(frames) < 2:
                             fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
@@ -442,10 +520,21 @@ class WeatherManager:
                                     if frames[i].shape[:2] != target_shape:
                                         frames[i] = cv2.resize(frames[i], (target_shape[1], target_shape[0]), interpolation=cv2.INTER_AREA)
                                 last_modified_dt = fresh_dt or datetime.now(timezone.utc)
+                                if fresh_dt:
+                                    latest_ts = int(fresh_dt.timestamp())
+                                    frame_timestamps = [
+                                        latest_ts - (len(frames) - 1 - i) * 900
+                                        for i in range(len(frames))
+                                    ]
+                                else:
+                                    frame_timestamps = []
                                 flow = processor.calculate_optical_flow(frames)
                                 data_gap_minutes = 15.0 # Loop GIFs are assumed to be exactly 15m apart
                                 frame_source = "loop_gif"
-                                _GLOBAL_TMD_CACHE[station_code] = (frames, last_modified_dt, time.time(), flow, frame_source, data_gap_minutes)
+                                _GLOBAL_TMD_CACHE[station_code] = (
+                                    frames, last_modified_dt, time.time(), flow,
+                                    frame_source, data_gap_minutes, frame_timestamps,
+                                )
                             else:
                                 continue
 
@@ -455,19 +544,13 @@ class WeatherManager:
                 curr_frame = frames[-1].copy()
                 prev_frame = frames[-2].copy()
 
-                # Resolve overlay timestamp from the pristine latest frame before any mock edits.
-                now_utc = last_modified_dt if last_modified_dt else datetime.now(timezone.utc)
-                try:
-                    from app.services.ocr_service import OCRService
-                    ocr_ts = await OCRService().get_frame_timestamp(
-                        frames[-1],
-                        fallback_ts=int(now_utc.timestamp()),
-                        skip_hash_cache=True,
-                    )
-                    if ocr_ts:
-                        now_utc = datetime.fromtimestamp(ocr_ts, timezone.utc)
-                except Exception as e:
-                    logger.warning(f"Failed to OCR frame timestamp: {e}")
+                now_utc = await _resolve_radar_overlay_utc(
+                    frames[-1],
+                    last_modified_dt,
+                    frame_timestamps,
+                    processor=processor,
+                    frame_source=frame_source,
+                )
 
                 use_loop_mapping = frame_source == "loop_gif"
                 user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=use_loop_mapping)

@@ -9,7 +9,7 @@ import base64
 import httpx
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from typing import Optional
+from typing import Optional, List
 
 try:
     from google.cloud import vision
@@ -196,6 +196,53 @@ class OCRService:
                 print(f"OCR Parsing error: {e}")
         return None
 
+    def timestamp_crop(self, frame: np.ndarray) -> np.ndarray:
+        """Top-right band where TMD prints the UTC date/time on radar images."""
+        h, w = frame.shape[:2]
+        y2 = max(48, int(h * 0.10))
+        x1 = max(0, int(w * 0.55))
+        return frame[0:y2, x1:w].copy()
+
+    async def _run_live_ocr(self, frame: np.ndarray) -> Optional[int]:
+        """Run OCR engines on a frame/crop and return a parsed UTC timestamp, or None."""
+        png_bytes = self._frame_to_png_bytes(frame)
+        ts = None
+
+        text = await self._call_pytesseract(frame)
+        ts = self._extract_timestamp_from_text(text)
+
+        if ts is None:
+            text = await self._call_ocr_space(png_bytes)
+            ts = self._extract_timestamp_from_text(text)
+
+        return ts
+
+    async def extract_parsed_timestamp(
+        self,
+        frame: np.ndarray,
+        *,
+        skip_hash_cache: bool = False,
+        use_crop: bool = True,
+    ) -> Optional[int]:
+        """
+        Return a UTC timestamp only when OCR successfully reads TMD date/time text.
+        Never returns poll-time or wall-clock fallbacks.
+        """
+        frame_hash = self._hash_frame(frame)
+        if not skip_hash_cache:
+            cached_ts = await self.repo.get_radar_timestamp_cache(frame_hash)
+            if cached_ts is not None:
+                return cached_ts
+
+        ts = await self._run_live_ocr(frame)
+        if ts is None and use_crop:
+            ts = await self._run_live_ocr(self.timestamp_crop(frame))
+
+        if ts is not None:
+            await self.repo.set_radar_timestamp_cache(frame_hash, ts)
+
+        return ts
+
     async def get_frame_timestamp(
         self,
         frame: np.ndarray,
@@ -217,38 +264,9 @@ class OCRService:
             if cached_ts is not None:
                 return cached_ts
 
-        png_bytes = self._frame_to_png_bytes(frame)
-        ts = None
-        
-        # Hotfix (Issue #85): Bypass Cloud Vision and Gemini due to quotas/latency
-        # Check quota for Cloud Vision
-        # vision_allowed = await self.repo.check_and_increment_vision_quota(1000)
-        
-        # Fallback Chain 1: Google Cloud Vision (Bypassed)
-        # if vision_allowed:
-        #     print("Running OCR: Cloud Vision")
-        #     text = await self._call_cloud_vision(png_bytes)
-        #     ts = self._extract_timestamp_from_text(text)
-        # else:
-        #     print("Cloud Vision quota exceeded. Skipping to Gemini.")
-        
-        # Fallback Chain 2: Gemini (Bypassed)
-        # if ts is None:
-        #     print("Running OCR: Gemini")
-        #     text = await self._call_gemini(png_bytes)
-        #     ts = self._extract_timestamp_from_text(text)
-            
-        # Try Local Tesseract First
+        ts = await self._run_live_ocr(frame)
         if ts is None:
-            print("Running OCR: Local Tesseract")
-            text = await self._call_pytesseract(frame)
-            ts = self._extract_timestamp_from_text(text)
-            
-        # Primary Engine: OCR.space (Issue #85)
-        if ts is None:
-            print("Running OCR: OCR.space (Hotfix Bypass)")
-            text = await self._call_ocr_space(png_bytes)
-            ts = self._extract_timestamp_from_text(text)
+            ts = await self._run_live_ocr(self.timestamp_crop(frame))
         
         # If all failed, use fallback_ts
         if ts is None and fallback_ts is not None:

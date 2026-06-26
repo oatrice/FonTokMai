@@ -258,3 +258,16 @@ def test_extrapolate_rain_with_growth_decay():
         # 40 * (0.1)^2 = 0.4 -> below MIN_DBZ (e.g., 10), so should be 0.0
         dbz_min = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=-0.9)
         assert dbz_min == 0.0
+
+
+def test_parse_html_timestamp_bangkok_to_utc():
+    html = '<img src="kkn240_latest.gif?v=250626_1030">'
+    dt = TMDRadarProcessor.parse_html_timestamp(html)
+    assert dt is not None
+    from datetime import timezone
+    from zoneinfo import ZoneInfo
+    assert dt.astimezone(ZoneInfo("Asia/Bangkok")).strftime("%H:%M") == "10:30"
+
+
+def test_parse_html_timestamp_missing_returns_none():
+    assert TMDRadarProcessor.parse_html_timestamp("<html></html>") is None
