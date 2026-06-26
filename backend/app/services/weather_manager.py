@@ -668,6 +668,7 @@ class WeatherManager:
                         multiframe_bytes = await asyncio.to_thread(
                             processor.generate_multiframe_analysis_image,
                             frames, flow, user_px, user_py, clouds, processor, now_utc,
+                            gap_min,
                         )
                 except Exception as e:
                     logger.error(f"Failed to generate radar PNGs: {e}")
