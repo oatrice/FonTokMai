@@ -18,6 +18,38 @@ from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING, IGNORED_C
 
 logger = logging.getLogger(__name__)
 
+
+def _load_thai_font(size: int) -> "ImageFont.FreeTypeFont":
+    """Return the best available font that supports Thai characters.
+
+    Priority order (Thai-capable → Latin fallbacks → PIL default):
+      macOS  : Tahoma, Arial Unicode MS
+      Linux  : Noto Sans Thai, Garuda, LiberationSans, DejaVu Sans
+    """
+    candidates = [
+        # macOS Thai fonts
+        "/System/Library/Fonts/Supplemental/Tahoma.ttf",
+        "/Library/Fonts/Tahoma.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/Library/Fonts/Arial Unicode.ttf",
+        # Linux / Docker Thai fonts (install fonts-thai-tlwg or fonts-noto-core)
+        "/usr/share/fonts/truetype/thai-tlwg/Garuda.ttf",
+        "/usr/share/fonts/truetype/thai-tlwg/Loma.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        # Generic Latin fallbacks
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                continue
+    return ImageFont.load_default()
+
 class TMDRadarProcessor:
     def __init__(self, station_code: str):
         self.station_code = station_code
@@ -662,12 +694,9 @@ class TMDRadarProcessor:
                 img_pil = Image.fromarray(img).convert("RGBA")
                 time_str_idc = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
                 try:
-                    fnt = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(14 * scale))
+                    fnt = _load_thai_font(int(14 * scale))
                 except:
-                    try:
-                        fnt = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(14 * scale))
-                    except:
-                        fnt = ImageFont.load_default()
+                    fnt = _load_thai_font(int(14 * scale))
                         
                 draw = ImageDraw.Draw(img_pil, "RGBA")
                 
@@ -707,17 +736,8 @@ class TMDRadarProcessor:
         img = Image.new("RGBA", (width, height), (30, 30, 30, 255))
         draw = ImageDraw.Draw(img, "RGBA")
         
-        try:
-            # Fallback for systems that don't have Helvetica
-            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 16)
-            font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
-        except:
-            try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 16)
-                font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 14)
-            except:
-                font = ImageFont.load_default()
-                font_small = font
+        font       = _load_thai_font(16)
+        font_small = _load_thai_font(14)
             
         baseline_y = 350
         draw.line([(0, baseline_y), (width, baseline_y)], fill=(100, 100, 100, 255), width=2)
@@ -877,20 +897,8 @@ class TMDRadarProcessor:
         draw   = PILDraw.Draw(canvas, "RGBA")
 
         # ── Font loading ─────────────────────────────────────────────────────
-        def _load_font(size: int):
-            for path in [
-                "/System/Library/Fonts/Helvetica.ttc",
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            ]:
-                try:
-                    return PILFont.truetype(path, size)
-                except Exception:
-                    pass
-            return PILFont.load_default()
-
-        font_sm  = _load_font(11)
-        font_med = _load_font(13)
+        font_sm  = _load_thai_font(11)
+        font_med = _load_thai_font(13)
 
         # ── Helper: dBZ → colour (RGB) ───────────────────────────────────────
         def _dbz_color(dbz: float):
