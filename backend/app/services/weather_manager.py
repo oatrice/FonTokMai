@@ -699,7 +699,7 @@ class WeatherManager:
                     if dbz > max_dbz:
                         max_dbz = dbz
                     
-                    pred_time  = now_utc + timedelta(minutes=steps * 15)
+                    pred_time  = current_utc + timedelta(minutes=steps * 15)
                     z_value    = 10 ** (dbz / 10.0)
                     rain_mmhr  = (z_value / 200.0) ** (1.0 / 1.6) if dbz > 0 else 0.0
                     predictions.append({
