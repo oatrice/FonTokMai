@@ -848,6 +848,7 @@ class TMDRadarProcessor:
         processor: "TMDRadarProcessor",
         time_utc: "Optional[datetime]" = None,
         gap_minutes: float = 15.0,
+        frame_timestamps: "Optional[List[int]]" = None,
     ) -> "Optional[bytes]":
         """
         Produces a horizontal strip of radar frame thumbnails with cloud-cluster
@@ -871,7 +872,10 @@ class TMDRadarProcessor:
         clouds      : Cloud cluster list from find_approaching_clouds().
         processor   : TMDRadarProcessor instance (for dbz/wind helpers).
         time_utc    : Timestamp of the LATEST frame (for labelling).
-        gap_minutes : Minutes between consecutive frames (default 15).
+        gap_minutes : Average minutes between consecutive frames (default 15).
+        frame_timestamps: List of UTC epoch ints, one per frame (oldest first).
+                      When provided, each panel label uses the exact scan time
+                      instead of time_utc - steps×gap_minutes estimate.
         """
         try:
             from PIL import Image as PILImage, ImageDraw as PILDraw, ImageFont as PILFont
@@ -955,15 +959,24 @@ class TMDRadarProcessor:
             is_now = (fi == n - 1)
             panel_x = fi * THUMB_W
 
-            # Frame timestamp label
-            if time_utc is not None:
+            # Frame timestamp label — prefer per-frame OCR timestamp over estimate
+            # frame_timestamps is aligned to ALL frames; use_frames is the last MAX_FRAMES
+            ts_offset = len(frames) - n  # oldest used frame index in original list
+            frame_ts_idx = ts_offset + fi  # index in original frame_timestamps list
+
+            if (frame_timestamps and
+                    frame_ts_idx < len(frame_timestamps) and
+                    frame_timestamps[frame_ts_idx]):
+                frame_dt = datetime.fromtimestamp(
+                    frame_timestamps[frame_ts_idx], tz=ZoneInfo("Asia/Bangkok")
+                )
+                hm = frame_dt.strftime("%H:%M")
+                ts_label = f"NOW  {hm}" if is_now else hm
+            elif time_utc is not None:
                 delta_back = (n - 1 - fi) * gap_minutes
                 frame_dt = time_utc - timedelta(minutes=delta_back)
-                ts_label = frame_dt.astimezone(ZoneInfo("Asia/Bangkok")).strftime("%H:%M")
-                if delta_back == 0:
-                    ts_label = f"NOW  {ts_label}"
-                else:
-                    ts_label = f"-{int(delta_back)}m  {ts_label}"
+                hm = frame_dt.astimezone(ZoneInfo("Asia/Bangkok")).strftime("%H:%M")
+                ts_label = f"NOW  {hm}" if is_now else f"-{int(delta_back)}m  {hm}"
             else:
                 ts_label = "NOW" if is_now else f"-{(n-1-fi)*int(gap_minutes)}m"
 
