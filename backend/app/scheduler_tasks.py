@@ -238,6 +238,24 @@ async def _process_location(loc, repo, weather_manager, now, sem):
             return 0, 1
 
 
+async def run_alert_for_locations(target_locs: list):
+    """Run the rain check and alert pipeline for a specific list of locations only.
+    Used by /devmock scenario loc:name to fire an alert for a single saved location
+    without triggering the full scheduler sweep.
+    """
+    try:
+        await fetch_tmd_radar_routine()
+    except Exception as e:
+        logger.error(f"[run_alert_for_locations] Radar fetch error: {e}")
+
+    async with get_repo_context() as repo:
+        weather_manager = WeatherManager()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        sem = asyncio.Semaphore(5)
+        tasks = [_process_location(loc, repo, weather_manager, now, sem) for loc in target_locs]
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
 async def check_rain_and_alert():
     logger.info("Starting proactive rain check...")
     start_time = time.time()

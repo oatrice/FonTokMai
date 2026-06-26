@@ -51,7 +51,8 @@ def _parse_scenario_params(params_str: str) -> Dict[str, Any]:
             try:
                 result[key] = float(raw_val) if "." in raw_val else int(raw_val)
             except ValueError:
-                result[key] = raw_val.upper()
+                # loc:name should stay lowercase; direction codes (wind_dir) go uppercase
+                result[key] = raw_val if key == "loc" else raw_val.upper()
         else:
             # Flag-style token (e.g. "no_rain")
             result[token.lower()] = True

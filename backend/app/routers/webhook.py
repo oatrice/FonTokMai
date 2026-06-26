@@ -716,16 +716,38 @@ async def handle_devmock_command(chat_id: int, command: str):
                 return
 
             scenario = _parse_scenario_params(params_str)
+
+            # Extract optional loc:name parameter (not a scenario param)
+            target_loc_name = scenario.pop("loc", None)
+            if target_loc_name:
+                target_loc_name = str(target_loc_name).lower()
+
             mock_state_json = _json.dumps(scenario, ensure_ascii=False)
             await repo.set_mock_state(chat_id, mock_state_json)
 
-            # Reset cooldown เพื่อให้ alert ยิงทันที
+            # Reset cooldown — only for the target location (or all if not specified)
             locs = await repo.get_user_locations(chat_id)
-            for loc in locs:
+
+            if target_loc_name:
+                matched = [l for l in locs if l.name and l.name.lower() == target_loc_name]
+                if not matched:
+                    available = ", ".join([l.name for l in locs if l.name]) or "default"
+                    await send_telegram_message(
+                        chat_id,
+                        f"⚠️ ไม่พบพิกัดชื่อ '{target_loc_name}'\nพิกัดที่มี: {available}"
+                    )
+                    return
+                fire_locs = matched
+            else:
+                fire_locs = locs
+
+            for loc in fire_locs:
                 await repo.update_last_alerted(loc, None)
 
             # Build a human-readable summary of the scenario
             parts = []
+            if target_loc_name:
+                parts.append(f"📍 พิกัด: {target_loc_name.capitalize()}")
             if "rain_in" in scenario:
                 parts.append(f"🕐 ฝนจะมาใน {scenario['rain_in']} นาที")
             if "rain_stopping" in scenario:
@@ -749,8 +771,11 @@ async def handle_devmock_command(chat_id: int, command: str):
                 f"🛠️ [DEV MOCK] Scenario จำลอง:\n{summary}\n\n⏳ กำลังสร้างแจ้งเตือน..."
             )
 
-            from app.scheduler_tasks import check_rain_and_alert
-            await check_rain_and_alert()
+            from app.scheduler_tasks import check_rain_and_alert, run_alert_for_locations
+            if target_loc_name:
+                await run_alert_for_locations(fire_locs)
+            else:
+                await check_rain_and_alert()
 
         elif command in ("/devmock help", "/devmock"):
             help_text = (
@@ -771,12 +796,13 @@ async def handle_devmock_command(chat_id: int, command: str):
                 "`wind:N` — ความเร็วลม km/h \\(default 20\\)\n"
                 "`wind_dir:X` — ทิศลม: N/NE/E/SE/S/SW/W/NW\n"
                 "`growth:N` — อัตราการเติบโต ±0\\.0–1\\.0\n"
-                "`clusters:N` — จำนวนก้อนเมฆ 1–5 \\(default 1\\)\n\n"
+                "`clusters:N` — จำนวนก้อนเมฆ 1–5 \\(default 1\\)\n"
+                "`loc:NAME` — เจาะจงพิกัด \\(เช่น home, work\\) แทนทุกพิกัด\n\n"
                 "*ตัวอย่าง:*\n"
                 "`/devmock scenario rain_in:20 dbz:40 wind:60 wind_dir:N`\n"
-                "`/devmock scenario rain_stopping:10 dbz:30`\n"
-                "`/devmock scenario no_rain wind:45 wind_dir:SE`\n"
-                "`/devmock scenario rain_in:5 dbz:55 growth:0.3 clusters:3`"
+                "`/devmock scenario rain_in:10 dbz:55 growth:0\\.3 loc:work`\n"
+                "`/devmock scenario rain_stopping:10 dbz:30 loc:home`\n"
+                "`/devmock scenario no_rain wind:45 wind_dir:SE loc:home`"
             )
             await send_telegram_message(chat_id, help_text, parse_mode="MarkdownV2")
 
