@@ -406,6 +406,16 @@ async def fetch_tmd_radar_routine():
                 frames = cache.get("frames", []) if cache else []
                 latest_ts = frames[0]["timestamp"] if frames else 0
                 last_gif_fallback_time = cache.get("last_gif_fallback_time", 0.0) if cache else 0.0
+
+                # Sanity-check: if latest_ts is in the future (e.g. corrupted wall-clock fallback),
+                # reset to 0 so a fresh valid OCR timestamp can replace it.
+                if latest_ts > now_ts + 300:  # >5 min in the future = clearly corrupt
+                    logger.warning(
+                        f"[{station}] ⚠️  Firestore latest_ts={latest_ts} is in the future "
+                        f"(now={now_ts}, delta={latest_ts - now_ts}s) — resetting to 0 to unblock cache"
+                    )
+                    latest_ts = 0
+
                 
                 needs_fallback = False
                 fallback_reason = ""
