@@ -449,6 +449,8 @@ class TMDRadarProcessor:
         min_dbz: float = 20.0,
         cluster_dist: int = 20,
         hit_radius: int = 20,
+        cluster_min: int = 3,
+        dot_threshold: float = 0.5,
     ) -> list:
         """
         Scans all rain pixels within search_radius of (user_x, user_y).
@@ -493,8 +495,8 @@ class TMDRadarProcessor:
                 if dist == 0:
                     continue
                 dot = (cvx * to_x + cvy * to_y) / dist
-                # Only keep pixels whose flow APPROACHES the user (dot > 0)
-                if dot <= 0:
+                # Only keep pixels whose flow APPROACHES the user (dot > dot_threshold)
+                if dot <= dot_threshold:
                     continue
                 dot_pass += 1
                 
@@ -540,7 +542,7 @@ class TMDRadarProcessor:
                             used[j] = True
                             queue.append(c2)
 
-            if len(group) < 3:
+            if len(group) < cluster_min:
                 continue
 
             total_w = sum(g[4] for g in group)
@@ -627,8 +629,151 @@ class TMDRadarProcessor:
             )
 
     @staticmethod
-    def generate_radar_tracking_image(frame: np.ndarray, user_x: int, user_y: int, clouds: list, time_utc: datetime = None) -> Optional[bytes]:
-        if frame is None or not clouds:
+    def get_all_rain_clusters(
+        frame: np.ndarray,
+        flow: np.ndarray,
+        user_x: int,
+        user_y: int,
+        scan_radius: int = 200,
+        min_dbz: float = 10.0,
+        cluster_dist: int = 25,
+    ) -> list:
+        """
+        Scan a wide radius for ALL rain clusters (regardless of direction).
+        Returns a list of dicts with cx, cy, vx, vy, dbz_now, eta_min, approaching.
+        Used for the always-visible radar overlay (circles + arrows).
+        """
+        h, w = frame.shape[:2]
+        candidates = []
+        for dy in range(-scan_radius, scan_radius + 1, 2):
+            for dx in range(-scan_radius, scan_radius + 1, 2):
+                sx = user_x + dx
+                sy = user_y + dy
+                if sx < 0 or sx >= w or sy < 0 or sy >= h:
+                    continue
+                d = TMDRadarProcessor._get_dbz_at_pixel_static(frame, sx, sy)
+                if d < min_dbz:
+                    continue
+                vx = float(flow[sy, sx, 0])
+                vy = float(flow[sy, sx, 1])
+                candidates.append((sx, sy, vx, vy, d))
+
+        if not candidates:
+            return []
+
+        # Simple greedy clustering
+        used = [False] * len(candidates)
+        clusters = []
+        for i, c1 in enumerate(candidates):
+            if used[i]:
+                continue
+            group = [c1]
+            used[i] = True
+            queue = [c1]
+            while queue:
+                cur = queue.pop()
+                for j, c2 in enumerate(candidates):
+                    if used[j]:
+                        continue
+                    if math.hypot(cur[0] - c2[0], cur[1] - c2[1]) <= cluster_dist:
+                        used[j] = True
+                        group.append(c2)
+                        queue.append(c2)
+
+            total_w = sum(g[4] for g in group)
+            if total_w <= 0:
+                continue
+            cx = int(sum(g[0] * g[4] for g in group) / total_w)
+            cy = int(sum(g[1] * g[4] for g in group) / total_w)
+            avg_vx = sum(g[2] for g in group) / len(group)
+            avg_vy = sum(g[3] for g in group) / len(group)
+            dbz_now = max(g[4] for g in group)
+
+            v_mag = math.hypot(avg_vx, avg_vy)
+            dist = math.hypot(cx - user_x, cy - user_y)
+
+            # Determine if approaching
+            approaching = False
+            eta_min = None
+            if v_mag > 0.1 and dist > 0:
+                vx_norm = avg_vx / v_mag
+                vy_norm = avg_vy / v_mag
+                vec_x = user_x - cx
+                vec_y = user_y - cy
+                dot = vx_norm * (vec_x / dist) + vy_norm * (vec_y / dist)
+                if dot > 0.3:  # looser than find_approaching_clouds threshold
+                    approaching = True
+                    eta_min = (dist / (v_mag * dot)) * 15.0
+
+            if eta_min is None:
+                eta_min = (dist / v_mag * 15.0) if v_mag > 0.1 else 9999.0
+
+            clusters.append({
+                "cx": cx, "cy": cy,
+                "vx": avg_vx, "vy": avg_vy,
+                "dbz_now": dbz_now,
+                "predicted_dbz": dbz_now,
+                "dist": dist,
+                "eta_min": eta_min,
+                "approaching": approaching,
+                "size": len(group),
+            })
+
+        clusters.sort(key=lambda c: c["dist"])
+        return clusters
+
+    @staticmethod
+    def _get_dbz_at_pixel_static(img: np.ndarray, x: int, y: int) -> float:
+        """Static version of get_dbz_at_pixel for use in classmethod/staticmethod context."""
+        pixel = img[y, x]
+        r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
+        min_dist_dbz = float('inf')
+        best_dbz = 0.0
+        min_dist_ignored = float('inf')
+
+        for color, dbz in DBZ_COLOR_MAPPING.items():
+            dist = math.sqrt((r - color[0])**2 + (g - color[1])**2 + (b - color[2])**2)
+            if dist < min_dist_dbz:
+                min_dist_dbz = dist
+                best_dbz = dbz
+
+        for ic in IGNORED_COLORS:
+            dist = math.sqrt((r - ic[0])**2 + (g - ic[1])**2 + (b - ic[2])**2)
+            if dist < min_dist_ignored:
+                min_dist_ignored = dist
+
+        if min_dist_ignored <= min_dist_dbz:
+            return 0.0
+        if min_dist_dbz < 25:
+            return best_dbz
+        return 0.0
+
+    @staticmethod
+    def generate_radar_tracking_image(
+        frame: np.ndarray,
+        user_x: int,
+        user_y: int,
+        clouds: list,
+        time_utc: datetime = None,
+        all_rain_clusters: list = None,
+    ) -> Optional[bytes]:
+        """Generate zoomed radar tracking image.
+        
+        Always renders if there are any rain clusters in the area (approaching or not).
+        - clouds: approaching-only clusters (ETA-filtered)
+        - all_rain_clusters: every rain cluster visible in scan radius
+        """
+        # Determine what to draw
+        display_clouds = clouds or []          # approaching, drawn with direction label
+        ambient_clouds = [                     # non-approaching, drawn as plain circles
+            c for c in (all_rain_clusters or [])
+            if not any(
+                math.hypot(c["cx"] - d["cx"], c["cy"] - d["cy"]) < 30
+                for d in display_clouds
+            )
+        ] if all_rain_clusters else []
+
+        if frame is None or (not display_clouds and not ambient_clouds):
             return None
         
         # Crop a 240x240 region around the user
@@ -653,52 +798,75 @@ class TMDRadarProcessor:
         cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
         cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(10 * scale), int(3 * scale))
         
-        # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest to avoid overlap
-        incoming = [c for c in clouds if c["eta_min"] >= -5]
-        incoming.sort(key=lambda c: c["predicted_dbz"], reverse=True)
-        top_clouds = incoming[:3]
-        
-        for c in top_clouds:
-            cx_orig, cy_orig = c["cx"], c["cy"]
-            
-            # Only draw if the cloud is within or near the crop
-            if cx_orig < x1 - 50 or cx_orig > x2 + 50 or cy_orig < y1 - 50 or cy_orig > y2 + 50:
-                continue
-                
+        def _dbz_color(dbz):
+            if dbz >= 60: return (155, 89, 182)   # Purple
+            elif dbz >= 50: return (231, 76, 60)  # Red
+            elif dbz >= 40: return (243, 156, 18) # Orange
+            elif dbz >= 30: return (241, 196, 15) # Yellow
+            else: return (46, 204, 113)            # Green
+
+        def _draw_cloud(c_orig, is_approaching):
+            cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
+            # Skip if outside crop (with generous margin)
+            if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
+                return
             cx = int((cx_orig - x1) * scale)
             cy = int((cy_orig - y1) * scale)
-            eta = c["eta_min"]
-            dbz = c["predicted_dbz"]
-            
-            if dbz >= 60: color = (155, 89, 182) # Purple
-            elif dbz >= 50: color = (231, 76, 60) # Red
-            elif dbz >= 40: color = (243, 156, 18) # Orange
-            elif dbz >= 30: color = (241, 196, 15) # Yellow
-            else: color = (46, 204, 113) # Green
-            
-            cv2.circle(img, (cx, cy), int(12 * scale), color, int(1.5 * scale))
-            
-            # Draw wind direction arrow (vx, vy are pixels per 15 mins)
-            vx_scaled = int(c.get("vx", 0) * scale * 3.0)  # Show ~45 min trajectory
-            vy_scaled = int(c.get("vy", 0) * scale * 3.0)
-            
-            # If there's no movement, just point to user as fallback
-            if vx_scaled == 0 and vy_scaled == 0:
-                cv2.arrowedLine(img, (cx, cy), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.1)  # RGB Yellow
+            dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
+            vx = c_orig.get("vx", 0)
+            vy = c_orig.get("vy", 0)
+
+            if is_approaching:
+                # Approaching: solid colour circle + yellow arrow + ETA label
+                color = _dbz_color(dbz)
+                cv2.circle(img, (cx, cy), int(12 * scale), color, int(1.5 * scale))
+                # Arrow toward destination
+                vx_scaled = int(vx * scale * 3.0)
+                vy_scaled = int(vy * scale * 3.0)
+                if vx_scaled == 0 and vy_scaled == 0:
+                    cv2.arrowedLine(img, (cx, cy), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.15)
+                else:
+                    cv2.arrowedLine(img, (cx, cy), (cx + vx_scaled, cy + vy_scaled), (255, 255, 0), int(1.5 * scale), tipLength=0.3)
+                # ETA label
+                eta = c_orig.get("eta_min", 0)
+                sign = "-" if eta < 0 else "~"
+                abs_eta = int(abs(eta))
+                time_str = f"{abs_eta}m" if abs_eta < 60 else f"{abs_eta//60}h{abs_eta%60}m"
+                cv2.putText(img, f"{sign}{time_str}", (cx + int(14 * scale), cy),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (255, 255, 255), int(1.5 * scale))
             else:
-                target_x = cx + vx_scaled
-                target_y = cy + vy_scaled
-                cv2.arrowedLine(img, (cx, cy), (target_x, target_y), (255, 255, 0), int(1.5 * scale), tipLength=0.3)  # RGB Yellow
-            
-            sign = "-" if eta < 0 else "~"
-            abs_eta = int(abs(eta))
-            if abs_eta < 60:
-                time_str = f"{abs_eta} m"
-            else:
-                time_str = f"{abs_eta // 60} hr {abs_eta % 60} m"
-                
-            cv2.putText(img, f"{sign}{time_str}", (cx + int(15 * scale), cy), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, (255, 255, 255), int(1.5 * scale))
+                # Ambient (not approaching): dashed/thin circle + white/grey arrow
+                color = _dbz_color(dbz)
+                # Draw as dashed circle approximation using arc segments
+                for angle_deg in range(0, 360, 30):
+                    import math as _m
+                    a1 = _m.radians(angle_deg)
+                    a2 = _m.radians(angle_deg + 20)
+                    r = int(10 * scale)
+                    p1 = (int(cx + r * _m.cos(a1)), int(cy + r * _m.sin(a1)))
+                    p2 = (int(cx + r * _m.cos(a2)), int(cy + r * _m.sin(a2)))
+                    cv2.line(img, p1, p2, color, int(scale * 0.8))
+                # Wind direction arrow (white, shorter)
+                vx_scaled = int(vx * scale * 2.5)
+                vy_scaled = int(vy * scale * 2.5)
+                v_mag = math.hypot(vx_scaled, vy_scaled)
+                if v_mag > 2:
+                    cv2.arrowedLine(img, (cx, cy), (cx + vx_scaled, cy + vy_scaled),
+                                    (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
+                # dBZ label in muted colour
+                cv2.putText(img, f"{int(dbz)}", (cx + int(11 * scale), cy - int(5 * scale)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (200, 200, 200), int(scale * 0.7))
+
+        # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest
+        incoming = [c for c in display_clouds if c.get("eta_min", 9999) >= -5]
+        incoming.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
+        for c in incoming[:3]:
+            _draw_cloud(c, is_approaching=True)
+
+        # Draw ambient (non-approaching) clusters, up to 8
+        ambient_clouds.sort(key=lambda c: c.get("dist", 9999))
+        for c in ambient_clouds[:8]:
+            _draw_cloud(c, is_approaching=False)
 
         # Add IDC timestamp overlay
         if time_utc:

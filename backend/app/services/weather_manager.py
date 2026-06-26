@@ -19,6 +19,15 @@ from .tmd_radar_processor import TMDRadarProcessor
 logger = logging.getLogger(__name__)
 from app.dependencies import get_repo_context
 
+# ─── Developer Config (runtime-adjustable via /devmock config) ────────────────
+# These override the hard-coded defaults in find_approaching_clouds / get_all_rain_clusters.
+_DEV_CONFIG: dict = {
+    "cluster_min":    3,      # min pixels to form a valid cloud cluster
+    "search_radius":  80,     # px radius to scan for approaching clouds
+    "min_dbz":        10.0,   # minimum dBZ to count as rain
+    "dot_threshold":  0.5,    # dot product threshold (how directly it must approach)
+}
+
 
 # ─── Parametric Mock Scenario Helpers ────────────────────────────────────────
 
@@ -604,10 +613,23 @@ class WeatherManager:
                 if user_px is None or user_py is None:
                     continue
 
-                # Find all cloud clusters approaching the user
+                # Find all cloud clusters approaching the user (using dev-configurable thresholds)
+                _cfg = _DEV_CONFIG
                 clouds = processor.find_approaching_clouds(
                     curr_frame, prev_frame, flow, user_px, user_py,
-                    search_radius=80, min_dbz=10.0, cluster_dist=20,
+                    search_radius=_cfg.get("search_radius", 80),
+                    min_dbz=_cfg.get("min_dbz", 10.0),
+                    cluster_dist=20,
+                    cluster_min=_cfg.get("cluster_min", 3),
+                    dot_threshold=_cfg.get("dot_threshold", 0.5),
+                )
+                # Also collect ALL rain clusters (any direction) for the always-visible overlay
+                all_rain_clusters = await asyncio.to_thread(
+                    processor.get_all_rain_clusters,
+                    curr_frame, flow, user_px, user_py,
+                    scan_radius=min(200, _cfg.get("search_radius", 80) * 2),
+                    min_dbz=_cfg.get("min_dbz", 10.0),
+                    cluster_dist=25,
                 )
 
                 # ── Parametric scenario mock (JSON mock_state) ────────────────────
@@ -804,7 +826,11 @@ class WeatherManager:
                 multiframe_bytes = None
                 try:
                     static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor)
-                    tracking_bytes = await asyncio.to_thread(processor.generate_radar_tracking_image, curr_frame.copy(), user_px, user_py, clouds, now_utc)
+                    tracking_bytes = await asyncio.to_thread(
+                        processor.generate_radar_tracking_image,
+                        curr_frame.copy(), user_px, user_py, clouds, now_utc,
+                        all_rain_clusters,
+                    )
                     timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, clouds)
                     if len(frames) >= 2:
                         multiframe_bytes = await asyncio.to_thread(

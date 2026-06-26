@@ -125,8 +125,6 @@ def _build_forecast_text(result: dict) -> str:
 
     else:
         text = f"ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
-        if "tmd-radar" in actual_endpoint:
-            text += "\n(ระบบงดแสดงภาพ Timeline และ Zoom-in Tracking เนื่องจากตรวจไม่พบกลุ่มฝน)\n"
 
     return text, actual_endpoint, eta_minutes
 
@@ -804,6 +802,10 @@ async def handle_devmock_command(chat_id: int, command: str):
                 "<code>/devmock scenario rain_stopping:10 dbz:30 loc:home</code>\n"
                 "<code>/devmock scenario no_rain wind:45 wind_dir:SE loc:home</code>\n\n"
                 "<b>Dev/Test:</b>\n"
+                "<code>/devmock check lat,lng</code> — เช็คฝน ณ พิกัดใดก็ได้\n"
+                "<code>/devmock pixel lat,lng</code> — GPS → pixel (ทุก station)\n"
+                "<code>/devmock pixel px,py skn240</code> — pixel → GPS\n"
+                "<code>/devmock config</code> — ดู/ปรับ thresholds (cluster_min, min_dbz ฯลฯ)\n"
                 "<code>/devmock flush_cache</code> — ล้าง in-memory cache (บังคับ GIF fallback)\n"
                 "<code>/devmock flush_all_cache</code> — ล้าง in-memory + Firestore (GIF fallback ทันที)\n"
                 "<code>/devmock cache_status</code> — ดูสถานะ cache ทุก layer"
@@ -908,6 +910,152 @@ async def handle_devmock_command(chat_id: int, command: str):
                         lines.append(f"  <code>{st}</code> <i>(ว่าง)</i>")
 
             await send_telegram_message(chat_id, "\n".join(lines), parse_mode="HTML")
+
+        # ── /devmock check lat,lng ─────────────────────────────────────────────
+        elif command.startswith("/devmock check"):
+            import re as _re
+            args = command.removeprefix("/devmock check").strip()
+            coords_m = _re.search(r'([+-]?\d+\.?\d*)[,\s]+([+-]?\d+\.?\d*)', args)
+            if not coords_m:
+                await send_telegram_message(
+                    chat_id,
+                    "🛠️ ใช้: <code>/devmock check lat,lng</code>\n"
+                    "เช่น: <code>/devmock check 18.665,101.861</code>",
+                    parse_mode="HTML",
+                )
+                return
+            chk_lat = float(coords_m.group(1))
+            chk_lng = float(coords_m.group(2))
+            await send_telegram_message(
+                chat_id,
+                f"🛠️ กำลังเช็คฝน ณ พิกัด <code>{chk_lat:.5f}, {chk_lng:.5f}</code>…",
+                parse_mode="HTML",
+            )
+            await process_telegram_location(chat_id, chk_lat, chk_lng, message_id_to_edit=None)
+
+        # ── /devmock pixel lat,lng  or  /devmock pixel px,py station ──────────
+        elif command.startswith("/devmock pixel"):
+            import re as _re
+            from app.services.tmd_radar_config import STATIONS
+            from app.services.tmd_radar_processor import TMDRadarProcessor as _TRP
+            args = command.removeprefix("/devmock pixel").strip()
+            # Detect mode: if values have '.', treat as lat/lng; else as pixel coords
+            nums = _re.findall(r'[+-]?\d+\.?\d*', args)
+            station_hint = _re.search(r'(kkn\d+|skn\d+)', args.lower())
+            st_code = station_hint.group(1) if station_hint else None
+
+            if len(nums) < 2:
+                await send_telegram_message(
+                    chat_id,
+                    "🛠️ ใช้:\n"
+                    "<code>/devmock pixel lat,lng</code> — แปลง GPS → pixel\n"
+                    "<code>/devmock pixel px,py station</code> — แปลง pixel → GPS\n"
+                    "เช่น: <code>/devmock pixel 18.665,101.861</code>\n"
+                    "เช่น: <code>/devmock pixel 300,200 skn240</code>",
+                    parse_mode="HTML",
+                )
+                return
+
+            is_latlng = '.' in nums[0] or '.' in nums[1]
+            lines_px = [f"🗺️ <b>Pixel Coordinate Tool</b>\n"]
+            if is_latlng:
+                lat_v = float(nums[0])
+                lng_v = float(nums[1])
+                lines_px.append(f"📍 GPS: <code>{lat_v:.5f}, {lng_v:.5f}</code>\n")
+                for sc, cfg in STATIONS.items():
+                    try:
+                        proc = _TRP(sc)
+                        px_loop, py_loop = proc.latlng_to_pixel(lat_v, lng_v, is_loop=True)
+                        px_stat, py_stat = proc.latlng_to_pixel(lat_v, lng_v, is_loop=False)
+                        if px_loop is None:
+                            lines_px.append(f"  <code>{sc}</code>: นอก bbox")
+                            continue
+                        lines_px.append(
+                            f"  <code>{sc}</code>: loop=<code>({px_loop},{py_loop})</code>  static=<code>({px_stat},{py_stat})</code>"
+                        )
+                    except Exception:
+                        pass
+            else:
+                # Pixel → lat/lng
+                px_v = int(float(nums[0]))
+                py_v = int(float(nums[1]))
+                target_st = st_code or "skn240"
+                lines_px.append(f"📍 Pixel: <code>({px_v}, {py_v})</code>  station=<code>{target_st}</code>\n")
+                try:
+                    proc = _TRP(target_st)
+                    cfg = proc.config
+                    bbox = cfg.bbox
+                    # Reverse loop mapping
+                    cw, ch = cfg.loop_crop_width, cfg.loop_crop_height
+                    x_pct = (px_v - cfg.loop_crop_x) / cw
+                    y_pct = (py_v - cfg.loop_crop_y) / ch
+                    lng_v = x_pct * (bbox.lng_max - bbox.lng_min) + bbox.lng_min
+                    lat_v = bbox.lat_max - y_pct * (bbox.lat_max - bbox.lat_min)
+                    lines_px.append(f"  → GPS (loop): <code>{lat_v:.5f}, {lng_v:.5f}</code>")
+                    # Also show reverse for static
+                    cw2, ch2 = cfg.static_crop_width, cfg.static_crop_height
+                    x_pct2 = (px_v - cfg.static_crop_x) / cw2
+                    y_pct2 = (py_v - cfg.static_crop_y) / ch2
+                    lng_v2 = x_pct2 * (bbox.lng_max - bbox.lng_min) + bbox.lng_min
+                    lat_v2 = bbox.lat_max - y_pct2 * (bbox.lat_max - bbox.lat_min)
+                    lines_px.append(f"  → GPS (static): <code>{lat_v2:.5f}, {lng_v2:.5f}</code>")
+                except Exception as _e:
+                    lines_px.append(f"  ❌ Error: {_e}")
+            await send_telegram_message(chat_id, "\n".join(lines_px), parse_mode="HTML")
+
+        # ── /devmock config [key:val ...] ──────────────────────────────────────
+        elif command.startswith("/devmock config"):
+            from app.services.weather_manager import _DEV_CONFIG
+            args = command.removeprefix("/devmock config").strip()
+            if not args:
+                # Show current config
+                lines_cfg = ["🛠️ <b>Dev Config (ค่าปัจจุบัน)</b>\n"]
+                for k, v in _DEV_CONFIG.items():
+                    lines_cfg.append(f"  <code>{k}</code> = <b>{v}</b>")
+                lines_cfg.append(
+                    "\n<b>ปรับได้:</b>\n"
+                    "<code>/devmock config cluster_min:1</code>\n"
+                    "<code>/devmock config search_radius:120</code>\n"
+                    "<code>/devmock config min_dbz:5</code>\n"
+                    "<code>/devmock config dot_threshold:0.3</code>\n"
+                    "<code>/devmock config reset</code> — คืนค่า default"
+                )
+                await send_telegram_message(chat_id, "\n".join(lines_cfg), parse_mode="HTML")
+                return
+
+            if args.strip() == "reset":
+                _DEV_CONFIG["cluster_min"]   = 3
+                _DEV_CONFIG["search_radius"] = 80
+                _DEV_CONFIG["min_dbz"]       = 10.0
+                _DEV_CONFIG["dot_threshold"] = 0.5
+                await send_telegram_message(chat_id, "🛠️ Dev Config รีเซ็ตเป็นค่า default แล้วครับ ✅")
+                return
+
+            import re as _re
+            changed = []
+            for pair in _re.findall(r'(\w+):([\d.]+)', args):
+                key, raw_val = pair
+                if key not in _DEV_CONFIG:
+                    continue
+                try:
+                    cur = _DEV_CONFIG[key]
+                    new_val = type(cur)(raw_val)
+                    _DEV_CONFIG[key] = new_val
+                    changed.append(f"  <code>{key}</code>: {cur} → <b>{new_val}</b>")
+                except Exception:
+                    pass
+            if changed:
+                await send_telegram_message(
+                    chat_id,
+                    "🛠️ <b>Dev Config อัพเดต</b>\n" + "\n".join(changed),
+                    parse_mode="HTML",
+                )
+            else:
+                await send_telegram_message(
+                    chat_id,
+                    "⚠️ ไม่พบ key ที่รู้จัก\nKey ที่รองรับ: <code>" + ", ".join(_DEV_CONFIG.keys()) + "</code>",
+                    parse_mode="HTML",
+                )
 
 
 async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False):
