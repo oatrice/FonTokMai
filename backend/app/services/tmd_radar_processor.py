@@ -825,8 +825,8 @@ class TMDRadarProcessor:
         # Growing: draw upward triangle + label
         draw.polygon([(18, leg_y + 2), (12, leg_y + 12), (24, leg_y + 12)], fill=(46, 213, 115, 200))
         draw.text((28, leg_y), "กำลังแรงขึ้น", fill=(46, 213, 115, 200), font=font_small)
-        # Decaying: draw downward triangle + label
-        draw.polygon([(168, leg_y), (162, leg_y + 10), (174, leg_y + 10)], fill=(255, 71, 87, 200))
+        # Decaying: draw downward triangle + label (wide at top → narrow at bottom)
+        draw.polygon([(162, leg_y + 2), (174, leg_y + 2), (168, leg_y + 12)], fill=(255, 71, 87, 200))
         draw.text((178, leg_y), "อ่อนกำลังลง", fill=(255, 71, 87, 200), font=font_small)
         # Stable: draw dash + label
         draw.rectangle([(313, leg_y + 5), (327, leg_y + 8)], fill=(160, 160, 160, 200))
@@ -886,10 +886,11 @@ class TMDRadarProcessor:
         n = len(use_frames)
 
         THUMB_W, THUMB_H = 200, 200                # thumbnail size (px)
-        HEADER_H = 28                              # timestamp row height
+        TITLE_H  = 20                              # top title bar
+        HEADER_H = 28                              # timestamp row height (below title)
         DBZ_ROW_H = 22                             # dBZ label row
         GROWTH_ROW_H = 20                          # growth/decay row
-        PANEL_H = THUMB_H + HEADER_H + DBZ_ROW_H + GROWTH_ROW_H
+        PANEL_H = THUMB_H + TITLE_H + HEADER_H + DBZ_ROW_H + GROWTH_ROW_H
         TOTAL_W = THUMB_W * n
         TOTAL_H = PANEL_H
 
@@ -905,6 +906,12 @@ class TMDRadarProcessor:
         # ── Font loading ─────────────────────────────────────────────────────
         font_sm  = _load_thai_font(11)
         font_med = _load_thai_font(13)
+
+        # ── Title bar (full-width, above all panels) ─────────────────────────
+        draw.rectangle([0, 0, TOTAL_W - 1, TITLE_H - 1], fill=(28, 28, 50, 255))
+        title = f"Radar Analysis  ({n} frames × {int(gap_minutes)}m)"
+        draw.text((8, 3), title, font=font_sm, fill=(180, 180, 220, 220))
+
 
         # ── Helper: dBZ → colour (RGB) ───────────────────────────────────────
         def _dbz_color(dbz: float):
@@ -959,20 +966,21 @@ class TMDRadarProcessor:
             else:
                 ts_label = "NOW" if is_now else f"-{(n-1-fi)*int(gap_minutes)}m"
 
-            # Header background
+            # Header background  (sits below TITLE_H)
             hdr_color = (30, 60, 100, 255) if is_now else (28, 28, 45, 255)
-            draw.rectangle([panel_x, 0, panel_x + THUMB_W - 1, HEADER_H - 1], fill=hdr_color)
-            draw.text((panel_x + 6, 6), ts_label, font=font_med,
+            draw.rectangle([panel_x, TITLE_H, panel_x + THUMB_W - 1, TITLE_H + HEADER_H - 1],
+                           fill=hdr_color)
+            draw.text((panel_x + 6, TITLE_H + 6), ts_label, font=font_med,
                       fill=(255, 255, 255, 255) if is_now else TEXT_DIM)
 
             # Vertical separator
             if fi > 0:
-                draw.line([(panel_x, 0), (panel_x, PANEL_H)], fill=GRID_COLOR, width=1)
+                draw.line([(panel_x, TITLE_H), (panel_x, PANEL_H)], fill=GRID_COLOR, width=1)
 
             # "NOW" border highlight
             if is_now:
                 draw.rectangle(
-                    [panel_x, 0, panel_x + THUMB_W - 1, PANEL_H - 1],
+                    [panel_x, TITLE_H, panel_x + THUMB_W - 1, PANEL_H - 1],
                     outline=NOW_BORDER, width=2,
                 )
 
@@ -986,6 +994,8 @@ class TMDRadarProcessor:
 
             if crop.shape[0] == 0 or crop.shape[1] == 0:
                 continue
+
+            thumb_top = TITLE_H + HEADER_H
 
             # Resize to fixed THUMB_W × THUMB_H
             crop_resized = cv2.resize(crop, (THUMB_W, THUMB_H), interpolation=cv2.INTER_LANCZOS4)
@@ -1061,10 +1071,10 @@ class TMDRadarProcessor:
                                     fill=(255, 200, 0, 80), width=1)
 
             # Paste thumbnail onto canvas
-            canvas.paste(thumb_pil, (panel_x, HEADER_H))
+            canvas.paste(thumb_pil, (panel_x, thumb_top))
 
             # ── dBZ row ───────────────────────────────────────────────────
-            dbz_y = HEADER_H + THUMB_H
+            dbz_y = thumb_top + THUMB_H
             draw.rectangle([panel_x, dbz_y, panel_x + THUMB_W - 1, dbz_y + DBZ_ROW_H - 1],
                            fill=(22, 22, 38, 255))
 
@@ -1072,6 +1082,13 @@ class TMDRadarProcessor:
             max_dbz_frame = max(
                 (pts[fi]["dbz"] for pts in cluster_data), default=0.0
             )
+            # For mock scenario: if no real radar dBZ, use cloud's dbz_now
+            if max_dbz_frame == 0 and incoming:
+                c0 = incoming[0]
+                steps_back = (n - 1 - fi)
+                gr = c0.get("growth_rate", 0.0)
+                max_dbz_frame = max(0.0, min(75.0, c0.get("dbz_now", 0.0) * ((1 + gr) ** (-steps_back))))
+
             if max_dbz_frame > 0:
                 dbz_col = _dbz_color(max_dbz_frame) + (230,)
                 dbz_lbl = f"{int(max_dbz_frame)} dBZ"
@@ -1085,13 +1102,21 @@ class TMDRadarProcessor:
             draw.rectangle([panel_x, gd_y, panel_x + THUMB_W - 1, gd_y + GROWTH_ROW_H - 1],
                            fill=(16, 16, 30, 255))
 
-            if fi == 0 or max_dbz_frame == 0:
+            if fi == 0:
+                gd_lbl = "  --"
+                gd_col = TEXT_DIM
+            elif max_dbz_frame == 0:
                 gd_lbl = "  --"
                 gd_col = TEXT_DIM
             else:
                 prev_max = max(
                     (pts[fi - 1]["dbz"] for pts in cluster_data), default=0.0
                 )
+                # Fallback for mock (no real radar dBZ in past frame)
+                if prev_max == 0 and incoming:
+                    c0 = incoming[0]
+                    gr = c0.get("growth_rate", 0.0)
+                    prev_max = max(0.0, min(75.0, c0.get("dbz_now", 0.0) * ((1 + gr) ** (-(n - fi)))))
                 if prev_max == 0:
                     gd_lbl = " new"
                     gd_col = (46, 204, 113, 230)
@@ -1102,10 +1127,6 @@ class TMDRadarProcessor:
                     gd_col = (46, 204, 113, 230) if delta_pct >= 0 else (231, 76, 60, 230)
 
             draw.text((panel_x + 6, gd_y + 3), gd_lbl, font=font_sm, fill=gd_col)
-
-        # ── Title bar at the very top of NOW panel ───────────────────────────
-        title = f"📡 Multi-Frame Radar Analysis  ({n} frames × {int(gap_minutes)}m)"
-        draw.text((6, 6), title, font=font_sm, fill=(180, 180, 200, 200))
 
         buf = io.BytesIO()
         canvas.convert("RGB").save(buf, format="PNG")
