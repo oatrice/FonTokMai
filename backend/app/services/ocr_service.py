@@ -1,3 +1,4 @@
+import logging
 import cv2
 import numpy as np
 import re
@@ -10,6 +11,8 @@ import httpx
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from typing import Optional, List
+
+logger = logging.getLogger(__name__)
 
 try:
     from google.cloud import vision
@@ -197,11 +200,16 @@ class OCRService:
         return None
 
     def timestamp_crop(self, frame: np.ndarray) -> np.ndarray:
-        """Top-right band where TMD prints the UTC date/time on radar images."""
+        """Bottom band where TMD prints the UTC date/time on radar images.
+
+        TMD radar frames carry a bottom text strip such as:
+            '1142KHO 2026-06-26 22:15:59 PPI Filtered Intensity...'
+        Cropping the bottom 60 px makes this text large and high-contrast
+        for OCR engines, replacing the old (incorrect) top-right crop.
+        """
         h, w = frame.shape[:2]
-        y2 = max(48, int(h * 0.10))
-        x1 = max(0, int(w * 0.55))
-        return frame[0:y2, x1:w].copy()
+        y1 = max(0, h - 60)   # bottom 60 px contains TMD timestamp text
+        return frame[y1:h, 0:w].copy()
 
     async def _run_live_ocr(self, frame: np.ndarray) -> Optional[int]:
         """Run OCR engines on a frame/crop and return a parsed UTC timestamp, or None."""
@@ -258,21 +266,62 @@ class OCRService:
         hash-cache entry — e.g. a poll-time wall-clock fallback — cannot override the real
         TMD timestamp printed on the frame).
         """
+        BKK = ZoneInfo("Asia/Bangkok")
         frame_hash = self._hash_frame(frame)
+        short_hash = frame_hash[:8]
+
         if not skip_hash_cache:
             cached_ts = await self.repo.get_radar_timestamp_cache(frame_hash)
             if cached_ts is not None:
+                cached_dt = datetime.fromtimestamp(cached_ts, BKK).strftime("%H:%M:%S")
+                logger.info(f"[OCR] hash={short_hash}  CACHE HIT  ts={cached_ts}  ({cached_dt} BKK)")
                 return cached_ts
 
-        ts = await self._run_live_ocr(frame)
+        logger.info(f"[OCR] hash={short_hash}  CACHE MISS  — running live OCR")
+
+        # Try full frame first
+        ts = None
+        raw_text = None
+
+        text_full = await self._call_pytesseract(frame)
+        if text_full:
+            ts = self._extract_timestamp_from_text(text_full)
+            if ts:
+                raw_text = text_full[:80].strip()
+                logger.info(f"[OCR] hash={short_hash}  engine=tesseract(full)  text={repr(raw_text)}  parsed={datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK")
+
         if ts is None:
-            ts = await self._run_live_ocr(self.timestamp_crop(frame))
-        
-        # If all failed, use fallback_ts
+            text_ocr = await self._call_ocr_space(self._frame_to_png_bytes(frame))
+            if text_ocr:
+                ts = self._extract_timestamp_from_text(text_ocr)
+                if ts:
+                    raw_text = text_ocr[:80].strip()
+                    logger.info(f"[OCR] hash={short_hash}  engine=ocr.space(full)  text={repr(raw_text)}  parsed={datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK")
+
+        # Try crop if still None
+        if ts is None:
+            crop = self.timestamp_crop(frame)
+            text_crop = await self._call_pytesseract(crop)
+            if text_crop:
+                ts = self._extract_timestamp_from_text(text_crop)
+                if ts:
+                    raw_text = text_crop[:80].strip()
+                    logger.info(f"[OCR] hash={short_hash}  engine=tesseract(crop)  text={repr(raw_text)}  parsed={datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK")
+
+        if ts is None:
+            text_crop_ocr = await self._call_ocr_space(self._frame_to_png_bytes(self.timestamp_crop(frame)))
+            if text_crop_ocr:
+                ts = self._extract_timestamp_from_text(text_crop_ocr)
+                if ts:
+                    raw_text = text_crop_ocr[:80].strip()
+                    logger.info(f"[OCR] hash={short_hash}  engine=ocr.space(crop)  text={repr(raw_text)}  parsed={datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK")
+
+        # Fallback
         if ts is None and fallback_ts is not None:
-            print("OCR Failed. Using fallback_ts")
+            fallback_dt = datetime.fromtimestamp(fallback_ts, BKK).strftime("%H:%M:%S")
+            logger.warning(f"[OCR] hash={short_hash}  ALL ENGINES FAILED  — using fallback_ts={fallback_ts} ({fallback_dt} BKK)")
             ts = fallback_ts
-            
+
         if ts is not None:
             # Only cache successful OCR parses — never persist poll-time fallback values.
             if fallback_ts is None or ts != fallback_ts:
