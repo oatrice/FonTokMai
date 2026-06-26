@@ -821,10 +821,16 @@ class TMDRadarProcessor:
             draw.text((x-15, baseline_y+y_off), f"{sign}{t_str}", fill=(200, 200, 200, 255), font=font_small)
 
         # ── Legend ─────────────────────────────────────────────────────────
-        leg_y = height - 22
-        draw.text((10, leg_y), "▲ กำลังแรงขึ้น", fill=(46, 213, 115, 200), font=font_small)
-        draw.text((150, leg_y), "▼ อ่อนกำลังลง", fill=(255, 71, 87, 200), font=font_small)
-        draw.text((295, leg_y), "— คงที่", fill=(160, 160, 160, 200), font=font_small)
+        leg_y = height - 20
+        # Growing: draw upward triangle + label
+        draw.polygon([(18, leg_y + 2), (12, leg_y + 12), (24, leg_y + 12)], fill=(46, 213, 115, 200))
+        draw.text((28, leg_y), "กำลังแรงขึ้น", fill=(46, 213, 115, 200), font=font_small)
+        # Decaying: draw downward triangle + label
+        draw.polygon([(168, leg_y), (162, leg_y + 10), (174, leg_y + 10)], fill=(255, 71, 87, 200))
+        draw.text((178, leg_y), "อ่อนกำลังลง", fill=(255, 71, 87, 200), font=font_small)
+        # Stable: draw dash + label
+        draw.rectangle([(313, leg_y + 5), (327, leg_y + 8)], fill=(160, 160, 160, 200))
+        draw.text((332, leg_y), "คงที่", fill=(160, 160, 160, 200), font=font_small)
 
         buf = io.BytesIO()
         img.save(buf, format="PNG")
