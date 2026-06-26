@@ -832,31 +832,31 @@ async def handle_devmock_command(chat_id: int, command: str):
             from zoneinfo import ZoneInfo as _ZI
             _bkk = _ZI("Asia/Bangkok")
 
-            lines = ["🗂️ *TMD Cache Status*\n"]
+            lines = ["🗂️ <b>TMD Cache Status</b>\n"]
 
             # ── Layer 1: In-memory ─────────────────────────────
-            lines.append("*📦 In-Memory (_GLOBAL_TMD_CACHE)*")
+            lines.append("<b>📦 In-Memory (_GLOBAL_TMD_CACHE)</b>")
             if not _GLOBAL_TMD_CACHE:
-                lines.append("  _(ว่าง)_")
+                lines.append("  <i>(ว่าง)</i>")
             else:
                 for st, entry in _GLOBAL_TMD_CACHE.items():
-                    n_frames     = len(entry[0]) if entry[0] else 0
-                    cached_at    = entry[2]
-                    src          = entry[4] if len(entry) > 4 else "?"
-                    ts_list      = list(entry[6]) if len(entry) > 6 else []
-                    age_s        = int(_time.time() - cached_at)
-                    ttl_left     = max(0, 600 - age_s)
-                    latest_bkk   = (
+                    n_frames  = len(entry[0]) if entry[0] else 0
+                    cached_at = entry[2]
+                    src       = entry[4] if len(entry) > 4 else "?"
+                    ts_list   = list(entry[6]) if len(entry) > 6 else []
+                    age_s     = int(_time.time() - cached_at)
+                    ttl_left  = max(0, 600 - age_s)
+                    latest_bkk = (
                         __import__("datetime").datetime.fromtimestamp(ts_list[-1], _bkk).strftime("%H:%M")
                         if ts_list else "?"
                     )
                     lines.append(
-                        f"  `{st}` — {n_frames} frames, src=`{src}`, "
-                        f"latest={latest_bkk} BKK, age={age_s}s, TTL={ttl_left}s"
+                        f"  <code>{st}</code> {n_frames}f  src=<code>{src}</code>"
+                        f"  latest={latest_bkk} BKK  age={age_s}s  TTL={ttl_left}s"
                     )
 
             # ── Layer 2: Firestore station cache ───────────────
-            lines.append("\n*🗃️ Firestore (radar_latest_cache)*")
+            lines.append("\n<b>🗃️ Firestore (radar_latest_cache)</b>")
             async with get_repo_context() as _repo:
                 for st in ["kkn240", "skn240", "kkn120"]:
                     c = await _repo.get_latest_radar_cache(st)
@@ -865,11 +865,12 @@ async def handle_devmock_command(chat_id: int, command: str):
                         latest_bkk = (
                             __import__("datetime").datetime.fromtimestamp(fs[-1]["timestamp"], _bkk).strftime("%H:%M")
                         )
-                        lines.append(f"  `{st}` — {len(fs)} frames, latest={latest_bkk} BKK")
+                        lines.append(f"  <code>{st}</code> {len(fs)}f  latest={latest_bkk} BKK")
                     else:
-                        lines.append(f"  `{st}` — _(ว่าง)_")
+                        lines.append(f"  <code>{st}</code> <i>(ว่าง)</i>")
 
-            await send_telegram_message(chat_id, "\n".join(lines), parse_mode="MarkdownV2")
+            await send_telegram_message(chat_id, "\n".join(lines), parse_mode="HTML")
+
 
 async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False):
     import re
