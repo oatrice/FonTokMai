@@ -440,12 +440,17 @@ class WeatherManager:
                 
                 async with lock:
                     cached_data = _GLOBAL_TMD_CACHE.get(station_code)
-                    
+
                     if cached_data and (time.time() - cached_data[2]) < 600:
                         frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
                         frame_source = cached_data[4] if len(cached_data) > 4 else "static_cache"
                         data_gap_minutes = cached_data[5] if len(cached_data) > 5 else 15.0
                         frame_timestamps = list(cached_data[6]) if len(cached_data) > 6 else []
+                        age_s = int(time.time() - cached_data[2])
+                        logger.info(
+                            f"[{station_code}] 📦 IN-MEMORY cache HIT — "
+                            f"{len(frames)} frames, source={frame_source}, age={age_s}s"
+                        )
                     else:
                         async with get_repo_context() as repo:
                             cache = await repo.get_latest_radar_cache(station_code)
@@ -509,7 +514,11 @@ class WeatherManager:
                                     
                                 is_loop = frames[-1].shape[0] < 800 or frames[-1].shape[1] < 800
                                 frame_source = "loop_gif" if is_loop else "static_cache"
-                                
+                                logger.info(
+                                    f"[{station_code}] 🗃️  Firestore cache LOADED — "
+                                    f"{len(frames)} frames, source={frame_source}, "
+                                    f"latest_ts={frame_timestamps[-1] if frame_timestamps else 'n/a'}"
+                                )
                                 _GLOBAL_TMD_CACHE[station_code] = (
                                     frames, last_modified_dt, time.time(), flow,
                                     frame_source, data_gap_minutes, frame_timestamps,
@@ -535,6 +544,10 @@ class WeatherManager:
                                 flow = processor.calculate_optical_flow(frames)
                                 data_gap_minutes = 15.0 # Loop GIFs are assumed to be exactly 15m apart
                                 frame_source = "loop_gif"
+                                logger.warning(
+                                    f"[{station_code}] 🌀 LIVE loop GIF fallback — "
+                                    f"{len(frames)} frames fetched direct from TMD (Firestore cache was empty/stale)"
+                                )
                                 _GLOBAL_TMD_CACHE[station_code] = (
                                     frames, last_modified_dt, time.time(), flow,
                                     frame_source, data_gap_minutes, frame_timestamps,

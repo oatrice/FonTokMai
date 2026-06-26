@@ -378,11 +378,21 @@ async def fetch_tmd_radar_routine():
             if static_bytes:
                 np_arr = np.frombuffer(static_bytes, np.uint8)
                 frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-                
+
                 # Since OpenCV reads in BGR, we convert to RGB for consistency with original PIL logic
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                
+
+                logger.info(f"[{station}] ✅ Static fetch OK — {len(static_bytes):,} bytes, shape={frame.shape[:2]}")
                 ts = await ocr_svc.get_frame_timestamp(frame, fallback_ts=now_ts)
+                if ts and ts != now_ts:
+                    from zoneinfo import ZoneInfo
+                    _bkk = ZoneInfo("Asia/Bangkok")
+                    _dt  = datetime.fromtimestamp(ts, _bkk).strftime("%H:%M:%S")
+                    logger.info(f"[{station}] 🔍 OCR resolved ts={ts} ({_dt} BKK) — from cache or live OCR")
+                else:
+                    logger.warning(f"[{station}] ⚠️  OCR failed — using fallback_ts={ts} (= wall-clock now)")
+            else:
+                logger.warning(f"[{station}] ❌ Static fetch FAILED — will attempt GIF fallback if enabled")
 
             # 3. Check cache
             async with get_repo_context() as repo:
@@ -419,8 +429,11 @@ async def fetch_tmd_radar_routine():
                 
                 # It's a new image! (only insert if it's actually new)
                 if ts and ts > latest_ts:
+                    logger.info(f"[{station}] 🆕 New frame detected (ts={ts} > latest={latest_ts}) — saving to Firestore")
                     new_url = await processor.save_polled_frame(static_bytes)
                     frames.insert(0, {"url": new_url, "timestamp": ts})
+                elif ts:
+                    logger.info(f"[{station}] ♻️  Frame unchanged (ts={ts} == latest={latest_ts}) — no write needed")
 
                 # Also fallback if we have <2 frames (e.g., startup)
                 if len(frames) < 2 and enable_fallback and not needs_fallback:
@@ -436,11 +449,11 @@ async def fetch_tmd_radar_routine():
                     logger.info(f"[{station}] Executing GIF fallback recovery...")
                     fallback_frames_data, fallback_dt, loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
                     if fallback_frames_data and len(fallback_frames_data) >= 2:
-                        logger.info(f"[{station}] GIF fallback found {len(fallback_frames_data)} frames")
+                        logger.info(f"[{station}] 🌀 GIF fallback: fetched {len(fallback_frames_data)} frames from loop GIF")
                         # Keep up to 6 newest frames and reverse so newest is first
                         recent_fallback = fallback_frames_data[-6:]
                         recent_fallback.reverse()
-                        
+
                         new_frames_list = []
                         base_ts = ts if ts else now_ts
                         for i, f_img in enumerate(recent_fallback):
@@ -449,12 +462,12 @@ async def fetch_tmd_radar_routine():
                             if is_success:
                                 f_url = await processor.save_polled_frame(buffer.tobytes())
                                 new_frames_list.append({"url": f_url, "timestamp": f_ts})
-                        
+
                         if new_frames_list:
                             # Verify if the GIF is ACTUALLY newer than what we have
                             gif_newest_ts = new_frames_list[0]["timestamp"]
                             current_newest_ts = frames[0]["timestamp"] if frames else 0
-                            
+
                             if gif_newest_ts > current_newest_ts + 300:
                                 logger.info(f"[{station}] GIF data is newer (GIF: {gif_newest_ts}, Static: {current_newest_ts}). Adopting GIF frames.")
                                 # If the polled static image is newer than the newest GIF frame, we merge them
@@ -463,6 +476,8 @@ async def fetch_tmd_radar_routine():
                                 frames = new_frames_list
                             else:
                                 logger.warning(f"[{station}] GIF data is NOT newer (GIF: {gif_newest_ts}, Static: {current_newest_ts}). Discarding GIF.")
+                    else:
+                        logger.warning(f"[{station}] 🌀 GIF fallback: failed to extract ≥2 frames from loop GIF")
                 
                 frames = frames[:6] # Keep max 6 frames
                 
