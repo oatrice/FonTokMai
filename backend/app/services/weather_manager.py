@@ -557,10 +557,15 @@ class WeatherManager:
                                 try:
                                     saved_frames = []
                                     for f_img, f_ts in zip(frames, frame_timestamps):
+                                        # Resize to 800×800 so is_loop detection (frame.shape < 800)
+                                        # returns False when reloaded — ensuring static pixel coords.
+                                        if f_img.shape[0] != 800 or f_img.shape[1] != 800:
+                                            f_img = cv2.resize(f_img, (800, 800), interpolation=cv2.INTER_AREA)
                                         is_ok, buf = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
                                         if is_ok:
                                             f_url = await processor.save_polled_frame(buf.tobytes())
                                             saved_frames.append({"url": f_url, "timestamp": f_ts})
+
                                     if saved_frames:
                                         async with get_repo_context() as _repo:
                                             await _repo.set_latest_radar_cache(
