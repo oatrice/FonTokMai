@@ -857,8 +857,8 @@ async def handle_devmock_command(chat_id: int, command: str):
                 "🗑️ <b>Full cache cleared</b>\n\n"
                 f"📦 In-Memory: {mem_str}\n"
                 f"🗃️ Firestore: {fs_str}{fail_str}\n\n"
-                "⏳ ระบบต้องใช้เวลา ~45 นาทีเพื่อสะสม 6 frames ใหม่\n"
-                "🌀 <code>predict_rain()</code> ครั้งถัดไปจะใช้ GIF fallback แทน"
+                "⚡ Cache phase รอบถัดไป (~20s) จะ bootstrap 6 frames อัตโนมัติ\n"
+                "<i>(static frame ล่าสุด + GIF history → Firestore พร้อมใช้ทันที)</i>"
             )
             await send_telegram_message(chat_id, msg, parse_mode="HTML")
 
