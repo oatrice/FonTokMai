@@ -734,53 +734,82 @@ class TMDRadarProcessor:
         draw.text((base_x - 15, 25), "NOW", font=font, fill=(255, 255, 255, 255))
 
         # Bin clouds by X coordinate to prevent overlapping exact same ETA
+        # Also keep growth_rate for the dominant cloud at each bin
         binned_clouds = {}
         for c in clouds:
             eta = c["eta_min"]
             dbz = c["predicted_dbz"]
+            growth = c.get("growth_rate", 0.0)
             x = time_to_x(eta)
             x = max(20, min(780, x))
             if x not in binned_clouds or dbz > binned_clouds[x]["dbz"]:
-                binned_clouds[x] = {"eta": eta, "dbz": dbz}
+                binned_clouds[x] = {"eta": eta, "dbz": dbz, "growth": growth}
 
         last_x = -999
         y_offsets = {}
-        
+
         for x in sorted(binned_clouds.keys()):
-            eta = binned_clouds[x]["eta"]
-            dbz = binned_clouds[x]["dbz"]
-            
+            eta    = binned_clouds[x]["eta"]
+            dbz    = binned_clouds[x]["dbz"]
+            growth = binned_clouds[x]["growth"]  # rate per 15min (e.g. 0.3 = +30%)
+
             h = int(dbz * 4)
-            
-            if dbz >= 60: color = (155, 89, 182, 230) # Purple
-            elif dbz >= 50: color = (231, 76, 60, 230) # Red
+
+            if dbz >= 60: color = (155, 89, 182, 230)   # Purple
+            elif dbz >= 50: color = (231, 76, 60, 230)  # Red
             elif dbz >= 40: color = (243, 156, 18, 230) # Orange
             elif dbz >= 30: color = (241, 196, 15, 230) # Yellow
-            else: color = (46, 204, 113, 230) # Green
-            
+            else: color = (46, 204, 113, 230)            # Green
+
             if eta > 90:
                 color = (color[0], color[1], color[2], 100)
-                
+
             draw.rectangle([(x-10, baseline_y-h), (x+10, baseline_y)], fill=color)
             draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=(255, 255, 255, 255), font=font)
-            
-            # Smart text offset to avoid overlapping labels
+
+            # ── Growth / decay trend arrow ─────────────────────────────────
+            arrow_y_base = baseline_y - h - 22
+            growth_pct = growth * 100.0
+            if growth_pct > 5.0:
+                # Growing: green upward triangle above bar
+                arr_color = (46, 213, 115, 230)   # Bright green
+                pts = [(x, arrow_y_base - 14), (x - 7, arrow_y_base), (x + 7, arrow_y_base)]
+                draw.polygon(pts, fill=arr_color)
+                draw.text((x - 18, arrow_y_base - 30), f"+{growth_pct:.0f}%", fill=arr_color, font=font_small)
+            elif growth_pct < -5.0:
+                # Decaying: red downward triangle above bar
+                arr_color = (255, 71, 87, 230)    # Bright red
+                pts = [(x, arrow_y_base), (x - 7, arrow_y_base - 14), (x + 7, arrow_y_base - 14)]
+                draw.polygon(pts, fill=arr_color)
+                draw.text((x - 20, arrow_y_base - 30), f"{growth_pct:.0f}%", fill=arr_color, font=font_small)
+            else:
+                # Stable: small grey dash
+                draw.rectangle([(x - 6, arrow_y_base - 10), (x + 6, arrow_y_base - 7)],
+                                fill=(160, 160, 160, 180))
+
+            # Smart text offset to avoid overlapping ETA labels
             y_off = 20
             if x - last_x < 40:
-                # Cycle through 20, 35, 50 to prevent cascading off screen
                 prev_off = y_offsets.get(last_x, 50)
                 y_off = 35 if prev_off == 20 else (50 if prev_off == 35 else 20)
             y_offsets[x] = y_off
             last_x = x
-            
+
             m = int(round(abs(eta)))
             t_str = f"~{m}m" if m < 60 else f"~{m//60}h{m%60}m"
             sign = "-" if eta < 0 else ""
             draw.text((x-15, baseline_y+y_off), f"{sign}{t_str}", fill=(200, 200, 200, 255), font=font_small)
-            
+
+        # ── Legend ─────────────────────────────────────────────────────────
+        leg_y = height - 22
+        draw.text((10, leg_y), "▲ กำลังแรงขึ้น", fill=(46, 213, 115, 200), font=font_small)
+        draw.text((150, leg_y), "▼ อ่อนกำลังลง", fill=(255, 71, 87, 200), font=font_small)
+        draw.text((295, leg_y), "— คงที่", fill=(160, 160, 160, 200), font=font_small)
+
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         return buf.getvalue()
+
 
     @staticmethod
     def generate_multiframe_analysis_image(

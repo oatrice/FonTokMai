@@ -110,14 +110,19 @@ def _build_forecast_text(result: dict) -> str:
                 text += f"🌬️ สภาพลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
 
         if not rain_summary:
-            growth_rate = result.get("growth_rate_pct")
-            if growth_rate is not None:
-                if growth_rate > 5.0:
-                    text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%)\n"
-                elif growth_rate < -5.0:
-                    text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%)\n"
-                else:
-                    text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
+            if duration_min > 0:
+                text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {format_duration_text(duration_min)}\n"
+
+        # Growth/decay trend — แสดงเสมอ ไม่ว่าจะใช้ rain_summary หรือไม่
+        growth_rate = result.get("growth_rate_pct")
+        if growth_rate is not None and "ไม่พบฝน" not in result.get("rain_summary", ""):
+            if growth_rate > 5.0:
+                text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%/15min)\n"
+            elif growth_rate < -5.0:
+                text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%/15min)\n"
+            else:
+                text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
+
     else:
         text = f"ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
         if "tmd-radar" in actual_endpoint:
