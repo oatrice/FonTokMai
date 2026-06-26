@@ -384,13 +384,18 @@ async def fetch_tmd_radar_routine():
 
                 logger.info(f"[{station}] ✅ Static fetch OK — {len(static_bytes):,} bytes, shape={frame.shape[:2]}")
                 ts = await ocr_svc.get_frame_timestamp(frame, fallback_ts=now_ts)
-                if ts and ts != now_ts:
+                ocr_ok = ts is not None and ts != now_ts
+                if ocr_ok:
                     from zoneinfo import ZoneInfo
                     _bkk = ZoneInfo("Asia/Bangkok")
                     _dt  = datetime.fromtimestamp(ts, _bkk).strftime("%H:%M:%S")
                     logger.info(f"[{station}] 🔍 OCR resolved ts={ts} ({_dt} BKK) — from cache or live OCR")
                 else:
-                    logger.warning(f"[{station}] ⚠️  OCR failed — using fallback_ts={ts} (= wall-clock now)")
+                    logger.warning(
+                        f"[{station}] ⚠️  OCR failed (fallback_ts={ts} = wall-clock) — "
+                        f"frame will NOT be saved to avoid corrupting sliding window"
+                    )
+                    ts = None  # Treat as if static had no valid timestamp
             else:
                 logger.warning(f"[{station}] ❌ Static fetch FAILED — will attempt GIF fallback if enabled")
 
@@ -435,11 +440,16 @@ async def fetch_tmd_radar_routine():
                     logger.debug(f"[{station}] Image unchanged or unavailable (ts {ts}). Skipping.")
                     return result
 
-                # It's a new image! (only insert if it's actually new)
+                # It's a new image! Only insert if OCR succeeded (ts is not None) and it's newer.
+                # If OCR failed, ts=None → skip saving to avoid wall-clock timestamps in the window.
+                new_url = None
                 if ts and ts > latest_ts:
                     logger.info(f"[{station}] 🆕 New frame detected (ts={ts} > latest={latest_ts}) — saving to Firestore")
                     new_url = await processor.save_polled_frame(static_bytes)
                     frames.insert(0, {"url": new_url, "timestamp": ts})
+                    # Ensure monotonic order after insert
+                    frames = sorted(frames, key=lambda f: f["timestamp"])
+                    frames.reverse()  # newest first
                 elif ts:
                     logger.info(f"[{station}] ♻️  Frame unchanged (ts={ts} == latest={latest_ts}) — no write needed")
 
@@ -462,10 +472,16 @@ async def fetch_tmd_radar_routine():
                         base_ts = ts if ts else now_ts
                         for i, f_img in enumerate(recent_fallback):
                             f_ts = await ocr_svc.get_frame_timestamp(f_img, fallback_ts=base_ts - i * 900)
+                            # Resize to 800×800 so weather_manager's is_loop detection
+                            # (frame.shape < 800) does NOT misfire on these frames,
+                            # ensuring static pixel coordinates are used for optical flow.
+                            if f_img.shape[0] != 800 or f_img.shape[1] != 800:
+                                f_img = cv2.resize(f_img, (800, 800), interpolation=cv2.INTER_AREA)
                             is_success, buffer = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
                             if is_success:
                                 f_url = await processor.save_polled_frame(buffer.tobytes())
                                 new_frames_list.append({"url": f_url, "timestamp": f_ts})
+
 
                         if new_frames_list:
                             gif_newest_ts    = new_frames_list[0]["timestamp"]
