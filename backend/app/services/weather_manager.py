@@ -454,6 +454,21 @@ class WeatherManager:
 
                 curr_frame = frames[-1].copy()
                 prev_frame = frames[-2].copy()
+
+                # Resolve overlay timestamp from the pristine latest frame before any mock edits.
+                now_utc = last_modified_dt if last_modified_dt else datetime.now(timezone.utc)
+                try:
+                    from app.services.ocr_service import OCRService
+                    ocr_ts = await OCRService().get_frame_timestamp(
+                        frames[-1],
+                        fallback_ts=int(now_utc.timestamp()),
+                        skip_hash_cache=True,
+                    )
+                    if ocr_ts:
+                        now_utc = datetime.fromtimestamp(ocr_ts, timezone.utc)
+                except Exception as e:
+                    logger.warning(f"Failed to OCR frame timestamp: {e}")
+
                 use_loop_mapping = frame_source == "loop_gif"
                 user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=use_loop_mapping)
                 import logging
@@ -543,7 +558,6 @@ class WeatherManager:
                 elif mock_state == "clear":
                     clouds = []
 
-                now_utc = last_modified_dt if last_modified_dt else datetime.now(timezone.utc)
                 current_utc = datetime.now(timezone.utc)
                 time_offset_min = (current_utc - now_utc).total_seconds() / 60.0
                 data_age_minutes = time_offset_min
@@ -628,30 +642,30 @@ class WeatherManager:
                     proc.draw_pin_on_frame(cf, pin_x, pin_y)
                     img_orig = Image.fromarray(cf)
                     img_hq = img_orig.resize((int(img_orig.width * 3.0), int(img_orig.height * 3.0)), Image.Resampling.NEAREST)
-                    
+
+                    # Large IDC (+7) timestamp — top-right, easier to read than TMD's small UTC stamp
                     time_str = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
                     try:
                         fnt = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 120)
-                    except:
+                    except Exception:
                         try:
                             fnt = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 140)
-                        except:
+                        except Exception:
                             fnt = ImageFont.load_default()
-                            
+
                     draw = ImageDraw.Draw(img_hq, "RGBA")
-                    
                     if hasattr(draw, 'textbbox'):
                         left, top, right, bottom = draw.textbbox((0, 0), time_str, font=fnt)
                         text_w, text_h = right - left, bottom - top
                     else:
                         text_w, text_h = draw.textsize(time_str, font=fnt)
-                    
+
                     x_pos = img_hq.width - text_w - 80
                     y_pos = 80
                     pad = 40
-                    draw.rectangle([x_pos-pad, y_pos-pad, x_pos+text_w+pad, y_pos+text_h+pad], fill=(0, 0, 0, 200))
+                    draw.rectangle([x_pos - pad, y_pos - pad, x_pos + text_w + pad, y_pos + text_h + pad], fill=(0, 0, 0, 200))
                     draw.text((x_pos, y_pos), time_str, fill=(255, 255, 255, 255), font=fnt)
-                    
+
                     static_buffer = io.BytesIO()
                     img_hq.save(static_buffer, format='PNG')
                     return static_buffer.getvalue()

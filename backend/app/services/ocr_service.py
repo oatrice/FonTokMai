@@ -196,15 +196,26 @@ class OCRService:
                 print(f"OCR Parsing error: {e}")
         return None
 
-    async def get_frame_timestamp(self, frame: np.ndarray, fallback_ts: Optional[int] = None) -> Optional[int]:
+    async def get_frame_timestamp(
+        self,
+        frame: np.ndarray,
+        fallback_ts: Optional[int] = None,
+        *,
+        skip_hash_cache: bool = False,
+    ) -> Optional[int]:
         """
         Check cache for the frame hash. If not found, run OCR fallback chain to extract timestamp.
         Returns the UTC timestamp integer.
+
+        skip_hash_cache: when True, always run live OCR (used for image overlays so a stale
+        hash-cache entry — e.g. a poll-time wall-clock fallback — cannot override the real
+        TMD timestamp printed on the frame).
         """
         frame_hash = self._hash_frame(frame)
-        cached_ts = await self.repo.get_radar_timestamp_cache(frame_hash)
-        if cached_ts is not None:
-            return cached_ts
+        if not skip_hash_cache:
+            cached_ts = await self.repo.get_radar_timestamp_cache(frame_hash)
+            if cached_ts is not None:
+                return cached_ts
 
         png_bytes = self._frame_to_png_bytes(frame)
         ts = None
@@ -245,7 +256,8 @@ class OCRService:
             ts = fallback_ts
             
         if ts is not None:
-            # Cache the result
-            await self.repo.set_radar_timestamp_cache(frame_hash, ts)
-        
+            # Only cache successful OCR parses — never persist poll-time fallback values.
+            if fallback_ts is None or ts != fallback_ts:
+                await self.repo.set_radar_timestamp_cache(frame_hash, ts)
+
         return ts

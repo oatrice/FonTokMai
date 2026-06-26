@@ -113,7 +113,7 @@ async def test_get_frame_timestamp_fallback_ts(ocr_service):
         fallback = 1717671600
         ts = await ocr_service.get_frame_timestamp(frame, fallback_ts=fallback)
         assert ts == fallback
-        ocr_service.repo.set_radar_timestamp_cache.assert_called_once_with(ocr_service._hash_frame(frame), fallback)
+        ocr_service.repo.set_radar_timestamp_cache.assert_not_called()
 
 @pytest.mark.skip(reason="Hotfix #85: Bypassed Vision quota check")
 @pytest.mark.asyncio
