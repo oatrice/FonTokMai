@@ -552,8 +552,30 @@ class WeatherManager:
                                     frames, last_modified_dt, time.time(), flow,
                                     frame_source, data_gap_minutes, frame_timestamps,
                                 )
+                                # Also persist to Firestore so next call after in-memory expiry
+                                # uses Firestore instead of re-fetching loop GIF again.
+                                try:
+                                    saved_frames = []
+                                    for f_img, f_ts in zip(frames, frame_timestamps):
+                                        is_ok, buf = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
+                                        if is_ok:
+                                            f_url = await processor.save_polled_frame(buf.tobytes())
+                                            saved_frames.append({"url": f_url, "timestamp": f_ts})
+                                    if saved_frames:
+                                        async with get_repo_context() as _repo:
+                                            await _repo.set_latest_radar_cache(
+                                                station_code=station_code,
+                                                frames=saved_frames,
+                                            )
+                                        logger.info(
+                                            f"[{station_code}] 🌀 GIF fallback: persisted "
+                                            f"{len(saved_frames)} frames to Firestore"
+                                        )
+                                except Exception as _e:
+                                    logger.warning(f"[{station_code}] 🌀 GIF fallback: Firestore persist failed: {_e}")
                             else:
                                 continue
+
 
                 if not frames or len(frames) < 2:
                     continue
