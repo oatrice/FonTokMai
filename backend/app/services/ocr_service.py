@@ -168,33 +168,56 @@ class OCRService:
             print(f"pytesseract Exception: {e}")
             return None
 
-    def _extract_timestamp_from_text(self, text: str) -> Optional[int]:
+    def _extract_timestamp_from_text(self, text: str, *, _debug_hash: str = "") -> Optional[int]:
         """
         Parse text like "06 Jun 2026 09:30" or "2026-06-06 09:30:00"
         TMD radar typically has formats like "06/06/2026 09:30"
         """
         if not text:
             return None
-            
+
         match = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}(?::\d{2})?)', text)
         if match:
             date_str = match.group(1)
             time_str = match.group(2)
+            # Log the matched snippet and surrounding context so we can see
+            # exactly what the OCR engine read and from which part of the text.
+            ctx_start = max(0, match.start() - 30)
+            ctx_end   = min(len(text), match.end() + 30)
+            context   = repr(text[ctx_start:ctx_end])
+            if _debug_hash:
+                logger.debug(
+                    f"[OCR] hash={_debug_hash}  regex_match={repr(match.group(0))}  "
+                    f"pos={match.start()}  context={context}"
+                )
             try:
                 if '/' in date_str:
                     day, month, year = map(int, date_str.split('/'))
                 else:
                     year, month, day = map(int, date_str.split('-'))
-                
+
                 time_parts = list(map(int, time_str.split(':')))
-                hour = time_parts[0]
+                hour   = time_parts[0]
                 minute = time_parts[1]
                 second = time_parts[2] if len(time_parts) > 2 else 0
-                
-                # TMD radar images typically write the time in UTC (e.g. 06/06/2026 15:30Z)
-                # Even if the 'Z' is missed by OCR, we should treat it as UTC.
+
+                # ⚠️  TIMEZONE ASSUMPTION: code treats the parsed time as UTC.
+                # If TMD actually prints local BKK time on the image, stored
+                # timestamps will be +7 h too large.  The DEBUG log below shows
+                # both representations so a mis-assumption is immediately visible.
                 dt_utc = datetime(year, month, day, hour, minute, second, tzinfo=timezone.utc)
-                return int(dt_utc.timestamp())
+                ts     = int(dt_utc.timestamp())
+                if _debug_hash:
+                    BKK = ZoneInfo("Asia/Bangkok")
+                    bkk_str = datetime.fromtimestamp(ts, BKK).strftime("%Y-%m-%d %H:%M:%S")
+                    logger.debug(
+                        f"[OCR] hash={_debug_hash}  "
+                        f"parsed_as_utc={date_str} {time_str}  "
+                        f"stored_ts={ts}  "
+                        f"→ if_UTC={date_str} {time_str} UTC  "
+                        f"→ as_BKK={bkk_str} BKK"
+                    )
+                return ts
             except Exception as e:
                 print(f"OCR Parsing error: {e}")
         return None
@@ -285,36 +308,48 @@ class OCRService:
 
         text_full = await self._call_pytesseract(frame)
         if text_full:
-            ts = self._extract_timestamp_from_text(text_full)
+            ts = self._extract_timestamp_from_text(text_full, _debug_hash=short_hash)
             if ts:
-                raw_text = text_full[:80].strip()
-                logger.info(f"[OCR] hash={short_hash}  engine=tesseract(full)  text={repr(raw_text)}  parsed={datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK")
+                logger.info(
+                    f"[OCR] hash={short_hash}  engine=tesseract(full)  "
+                    f"parsed_utc={datetime.fromtimestamp(ts, timezone.utc).strftime('%H:%M:%S')} UTC  "
+                    f"({datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK)"
+                )
 
         if ts is None:
             text_ocr = await self._call_ocr_space(self._frame_to_png_bytes(frame))
             if text_ocr:
-                ts = self._extract_timestamp_from_text(text_ocr)
+                ts = self._extract_timestamp_from_text(text_ocr, _debug_hash=short_hash)
                 if ts:
-                    raw_text = text_ocr[:80].strip()
-                    logger.info(f"[OCR] hash={short_hash}  engine=ocr.space(full)  text={repr(raw_text)}  parsed={datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK")
+                    logger.info(
+                        f"[OCR] hash={short_hash}  engine=ocr.space(full)  "
+                        f"parsed_utc={datetime.fromtimestamp(ts, timezone.utc).strftime('%H:%M:%S')} UTC  "
+                        f"({datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK)"
+                    )
 
         # Try crop if still None
         if ts is None:
             crop = self.timestamp_crop(frame)
             text_crop = await self._call_pytesseract(crop)
             if text_crop:
-                ts = self._extract_timestamp_from_text(text_crop)
+                ts = self._extract_timestamp_from_text(text_crop, _debug_hash=short_hash)
                 if ts:
-                    raw_text = text_crop[:80].strip()
-                    logger.info(f"[OCR] hash={short_hash}  engine=tesseract(crop)  text={repr(raw_text)}  parsed={datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK")
+                    logger.info(
+                        f"[OCR] hash={short_hash}  engine=tesseract(crop)  "
+                        f"parsed_utc={datetime.fromtimestamp(ts, timezone.utc).strftime('%H:%M:%S')} UTC  "
+                        f"({datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK)"
+                    )
 
         if ts is None:
             text_crop_ocr = await self._call_ocr_space(self._frame_to_png_bytes(self.timestamp_crop(frame)))
             if text_crop_ocr:
-                ts = self._extract_timestamp_from_text(text_crop_ocr)
+                ts = self._extract_timestamp_from_text(text_crop_ocr, _debug_hash=short_hash)
                 if ts:
-                    raw_text = text_crop_ocr[:80].strip()
-                    logger.info(f"[OCR] hash={short_hash}  engine=ocr.space(crop)  text={repr(raw_text)}  parsed={datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK")
+                    logger.info(
+                        f"[OCR] hash={short_hash}  engine=ocr.space(crop)  "
+                        f"parsed_utc={datetime.fromtimestamp(ts, timezone.utc).strftime('%H:%M:%S')} UTC  "
+                        f"({datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK)"
+                    )
 
         # Fallback
         if ts is None and fallback_ts is not None:
