@@ -805,6 +805,7 @@ async def handle_devmock_command(chat_id: int, command: str):
                 "<code>/devmock scenario no_rain wind:45 wind_dir:SE loc:home</code>\n\n"
                 "<b>Dev/Test:</b>\n"
                 "<code>/devmock flush_cache</code> — ล้าง in-memory cache (บังคับ GIF fallback)\n"
+                "<code>/devmock flush_all_cache</code> — ล้าง in-memory + Firestore (GIF fallback ทันที)\n"
                 "<code>/devmock cache_status</code> — ดูสถานะ cache ทุก layer"
             )
             await send_telegram_message(chat_id, help_text, parse_mode="HTML")
@@ -830,11 +831,44 @@ async def handle_devmock_command(chat_id: int, command: str):
             )
             await send_telegram_message(chat_id, msg, parse_mode="HTML")
 
+        elif command == "/devmock flush_all_cache":
+            from app.services.weather_manager import _GLOBAL_TMD_CACHE
+            _STATIONS = ["kkn240", "skn240", "kkn120"]
+
+            # 1) Clear in-memory
+            mem_before = list(_GLOBAL_TMD_CACHE.keys())
+            _GLOBAL_TMD_CACHE.clear()
+
+            # 2) Clear Firestore radar_latest_cache
+            fs_cleared, fs_failed = [], []
+            async with get_repo_context() as _repo:
+                for st in _STATIONS:
+                    try:
+                        doc_ref = _repo.db.collection("radar_latest_cache").document(st)
+                        await doc_ref.delete()
+                        fs_cleared.append(st)
+                    except Exception as _e:
+                        fs_failed.append(f"{st}({_e})")
+
+            mem_str = ", ".join(f"<code>{s}</code>" for s in mem_before) if mem_before else "<i>(ว่างอยู่แล้ว)</i>"
+            fs_str  = ", ".join(f"<code>{s}</code>" for s in fs_cleared)
+            fail_str = (f"\n⚠️ ล้มเหลว: {', '.join(fs_failed)}" if fs_failed else "")
+            msg = (
+                "🗑️ <b>Full cache cleared</b>\n\n"
+                f"📦 In-Memory: {mem_str}\n"
+                f"🗃️ Firestore: {fs_str}{fail_str}\n\n"
+                "⏳ ระบบต้องใช้เวลา ~45 นาทีเพื่อสะสม 6 frames ใหม่\n"
+                "🌀 <code>predict_rain()</code> ครั้งถัดไปจะใช้ GIF fallback แทน"
+            )
+            await send_telegram_message(chat_id, msg, parse_mode="HTML")
+
+
         elif command == "/devmock cache_status":
             from app.services.weather_manager import _GLOBAL_TMD_CACHE
             import time as _time
             from zoneinfo import ZoneInfo as _ZI
             _bkk = _ZI("Asia/Bangkok")
+
 
             lines = ["🗂️ <b>TMD Cache Status</b>\n"]
 
