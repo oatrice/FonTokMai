@@ -422,11 +422,19 @@ async def fetch_tmd_radar_routine():
                             needs_fallback = True
                             fallback_reason = "Cache is empty"
 
+                # Bootstrap: Firestore has <2 frames regardless of static freshness.
+                # Must be checked BEFORE the early return so stations with unchanged
+                # images (ts == latest_ts) still get GIF bootstrapped.
+                if enable_fallback and not needs_fallback and len(frames) < 2:
+                    if (now_ts - last_gif_fallback_time) > 1800.0:
+                        needs_fallback = True
+                        fallback_reason = f"Cache has <2 frames ({len(frames)})"
+
                 # If we already have this timestamp (or static is down) and no fallback is needed, do nothing
                 if not needs_fallback and ((ts and ts <= latest_ts) or not static_bytes):
                     logger.debug(f"[{station}] Image unchanged or unavailable (ts {ts}). Skipping.")
                     return result
-                
+
                 # It's a new image! (only insert if it's actually new)
                 if ts and ts > latest_ts:
                     logger.info(f"[{station}] 🆕 New frame detected (ts={ts} > latest={latest_ts}) — saving to Firestore")
@@ -435,11 +443,7 @@ async def fetch_tmd_radar_routine():
                 elif ts:
                     logger.info(f"[{station}] ♻️  Frame unchanged (ts={ts} == latest={latest_ts}) — no write needed")
 
-                # Also fallback if we have <2 frames (e.g., startup)
-                if len(frames) < 2 and enable_fallback and not needs_fallback:
-                    if (now_ts - last_gif_fallback_time) > 1800.0:
-                        needs_fallback = True
-                        fallback_reason = f"Cache has <2 frames ({len(frames)})"
+
                     
                 if needs_fallback:
                     logger.warning(f"[{station}] GIF fallback triggered: {fallback_reason}")
