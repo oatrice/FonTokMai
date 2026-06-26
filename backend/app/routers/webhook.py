@@ -802,7 +802,9 @@ async def handle_devmock_command(chat_id: int, command: str):
                 "`/devmock scenario rain_in:20 dbz:40 wind:60 wind_dir:N`\n"
                 "`/devmock scenario rain_in:10 dbz:55 growth:0\\.3 loc:work`\n"
                 "`/devmock scenario rain_stopping:10 dbz:30 loc:home`\n"
-                "`/devmock scenario no_rain wind:45 wind_dir:SE loc:home`"
+                "`/devmock scenario no_rain wind:45 wind_dir:SE loc:home`\n\n"
+                "*คำสั่ง Dev/Test:*\n"
+                "`/devmock flush_cache` — ล้าง in-memory TMD cache \\(บังคับ GIF fallback test\\)"
             )
             await send_telegram_message(chat_id, help_text, parse_mode="MarkdownV2")
 
@@ -812,6 +814,18 @@ async def handle_devmock_command(chat_id: int, command: str):
             
             from app.scheduler_tasks import check_rain_and_alert
             await check_rain_and_alert()
+
+        elif command == "/devmock flush_cache":
+            from app.services.weather_manager import _GLOBAL_TMD_CACHE, _GLOBAL_TMD_LOCKS
+            stations_cleared = list(_GLOBAL_TMD_CACHE.keys())
+            _GLOBAL_TMD_CACHE.clear()
+            msg = (
+                "🗑️ [DEV MOCK] *In-memory TMD cache cleared*\n\n"
+                f"สถานีที่ล้าง: `{'`, `'.join(stations_cleared) if stations_cleared else 'ว่างอยู่แล้ว'}`\n\n"
+                "👉 ยิง `/devmock scenario ...` ต่อเพื่อทดสอบ GIF fallback\n"
+                "_(ระบบจะโหลดจาก Firestore หรือ loop GIF แทน in-memory)_"
+            )
+            await send_telegram_message(chat_id, msg, parse_mode="MarkdownV2")
 
 
 async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False):
