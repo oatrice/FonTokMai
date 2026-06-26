@@ -464,18 +464,33 @@ async def fetch_tmd_radar_routine():
                                 new_frames_list.append({"url": f_url, "timestamp": f_ts})
 
                         if new_frames_list:
-                            # Verify if the GIF is ACTUALLY newer than what we have
-                            gif_newest_ts = new_frames_list[0]["timestamp"]
+                            gif_newest_ts    = new_frames_list[0]["timestamp"]
                             current_newest_ts = frames[0]["timestamp"] if frames else 0
 
-                            if gif_newest_ts > current_newest_ts + 300:
+                            # Bootstrap case: Firestore had <2 frames before fallback.
+                            # Use GIF frames as historical context (older frames), then
+                            # place the fresh static frame on top if it's newer.
+                            # Do NOT discard GIF even though gif_newest_ts < static_ts.
+                            is_bootstrap = fallback_reason.startswith("Cache has <2") or fallback_reason == "Cache is empty"
+
+                            if is_bootstrap:
+                                # Merge: static (newest) + GIF history (older context)
+                                if ts and ts > gif_newest_ts:
+                                    new_frames_list.insert(0, {"url": new_url, "timestamp": ts})
+                                frames = new_frames_list
+                                logger.info(
+                                    f"[{station}] 🌀 Bootstrap: merged static+GIF → "
+                                    f"{len(frames)} frames (static={ts}, gif_newest={gif_newest_ts})"
+                                )
+                            elif gif_newest_ts > current_newest_ts + 300:
+                                # Dead static image: only adopt GIF if it has genuinely newer data
                                 logger.info(f"[{station}] GIF data is newer (GIF: {gif_newest_ts}, Static: {current_newest_ts}). Adopting GIF frames.")
-                                # If the polled static image is newer than the newest GIF frame, we merge them
                                 if ts and ts > gif_newest_ts:
                                     new_frames_list.insert(0, {"url": new_url, "timestamp": ts})
                                 frames = new_frames_list
                             else:
                                 logger.warning(f"[{station}] GIF data is NOT newer (GIF: {gif_newest_ts}, Static: {current_newest_ts}). Discarding GIF.")
+
                     else:
                         logger.warning(f"[{station}] 🌀 GIF fallback: failed to extract ≥2 frames from loop GIF")
                 
