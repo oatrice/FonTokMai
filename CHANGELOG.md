@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.44.0] - 2026-06-26
+
+### Added
+- Added Parametric Mock Scenario System (`/devmock scenario`) for TMD Radar testing during dry spells. Developers can now simulate specific rain conditions via Telegram without waiting for actual rain events ([#121](https://gitlab.com/oatricedev/FonMaYang/-/issues/121)).
+  - `rain_in:N` — simulate rain arriving in N minutes
+  - `rain_stopping:N` — simulate rain stopping in N minutes
+  - `no_rain` — simulate clear sky with wind-only data
+  - `dbz:N` — set rain intensity (15–75 dBZ)
+  - `wind:N wind_dir:X` — set wind speed (km/h) and direction (16 compass points)
+  - `growth:N` — set cloud growth/decay rate
+  - `clusters:N` — simulate 1–5 independent cloud clusters
+- Added `/devmock help` command listing all available mock modes and scenario parameters.
+- Added Multi-Frame Radar Analysis image (`radar_multiframe.png`) sent alongside existing radar images. Shows up to 6 consecutive radar frames side-by-side with per-frame cloud cluster trajectory overlays, colour-coded dBZ labels, and growth/decay percentage between frames.
+- Added `generate_multiframe_analysis_image()` to `TMDRadarProcessor` for rendering the multi-frame strip visualization.
+- Added `backend/scripts/check_public_access.sh` — a Cloud Run IAM audit script that checks whether `allUsers → roles/run.invoker` is bound on each service, with support for `--expect`, `--quiet`, and single-service modes.
+- Added 49 new tests across `test_e2e_mock_scenario.py` (33 tests) and `test_multiframe_analysis.py` (16 tests).
+
 ## [0.43.0] - 2026-06-25
 
 ### Added
