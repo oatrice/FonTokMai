@@ -45,8 +45,19 @@ class OCRService:
         self.ocr_space_key = os.environ.get("OCR_SPACE_API_KEY")
 
     def _hash_frame(self, frame: np.ndarray) -> str:
-        """Create a fast MD5 hash of the numpy frame."""
-        return hashlib.md5(frame.tobytes() + b"v2").hexdigest()
+        """Hash only the bottom timestamp crop for cache keying.
+
+        Hashing the full frame caused false CACHE MISSes when cloud pixels
+        shifted slightly between polls even though the TMD timestamp text
+        (bottom 60 px) was identical — wastefully re-running OCR.
+
+        Using the crop means: same timestamp text → same hash → CACHE HIT,
+        regardless of cloud movement.  If timestamp_crop() geometry ever
+        changes, bump the suffix so old hashes are automatically invalidated.
+        """
+        crop = self.timestamp_crop(frame)  # 800×60×3 ≈ 144 KB (vs 1.92 MB full)
+        return hashlib.md5(crop.tobytes() + b"v3crop").hexdigest()
+
 
     def _frame_to_png_bytes(self, frame: np.ndarray) -> bytes:
         """Convert a numpy frame to PNG bytes."""
