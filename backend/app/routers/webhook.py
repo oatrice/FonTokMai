@@ -1029,8 +1029,105 @@ async def handle_devmock_command(chat_id: int, command: str):
                 _DEV_CONFIG["search_radius"] = 80
                 _DEV_CONFIG["min_dbz"]       = 10.0
                 _DEV_CONFIG["dot_threshold"] = 0.5
+                await repo.set_global_dev_config(_DEV_CONFIG)
                 await send_telegram_message(chat_id, "🛠️ Dev Config รีเซ็ตเป็นค่า default แล้วครับ ✅")
                 return
+
+        # ── /devmock cleancache [station] ──────────────────────────────────────
+        elif command.startswith("/devmock cleancache"):
+            args = command.removeprefix("/devmock cleancache").strip()
+            station = args if args else "skn240"
+            
+            from app.services.weather_manager import _GLOBAL_TMD_CACHE
+            _GLOBAL_TMD_CACHE.pop(station, None)
+            await repo.set_latest_radar_cache(station, [])
+            
+            await send_telegram_message(chat_id, f"🔄 ล้าง Cache ของสถานี {station} สำเร็จ!\nการเช็คฝนรอบถัดไปจะดึงภาพใหม่ล่าสุดจาก TMD ครับ")
+
+        # ── /devmock fetch_latest [station] ────────────────────────────────────
+        elif command.startswith("/devmock fetch_latest"):
+            args = command.removeprefix("/devmock fetch_latest").strip()
+            station = args if args else "skn240"
+            
+            await send_telegram_message(chat_id, f"🔄 กำลังเช็คภาพล่าสุดแบบเดี่ยวของสถานี {station}...")
+            
+            from app.services.weather_manager import _GLOBAL_TMD_CACHE, _DEV_CONFIG
+            from app.services.tmd_radar_processor import TMDRadarProcessor
+            from app.services.ocr_service import OCRService
+            import time
+            from datetime import datetime, timezone
+            import cv2
+            
+            cached_data = _GLOBAL_TMD_CACHE.get(station)
+            if not cached_data or not cached_data[0]:
+                await send_telegram_message(chat_id, f"❌ ไม่มี Cache เก่าสำหรับ {station} (ต้องใช้ /rain ปกติเพื่อให้มี Cache เริ่มต้นก่อนครับ)")
+                return
+                
+            frames = list(cached_data[0])
+            frame_timestamps = list(cached_data[6]) if len(cached_data) > 6 else []
+            
+            if not frame_timestamps:
+                await send_telegram_message(chat_id, f"❌ ไม่มีข้อมูล Timestamp ใน Cache ของ {station}")
+                return
+                
+            processor = TMDRadarProcessor(station)
+            new_frame = await processor.decode_static_frame()
+            if new_frame is None:
+                await send_telegram_message(chat_id, f"❌ โหลดภาพล่าสุด (Static) จาก TMD ไม่สำเร็จ")
+                return
+                
+            target_h, target_w = frames[-1].shape[:2]
+            if new_frame.shape[:2] != (target_h, target_w):
+                new_frame = cv2.resize(new_frame, (target_w, target_h), interpolation=cv2.INTER_NEAREST)
+                
+            ocr_svc = OCRService()
+            new_ts = await ocr_svc.get_frame_timestamp(new_frame, fallback_ts=int(time.time()))
+            
+            if new_ts is None:
+                await send_telegram_message(chat_id, f"❌ อ่านเวลาจากภาพใหม่ไม่สำเร็จ")
+                return
+                
+            if new_ts <= frame_timestamps[-1]:
+                await send_telegram_message(chat_id, f"⚠️ ภาพล่าสุดในเว็บ ({datetime.fromtimestamp(new_ts).strftime('%H:%M')}) ยังไม่ใหม่กว่าที่เรามีอยู่ ({datetime.fromtimestamp(frame_timestamps[-1]).strftime('%H:%M')})")
+                return
+                
+            # Append new frame
+            frames.append(new_frame)
+            frame_timestamps.append(new_ts)
+            
+            if len(frames) > 6:
+                frames = frames[-6:]
+                frame_timestamps = frame_timestamps[-6:]
+                
+            if _DEV_CONFIG.get("flow_mode", "latest") == "average":
+                flow = processor.calculate_average_optical_flow(frames)
+            else:
+                flow = processor.calculate_optical_flow(frames)
+                
+            data_gap_minutes = (frame_timestamps[-1] - frame_timestamps[-2]) / 60.0
+            new_dt = datetime.fromtimestamp(new_ts, timezone.utc)
+            
+            _GLOBAL_TMD_CACHE[station] = (
+                frames, new_dt, time.time(), flow,
+                "static_append", data_gap_minutes, frame_timestamps
+            )
+            
+            # Persist to DB
+            saved_frames = []
+            for f_img, f_ts in zip(frames, frame_timestamps):
+                if f_img.shape[0] != 800 or f_img.shape[1] != 800:
+                    f_img_r = cv2.resize(f_img, (800, 800), interpolation=cv2.INTER_NEAREST)
+                else:
+                    f_img_r = f_img
+                is_ok, buf = cv2.imencode(".png", cv2.cvtColor(f_img_r, cv2.COLOR_RGB2BGR))
+                if is_ok:
+                    f_url = await processor.save_polled_frame(buf.tobytes())
+                    saved_frames.append({"url": f_url, "timestamp": f_ts})
+            
+            if saved_frames:
+                await repo.set_latest_radar_cache(station_code=station, frames=saved_frames)
+                
+            await send_telegram_message(chat_id, f"✅ ต่อภาพล่าสุด ({new_dt.strftime('%H:%M')}) สำเร็จ! อัพเดต Cache และ Optical Flow เรียบร้อยครับ")
 
             import re as _re
             changed = []
@@ -1051,6 +1148,7 @@ async def handle_devmock_command(chat_id: int, command: str):
                 except Exception:
                     pass
             if changed:
+                await repo.set_global_dev_config(_DEV_CONFIG)
                 await send_telegram_message(
                     chat_id,
                     "🛠️ <b>Dev Config อัพเดต</b>\n" + "\n".join(changed),

@@ -45,6 +45,16 @@ class LocationRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_global_dev_config(self) -> Optional[dict]:
+        """Get the global developer configuration."""
+        pass
+
+    @abstractmethod
+    async def set_global_dev_config(self, config: dict) -> None:
+        """Set the global developer configuration."""
+        pass
+
+    @abstractmethod
     async def save_feedback(
         self,
         chat_id: int,

@@ -636,7 +636,7 @@ class WeatherManager:
                     processor.get_all_rain_clusters,
                     curr_frame, flow, user_px, user_py,
                     scan_radius=min(200, _cfg.get("search_radius", 80) * 2),
-                    min_dbz=_cfg.get("min_dbz", 10.0),
+                    min_dbz=0.1,  # Lower threshold so even light rain gets clustered and labeled
                     cluster_dist=25,
                 )
 
@@ -750,8 +750,10 @@ class WeatherManager:
                     if dbz >= 10.0 and all_rain_clusters:
                         min_dist = 9999
                         for c in all_rain_clusters:
-                            d = math.hypot(c["cx"] - src_x, c["cy"] - src_y)
-                            if d < 100 and d < min_dist:  # Large clusters can have centroids far from edges
+                            dx = max(c.get("xmin", c["cx"]) - src_x, 0, src_x - c.get("xmax", c["cx"]))
+                            dy = max(c.get("ymin", c["cy"]) - src_y, 0, src_y - c.get("ymax", c["cy"]))
+                            d = math.hypot(dx, dy)
+                            if d <= 20 and d < min_dist:
                                 min_dist = d
                                 cluster_label = c.get("label")
                                     

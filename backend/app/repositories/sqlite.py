@@ -112,6 +112,35 @@ class SQLiteLocationRepository(LocationRepository):
                 
         await self.session.commit()
 
+    async def get_global_dev_config(self) -> Optional[dict]:
+        import json
+        from app.models import SystemConfig
+        result = await self.session.execute(
+            select(SystemConfig).where(SystemConfig.key == "dev_config")
+        )
+        config_record = result.scalars().first()
+        if config_record:
+            try:
+                return json.loads(config_record.value_json)
+            except:
+                pass
+        return None
+
+    async def set_global_dev_config(self, config: dict) -> None:
+        import json
+        from app.models import SystemConfig
+        result = await self.session.execute(
+            select(SystemConfig).where(SystemConfig.key == "dev_config")
+        )
+        config_record = result.scalars().first()
+        value = json.dumps(config)
+        if config_record:
+            config_record.value_json = value
+        else:
+            config_record = SystemConfig(key="dev_config", value_json=value)
+            self.session.add(config_record)
+        await self.session.commit()
+
     async def save_feedback(
         self,
         chat_id: int,

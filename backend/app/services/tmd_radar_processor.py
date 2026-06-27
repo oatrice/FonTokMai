@@ -881,8 +881,8 @@ class TMDRadarProcessor:
         """
         h, w = frame.shape[:2]
         candidates = []
-        for dy in range(-scan_radius, scan_radius + 1, 2):
-            for dx in range(-scan_radius, scan_radius + 1, 2):
+        for dy in range(-scan_radius, scan_radius + 1, 1):
+            for dx in range(-scan_radius, scan_radius + 1, 1):
                 sx = user_x + dx
                 sy = user_y + dy
                 if sx < 0 or sx >= w or sy < 0 or sy >= h:
@@ -944,6 +944,11 @@ class TMDRadarProcessor:
             if eta_min is None:
                 eta_min = (dist / v_mag * 15.0) if v_mag > 0.1 else 9999.0
 
+            xmin = min(g[0] for g in group)
+            xmax = max(g[0] for g in group)
+            ymin = min(g[1] for g in group)
+            ymax = max(g[1] for g in group)
+
             clusters.append({
                 "cx": cx, "cy": cy,
                 "vx": avg_vx, "vy": avg_vy,
@@ -953,6 +958,8 @@ class TMDRadarProcessor:
                 "eta_min": eta_min,
                 "approaching": approaching,
                 "size": len(group),
+                "xmin": xmin, "xmax": xmax,
+                "ymin": ymin, "ymax": ymax,
             })
 
         clusters.sort(key=lambda c: c["dist"])

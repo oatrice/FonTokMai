@@ -59,6 +59,13 @@ class RadarLatestCache(Base):
     frames_json = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False)
     last_gif_fallback_time = Column(Float, default=0.0, nullable=False)
+    source = Column(String, default="api")
+
+class SystemConfig(Base):
+    __tablename__ = "system_config"
+
+    key = Column(String, primary_key=True, index=True)
+    value_json = Column(Text, nullable=False)
 
 class CronRunLog(Base):
     __tablename__ = "cron_run_logs"
