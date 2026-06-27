@@ -867,7 +867,7 @@ class WeatherManager:
                         if not c_lbl: continue
                         for p in predictions:
                             if p["cluster"] == c_lbl and p["dbz"] >= 10.0:
-                                c["eta_min"] = p["time_offset"] - time_offset_min
+                                c["eta_min"] = p["time_offset"]
                                 break
                                 
                     wind_speed = processor.get_wind_speed_kmh_from_vector(clouds[0]["vx"], clouds[0]["vy"])

@@ -881,16 +881,17 @@ class TMDRadarProcessor:
         if not active_event:
             max_time = predictions[-1]["time_offset"]
             text = f"☀️ ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน {fmt_eta(max_time)}นี้"
-            
             if approaching_clouds:
                 far_clouds = [c for c in approaching_clouds if c.get("eta_min", 0) > max_time]
                 if far_clouds:
                     soonest = min(far_clouds, key=lambda c: c.get("eta_min", 999))
-                    eta_val = float(soonest["eta_min"])
+                    eta_val = max(1.0, float(soonest["eta_min"]) - time_offset_min)
                     eta_h = int(eta_val // 60)
                     eta_m = int(eta_val % 60)
-                    time_str = f"~{eta_h} ชม. {eta_m} นาที" if eta_m > 0 else f"~{eta_h} ชม."
-                    text += f"\n☁️ หมายเหตุ: ตรวจพบกลุ่มฝน ({int(soonest.get('dbz_now', 0))} dBZ) กำลังเคลื่อนมา อาจจะถึงในอีก {time_str}"
+                    time_str = f"~{eta_h} ชม. {eta_m} นาที" if eta_h > 0 else f"~{eta_m} นาที"
+                    if eta_h > 0 and eta_m == 0:
+                        time_str = f"~{eta_h} ชม."
+                    text += f"\n☁️ หมายเหตุ: ตรวจพบกลุ่มฝน ({int(soonest.get('dbz_now', 0))} dBZ) กำลังเคลื่อนมา อาจจะถึงในอีก {time_str} (เวลาประมาณ {fmt_clock_time(float(soonest['eta_min']))})"
             
             return text + warning
 
