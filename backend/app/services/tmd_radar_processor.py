@@ -1322,10 +1322,6 @@ class TMDRadarProcessor:
             draw.text((panel_x + 6, TITLE_H + 6), ts_label, font=font_med,
                       fill=(255, 255, 255, 255) if is_now else TEXT_DIM)
 
-            # Vertical separator
-            if fi > 0:
-                draw.line([(panel_x, TITLE_H), (panel_x, PANEL_H)], fill=GRID_COLOR, width=1)
-
             # "NOW" border highlight
             if is_now:
                 draw.rectangle(
@@ -1476,6 +1472,11 @@ class TMDRadarProcessor:
                     gd_col = (46, 204, 113, 230) if delta_pct >= 0 else (231, 76, 60, 230)
 
             draw.text((panel_x + 6, gd_y + 3), gd_lbl, font=font_sm, fill=gd_col)
+
+        # ── Draw separators on top ────────────────────────────────────────────
+        for fi in range(1, n):
+            panel_x = fi * THUMB_W
+            draw.line([(panel_x, TITLE_H), (panel_x, PANEL_H)], fill=(80, 80, 100, 220), width=2)
 
         buf = io.BytesIO()
         canvas.convert("RGB").save(buf, format="PNG")
