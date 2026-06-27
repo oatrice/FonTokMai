@@ -782,6 +782,7 @@ class TMDRadarProcessor:
                 "predicted_dbz": predicted_dbz,
                 "dist": dist_c,
                 "eta_min": eta_min,
+                "pixels": [(g[0], g[1]) for g in group]
             })
 
         clusters.sort(key=lambda c: c["eta_min"])
@@ -1089,28 +1090,54 @@ class TMDRadarProcessor:
             vy = c_orig.get("vy", 0)
 
             if is_approaching:
-                # Approaching: solid colour circle + yellow arrow + ETA label
+                # Approaching: solid colour contour + yellow arrow + ETA label
                 color = _dbz_color(dbz)
-                cv2.circle(img, (cx, cy), int(12 * scale), color, int(1.5 * scale))
+                hull_rect = None
+                if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
+                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for px, py in c_orig["pixels"]], dtype=np.int32)
+                    hull = cv2.convexHull(pts)
+                    hull_rect = cv2.boundingRect(hull)
+                    overlay = img.copy()
+                    cv2.fillPoly(overlay, [hull], color)
+                    cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
+                    cv2.polylines(img, [hull], True, color, max(1, int(2.0 * scale)))
+                else:
+                    cv2.circle(img, (cx, cy), int(12 * scale), color, int(1.5 * scale))
+                
                 # Arrow toward destination
                 vx_scaled = int(vx * scale * 3.0)
                 vy_scaled = int(vy * scale * 3.0)
+                
+                arrow_start_x, arrow_start_y = cx, cy
+                if hull_rect:
+                    arrow_start_x = hull_rect[0] + hull_rect[2] // 2
+                    arrow_start_y = hull_rect[1] + hull_rect[3] // 2
+
                 if vx_scaled == 0 and vy_scaled == 0:
-                    cv2.arrowedLine(img, (cx, cy), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.15)
+                    cv2.arrowedLine(img, (arrow_start_x, arrow_start_y), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.15)
                 else:
-                    cv2.arrowedLine(img, (cx, cy), (cx + vx_scaled, cy + vy_scaled), (255, 255, 0), int(1.5 * scale), tipLength=0.3)
+                    cv2.arrowedLine(img, (arrow_start_x, arrow_start_y), (arrow_start_x + vx_scaled, arrow_start_y + vy_scaled), (255, 255, 0), int(1.5 * scale), tipLength=0.3)
+                
                 # ETA label
                 eta = c_orig.get("eta_min", 0)
-                sign = "-" if eta < 0 else "~"
-                abs_eta = int(abs(eta))
-                time_str = f"{abs_eta}m" if abs_eta < 60 else f"{abs_eta//60}h{abs_eta%60}m"
-                label_txt = f"{c_orig.get('label', '')}: {sign}{time_str}"
+                if eta <= 0:
+                    label_txt = f"{c_orig.get('label', '')} (Now)"
+                else:
+                    abs_eta = int(abs(eta))
+                    time_str = f"{abs_eta}m" if abs_eta < 60 else f"{abs_eta//60}h{abs_eta%60}m"
+                    label_txt = f"{c_orig.get('label', '')}: ~{time_str}"
                 
-                # Smart positioning to avoid user pin at (ux, uy)
-                text_x = cx + int(14 * scale)
-                text_y = cy
-                if abs(cx - ux) < int(25 * scale) and abs(cy - uy) < int(20 * scale):
-                    text_y = cy - int(15 * scale) if cy <= uy else cy + int(20 * scale)
+                if hull_rect:
+                    text_x = hull_rect[0]
+                    text_y = hull_rect[1] - int(8 * scale)
+                    # If text goes above image, move it below hull
+                    if text_y < int(15 * scale):
+                        text_y = hull_rect[1] + hull_rect[3] + int(15 * scale)
+                else:
+                    text_x = cx + int(14 * scale)
+                    text_y = cy
+                    if abs(cx - ux) < int(25 * scale) and abs(cy - uy) < int(20 * scale):
+                        text_y = cy - int(15 * scale) if cy <= uy else cy + int(20 * scale)
                     
                 logger.info(f"[DRAW_TEXT] Cluster '{label_txt}' at ({text_x}, {text_y})")
                 cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (0, 0, 0), int(3.5 * scale))

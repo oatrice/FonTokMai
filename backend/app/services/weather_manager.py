@@ -686,6 +686,8 @@ class WeatherManager:
                         if matched_amb:
                             appr_c["cx"] = matched_amb["cx"]
                             appr_c["cy"] = matched_amb["cy"]
+                            if "pixels" in matched_amb:
+                                appr_c["pixels"] = matched_amb["pixels"]
 
                 # ── Parametric scenario mock (JSON mock_state) ────────────────────
                 if mock_state and mock_state.startswith("{"):
