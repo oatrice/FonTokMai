@@ -674,12 +674,18 @@ class WeatherManager:
                     for appr_c in clouds:
                         matched_label = "?"
                         min_d = 9999
+                        matched_amb = None
                         for amb_c in all_rain_clusters:
                             d = math.hypot(appr_c["cx"] - amb_c["cx"], appr_c["cy"] - amb_c["cy"])
                             if d < 150 and d < min_d:
                                 min_d = d
                                 matched_label = amb_c.get("label", "?")
+                                matched_amb = amb_c
+                                
                         appr_c["label"] = matched_label
+                        if matched_amb:
+                            appr_c["cx"] = matched_amb["cx"]
+                            appr_c["cy"] = matched_amb["cy"]
 
                 # ── Parametric scenario mock (JSON mock_state) ────────────────────
                 if mock_state and mock_state.startswith("{"):

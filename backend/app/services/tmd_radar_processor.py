@@ -1028,7 +1028,7 @@ class TMDRadarProcessor:
         if _DEV_CONFIG.get("verbose"):
             logger.info(f"[TRACKING_IMG] Preparing to draw. display_clouds={len(display_clouds)}, ambient_clouds={len(ambient_clouds)}")
             for c in display_clouds:
-                logger.info(f"[TRACKING_IMG] Approaching cluster {c.get('label', '?')}: dbz={c.get('dbz_now', 0)}, pos=({c['cx']},{c['cy']}), v=({c.get('vx',0):.2f},{c.get('vy',0):.2f})")
+                logger.info(f"[TRACKING_IMG] Approaching cluster {c.get('label', '?')}: dbz={c.get('dbz_now', 0)}, pos=({c['cx']},{c['cy']}), v=({c.get('vx',0):.2f},{c.get('vy',0):.2f}), eta={c.get('eta_min', 'None')}")
             for c in ambient_clouds:
                 logger.info(f"[TRACKING_IMG] Ambient cluster {c.get('label', '?')}: dbz={c.get('dbz_now', 0)}, pos=({c['cx']},{c['cy']})")
 
@@ -1141,8 +1141,8 @@ class TMDRadarProcessor:
                 cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.4 * scale, (0, 0, 0), int(2.5 * scale))
                 cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.4 * scale, (200, 200, 200), int(scale * 0.7))
 
-        # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest
-        incoming = [c for c in display_clouds if c.get("eta_min", 9999) >= -5]
+        # Draw approaching clouds (limit to top 3 strongest to avoid clutter)
+        incoming = [c for c in display_clouds if c.get("eta_min", 9999) >= -120]
         incoming.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
         for c in incoming[:3]:
             _draw_cloud(c, is_approaching=True)
@@ -1180,8 +1180,8 @@ class TMDRadarProcessor:
                         if last_labeled_pt is None:
                             should_label = True
                         else:
-                            # prevent label crowding
-                            if math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 18 * scale:
+                            # prevent label crowding - increased to 30*scale for more spacing
+                            if math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 30 * scale:
                                 should_label = True
                                 
                         # Prevent overlapping with the cloud's A: ... label
@@ -1199,8 +1199,10 @@ class TMDRadarProcessor:
                             
                     if should_label:
                         label = f"{eta}m"
-                        tx = cx + int(6 * scale)
-                        ty = cy - int(12 * scale)
+                        tx = cx + int(12 * scale)
+                        ty = cy - int(16 * scale)
+                        # Draw connector line from dot to text
+                        cv2.line(img, (cx, cy), (tx - int(2 * scale), ty + int(2 * scale)), (200, 200, 200), max(1, int(1 * scale)))
                         logger.info(f"[DRAW_TEXT] Trajectory '{label}' at ({tx}, {ty})")
                         cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (0, 0, 0), int(2.5 * scale))
                         cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (255, 255, 255), int(1 * scale))
