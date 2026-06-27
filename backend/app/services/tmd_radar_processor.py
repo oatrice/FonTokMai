@@ -819,6 +819,15 @@ class TMDRadarProcessor:
             if dbz >= 20: return "ฝนปานกลาง"
             return "ฝนเบา"
 
+        def fmt_clock_time(minutes_offset: float) -> str:
+            from datetime import datetime, timezone, timedelta
+            m = int(round(minutes_offset - time_offset_min))
+            if m < 0:
+                m = 0
+            bkk_now = datetime.now(timezone(timedelta(hours=7)))
+            target = bkk_now + timedelta(minutes=m)
+            return target.strftime('%H:%M น.')
+
         if not predictions:
             return f"ℹ️ ไม่สามารถพยากรณ์ล่วงหน้าได้{warning}"
 
@@ -835,10 +844,10 @@ class TMDRadarProcessor:
             lbl = dbz_label(predictions[0]["dbz"])
             if stop_idx == -1:
                 max_time = predictions[-1]["time_offset"]
-                return f"🌧️ ขณะนี้มีฝนตกในบริเวณของคุณ ({int(predictions[0]['dbz'])} dBZ — {lbl})\nและคาดว่าจะตกต่อเนื่องอย่างน้อย {fmt_eta(max_time)}{warning}"
+                return f"🌧️ ขณะนี้มีฝนตกในบริเวณของคุณ ({int(predictions[0]['dbz'])} dBZ — {lbl})\nและคาดว่าจะตกต่อเนื่องถึงอย่างน้อย {fmt_clock_time(max_time)}{warning}"
             else:
                 stop_time = predictions[stop_idx]["time_offset"]
-                return f"🌧️ ขณะนี้มีฝนตกในบริเวณของคุณ ({int(predictions[0]['dbz'])} dBZ — {lbl})\nและคาดว่าจะหยุดใน {fmt_eta(stop_time)}{warning}"
+                return f"🌧️ ขณะนี้มีฝนตกในบริเวณของคุณ ({int(predictions[0]['dbz'])} dBZ — {lbl})\nและคาดว่าจะหยุดตกเวลาประมาณ {fmt_clock_time(stop_time)}{warning}"
                 
         else:
             # Not raining now: find when it starts
@@ -875,20 +884,20 @@ class TMDRadarProcessor:
                 msg_start = f"🌧️ ฝนกำลังตกอยู่ ({int(start_dbz)} dBZ — {lbl_start})"
                 if stop_idx == -1:
                     max_time = predictions[-1]["time_offset"]
-                    msg_duration = f"และคาดว่าจะตกต่อเนื่องอย่างน้อย {fmt_eta(max_time)}"
+                    msg_duration = f"และคาดว่าจะตกต่อเนื่องถึงอย่างน้อย {fmt_clock_time(max_time)}"
                 else:
                     stop_time = predictions[stop_idx]["time_offset"]
-                    msg_duration = f"และคาดว่าจะหยุดใน {fmt_eta(stop_time)}"
+                    msg_duration = f"และคาดว่าจะหยุดตกเวลาประมาณ {fmt_clock_time(stop_time)}"
             else:
                 msg_start = f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} ({int(start_dbz)} dBZ — {lbl_start})"
                 if stop_idx == -1:
                     max_time = predictions[-1]["time_offset"]
                     duration = int(max_time - start_time)
-                    msg_duration = f"และคาดว่าจะตกต่อเนื่องอย่างน้อย {duration} นาที"
+                    msg_duration = f"และคาดว่าจะตกต่อเนื่องอย่างน้อย {duration} นาที (ถึงอย่างน้อย {fmt_clock_time(max_time)})"
                 else:
                     stop_time = predictions[stop_idx]["time_offset"]
                     duration = int(stop_time - start_time)
-                    msg_duration = f"และคาดว่าจะตกต่อเนื่องประมาณ {duration} นาที"
+                    msg_duration = f"และคาดว่าจะตกต่อเนื่องประมาณ {duration} นาที (ถึงเวลาประมาณ {fmt_clock_time(stop_time)})"
             
             if max_idx > start_idx and max_dbz >= start_dbz + 15.0:
                 max_time = predictions[max_idx]["time_offset"]
@@ -1089,6 +1098,9 @@ class TMDRadarProcessor:
         ux = int((user_x - x1) * scale)
         uy = int((user_y - y1) * scale)
         
+        # Avoid drawing text directly over the user pin (define a box around user location)
+        drawn_text_boxes.append((ux - int(20 * scale), uy - int(20 * scale), int(40 * scale), int(40 * scale)))
+        
         # Draw user pin in blue to match the main location target
         cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
         cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(10 * scale), int(3 * scale))
@@ -1159,29 +1171,35 @@ class TMDRadarProcessor:
                     time_str = f"{abs_eta}m" if abs_eta < 60 else f"{abs_eta//60}h{abs_eta%60}m"
                     label_txt = f"{c_orig.get('label', '')}: ~{time_str}"
                 
-                if hull_rect:
-                    # Target center-top of the hull bounding box
-                    text_x = hull_rect[0] + (hull_rect[2] // 2) - int(20 * scale)
-                    text_y = hull_rect[1] - int(8 * scale)
-                    # If text goes above image, move it below hull
-                    if text_y < int(15 * scale):
-                        text_y = hull_rect[1] + hull_rect[3] + int(15 * scale)
-                else:
-                    text_x = cx + int(14 * scale)
-                    text_y = cy
-                    if abs(cx - ux) < int(25 * scale) and abs(cy - uy) < int(20 * scale):
-                        text_y = cy - int(15 * scale) if cy <= uy else cy + int(20 * scale)
+                # Target near the center of the cloud mass (or centroid cx, cy)
+                text_x = cx - int(20 * scale)
+                text_y = cy - int(12 * scale)
                 
+                # Check for overlap with already drawn text boxes (like user pin) and shift vertically if needed
+                tw = int(55 * scale)
+                th = int(15 * scale)
+                for _ in range(10):  # Try shifting up to 10 times to find a free space
+                    is_overlapping = False
+                    for rx, ry, rw, rh in drawn_text_boxes:
+                        # AABB collision check
+                        if not (text_x + tw < rx or text_x > rx + rw or text_y < ry or text_y - th > ry + rh):
+                            is_overlapping = True
+                            break
+                    if is_overlapping:
+                        text_y -= int(18 * scale)  # Shift upwards
+                    else:
+                        break
+
                 # Clamp coordinates to keep labels on screen
-                text_x = max(10, min(img.shape[1] - int(65 * scale), text_x))
-                text_y = max(int(15 * scale), min(img.shape[0] - int(10 * scale), text_y))
+                text_x = max(10, min(img.shape[1] - tw - 10, text_x))
+                text_y = max(th + 10, min(img.shape[0] - 10, text_y))
                     
                 logger.info(f"[DRAW_TEXT] Cluster '{label_txt}' at ({text_x}, {text_y})")
                 cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (0, 0, 0), int(3.5 * scale))
                 cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (255, 255, 255), int(1.5 * scale))
                 
-                # Estimate a text bounding box and record it
-                drawn_text_boxes.append((text_x, text_y - int(12 * scale), int(60 * scale), int(15 * scale)))
+                # Record the text box (using top-left layout [x, y - th, w, th])
+                drawn_text_boxes.append((text_x, text_y - th, tw, th))
             else:
                 # Ambient (not approaching): dashed/thin circle + white/grey arrow
                 color = _dbz_color(dbz)
