@@ -1265,8 +1265,9 @@ class TMDRadarProcessor:
                         # Check intersection with all existing boxes
                         is_overlapping_box = False
                         for rx, ry, rw, rh in drawn_text_boxes:
-                            # AABB intersection check
-                            if not (tx + tw < rx or tx > rx + rw or ty + th < ry or ty > ry + rh):
+                            # AABB intersection check: no overlap if one is completely to the left,
+                            # completely to the right, completely above, or completely below.
+                            if not (tx + tw < rx or tx > rx + rw or ty < ry or ty - th > ry + rh):
                                 is_overlapping_box = True
                                 break
                                 
