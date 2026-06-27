@@ -263,9 +263,9 @@ class TMDRadarProcessor:
             next=curr_gray,
             flow=None,
             pyr_scale=0.5,
-            levels=3,
-            winsize=15,
-            iterations=3,
+            levels=5,
+            winsize=25,
+            iterations=5,
             poly_n=5,
             poly_sigma=1.2,
             flags=0
