@@ -1033,7 +1033,7 @@ async def handle_devmock_command(chat_id: int, command: str):
 
             import re as _re
             changed = []
-            for pair in _re.findall(r'(\w+):([\d.]+)', args):
+            for pair in _re.findall(r'(\w+):([+-]?[\d.]+)', args):
                 key, raw_val = pair
                 if key not in _DEV_CONFIG:
                     continue
