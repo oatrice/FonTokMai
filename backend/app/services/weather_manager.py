@@ -739,9 +739,10 @@ class WeatherManager:
                                 {"color": intensities[4][0], "dbz": intensities[4][1], "base_offset": (-65, 65), "eta": 20},
                             ]
                         else:
+                            # Incoming rain scenario: storm is further away, warning in advance
                             bands = [
-                                {"color": (46, 204, 113),  "dbz": 25.0, "base_offset": (-5, 5),   "eta": 0},  # Green
-                                {"color": (241, 196, 15),  "dbz": 35.0, "base_offset": (-15, 15), "eta": 5},  # Yellow
+                                {"color": (46, 204, 113),  "dbz": 25.0, "base_offset": (-25, 25), "eta": 30},  # Green
+                                {"color": (241, 196, 15),  "dbz": 35.0, "base_offset": (-35, 35), "eta": 45},  # Yellow
                             ]
                             
                         for band in bands:
@@ -756,7 +757,7 @@ class WeatherManager:
 
                         for mc in mock_configs:
                             cx, cy = user_px + mc["offset"][0], user_py + mc["offset"][1]
-                            vx, vy = 3.0, -3.0  # Move towards NE
+                            vx, vy = (5.0, -5.0) if mock_state == "rain" else (3.0, -3.0)  # Move towards NE
                             clouds.append({
                                 "cx": cx, "cy": cy,
                                 "vx": vx, "vy": vy,

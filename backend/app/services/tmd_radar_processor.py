@@ -820,7 +820,6 @@ class TMDRadarProcessor:
             return "ฝนเบา"
 
         def fmt_clock_time(minutes_offset: float) -> str:
-            from datetime import datetime, timezone, timedelta
             m = int(round(minutes_offset - time_offset_min))
             if m < 0:
                 m = 0
