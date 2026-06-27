@@ -1007,6 +1007,7 @@ class TMDRadarProcessor:
         clouds: list,
         time_utc: datetime = None,
         all_rain_clusters: list = None,
+        predictions: list = None,
     ) -> Optional[bytes]:
         """Generate zoomed radar tracking image.
         
@@ -1140,6 +1141,50 @@ class TMDRadarProcessor:
         for c in ambient_clouds[:8]:
             _draw_cloud(c, is_approaching=False)
 
+        # ── Draw Prediction Trajectory (Backward Ray) ──
+        if predictions:
+            pts = []
+            for p in predictions:
+                px_orig, py_orig = p.get("src_x"), p.get("src_y")
+                if px_orig is not None and py_orig is not None:
+                    cx = int((px_orig - x1) * scale)
+                    cy = int((py_orig - y1) * scale)
+                    pts.append((cx, cy, p))
+            
+            if len(pts) > 1:
+                # Draw dashed-like connecting line
+                for i in range(1, len(pts)):
+                    cv2.line(img, (pts[i-1][0], pts[i-1][1]), (pts[i][0], pts[i][1]), (255, 255, 255), int(1.2 * scale))
+                
+                # Draw points and labels
+                last_labeled_pt = None
+                for i, (cx, cy, p) in enumerate(pts):
+                    if i == 0: continue # Skip step 0 (already marked by user pin)
+                    eta = p.get("time_offset", i*15)
+                    cv2.circle(img, (cx, cy), int(2.5 * scale), (255, 255, 0), -1)
+                    
+                    # Label every step to match timeline, but prevent overlapping
+                    should_label = False
+                    if last_labeled_pt is None:
+                        should_label = True
+                    else:
+                        dist = math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1])
+                        if dist > 18 * scale:
+                            should_label = True
+                            
+                    # Ensure the final point is labeled if there's at least some room
+                    if i == len(pts) - 1 and not should_label:
+                        if last_labeled_pt and math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 10 * scale:
+                            should_label = True
+                            
+                    if should_label:
+                        label = f"{eta}m"
+                        tx = cx + int(4 * scale)
+                        ty = cy - int(4 * scale)
+                        cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (0, 0, 0), int(2.5 * scale))
+                        cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (255, 255, 255), int(1 * scale))
+                        last_labeled_pt = (cx, cy)
+
         # Add IDC timestamp overlay
         if time_utc:
             try:
@@ -1231,37 +1276,46 @@ class TMDRadarProcessor:
             elif dbz >= 50: color = (231, 76, 60, 230)  # Red
             elif dbz >= 40: color = (243, 156, 18, 230) # Orange
             elif dbz >= 30: color = (241, 196, 15, 230) # Yellow
-            else: color = (46, 204, 113, 230)            # Green
+            elif dbz > 0: color = (46, 204, 113, 230)   # Green
+            else: color = (100, 100, 100, 100)          # Grey/Clear for 0 dBz
 
             if eta > 90:
                 color = (color[0], color[1], color[2], 100)
 
-            draw.rectangle([(x-10, baseline_y-h), (x+10, baseline_y)], fill=color)
+            if dbz > 0:
+                draw.rectangle([(x-10, baseline_y-h), (x+10, baseline_y)], fill=color)
             
             cluster_label = p.get("cluster")
             if cluster_label:
                 draw.text((x-12, baseline_y-h-35), f"[{cluster_label}]", fill=(150, 200, 255, 255), font=font_small)
-            draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=(255, 255, 255, 255), font=font)
+            
+            text_color = (255, 255, 255, 255) if dbz > 0 else (120, 120, 120, 255)
+            draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=text_color, font=font)
 
             # ── Growth / decay trend arrow ─────────────────────────────────
             arrow_y_base = baseline_y - h - 35 if cluster_label else baseline_y - h - 22
             growth_pct = growth * 100.0
-            if growth_pct > 5.0:
-                # Growing: green upward triangle above bar
-                arr_color = (46, 213, 115, 230)   # Bright green
-                pts = [(x, arrow_y_base - 14), (x - 7, arrow_y_base), (x + 7, arrow_y_base)]
-                draw.polygon(pts, fill=arr_color)
-                draw.text((x - 18, arrow_y_base - 30), f"+{growth_pct:.0f}%", fill=arr_color, font=font_small)
-            elif growth_pct < -5.0:
-                # Decaying: red downward triangle above bar
-                arr_color = (255, 71, 87, 230)    # Bright red
-                pts = [(x, arrow_y_base), (x - 7, arrow_y_base - 14), (x + 7, arrow_y_base - 14)]
-                draw.polygon(pts, fill=arr_color)
-                draw.text((x - 20, arrow_y_base - 30), f"{growth_pct:.0f}%", fill=arr_color, font=font_small)
+            
+            if dbz > 0:
+                if growth_pct > 5.0:
+                    # Growing: green upward triangle above bar
+                    arr_color = (46, 213, 115, 230)   # Bright green
+                    pts = [(x, arrow_y_base - 14), (x - 7, arrow_y_base), (x + 7, arrow_y_base)]
+                    draw.polygon(pts, fill=arr_color)
+                    draw.text((x - 18, arrow_y_base - 30), f"+{growth_pct:.0f}%", fill=arr_color, font=font_small)
+                elif growth_pct < -5.0:
+                    # Decaying: red downward triangle above bar
+                    arr_color = (255, 71, 87, 230)    # Bright red
+                    pts = [(x, arrow_y_base), (x - 7, arrow_y_base - 14), (x + 7, arrow_y_base - 14)]
+                    draw.polygon(pts, fill=arr_color)
+                    draw.text((x - 20, arrow_y_base - 30), f"{growth_pct:.0f}%", fill=arr_color, font=font_small)
+                else:
+                    # Stable: small grey dash
+                    draw.rectangle([(x - 6, arrow_y_base - 10), (x + 6, arrow_y_base - 7)],
+                                    fill=(160, 160, 160, 180))
             else:
-                # Stable: small grey dash
-                draw.rectangle([(x - 6, arrow_y_base - 10), (x + 6, arrow_y_base - 7)],
-                                fill=(160, 160, 160, 180))
+                # 0 dBz: Clear sky indicator instead of arrows
+                draw.text((x-15, arrow_y_base - 12), "Clear", fill=(120, 120, 120, 180), font=font_small)
 
             # Smart text offset to avoid overlapping ETA labels
             y_off = 20

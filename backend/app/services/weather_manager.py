@@ -809,7 +809,9 @@ class WeatherManager:
                         "intensity":   dbz_to_intensity(dbz),
                         "dbz":         float(dbz),
                         "rain":        float(rain_mmhr),
-                        "cluster":     cluster_label
+                        "cluster":     cluster_label,
+                        "src_x":       int(src_x),
+                        "src_y":       int(src_y)
                     })
                     
                     if _DEV_CONFIG.get("verbose"):
@@ -887,7 +889,7 @@ class WeatherManager:
                     tracking_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
-                        all_rain_clusters,
+                        all_rain_clusters, predictions
                     )
                     
                     # Create adjusted predictions for the timeline so it displays actual ETA from NOW
