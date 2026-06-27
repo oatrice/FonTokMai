@@ -158,11 +158,11 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                 growth_rate = result.get("growth_rate_pct")
                 if growth_rate is not None and "ไม่พบฝน" not in (rain_summary or ""):
                     if growth_rate > 5.0:
-                        text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%/15min)\n"
+                        text += f"📈 พัฒนาการเมฆฝน (15 นาทีที่ผ่านมา): กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%/15min)\n"
                     elif growth_rate < -5.0:
-                        text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%/15min)\n"
+                        text += f"📉 พัฒนาการเมฆฝน (15 นาทีที่ผ่านมา): อ่อนกำลังลง ({growth_rate:.1f}%/15min)\n"
                     else:
-                        text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
+                        text += f"➖ พัฒนาการเมฆฝน (15 นาทีที่ผ่านมา): คงที่\n"
                         
                 text += f"📡 แหล่งข้อมูล: {source_name}\n"
                 bkk_tz = timezone(timedelta(hours=7))

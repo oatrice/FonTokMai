@@ -443,7 +443,11 @@ class TMDRadarProcessor:
         vy = float(flow[y, x, 1])
         return vx, vy
 
-    def extrapolate_rain_at_pixel(self, img: np.ndarray, flow: np.ndarray, px: int, py: int, steps: int, rate: float = 0.0, radius: int = 5) -> float:
+    def extrapolate_rain_at_pixel(
+        self, img: np.ndarray, flow: np.ndarray, px: int, py: int, steps: int,
+        rate: float = 0.0, radius: int = 5,
+        fallback_vx: float = 0.0, fallback_vy: float = 0.0
+    ) -> Tuple[float, int, int]:
         """
         Uses Semi-Lagrangian backward tracking to find the dBZ value that will arrive at (px, py) in 'steps' time intervals.
         Each step corresponds to the time difference between the frames used to compute the optical flow (e.g. 15 mins).
@@ -457,6 +461,10 @@ class TMDRadarProcessor:
         # Get the flow vector at the target pixel
         vx, vy = self.get_flow_vector_at(flow, px, py)
         
+        # If local flow is zero/very small, fallback to the velocity of the approaching storm
+        if math.hypot(vx, vy) < 0.5 and (fallback_vx != 0.0 or fallback_vy != 0.0):
+            vx, vy = fallback_vx, fallback_vy
+            
         # Calculate source pixel (backward tracking)
         # Assuming linear constant velocity over the steps
         src_x = int(round(px - (vx * steps)))
@@ -967,6 +975,7 @@ class TMDRadarProcessor:
                 "size": len(group),
                 "xmin": xmin, "xmax": xmax,
                 "ymin": ymin, "ymax": ymax,
+                "pixels": [(g[0], g[1]) for g in group]
             })
 
         clusters.sort(key=lambda c: c["dist"])
@@ -1052,6 +1061,7 @@ class TMDRadarProcessor:
         
         # Scale up by 3x for sharp, zoomed-in image in Telegram
         scale = 3.0
+        drawn_text_boxes = []
         img = cv2.resize(crop_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
         
         ux = int((user_x - x1) * scale)
@@ -1128,7 +1138,8 @@ class TMDRadarProcessor:
                     label_txt = f"{c_orig.get('label', '')}: ~{time_str}"
                 
                 if hull_rect:
-                    text_x = hull_rect[0]
+                    # Target center-top of the hull bounding box
+                    text_x = hull_rect[0] + (hull_rect[2] // 2) - int(20 * scale)
                     text_y = hull_rect[1] - int(8 * scale)
                     # If text goes above image, move it below hull
                     if text_y < int(15 * scale):
@@ -1138,10 +1149,17 @@ class TMDRadarProcessor:
                     text_y = cy
                     if abs(cx - ux) < int(25 * scale) and abs(cy - uy) < int(20 * scale):
                         text_y = cy - int(15 * scale) if cy <= uy else cy + int(20 * scale)
+                
+                # Clamp coordinates to keep labels on screen
+                text_x = max(10, min(img.shape[1] - int(65 * scale), text_x))
+                text_y = max(int(15 * scale), min(img.shape[0] - int(10 * scale), text_y))
                     
                 logger.info(f"[DRAW_TEXT] Cluster '{label_txt}' at ({text_x}, {text_y})")
                 cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (0, 0, 0), int(3.5 * scale))
                 cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (255, 255, 255), int(1.5 * scale))
+                
+                # Estimate a text bounding box and record it
+                drawn_text_boxes.append((text_x, text_y - int(12 * scale), int(60 * scale), int(15 * scale)))
             else:
                 # Ambient (not approaching): dashed/thin circle + white/grey arrow
                 color = _dbz_color(dbz)
@@ -1183,7 +1201,8 @@ class TMDRadarProcessor:
                 _draw_cloud(c, is_approaching=False)
 
         # ── Draw Prediction Trajectory (Backward Ray) ──
-        if show_trajectory and predictions:
+        has_predicted_rain = predictions and any(p.get("dbz", 0) >= 10.0 for p in predictions)
+        if show_trajectory and predictions and has_predicted_rain:
             # We trace from user's location BACKWARDS to show where the incoming rain is coming from
             pts = []
             for p in predictions:
@@ -1232,12 +1251,30 @@ class TMDRadarProcessor:
                         label = f"{eta}m"
                         tx = cx + int(12 * scale)
                         ty = cy - int(16 * scale)
-                        # Draw connector line from dot to text
-                        cv2.line(img, (cx, cy), (tx - int(2 * scale), ty + int(2 * scale)), (200, 200, 200), max(1, int(1 * scale)))
-                        logger.info(f"[DRAW_TEXT] Trajectory '{label}' at ({tx}, {ty})")
-                        cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (0, 0, 0), int(2.5 * scale))
-                        cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (255, 255, 255), int(1 * scale))
-                        last_labeled_pt = (cx, cy)
+                        
+                        # Clamp to keep trajectory text on screen
+                        tx = max(10, min(img.shape[1] - int(35 * scale), tx))
+                        ty = max(int(15 * scale), min(img.shape[0] - int(10 * scale), ty))
+                        
+                        # Size estimate for trajectory text (e.g. "90m")
+                        tw, th = int(25 * scale), int(12 * scale)
+                        
+                        # Check intersection with all existing boxes
+                        is_overlapping_box = False
+                        for rx, ry, rw, rh in drawn_text_boxes:
+                            # AABB intersection check
+                            if not (tx + tw < rx or tx > rx + rw or ty + th < ry or ty > ry + rh):
+                                is_overlapping_box = True
+                                break
+                                
+                        if not is_overlapping_box:
+                            # Draw connector line from dot to text
+                            cv2.line(img, (cx, cy), (tx - int(2 * scale), ty + int(2 * scale)), (200, 200, 200), max(1, int(1 * scale)))
+                            logger.info(f"[DRAW_TEXT] Trajectory '{label}' at ({tx}, {ty})")
+                            cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (0, 0, 0), int(2.5 * scale))
+                            cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (255, 255, 255), int(1 * scale))
+                            drawn_text_boxes.append((tx, ty - th, tw, th))
+                            last_labeled_pt = (cx, cy)
 
         # Add IDC timestamp overlay
         if time_utc:

@@ -671,6 +671,7 @@ class WeatherManager:
                         
                 # Match labels from all_rain_clusters to clouds
                 if all_rain_clusters and clouds:
+                    unique_clouds = {}
                     for appr_c in clouds:
                         matched_label = "?"
                         min_d = 9999
@@ -688,6 +689,16 @@ class WeatherManager:
                             appr_c["cy"] = matched_amb["cy"]
                             if "pixels" in matched_amb:
                                 appr_c["pixels"] = matched_amb["pixels"]
+                                
+                        # Deduplicate: keep the one with smaller absolute eta (closer to impact or current)
+                        label = appr_c["label"]
+                        if label not in unique_clouds:
+                            unique_clouds[label] = appr_c
+                        else:
+                            existing = unique_clouds[label]
+                            if abs(appr_c.get("eta_min", 9999)) < abs(existing.get("eta_min", 9999)):
+                                unique_clouds[label] = appr_c
+                    clouds = list(unique_clouds.values())
 
                 # ── Parametric scenario mock (JSON mock_state) ────────────────────
                 if mock_state and mock_state.startswith("{"):
@@ -791,9 +802,18 @@ class WeatherManager:
                 max_dbz = 0.0
                 current_dbz = processor.get_dbz_at_pixel(curr_frame, px, py)
                 
+                fallback_vx, fallback_vy = 0.0, 0.0
+                if clouds:
+                    closest_c = min(clouds, key=lambda c: c.get("dist", 9999))
+                    fallback_vx = closest_c.get("vx", 0.0)
+                    fallback_vy = closest_c.get("vy", 0.0)
+                
                 for steps in range(7):
                     offset_min = steps * 15
-                    dbz, src_x, src_y = processor.extrapolate_rain_at_pixel(curr_frame, flow, px, py, steps=steps, radius=5)
+                    dbz, src_x, src_y = processor.extrapolate_rain_at_pixel(
+                        curr_frame, flow, px, py, steps=steps, radius=5,
+                        fallback_vx=fallback_vx, fallback_vy=fallback_vy
+                    )
                     
                     cluster_label = None
                     if dbz >= 10.0 and all_rain_clusters:
