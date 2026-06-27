@@ -797,7 +797,7 @@ class TMDRadarProcessor:
         return clusters
 
     @staticmethod
-    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0) -> str:
+    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None) -> str:
         """
         Generates a smart, non-redundant rain summary line for Telegram based on the pixel's time-series predictions.
         """
@@ -830,84 +830,110 @@ class TMDRadarProcessor:
         if not predictions:
             return f"ℹ️ ไม่สามารถพยากรณ์ล่วงหน้าได้{warning}"
 
-        is_raining_now = predictions[0]["dbz"] >= 15.0
+        rain_events = []
+        in_rain = False
+        start_idx = -1
+        max_dbz = 0.0
+        max_idx = -1
         
-        if is_raining_now:
-            # Raining now: find when it stops (first prediction < 15 dBZ)
-            stop_idx = -1
-            for i in range(1, len(predictions)):
-                if predictions[i]["dbz"] < 15.0:
-                    stop_idx = i
-                    break
-                    
-            lbl = dbz_label(predictions[0]["dbz"])
-            if stop_idx == -1:
-                max_time = predictions[-1]["time_offset"]
-                return f"🌧️ ขณะนี้มีฝนตกในบริเวณของคุณ ({int(predictions[0]['dbz'])} dBZ — {lbl})\nและคาดว่าจะตกต่อเนื่องถึงอย่างน้อย {fmt_eta(max_time)} (เวลา {fmt_clock_time(max_time)}){warning}"
-            else:
-                stop_time = predictions[stop_idx]["time_offset"]
-                return f"🌧️ ขณะนี้มีฝนตกในบริเวณของคุณ ({int(predictions[0]['dbz'])} dBZ — {lbl})\nและคาดว่าจะหยุดตกในอีก {fmt_eta(stop_time)} (เวลาประมาณ {fmt_clock_time(stop_time)}){warning}"
-                
-        else:
-            # Not raining now: find when it starts
-            start_idx = -1
-            max_dbz = 0.0
-            max_idx = -1
-            
-            for i in range(1, len(predictions)):
-                dbz = predictions[i]["dbz"]
-                if dbz >= 15.0:
-                    if start_idx == -1:
-                        start_idx = i
+        for i, p in enumerate(predictions):
+            dbz = p["dbz"]
+            if dbz >= 15.0:
+                if not in_rain:
+                    in_rain = True
+                    start_idx = i
+                    max_dbz = dbz
+                    max_idx = i
+                else:
                     if dbz > max_dbz:
                         max_dbz = dbz
                         max_idx = i
-                        
-            if start_idx == -1:
+            else:
+                if in_rain:
+                    in_rain = False
+                    rain_events.append({
+                        "start_idx": start_idx,
+                        "stop_idx": i,
+                        "max_dbz": max_dbz,
+                        "max_idx": max_idx
+                    })
+        
+        if in_rain:
+            rain_events.append({
+                "start_idx": start_idx,
+                "stop_idx": -1,
+                "max_dbz": max_dbz,
+                "max_idx": max_idx
+            })
+
+        active_event = None
+        for event in rain_events:
+            stop_idx = event["stop_idx"]
+            if stop_idx == -1:
+                active_event = event
+                break
+            
+            stop_time = predictions[stop_idx]["time_offset"]
+            if stop_time - time_offset_min > 0:
+                active_event = event
+                break
+
+        if not active_event:
+            max_time = predictions[-1]["time_offset"]
+            text = f"☀️ ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน {fmt_eta(max_time)}นี้"
+            
+            if approaching_clouds:
+                far_clouds = [c for c in approaching_clouds if c.get("eta_min", 0) > max_time]
+                if far_clouds:
+                    soonest = min(far_clouds, key=lambda c: c.get("eta_min", 999))
+                    eta_val = float(soonest["eta_min"])
+                    eta_h = int(eta_val // 60)
+                    eta_m = int(eta_val % 60)
+                    time_str = f"~{eta_h} ชม. {eta_m} นาที" if eta_m > 0 else f"~{eta_h} ชม."
+                    text += f"\n☁️ หมายเหตุ: ตรวจพบกลุ่มฝน ({int(soonest.get('dbz_now', 0))} dBZ) กำลังเคลื่อนมา อาจจะถึงในอีก {time_str}"
+            
+            return text + warning
+
+        start_idx = active_event["start_idx"]
+        stop_idx = active_event["stop_idx"]
+        max_dbz = active_event["max_dbz"]
+        max_idx = active_event["max_idx"]
+        
+        start_time = predictions[start_idx]["time_offset"]
+        start_dbz = predictions[start_idx]["dbz"]
+        lbl_start = dbz_label(start_dbz)
+        
+        adj_start = start_time - time_offset_min
+        
+        if adj_start <= 0:
+            msg_start = f"🌧️ ฝนกำลังตกอยู่ ({int(start_dbz)} dBZ — {lbl_start})"
+            if stop_idx == -1:
                 max_time = predictions[-1]["time_offset"]
-                return f"☀️ ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน {fmt_eta(max_time)}นี้{warning}"
-                
-            start_time = predictions[start_idx]["time_offset"]
-            start_dbz = predictions[start_idx]["dbz"]
-            lbl_start = dbz_label(start_dbz)
-            
-            # Find when it stops after starting (first step after start_idx where dbz < 15.0)
-            stop_idx = -1
-            for j in range(start_idx + 1, len(predictions)):
-                if predictions[j]["dbz"] < 15.0:
-                    stop_idx = j
-                    break
-            
-            adj_start = start_time - time_offset_min
-            if adj_start <= 0:
-                msg_start = f"🌧️ ฝนกำลังตกอยู่ ({int(start_dbz)} dBZ — {lbl_start})"
-                if stop_idx == -1:
-                    max_time = predictions[-1]["time_offset"]
-                    msg_duration = f"และคาดว่าจะตกต่อเนื่องถึงอย่างน้อย {fmt_eta(max_time)} (เวลา {fmt_clock_time(max_time)})"
-                else:
-                    stop_time = predictions[stop_idx]["time_offset"]
-                    msg_duration = f"และคาดว่าจะหยุดตกในอีก {fmt_eta(stop_time)} (เวลาประมาณ {fmt_clock_time(stop_time)})"
+                msg_duration = f"และคาดว่าจะตกต่อเนื่องถึงอย่างน้อย {fmt_eta(max_time)} (เวลา {fmt_clock_time(max_time)})"
             else:
-                msg_start = f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} ({int(start_dbz)} dBZ — {lbl_start})"
-                if stop_idx == -1:
-                    max_time = predictions[-1]["time_offset"]
-                    duration = int(max_time - start_time)
-                    msg_duration = f"และคาดว่าจะตกต่อเนื่องอย่างน้อย {duration} นาที (ถึงอย่างน้อย {fmt_clock_time(max_time)})"
-                else:
-                    stop_time = predictions[stop_idx]["time_offset"]
-                    duration = int(stop_time - start_time)
-                    msg_duration = f"และคาดว่าจะตกต่อเนื่องประมาณ {duration} นาที (ถึงเวลาประมาณ {fmt_clock_time(stop_time)})"
-            
-            if max_idx > start_idx and max_dbz >= start_dbz + 15.0:
-                max_time = predictions[max_idx]["time_offset"]
-                lbl_max = dbz_label(max_dbz)
-                return (
-                    f"{msg_start}\n"
-                    f"⚡ และจะตกหนักขึ้นใน {fmt_eta(max_time)} ({int(max_dbz)} dBZ — {lbl_max})\n"
-                    f"{msg_duration}{warning}"
-                )
+                stop_time = predictions[stop_idx]["time_offset"]
+                msg_duration = f"และคาดว่าจะหยุดตกในอีก {fmt_eta(stop_time)} (เวลาประมาณ {fmt_clock_time(stop_time)})"
+        else:
+            msg_start = f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} ({int(start_dbz)} dBZ — {lbl_start})"
+            if stop_idx == -1:
+                max_time = predictions[-1]["time_offset"]
+                duration = int(max_time - start_time)
+                msg_duration = f"และคาดว่าจะตกต่อเนื่องอย่างน้อย {duration} นาที (ถึงอย่างน้อย {fmt_clock_time(max_time)})"
             else:
-                return f"{msg_start}\n{msg_duration}{warning}"
+                stop_time = predictions[stop_idx]["time_offset"]
+                duration = int(stop_time - start_time)
+                msg_duration = f"และคาดว่าจะตกต่อเนื่องประมาณ {duration} นาที (ถึงเวลาประมาณ {fmt_clock_time(stop_time)})"
+        
+        if max_idx > start_idx and max_dbz >= start_dbz + 15.0:
+            max_time = predictions[max_idx]["time_offset"]
+            lbl_max = dbz_label(max_dbz)
+            return (
+                f"{msg_start}\n"
+                f"⚡ และจะตกหนักขึ้นใน {fmt_eta(max_time)} ({int(max_dbz)} dBZ — {lbl_max})\n"
+                f"{msg_duration}{warning}"
+            )
+        else:
+            return f"{msg_start}\n{msg_duration}{warning}"
 
     @staticmethod
     def get_all_rain_clusters(
