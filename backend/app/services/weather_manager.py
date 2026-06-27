@@ -801,7 +801,16 @@ class WeatherManager:
                     confidence_score=confidence_score
                 )
                 
+                # Sync cluster ETA with accurate pixel-level predictions
                 if clouds:
+                    for c in clouds:
+                        c_lbl = c.get("label")
+                        if not c_lbl: continue
+                        for p in predictions:
+                            if p["cluster"] == c_lbl and p["dbz"] >= 10.0:
+                                c["eta_min"] = p["time_offset"] - time_offset_min
+                                break
+                                
                     wind_speed = processor.get_wind_speed_kmh_from_vector(clouds[0]["vx"], clouds[0]["vy"])
                     wind_dir = processor.get_wind_direction_text_from_vector(clouds[0]["vx"], clouds[0]["vy"])
                     percent_change = clouds[0]["growth_rate"] * 100.0
@@ -857,7 +866,16 @@ class WeatherManager:
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
                         all_rain_clusters,
                     )
-                    timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, predictions)
+                    
+                    # Create adjusted predictions for the timeline so it displays actual ETA from NOW
+                    adjusted_predictions = []
+                    for p in predictions:
+                        adj_p = p.copy()
+                        adj_p["time_offset"] = p["time_offset"] - time_offset_min
+                        adjusted_predictions.append(adj_p)
+                        
+                    timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, adjusted_predictions)
+                    
                     if len(frames) >= 2:
                         multiframe_bytes = await asyncio.to_thread(
                             processor.generate_multiframe_analysis_image,

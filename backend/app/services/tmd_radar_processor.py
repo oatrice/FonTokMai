@@ -1092,8 +1092,15 @@ class TMDRadarProcessor:
                 abs_eta = int(abs(eta))
                 time_str = f"{abs_eta}m" if abs_eta < 60 else f"{abs_eta//60}h{abs_eta%60}m"
                 label_txt = f"{c_orig.get('label', '')}: {sign}{time_str}"
-                cv2.putText(img, label_txt, (cx + int(14 * scale), cy),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (255, 255, 255), int(1.5 * scale))
+                
+                # Smart positioning to avoid user pin at (ux, uy)
+                text_x = cx + int(14 * scale)
+                text_y = cy
+                if abs(cx - ux) < int(25 * scale) and abs(cy - uy) < int(20 * scale):
+                    text_y = cy - int(15 * scale) if cy <= uy else cy + int(20 * scale)
+                    
+                cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (0, 0, 0), int(3.5 * scale))
+                cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (255, 255, 255), int(1.5 * scale))
             else:
                 # Ambient (not approaching): dashed/thin circle + white/grey arrow
                 color = _dbz_color(dbz)
@@ -1115,8 +1122,12 @@ class TMDRadarProcessor:
                                     (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
                 # dBZ and Cluster label in muted colour
                 label_txt = f"{c_orig.get('label', '')}: {int(dbz)}"
-                cv2.putText(img, label_txt, (cx + int(11 * scale), cy - int(5 * scale)),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.4 * scale, (200, 200, 200), int(scale * 0.7))
+                text_x = cx + int(11 * scale)
+                text_y = cy - int(5 * scale)
+                if abs(text_x - ux) < int(25 * scale) and abs(text_y - uy) < int(20 * scale):
+                    text_y -= int(15 * scale)
+                cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.4 * scale, (0, 0, 0), int(2.5 * scale))
+                cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.4 * scale, (200, 200, 200), int(scale * 0.7))
 
         # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest
         incoming = [c for c in display_clouds if c.get("eta_min", 9999) >= -5]
