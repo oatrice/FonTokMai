@@ -844,10 +844,10 @@ class TMDRadarProcessor:
             lbl = dbz_label(predictions[0]["dbz"])
             if stop_idx == -1:
                 max_time = predictions[-1]["time_offset"]
-                return f"🌧️ ขณะนี้มีฝนตกในบริเวณของคุณ ({int(predictions[0]['dbz'])} dBZ — {lbl})\nและคาดว่าจะตกต่อเนื่องถึงอย่างน้อย {fmt_clock_time(max_time)}{warning}"
+                return f"🌧️ ขณะนี้มีฝนตกในบริเวณของคุณ ({int(predictions[0]['dbz'])} dBZ — {lbl})\nและคาดว่าจะตกต่อเนื่องถึงอย่างน้อย {fmt_eta(max_time)} (เวลา {fmt_clock_time(max_time)}){warning}"
             else:
                 stop_time = predictions[stop_idx]["time_offset"]
-                return f"🌧️ ขณะนี้มีฝนตกในบริเวณของคุณ ({int(predictions[0]['dbz'])} dBZ — {lbl})\nและคาดว่าจะหยุดตกเวลาประมาณ {fmt_clock_time(stop_time)}{warning}"
+                return f"🌧️ ขณะนี้มีฝนตกในบริเวณของคุณ ({int(predictions[0]['dbz'])} dBZ — {lbl})\nและคาดว่าจะหยุดตกในอีก {fmt_eta(stop_time)} (เวลาประมาณ {fmt_clock_time(stop_time)}){warning}"
                 
         else:
             # Not raining now: find when it starts
@@ -884,10 +884,10 @@ class TMDRadarProcessor:
                 msg_start = f"🌧️ ฝนกำลังตกอยู่ ({int(start_dbz)} dBZ — {lbl_start})"
                 if stop_idx == -1:
                     max_time = predictions[-1]["time_offset"]
-                    msg_duration = f"และคาดว่าจะตกต่อเนื่องถึงอย่างน้อย {fmt_clock_time(max_time)}"
+                    msg_duration = f"และคาดว่าจะตกต่อเนื่องถึงอย่างน้อย {fmt_eta(max_time)} (เวลา {fmt_clock_time(max_time)})"
                 else:
                     stop_time = predictions[stop_idx]["time_offset"]
-                    msg_duration = f"และคาดว่าจะหยุดตกเวลาประมาณ {fmt_clock_time(stop_time)}"
+                    msg_duration = f"และคาดว่าจะหยุดตกในอีก {fmt_eta(stop_time)} (เวลาประมาณ {fmt_clock_time(stop_time)})"
             else:
                 msg_start = f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} ({int(start_dbz)} dBZ — {lbl_start})"
                 if stop_idx == -1:
