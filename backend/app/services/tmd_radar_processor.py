@@ -336,6 +336,101 @@ class TMDRadarProcessor:
             
         return images
         
+    def generate_multiframe_flow_debug_images(self, frames: List[np.ndarray], user_px: int, user_py: int, min_dbz: float) -> dict:
+        """
+        Applies optical flow to all consecutive pairs in frames and horizontally concatenates
+        the 4 debug views into wide timeline images.
+        """
+        all_masks = []
+        all_hsvs = []
+        all_grids = []
+        all_clusters = []
+        
+        for i in range(len(frames) - 1):
+            prev_img = frames[i]
+            curr_img = frames[i+1]
+            flow = self.calculate_optical_flow([prev_img, curr_img])
+            
+            # 1. Rain Mask
+            curr_gray = self.extract_rain_mask(curr_img)
+            curr_gray_bgr = cv2.cvtColor(curr_gray, cv2.COLOR_GRAY2BGR)
+            
+            # 2. HSV Heatmap
+            hsv = np.zeros((flow.shape[0], flow.shape[1], 3), dtype=np.uint8)
+            hsv[..., 1] = 255
+            mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+            hsv[..., 0] = ang * 180 / np.pi / 2
+            hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+            bgr_flow = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+            
+            # 3. Flow Vector Grid
+            grid_img = curr_img.copy()
+            step = 16
+            h, w = curr_img.shape[:2]
+            y, x = np.mgrid[step/2:h:step, step/2:w:step].reshape(2,-1).astype(int)
+            fx, fy = flow[y,x].T
+            lines = np.vstack([x, y, x+fx*3, y+fy*3]).T.reshape(-1, 2, 2)
+            lines = np.int32(lines + 0.5)
+            cv2.polylines(grid_img, lines, 0, (0, 255, 0), 1)
+            for (x1, y1), (_x2, _y2) in lines:
+                cv2.circle(grid_img, (x1, y1), 1, (0, 255, 0), -1)
+            grid_img_bgr = cv2.cvtColor(grid_img, cv2.COLOR_RGB2BGR)
+            
+            # 4. Clusters
+            clusters = self.get_all_rain_clusters(
+                curr_img, flow, user_px, user_py, 
+                scan_radius=800, min_dbz=min_dbz, cluster_dist=25
+            )
+            cluster_img = curr_img.copy()
+            for c in clusters:
+                cx, cy = c["cx"], c["cy"]
+                vx, vy = c["vx"], c["vy"]
+                size = c.get("size", 10)
+                r = int(math.sqrt(size) * 1.5)
+                cv2.rectangle(cluster_img, (cx - r, cy - r), (cx + r, cy + r), (255, 0, 255), 1)
+                cv2.arrowedLine(cluster_img, (cx, cy), (int(cx + vx*3), int(cy + vy*3)), (255, 255, 0), 2, tipLength=0.3)
+            cluster_img_bgr = cv2.cvtColor(cluster_img, cv2.COLOR_RGB2BGR)
+            
+            # Draw frame index text
+            cv2.putText(curr_gray_bgr, f"Flow {i+1}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255,255,255), 3)
+            cv2.putText(bgr_flow, f"Flow {i+1}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255,255,255), 3)
+            cv2.putText(grid_img_bgr, f"Flow {i+1}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255,255,255), 3)
+            cv2.putText(cluster_img_bgr, f"Flow {i+1}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255,255,255), 3)
+            
+            # Draw vertical divider
+            cv2.line(curr_gray_bgr, (w-2, 0), (w-2, h-1), (80, 80, 80), 3)
+            cv2.line(bgr_flow, (w-2, 0), (w-2, h-1), (80, 80, 80), 3)
+            cv2.line(grid_img_bgr, (w-2, 0), (w-2, h-1), (80, 80, 80), 3)
+            cv2.line(cluster_img_bgr, (w-2, 0), (w-2, h-1), (80, 80, 80), 3)
+            
+            all_masks.append(curr_gray_bgr)
+            all_hsvs.append(bgr_flow)
+            all_grids.append(grid_img_bgr)
+            all_clusters.append(cluster_img_bgr)
+            
+        final_mask = np.hstack(all_masks)
+        final_hsv = np.hstack(all_hsvs)
+        final_grid = np.hstack(all_grids)
+        final_cluster = np.hstack(all_clusters)
+        
+        # Scale to 50% so it's not too huge (2000x400)
+        final_mask = cv2.resize(final_mask, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+        final_hsv = cv2.resize(final_hsv, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+        final_grid = cv2.resize(final_grid, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+        final_cluster = cv2.resize(final_cluster, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+        
+        images = {}
+        _, buf = cv2.imencode(".png", final_mask)
+        images["rain_mask"] = buf.tobytes()
+        _, buf = cv2.imencode(".png", final_hsv)
+        images["flow_hsv"] = buf.tobytes()
+        _, buf = cv2.imencode(".png", final_grid)
+        images["flow_grid"] = buf.tobytes()
+        _, buf = cv2.imencode(".png", final_cluster)
+        images["clusters"] = buf.tobytes()
+        
+        return images
+        
     def get_flow_vector_at(self, flow: np.ndarray, x: int, y: int) -> Tuple[float, float]:
         """Returns the (dx, dy) velocity vector from optical flow array at given pixel."""
         if x < 0 or x >= flow.shape[1] or y < 0 or y >= flow.shape[0]:

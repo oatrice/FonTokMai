@@ -1082,20 +1082,14 @@ async def handle_devmock_command(chat_id: int, command: str):
                 prev_frame = cv2.resize(frames_data[-2], (800, 800), interpolation=cv2.INTER_NEAREST)
                 curr_frame = cv2.resize(frames_data[-1], (800, 800), interpolation=cv2.INTER_NEAREST)
                 
-                flow = await asyncio.to_thread(processor.calculate_optical_flow, [prev_frame, curr_frame])
+                # Resize all frames to 800x800 for the debug image generator
+                resized_frames = [cv2.resize(f, (800, 800), interpolation=cv2.INTER_NEAREST) for f in frames_data]
                 
                 from app.services.weather_manager import _DEV_CONFIG
-                clusters = await asyncio.to_thread(
-                    processor.get_all_rain_clusters,
-                    curr_frame, flow, 400, 400, 
-                    scan_radius=800,
-                    min_dbz=_DEV_CONFIG.get("min_dbz", 10.0),
-                    cluster_dist=25
-                )
                 
                 images = await asyncio.to_thread(
-                    processor.generate_flow_debug_images,
-                    prev_frame, curr_frame, flow, clusters
+                    processor.generate_multiframe_flow_debug_images,
+                    resized_frames, 400, 400, _DEV_CONFIG.get("min_dbz", 10.0)
                 )
                 
                 from app.services.telegram import send_telegram_photo
