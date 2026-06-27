@@ -415,6 +415,91 @@ class WeatherManager:
                 logger.error(f"Open-Meteo Contingency failed: {e_meteo}")
                 return {"advisories": [], "lightning": None, "stormcell": None}
 
+    async def load_persistent_cache_to_memory(self, station_code: str, processor) -> Optional[tuple]:
+        """
+        Loads the radar cache from Firestore, populates _GLOBAL_TMD_CACHE, 
+        and returns the cached data tuple. Returns None if it fails or has no cache.
+        """
+        async with get_repo_context() as repo:
+            cache = await repo.get_latest_radar_cache(station_code)
+        
+        if not cache or not (cache.get("frames") or (cache.get("url_t") and cache.get("url_t_minus_1"))):
+            return None
+
+        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
+        from google.cloud import storage
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        
+        cache_frames = cache.get("frames")
+        if not cache_frames:
+            cache_frames = [
+                {"url": cache.get("url_t"), "timestamp": cache.get("timestamp")},
+                {"url": cache.get("url_t_minus_1"), "timestamp": cache.get("timestamp") - 900}
+            ]
+            
+        cache_frames = sorted(cache_frames, key=lambda x: x["timestamp"])
+        
+        async def fetch_blob(f_data):
+            blob = bucket.blob(f_data["url"])
+            try:
+                img_bytes = await asyncio.to_thread(blob.download_as_bytes)
+                return img_bytes, f_data["timestamp"]
+            except Exception as e:
+                logger.warning(f"Failed to download cached frame {f_data['url']}: {e}")
+                return None, None
+                
+        results = await asyncio.gather(*[fetch_blob(f) for f in cache_frames])
+        valid_frames_data = [res for res in results if res[0] is not None]
+        valid_frames_data.sort(key=lambda x: x[1])
+        
+        if len(valid_frames_data) < 2:
+            return None
+
+        decoded_frames = []
+        target_shape = None
+        import cv2
+        import numpy as np
+        from datetime import datetime, timezone
+        for f_bytes, ts in valid_frames_data[-6:]:
+            t_np = np.frombuffer(f_bytes, np.uint8)
+            frame = cv2.imdecode(t_np, cv2.IMREAD_COLOR)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            if target_shape is None:
+                target_shape = frame.shape[:2]
+            elif frame.shape[:2] != target_shape:
+                frame = cv2.resize(frame, (target_shape[1], target_shape[0]), interpolation=cv2.INTER_NEAREST)
+            decoded_frames.append(frame)
+            
+        frames = decoded_frames
+        frame_timestamps = [ts for _, ts in valid_frames_data[-6:]]
+        last_modified_dt = datetime.fromtimestamp(frame_timestamps[-1], timezone.utc)
+        
+        if _DEV_CONFIG.get("flow_mode", "latest") == "average":
+            flow = processor.calculate_average_optical_flow(frames)
+        else:
+            flow = processor.calculate_optical_flow(frames)
+        
+        data_gap_minutes = (frame_timestamps[-1] - frame_timestamps[-2]) / 60.0
+        if data_gap_minutes > 16.0:
+            # Normalize flow to represent exactly 15 minutes of displacement
+            flow = flow / (data_gap_minutes / 15.0)
+            
+        is_loop = frames[-1].shape[0] < 800 or frames[-1].shape[1] < 800
+        frame_source = "loop_gif" if is_loop else "static_cache"
+        logger.info(
+            f"[{station_code}] 🗃️  Firestore cache LOADED — "
+            f"{len(frames)} frames, source={frame_source}, "
+            f"latest_ts={frame_timestamps[-1] if frame_timestamps else 'n/a'}"
+        )
+        
+        import time
+        _GLOBAL_TMD_CACHE[station_code] = (
+            frames, last_modified_dt, time.time(), flow,
+            frame_source, data_gap_minutes, frame_timestamps,
+        )
+        return _GLOBAL_TMD_CACHE[station_code]
+
     async def _get_tmd_prediction(self, lat: float, lng: float, force_station: Optional[str] = None, mock_state: Optional[str] = None) -> dict:
         """
         Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
@@ -463,81 +548,19 @@ class WeatherManager:
                             f"{len(frames)} frames, source={frame_source}, age={age_s}s"
                         )
                     else:
-                        async with get_repo_context() as repo:
-                            cache = await repo.get_latest_radar_cache(station_code)
-                        
-                        frames = []
-                        last_modified_dt = None
-                        flow = None
-                        frame_source = "static_cache"
-                        frame_timestamps = []
-
-                        if cache and (cache.get("frames") or (cache.get("url_t") and cache.get("url_t_minus_1"))):
-                            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
-                            from google.cloud import storage
-                            client = storage.Client()
-                            bucket = client.bucket(bucket_name)
-                            
-                            cache_frames = cache.get("frames")
-                            if not cache_frames:
-                                cache_frames = [
-                                    {"url": cache.get("url_t"), "timestamp": cache.get("timestamp")},
-                                    {"url": cache.get("url_t_minus_1"), "timestamp": cache.get("timestamp") - 900}
-                                ]
-                                
-                            cache_frames = sorted(cache_frames, key=lambda x: x["timestamp"])
-                            
-                            async def fetch_blob(f_data):
-                                blob = bucket.blob(f_data["url"])
-                                try:
-                                    img_bytes = await asyncio.to_thread(blob.download_as_bytes)
-                                    return img_bytes, f_data["timestamp"]
-                                except Exception as e:
-                                    logger.warning(f"Failed to download cached frame {f_data['url']}: {e}")
-                                    return None, None
-                                    
-                            results = await asyncio.gather(*[fetch_blob(f) for f in cache_frames])
-                            valid_frames_data = [res for res in results if res[0] is not None]
-                            valid_frames_data.sort(key=lambda x: x[1])
-                            
-                            if len(valid_frames_data) >= 2:
-                                decoded_frames = []
-                                target_shape = None
-                                for f_bytes, ts in valid_frames_data[-6:]:
-                                    t_np = np.frombuffer(f_bytes, np.uint8)
-                                    frame = cv2.imdecode(t_np, cv2.IMREAD_COLOR)
-                                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                                    if target_shape is None:
-                                        target_shape = frame.shape[:2]
-                                    elif frame.shape[:2] != target_shape:
-                                        frame = cv2.resize(frame, (target_shape[1], target_shape[0]), interpolation=cv2.INTER_NEAREST)
-                                    decoded_frames.append(frame)
-                                    
-                                frames = decoded_frames
-                                frame_timestamps = [ts for _, ts in valid_frames_data[-6:]]
-                                last_modified_dt = datetime.fromtimestamp(frame_timestamps[-1], timezone.utc)
-                                if _DEV_CONFIG.get("flow_mode", "latest") == "average":
-                                    flow = processor.calculate_average_optical_flow(frames)
-                                else:
-                                    flow = processor.calculate_optical_flow(frames)
-                                
-                                data_gap_minutes = (frame_timestamps[-1] - frame_timestamps[-2]) / 60.0
-                                if data_gap_minutes > 16.0:
-                                    # Normalize flow to represent exactly 15 minutes of displacement
-                                    flow = flow / (data_gap_minutes / 15.0)
-                                    
-                                is_loop = frames[-1].shape[0] < 800 or frames[-1].shape[1] < 800
-                                frame_source = "loop_gif" if is_loop else "static_cache"
-                                logger.info(
-                                    f"[{station_code}] 🗃️  Firestore cache LOADED — "
-                                    f"{len(frames)} frames, source={frame_source}, "
-                                    f"latest_ts={frame_timestamps[-1] if frame_timestamps else 'n/a'}"
-                                )
-                                _GLOBAL_TMD_CACHE[station_code] = (
-                                    frames, last_modified_dt, time.time(), flow,
-                                    frame_source, data_gap_minutes, frame_timestamps,
-                                )
-
+                        cached_data = await self.load_persistent_cache_to_memory(station_code, processor)
+                        if cached_data:
+                            frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
+                            frame_source = cached_data[4]
+                            data_gap_minutes = cached_data[5]
+                            frame_timestamps = list(cached_data[6])
+                        else:
+                            frames = []
+                            last_modified_dt = None
+                            flow = None
+                            frame_source = "static_cache"
+                            frame_timestamps = []
+                            data_gap_minutes = 15.0
                         if not frames or len(frames) < 2:
                             fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
                             if len(fresh_frames) >= 2:

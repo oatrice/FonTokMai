@@ -1092,7 +1092,13 @@ async def handle_devmock_command(chat_id: int, command: str):
             
             cached_data = _GLOBAL_TMD_CACHE.get(station)
             if not cached_data or not cached_data[0]:
-                await send_telegram_message(chat_id, f"❌ ไม่มี Cache เก่าสำหรับ {station} (ต้องใช้ /rain ปกติเพื่อให้มี Cache เริ่มต้นก่อนครับ)")
+                from app.services.weather_manager import WeatherManager
+                wm = WeatherManager()
+                processor = TMDRadarProcessor(station)
+                cached_data = await wm.load_persistent_cache_to_memory(station, processor)
+                
+            if not cached_data or not cached_data[0]:
+                await send_telegram_message(chat_id, f"❌ ไม่มี Cache เก่าสำหรับ {station} (ในฐานข้อมูลก็ไม่มีเช่นกัน ต้องใช้ /rain ก่อนครับ)")
                 return
                 
             frames = list(cached_data[0])
