@@ -863,21 +863,43 @@ class TMDRadarProcessor:
             start_dbz = predictions[start_idx]["dbz"]
             lbl_start = dbz_label(start_dbz)
             
+            # Find when it stops after starting (first step after start_idx where dbz < 15.0)
+            stop_idx = -1
+            for j in range(start_idx + 1, len(predictions)):
+                if predictions[j]["dbz"] < 15.0:
+                    stop_idx = j
+                    break
+            
             adj_start = start_time - time_offset_min
             if adj_start <= 0:
                 msg_start = f"🌧️ ฝนกำลังตกอยู่ ({int(start_dbz)} dBZ — {lbl_start})"
+                if stop_idx == -1:
+                    max_time = predictions[-1]["time_offset"]
+                    msg_duration = f"และคาดว่าจะตกต่อเนื่องอย่างน้อย {fmt_eta(max_time)}"
+                else:
+                    stop_time = predictions[stop_idx]["time_offset"]
+                    msg_duration = f"และคาดว่าจะหยุดใน {fmt_eta(stop_time)}"
             else:
                 msg_start = f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} ({int(start_dbz)} dBZ — {lbl_start})"
+                if stop_idx == -1:
+                    max_time = predictions[-1]["time_offset"]
+                    duration = int(max_time - start_time)
+                    msg_duration = f"และคาดว่าจะตกต่อเนื่องอย่างน้อย {duration} นาที"
+                else:
+                    stop_time = predictions[stop_idx]["time_offset"]
+                    duration = int(stop_time - start_time)
+                    msg_duration = f"และคาดว่าจะตกต่อเนื่องประมาณ {duration} นาที"
             
             if max_idx > start_idx and max_dbz >= start_dbz + 15.0:
                 max_time = predictions[max_idx]["time_offset"]
                 lbl_max = dbz_label(max_dbz)
                 return (
                     f"{msg_start}\n"
-                    f"⚡ และจะตกหนักขึ้นใน {fmt_eta(max_time)} ({int(max_dbz)} dBZ — {lbl_max}){warning}"
+                    f"⚡ และจะตกหนักขึ้นใน {fmt_eta(max_time)} ({int(max_dbz)} dBZ — {lbl_max})\n"
+                    f"{msg_duration}{warning}"
                 )
             else:
-                return f"{msg_start}{warning}"
+                return f"{msg_start}\n{msg_duration}{warning}"
 
     @staticmethod
     def get_all_rain_clusters(
