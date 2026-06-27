@@ -1216,12 +1216,15 @@ class TMDRadarProcessor:
                 # Draw points and labels
                 last_labeled_pt = None
                 for i, (cx, cy, p) in enumerate(pts):
-                    # Always draw a small dot for the trajectory point
-                    cv2.circle(img, (cx, cy), int(2.5 * scale), (0, 255, 255), -1)
+                    # Draw trajectory point colored by its DBZ intensity (with a black outline for contrast)
+                    dbz_val = p.get("dbz", 0.0)
+                    dot_color = _dbz_color(dbz_val) if dbz_val >= 10.0 else (200, 200, 200)
+                    cv2.circle(img, (cx, cy), int(3.5 * scale), (0, 0, 0), -1)
+                    cv2.circle(img, (cx, cy), int(2.2 * scale), dot_color, -1)
                     
                     if i > 0:
                         prev_cx, prev_cy, _ = pts[i-1]
-                        cv2.line(img, (prev_cx, prev_cy), (cx, cy), (0, 255, 255), int(1.5 * scale))
+                        cv2.line(img, (prev_cx, prev_cy), (cx, cy), (0, 255, 255), int(1.2 * scale))
                     
                     eta = p.get("time_offset", 0)
                     # Label every 3 steps (45m) or the very first step (>0) or last step
