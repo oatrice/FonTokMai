@@ -78,7 +78,7 @@ def _build_forecast_text(result: dict) -> str:
                     eta_minutes = 0
                 break
 
-    if eta_minutes is not None or result.get("max_rain", 0) > 0:
+    if eta_minutes is not None or result.get("max_rain", 0) > 0 or result.get("rain_summary"):
         intensity_str = result.get("intensity", "ไม่ทราบ")
         duration_min = result.get("duration_minutes", 0)
         rain_summary = result.get("rain_summary")
@@ -100,11 +100,13 @@ def _build_forecast_text(result: dict) -> str:
             if duration_min > 0:
                 text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {format_duration_text(duration_min)}\n"
         
+        has_rain_or_clouds = "ยังไม่มีแนวโน้มฝนตก" not in result.get("rain_summary", "") or "หมายเหตุ: ตรวจพบกลุ่มฝน" in result.get("rain_summary", "")
+        
         wind_kmh = result.get("wind_speed_kmh", 0)
         wind_dir = result.get("wind_dir_text", "ไม่ทราบ")
         if wind_kmh > 0:
             if "tmd-radar" in actual_endpoint:
-                if "ไม่พบฝน" not in result.get("rain_summary", ""):
+                if has_rain_or_clouds:
                     text += f"🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
             else:
                 text += f"🌬️ สภาพลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
@@ -114,7 +116,7 @@ def _build_forecast_text(result: dict) -> str:
                 text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {format_duration_text(duration_min)}\n"
 
         growth_rate = result.get("growth_rate_pct")
-        if growth_rate is not None and "ไม่พบฝน" not in result.get("rain_summary", ""):
+        if growth_rate is not None and has_rain_or_clouds:
             if growth_rate > 5.0:
                 text += f"📈 พัฒนาการเมฆฝน (15 นาทีที่ผ่านมา): กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%/15min)\n"
             elif growth_rate < -5.0:
