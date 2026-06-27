@@ -1058,6 +1058,16 @@ class TMDRadarProcessor:
         cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
         cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(10 * scale), int(3 * scale))
         
+        # Draw Hit Zone boundary (hit_radius = 20)
+        hit_r = int(20 * scale)
+        import math as _m
+        for angle_deg in range(0, 360, 15):
+            a1 = _m.radians(angle_deg)
+            a2 = _m.radians(angle_deg + 8)
+            p1 = (int(ux + hit_r * _m.cos(a1)), int(uy + hit_r * _m.sin(a1)))
+            p2 = (int(ux + hit_r * _m.cos(a2)), int(uy + hit_r * _m.sin(a2)))
+            cv2.line(img, p1, p2, (0, 165, 255), int(1.2 * scale)) # Orange dashed line
+        
         def _dbz_color(dbz):
             if dbz >= 60: return (155, 89, 182)   # Purple
             elif dbz >= 50: return (231, 76, 60)  # Red
@@ -1100,6 +1110,7 @@ class TMDRadarProcessor:
                 if abs(cx - ux) < int(25 * scale) and abs(cy - uy) < int(20 * scale):
                     text_y = cy - int(15 * scale) if cy <= uy else cy + int(20 * scale)
                     
+                logger.info(f"[DRAW_TEXT] Cluster '{label_txt}' at ({text_x}, {text_y})")
                 cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (0, 0, 0), int(3.5 * scale))
                 cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (255, 255, 255), int(1.5 * scale))
             else:
@@ -1159,28 +1170,38 @@ class TMDRadarProcessor:
                 # Draw points and labels
                 last_labeled_pt = None
                 for i, (cx, cy, p) in enumerate(pts):
-                    if i == 0: continue # Skip step 0 (already marked by user pin)
-                    eta = p.get("time_offset", i*15)
-                    cv2.circle(img, (cx, cy), int(2.5 * scale), (255, 255, 0), -1)
+                    # Always draw a small dot for the trajectory point
+                    cv2.circle(img, (cx, cy), int(2.5 * scale), (0, 255, 255), -1)
                     
-                    # Label every step to match timeline, but prevent overlapping
+                    eta = p.get("time_offset", 0)
+                    # Label every 3 steps (45m) or the very first step (>0) or last step
                     should_label = False
-                    if last_labeled_pt is None:
-                        should_label = True
-                    else:
-                        dist = math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1])
-                        if dist > 18 * scale:
+                    if eta > 0 and (i == 1 or i == len(pts)-1 or (eta % 45 == 0)):
+                        if last_labeled_pt is None:
                             should_label = True
-                            
-                    # Ensure the final point is labeled if there's at least some room
+                        else:
+                            # prevent label crowding
+                            if math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 18 * scale:
+                                should_label = True
+                                
+                        # Prevent overlapping with the cloud's A: ... label
+                        if should_label:
+                            for c_app in incoming[:3]:
+                                app_cx = int((c_app["cx"] - x1) * scale)
+                                app_cy = int((c_app["cy"] - y1) * scale)
+                                if math.hypot(cx - app_cx, cy - app_cy) < 25 * scale:
+                                    should_label = False
+                                    break
+
                     if i == len(pts) - 1 and not should_label:
                         if last_labeled_pt and math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 10 * scale:
                             should_label = True
                             
                     if should_label:
                         label = f"{eta}m"
-                        tx = cx + int(4 * scale)
-                        ty = cy - int(4 * scale)
+                        tx = cx + int(6 * scale)
+                        ty = cy - int(12 * scale)
+                        logger.info(f"[DRAW_TEXT] Trajectory '{label}' at ({tx}, {ty})")
                         cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (0, 0, 0), int(2.5 * scale))
                         cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (255, 255, 255), int(1 * scale))
                         last_labeled_pt = (cx, cy)

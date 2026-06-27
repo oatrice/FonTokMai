@@ -663,14 +663,20 @@ class WeatherManager:
                     cluster_dist=25,
                 )
                 
+                # Label all_rain_clusters FIRST
+                if all_rain_clusters:
+                    for i, c in enumerate(all_rain_clusters):
+                        # Use A-Z, then AA-ZZ if needed (though usually < 26)
+                        c["label"] = chr(ord('A') + min(i, 25))
+                        
                 # Match labels from all_rain_clusters to clouds
                 if all_rain_clusters and clouds:
                     for appr_c in clouds:
                         matched_label = "?"
-                        min_d = 999
+                        min_d = 9999
                         for amb_c in all_rain_clusters:
                             d = math.hypot(appr_c["cx"] - amb_c["cx"], appr_c["cy"] - amb_c["cy"])
-                            if d < 30 and d < min_d:
+                            if d < 150 and d < min_d:
                                 min_d = d
                                 matched_label = amb_c.get("label", "?")
                         appr_c["label"] = matched_label
