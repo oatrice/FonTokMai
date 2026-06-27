@@ -1033,6 +1033,38 @@ async def handle_devmock_command(chat_id: int, command: str):
                 await send_telegram_message(chat_id, "🛠️ Dev Config รีเซ็ตเป็นค่า default แล้วครับ ✅")
                 return
 
+            import re as _re
+            changed = []
+            for pair in _re.findall(r'(\w+):([a-zA-Z0-9_.-]+)', args):
+                key, raw_val = pair
+                if key not in _DEV_CONFIG:
+                    continue
+                try:
+                    cur = _DEV_CONFIG[key]
+                    if isinstance(cur, bool):
+                        new_val = raw_val.lower() in ("true", "1", "yes")
+                    elif isinstance(cur, (int, float)):
+                        new_val = type(cur)(raw_val)
+                    else:
+                        new_val = raw_val
+                    _DEV_CONFIG[key] = new_val
+                    changed.append(f"  <code>{key}</code>: {cur} → <b>{new_val}</b>")
+                except Exception:
+                    pass
+            if changed:
+                await repo.set_global_dev_config(_DEV_CONFIG)
+                await send_telegram_message(
+                    chat_id,
+                    "🛠️ <b>Dev Config อัพเดต</b>\n" + "\n".join(changed),
+                    parse_mode="HTML",
+                )
+            else:
+                await send_telegram_message(
+                    chat_id,
+                    "⚠️ ไม่พบ key ที่รู้จัก\nKey ที่รองรับ: <code>" + ", ".join(_DEV_CONFIG.keys()) + "</code>",
+                    parse_mode="HTML",
+                )
+
         # ── /devmock cleancache [station] ──────────────────────────────────────
         elif command.startswith("/devmock cleancache"):
             args = command.removeprefix("/devmock cleancache").strip()
@@ -1127,39 +1159,7 @@ async def handle_devmock_command(chat_id: int, command: str):
             if saved_frames:
                 await repo.set_latest_radar_cache(station_code=station, frames=saved_frames)
                 
-            await send_telegram_message(chat_id, f"✅ ต่อภาพล่าสุด ({new_dt.strftime('%H:%M')}) สำเร็จ! อัพเดต Cache และ Optical Flow เรียบร้อยครับ")
-
-            import re as _re
-            changed = []
-            for pair in _re.findall(r'(\w+):([a-zA-Z0-9_.-]+)', args):
-                key, raw_val = pair
-                if key not in _DEV_CONFIG:
-                    continue
-                try:
-                    cur = _DEV_CONFIG[key]
-                    if isinstance(cur, bool):
-                        new_val = raw_val.lower() in ("true", "1", "yes")
-                    elif isinstance(cur, (int, float)):
-                        new_val = type(cur)(raw_val)
-                    else:
-                        new_val = raw_val
-                    _DEV_CONFIG[key] = new_val
-                    changed.append(f"  <code>{key}</code>: {cur} → <b>{new_val}</b>")
-                except Exception:
-                    pass
-            if changed:
-                await repo.set_global_dev_config(_DEV_CONFIG)
-                await send_telegram_message(
-                    chat_id,
-                    "🛠️ <b>Dev Config อัพเดต</b>\n" + "\n".join(changed),
-                    parse_mode="HTML",
-                )
-            else:
-                await send_telegram_message(
-                    chat_id,
-                    "⚠️ ไม่พบ key ที่รู้จัก\nKey ที่รองรับ: <code>" + ", ".join(_DEV_CONFIG.keys()) + "</code>",
-                    parse_mode="HTML",
-                )
+                await send_telegram_message(chat_id, f"✅ ต่อภาพล่าสุด ({new_dt.strftime('%H:%M')}) สำเร็จ! อัพเดต Cache และ Optical Flow เรียบร้อยครับ")
 
         # ── /devmock visualize_flow [station] ──────────────────────────────────
         elif command.startswith("/devmock visualize_flow"):

@@ -854,15 +854,21 @@ class TMDRadarProcessor:
             start_dbz = predictions[start_idx]["dbz"]
             lbl_start = dbz_label(start_dbz)
             
+            adj_start = start_time - time_offset_min
+            if adj_start <= 0:
+                msg_start = f"🌧️ ฝนกำลังตกอยู่ ({int(start_dbz)} dBZ — {lbl_start})"
+            else:
+                msg_start = f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} ({int(start_dbz)} dBZ — {lbl_start})"
+            
             if max_idx > start_idx and max_dbz >= start_dbz + 15.0:
                 max_time = predictions[max_idx]["time_offset"]
                 lbl_max = dbz_label(max_dbz)
                 return (
-                    f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} ({int(start_dbz)} dBZ — {lbl_start})\n"
+                    f"{msg_start}\n"
                     f"⚡ และจะตกหนักขึ้นใน {fmt_eta(max_time)} ({int(max_dbz)} dBZ — {lbl_max}){warning}"
                 )
             else:
-                return f"⚡ ฝนกำลังจะมาใน {fmt_eta(start_time)} ({int(start_dbz)} dBZ — {lbl_start}){warning}"
+                return f"{msg_start}{warning}"
 
     @staticmethod
     def get_all_rain_clusters(
@@ -1008,7 +1014,6 @@ class TMDRadarProcessor:
         - clouds: approaching-only clusters (ETA-filtered)
         - all_rain_clusters: every rain cluster visible in scan radius
         """
-        # Determine what to draw
         display_clouds = clouds or []          # approaching, drawn with direction label
         ambient_clouds = [                     # non-approaching, drawn as plain circles
             c for c in (all_rain_clusters or [])
@@ -1017,9 +1022,18 @@ class TMDRadarProcessor:
                 for d in display_clouds
             )
         ] if all_rain_clusters else []
+        
+        from app.services.weather_manager import _DEV_CONFIG
+        if _DEV_CONFIG.get("verbose"):
+            logger.info(f"[TRACKING_IMG] Preparing to draw. display_clouds={len(display_clouds)}, ambient_clouds={len(ambient_clouds)}")
+            for c in display_clouds:
+                logger.info(f"[TRACKING_IMG] Approaching cluster {c.get('label', '?')}: dbz={c.get('dbz_now', 0)}, pos=({c['cx']},{c['cy']}), v=({c.get('vx',0):.2f},{c.get('vy',0):.2f})")
+            for c in ambient_clouds:
+                logger.info(f"[TRACKING_IMG] Ambient cluster {c.get('label', '?')}: dbz={c.get('dbz_now', 0)}, pos=({c['cx']},{c['cy']})")
 
         if frame is None or (not display_clouds and not ambient_clouds):
             return None
+
         
         # Crop a 240x240 region around the user
         crop_r = 120
