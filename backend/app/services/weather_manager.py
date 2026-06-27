@@ -811,7 +811,7 @@ class WeatherManager:
                 for steps in range(7):
                     offset_min = steps * 15
                     dbz, src_x, src_y = processor.extrapolate_rain_at_pixel(
-                        curr_frame, flow, px, py, steps=steps, radius=5,
+                        curr_frame, flow, px, py, steps=steps, radius=8,
                         fallback_vx=fallback_vx, fallback_vy=fallback_vy
                     )
                     
