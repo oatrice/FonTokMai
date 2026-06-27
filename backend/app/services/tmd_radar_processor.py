@@ -914,7 +914,7 @@ class TMDRadarProcessor:
                 stop_time = predictions[stop_idx]["time_offset"]
                 msg_duration = f"และคาดว่าจะหยุดตกในอีก {fmt_eta(stop_time)} (เวลาประมาณ {fmt_clock_time(stop_time)})"
         else:
-            msg_start = f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} ({int(start_dbz)} dBZ — {lbl_start})"
+            msg_start = f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} (เวลาประมาณ {fmt_clock_time(start_time)}) ({int(start_dbz)} dBZ — {lbl_start})"
             if stop_idx == -1:
                 max_time = predictions[-1]["time_offset"]
                 duration = int(max_time - start_time)
