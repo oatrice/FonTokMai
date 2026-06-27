@@ -237,7 +237,8 @@ async def process_telegram_location(
         gif_bytes = result.get("radar_gif_bytes")
         hq_gif_bytes = result.get("radar_hq_gif_bytes")
         static_bytes = result.get("radar_static_bytes")
-        tracking_bytes = result.get("radar_tracking_bytes")
+        tracking_clouds_bytes = result.get("radar_tracking_clouds_bytes")
+        tracking_traj_bytes = result.get("radar_tracking_traj_bytes")
         timeline_bytes = result.get("rain_timeline_bytes")
         multiframe_bytes = result.get("radar_multiframe_bytes")
         
@@ -249,8 +250,11 @@ async def process_telegram_location(
         if timeline_bytes:
             await send_telegram_photo(chat_id, timeline_bytes, "rain_timeline.png")
             
-        if tracking_bytes:
-            await send_telegram_photo(chat_id, tracking_bytes, "radar_tracking.png")
+        if tracking_clouds_bytes:
+            await send_telegram_photo(chat_id, tracking_clouds_bytes, "radar_tracking_clouds.png")
+
+        if tracking_traj_bytes:
+            await send_telegram_photo(chat_id, tracking_traj_bytes, "radar_tracking_traj.png")
 
         if multiframe_bytes:
             await send_telegram_photo(chat_id, multiframe_bytes, "radar_multiframe.png")

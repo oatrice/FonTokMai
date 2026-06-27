@@ -893,15 +893,21 @@ class WeatherManager:
                     return static_buffer.getvalue()
 
                 static_bytes = None
-                tracking_bytes = None
+                tracking_clouds_bytes = None
+                tracking_traj_bytes = None
                 timeline_bytes = None
                 multiframe_bytes = None
                 try:
                     static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor)
-                    tracking_bytes = await asyncio.to_thread(
+                    tracking_clouds_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
-                        all_rain_clusters, predictions
+                        all_rain_clusters, predictions, True, False
+                    )
+                    tracking_traj_bytes = await asyncio.to_thread(
+                        processor.generate_radar_tracking_image,
+                        curr_frame.copy(), user_px, user_py, clouds, now_utc,
+                        all_rain_clusters, predictions, False, True
                     )
                     
                     # Create adjusted predictions for the timeline so it displays actual ETA from NOW
@@ -938,7 +944,8 @@ class WeatherManager:
                     "radar_gif_bytes":   None,
                     "radar_hq_gif_bytes": None,
                     "radar_static_bytes": static_bytes,
-                    "radar_tracking_bytes": tracking_bytes,
+                    "radar_tracking_clouds_bytes": tracking_clouds_bytes,
+                    "radar_tracking_traj_bytes": tracking_traj_bytes,
                     "rain_timeline_bytes": timeline_bytes,
                     "radar_multiframe_bytes": multiframe_bytes,
                     "tmd_timestamp_utc": now_utc.isoformat(),

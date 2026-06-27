@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 from app.dependencies import get_repo_context
 from app.services.weather_manager import WeatherManager
 from app.services.metrics_service import MetricsService
-from app.services.telegram import send_telegram_message, send_telegram_document, send_telegram_photo, get_radar_inline_keyboard, DEVELOPER_CHAT_IDS
+from app.services.telegram import send_telegram_message, send_telegram_document, send_telegram_photo, send_telegram_raw_document, get_radar_inline_keyboard, DEVELOPER_CHAT_IDS
 
 logger = logging.getLogger(__name__)
 
@@ -185,12 +185,14 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                 
                 gif_bytes = result.get("radar_gif_bytes")
                 static_bytes = result.get("radar_static_bytes")
-                tracking_bytes = result.get("radar_tracking_bytes")
+                tracking_clouds_bytes = result.get("radar_tracking_clouds_bytes")
+                tracking_traj_bytes = result.get("radar_tracking_traj_bytes")
                 timeline_bytes = result.get("rain_timeline_bytes")
                 
                 if static_bytes: await send_telegram_photo(loc.chat_id, static_bytes, "radar_latest.png")
                 if timeline_bytes: await send_telegram_photo(loc.chat_id, timeline_bytes, "rain_timeline.png")
-                if tracking_bytes: await send_telegram_photo(loc.chat_id, tracking_bytes, "radar_tracking.png")
+                if tracking_clouds_bytes: await send_telegram_photo(loc.chat_id, tracking_clouds_bytes, "radar_tracking_clouds.png")
+                if tracking_traj_bytes: await send_telegram_photo(loc.chat_id, tracking_traj_bytes, "radar_tracking_traj.png")
                 if gif_bytes: await send_telegram_document(loc.chat_id, gif_bytes, "radar_nowcast.gif")
                 
                 await repo.update_last_alerted(loc, now, max_rain=max_rain)

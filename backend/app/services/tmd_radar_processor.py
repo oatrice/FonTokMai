@@ -1008,6 +1008,8 @@ class TMDRadarProcessor:
         time_utc: datetime = None,
         all_rain_clusters: list = None,
         predictions: list = None,
+        show_clouds: bool = True,
+        show_trajectory: bool = True
     ) -> Optional[bytes]:
         """Generate zoomed radar tracking image.
         
@@ -1141,37 +1143,39 @@ class TMDRadarProcessor:
                 cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.4 * scale, (0, 0, 0), int(2.5 * scale))
                 cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.4 * scale, (200, 200, 200), int(scale * 0.7))
 
-        # Draw approaching clouds (limit to top 3 strongest to avoid clutter)
-        incoming = [c for c in display_clouds if c.get("eta_min", 9999) >= -120]
-        incoming.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
-        for c in incoming[:3]:
-            _draw_cloud(c, is_approaching=True)
-
-        # Draw ambient (non-approaching) clusters, up to 8
-        ambient_clouds.sort(key=lambda c: c.get("dist", 9999))
-        for c in ambient_clouds[:8]:
-            _draw_cloud(c, is_approaching=False)
+        if show_clouds:
+            # Draw approaching clouds (limit to top 3 strongest to avoid clutter)
+            incoming = [c for c in display_clouds if c.get("eta_min", 9999) >= -120]
+            incoming.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
+            for c in incoming[:3]:
+                _draw_cloud(c, is_approaching=True)
+    
+            # Draw ambient (non-approaching) clusters, up to 8
+            ambient_clouds.sort(key=lambda c: c.get("dist", 9999))
+            for c in ambient_clouds[:8]:
+                _draw_cloud(c, is_approaching=False)
 
         # ── Draw Prediction Trajectory (Backward Ray) ──
-        if predictions:
+        if show_trajectory and predictions:
+            # We trace from user's location BACKWARDS to show where the incoming rain is coming from
             pts = []
             for p in predictions:
-                px_orig, py_orig = p.get("src_x"), p.get("src_y")
-                if px_orig is not None and py_orig is not None:
-                    cx = int((px_orig - x1) * scale)
-                    cy = int((py_orig - y1) * scale)
-                    pts.append((cx, cy, p))
-            
+                px_pred = p["src_x"]
+                py_pred = p["src_y"]
+                cx = int((px_pred - x1) * scale)
+                cy = int((py_pred - y1) * scale)
+                pts.append((cx, cy, p))
+
             if len(pts) > 1:
-                # Draw dashed-like connecting line
-                for i in range(1, len(pts)):
-                    cv2.line(img, (pts[i-1][0], pts[i-1][1]), (pts[i][0], pts[i][1]), (255, 255, 255), int(1.2 * scale))
-                
                 # Draw points and labels
                 last_labeled_pt = None
                 for i, (cx, cy, p) in enumerate(pts):
                     # Always draw a small dot for the trajectory point
                     cv2.circle(img, (cx, cy), int(2.5 * scale), (0, 255, 255), -1)
+                    
+                    if i > 0:
+                        prev_cx, prev_cy, _ = pts[i-1]
+                        cv2.line(img, (prev_cx, prev_cy), (cx, cy), (0, 255, 255), int(1.5 * scale))
                     
                     eta = p.get("time_offset", 0)
                     # Label every 3 steps (45m) or the very first step (>0) or last step
@@ -1185,7 +1189,7 @@ class TMDRadarProcessor:
                                 should_label = True
                                 
                         # Prevent overlapping with the cloud's A: ... label
-                        if should_label:
+                        if should_label and show_clouds:
                             for c_app in incoming[:3]:
                                 app_cx = int((c_app["cx"] - x1) * scale)
                                 app_cy = int((c_app["cy"] - y1) * scale)
