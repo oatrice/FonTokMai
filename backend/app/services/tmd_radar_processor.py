@@ -1075,7 +1075,8 @@ class TMDRadarProcessor:
         all_rain_clusters: list = None,
         predictions: list = None,
         show_clouds: bool = True,
-        show_trajectory: bool = True
+        show_trajectory: bool = True,
+        time_offset_min: float = 0.0
     ) -> Optional[bytes]:
         """Generate zoomed radar tracking image.
         
@@ -1188,7 +1189,7 @@ class TMDRadarProcessor:
                     cv2.arrowedLine(img, (arrow_start_x, arrow_start_y), (arrow_start_x + vx_scaled, arrow_start_y + vy_scaled), (255, 255, 0), int(1.5 * scale), tipLength=0.3)
                 
                 # ETA label
-                eta = c_orig.get("eta_min", 0)
+                eta = max(1.0, float(c_orig.get("eta_min", 0)) - time_offset_min)
                 if eta <= 0:
                     label_txt = f"{c_orig.get('label', '')} (Now)"
                 else:

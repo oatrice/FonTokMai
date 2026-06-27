@@ -854,13 +854,12 @@ class WeatherManager:
 
                 current_dbz = predictions[0]["dbz"]
                 intensity   = predictions[0]["intensity"]
-                
                 summary_line = processor.render_rain_summary(
                     predictions=predictions,
                     time_offset_min=time_offset_min,
-                    confidence_score=confidence_score
+                    confidence_score=confidence_score,
+                    approaching_clouds=clouds
                 )
-                
                 # Sync cluster ETA with accurate pixel-level predictions
                 if clouds:
                     for c in clouds:
@@ -924,7 +923,7 @@ class WeatherManager:
                     tracking_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
-                        all_rain_clusters, predictions, True, True
+                        all_rain_clusters, predictions, True, True, time_offset_min
                     )
                     
                     # Create adjusted predictions for the timeline so it displays actual ETA from NOW
