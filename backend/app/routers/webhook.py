@@ -1018,6 +1018,7 @@ async def handle_devmock_command(chat_id: int, command: str):
                     "<code>/devmock config search_radius:120</code>\n"
                     "<code>/devmock config min_dbz:5</code>\n"
                     "<code>/devmock config dot_threshold:0.3</code>\n"
+                    "<code>/devmock config flow_mode:average</code>\n"
                     "<code>/devmock config reset</code> — คืนค่า default"
                 )
                 await send_telegram_message(chat_id, "\n".join(lines_cfg), parse_mode="HTML")
@@ -1033,13 +1034,18 @@ async def handle_devmock_command(chat_id: int, command: str):
 
             import re as _re
             changed = []
-            for pair in _re.findall(r'(\w+):([+-]?[\d.]+)', args):
+            for pair in _re.findall(r'(\w+):([a-zA-Z0-9_.-]+)', args):
                 key, raw_val = pair
                 if key not in _DEV_CONFIG:
                     continue
                 try:
                     cur = _DEV_CONFIG[key]
-                    new_val = type(cur)(raw_val)
+                    if isinstance(cur, bool):
+                        new_val = raw_val.lower() in ("true", "1", "yes")
+                    elif isinstance(cur, (int, float)):
+                        new_val = type(cur)(raw_val)
+                    else:
+                        new_val = raw_val
                     _DEV_CONFIG[key] = new_val
                     changed.append(f"  <code>{key}</code>: {cur} → <b>{new_val}</b>")
                 except Exception:
@@ -1089,7 +1095,7 @@ async def handle_devmock_command(chat_id: int, command: str):
                 
                 images = await asyncio.to_thread(
                     processor.generate_multiframe_flow_debug_images,
-                    resized_frames, 400, 400, _DEV_CONFIG.get("min_dbz", 10.0)
+                    resized_frames, 400, 400, _DEV_CONFIG.get("min_dbz", 10.0), _DEV_CONFIG.get("flow_mode", "latest")
                 )
                 
                 from app.services.telegram import send_telegram_photo

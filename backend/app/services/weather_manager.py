@@ -26,6 +26,8 @@ _DEV_CONFIG: dict = {
     "search_radius":  80,     # px radius to scan for approaching clouds
     "min_dbz":        10.0,   # minimum dBZ to count as rain
     "dot_threshold":  0.5,    # dot product threshold (how directly it must approach)
+    "flow_mode":      "average", # 'latest' or 'average'
+    "verbose":        False,  # Enable verbose debugging logs
 }
 
 
@@ -514,7 +516,10 @@ class WeatherManager:
                                 frames = decoded_frames
                                 frame_timestamps = [ts for _, ts in valid_frames_data[-6:]]
                                 last_modified_dt = datetime.fromtimestamp(frame_timestamps[-1], timezone.utc)
-                                flow = processor.calculate_optical_flow(frames)
+                                if _DEV_CONFIG.get("flow_mode", "latest") == "average":
+                                    flow = processor.calculate_average_optical_flow(frames)
+                                else:
+                                    flow = processor.calculate_optical_flow(frames)
                                 
                                 data_gap_minutes = (frame_timestamps[-1] - frame_timestamps[-2]) / 60.0
                                 if data_gap_minutes > 16.0:
@@ -550,7 +555,10 @@ class WeatherManager:
                                     ]
                                 else:
                                     frame_timestamps = []
-                                flow = processor.calculate_optical_flow(frames)
+                                if _DEV_CONFIG.get("flow_mode", "latest") == "average":
+                                    flow = processor.calculate_average_optical_flow(frames)
+                                else:
+                                    flow = processor.calculate_optical_flow(frames)
                                 data_gap_minutes = 15.0 # Loop GIFs are assumed to be exactly 15m apart
                                 frame_source = "loop_gif"
                                 logger.warning(
@@ -722,12 +730,6 @@ class WeatherManager:
                 if gap_min > 20 or data_age_minutes > 30:
                     confidence_score = 0.5
 
-                summary_line = processor.render_rain_summary(
-                    clouds, 
-                    confidence_cutoff_min=90, 
-                    time_offset_min=time_offset_min,
-                    confidence_score=confidence_score
-                )
 
                 def dbz_to_intensity(d: float) -> str:
                     if d >= 55: return "ฝนตกหนักมาก"
@@ -740,18 +742,18 @@ class WeatherManager:
                 max_dbz = 0.0
                 current_dbz = processor.get_dbz_at_pixel(curr_frame, px, py)
                 
-                for steps in range(5):
+                for steps in range(7):
                     offset_min = steps * 15
-                    if steps == 0:
-                        dbz = current_dbz
-                    else:
-                        dbz = 0.0
-                        window_min = offset_min - 7.5
-                        window_max = offset_min + 7.5
-                        for c in clouds:
-                            if window_min <= c["eta_min"] < window_max:
-                                if c["predicted_dbz"] > dbz:
-                                    dbz = c["predicted_dbz"]
+                    dbz, src_x, src_y = processor.extrapolate_rain_at_pixel(curr_frame, flow, px, py, steps=steps, radius=5)
+                    
+                    cluster_label = None
+                    if dbz >= 10.0 and all_rain_clusters:
+                        min_dist = 9999
+                        for c in all_rain_clusters:
+                            d = math.hypot(c["cx"] - src_x, c["cy"] - src_y)
+                            if d < 100 and d < min_dist:  # Large clusters can have centroids far from edges
+                                min_dist = d
+                                cluster_label = c.get("label")
                                     
                     if mock_state == "rain":
                         dbz = max(dbz, 40.0)
@@ -770,10 +772,20 @@ class WeatherManager:
                         "intensity":   dbz_to_intensity(dbz),
                         "dbz":         float(dbz),
                         "rain":        float(rain_mmhr),
+                        "cluster":     cluster_label
                     })
+                    
+                    if _DEV_CONFIG.get("verbose"):
+                        logger.info(f"[VERBOSE] Step {steps} (+{offset_min}m): dbz={dbz:.1f} src=({src_x},{src_y}) cluster={cluster_label}")
 
                 current_dbz = predictions[0]["dbz"]
                 intensity   = predictions[0]["intensity"]
+                
+                summary_line = processor.render_rain_summary(
+                    predictions=predictions,
+                    time_offset_min=time_offset_min,
+                    confidence_score=confidence_score
+                )
                 
                 if clouds:
                     wind_speed = processor.get_wind_speed_kmh_from_vector(clouds[0]["vx"], clouds[0]["vy"])
@@ -831,7 +843,7 @@ class WeatherManager:
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
                         all_rain_clusters,
                     )
-                    timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, clouds)
+                    timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, predictions)
                     if len(frames) >= 2:
                         multiframe_bytes = await asyncio.to_thread(
                             processor.generate_multiframe_analysis_image,

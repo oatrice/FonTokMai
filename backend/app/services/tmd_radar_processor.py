@@ -336,7 +336,7 @@ class TMDRadarProcessor:
             
         return images
         
-    def generate_multiframe_flow_debug_images(self, frames: List[np.ndarray], user_px: int, user_py: int, min_dbz: float) -> dict:
+    def generate_multiframe_flow_debug_images(self, frames: List[np.ndarray], user_px: int, user_py: int, min_dbz: float, flow_mode: str = "latest") -> dict:
         """
         Applies optical flow to all consecutive pairs in frames and horizontally concatenates
         the 4 debug views into wide timeline images.
@@ -347,9 +347,12 @@ class TMDRadarProcessor:
         all_clusters = []
         
         for i in range(len(frames) - 1):
-            prev_img = frames[i]
             curr_img = frames[i+1]
-            flow = self.calculate_optical_flow([prev_img, curr_img])
+            if flow_mode == "average":
+                flow = self.calculate_average_optical_flow(frames[:i+2])
+            else:
+                prev_img = frames[i]
+                flow = self.calculate_optical_flow([prev_img, curr_img])
             
             # 1. Rain Mask
             curr_gray = self.extract_rain_mask(curr_img)
@@ -449,7 +452,7 @@ class TMDRadarProcessor:
         'radius' is used to search a local neighborhood (e.g. +/- 5 pixels) to account for slight movement inaccuracies and cloud edges.
         """
         if steps == 0:
-            return self.get_dbz_at_pixel(img, px, py)
+            return self.get_dbz_at_pixel(img, px, py), px, py
             
         # Get the flow vector at the target pixel
         vx, vy = self.get_flow_vector_at(flow, px, py)
@@ -460,6 +463,9 @@ class TMDRadarProcessor:
         src_y = int(round(py - (vy * steps)))
         
         max_dbz = 0.0
+        best_sx = src_x
+        best_sy = src_y
+        
         # Check a bounding box of +/- radius around the source pixel
         for dy in range(-radius, radius + 1):
             for dx in range(-radius, radius + 1):
@@ -469,22 +475,67 @@ class TMDRadarProcessor:
                     d = self.get_dbz_at_pixel(img, sx, sy)
                     if d > max_dbz:
                         max_dbz = d
+                        best_sx = sx
+                        best_sy = sy
                         
         dbz = max_dbz
         
         if rate != 0.0 and dbz > 0:
             factor = 1.0 + rate
             if factor <= 0:
-                dbz = 0.0
-            else:
-                dbz = float(dbz * (factor ** steps))
-                
+                return 0.0, best_sx, best_sy
+            dbz *= (factor ** abs(steps))
+            
             if dbz > 75.0:
                 dbz = 75.0
             elif dbz < 10.0:
                 dbz = 0.0
+        return float(dbz), best_sx, best_sy
+
+    def calculate_average_optical_flow(self, frames: List[np.ndarray]) -> np.ndarray:
+        """
+        Calculates a temporal-averaged optical flow (Lagrangian) across multiple consecutive frames.
+        It computes the optical flow between each consecutive pair, then for each pixel in the 
+        latest frame, it traces backwards through time to sum up the velocities along the cloud's path.
+        Returns the averaged flow vector for each pixel in the final frame.
+        """
+        if len(frames) < 2:
+            raise ValueError("At least 2 frames required for optical flow")
+            
+        # Calculate flow for each consecutive pair
+        flows = []
+        for i in range(len(frames) - 1):
+            flows.append(self.calculate_optical_flow([frames[i], frames[i+1]]))
+            
+        N = len(flows)
+        if N == 1:
+            return flows[0]
+            
+        H, W = flows[0].shape[:2]
+        Y, X = np.indices((H, W))
+        curr_x = X.astype(np.float32)
+        curr_y = Y.astype(np.float32)
         
-        return float(dbz)
+        total_vx = np.zeros((H, W), dtype=np.float32)
+        total_vy = np.zeros((H, W), dtype=np.float32)
+        
+        # Trace backward from the newest frame to the oldest
+        for i in range(N - 1, -1, -1):
+            # Sample the velocity at the current traced coordinates
+            mapped_flow = cv2.remap(flows[i], curr_x, curr_y, interpolation=cv2.INTER_LINEAR)
+            vx = mapped_flow[..., 0]
+            vy = mapped_flow[..., 1]
+            
+            total_vx += vx
+            total_vy += vy
+            
+            # Move the coordinates backward in time for the next iteration
+            curr_x -= vx
+            curr_y -= vy
+            
+        # Return the temporal average
+        avg_flow = np.stack([total_vx / N, total_vy / N], axis=-1)
+        return avg_flow
 
     @staticmethod
     def draw_pin_on_frame(img: np.ndarray, x: int, y: int) -> None:
@@ -737,13 +788,9 @@ class TMDRadarProcessor:
         return clusters
 
     @staticmethod
-    def render_rain_summary(clouds: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0) -> str:
+    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0) -> str:
         """
-        Generates a smart, non-redundant rain summary line for Telegram.
-
-        - If no reliable clouds: returns a 'no rain' message.
-        - If first cloud = strongest: merges into one line.
-        - If a stronger cloud follows: shows two distinct lines.
+        Generates a smart, non-redundant rain summary line for Telegram based on the pixel's time-series predictions.
         """
         warning = "\n⚠️ ข้อมูลขาดช่วง (ความแม่นยำต่ำ)" if confidence_score < 1.0 else ""
         
@@ -752,36 +799,70 @@ class TMDRadarProcessor:
             if m < 0:
                 m = 0
             if m < 60:
-                return f"~{m}m"
+                return f"~{m} นาที"
             h = m // 60
             r = m % 60
-            return f"~{h}h{r}m" if r else f"~{h}hr"
+            return f"~{h} ชม. {r} นาที" if r else f"~{h} ชม."
 
         def dbz_label(dbz: float) -> str:
             if dbz >= 55: return "ฝนหนักมาก"
-            if dbz >= 40: return "ฝนหนัก"
-            if dbz >= 25: return "ฝนปานกลาง"
+            if dbz >= 35: return "ฝนหนัก"
+            if dbz >= 20: return "ฝนปานกลาง"
             return "ฝนเบา"
 
-        # Filter for incoming or currently active rain only (-10 to confidence cutoff)
-        reliable = [c for c in clouds if c["predicted_dbz"] >= 15 and -10 <= c["eta_min"] <= confidence_cutoff_min]
+        if not predictions:
+            return f"ℹ️ ไม่สามารถพยากรณ์ล่วงหน้าได้{warning}"
 
-        if not reliable:
-            return f"ℹ️ ไม่พบฝนในระยะ 90 นาทีข้างหน้า{warning}"
-
-        first    = reliable[0]
-        strongest = max(reliable, key=lambda c: c["predicted_dbz"])
-
-        if first is strongest:
-            lbl = dbz_label(first["predicted_dbz"])
-            return f"⚡ ฝนกำลังจะมาใน {fmt_eta(first['eta_min'])} ({int(first['predicted_dbz'])} dBZ — {lbl}){warning}"
+        is_raining_now = predictions[0]["dbz"] >= 15.0
+        
+        if is_raining_now:
+            # Raining now: find when it stops (first prediction < 15 dBZ)
+            stop_idx = -1
+            for i in range(1, len(predictions)):
+                if predictions[i]["dbz"] < 15.0:
+                    stop_idx = i
+                    break
+                    
+            lbl = dbz_label(predictions[0]["dbz"])
+            if stop_idx == -1:
+                max_time = predictions[-1]["time_offset"]
+                return f"🌧️ ขณะนี้มีฝนตกในบริเวณของคุณ ({int(predictions[0]['dbz'])} dBZ — {lbl})\nและคาดว่าจะตกต่อเนื่องอย่างน้อย {fmt_eta(max_time)}{warning}"
+            else:
+                stop_time = predictions[stop_idx]["time_offset"]
+                return f"🌧️ ขณะนี้มีฝนตกในบริเวณของคุณ ({int(predictions[0]['dbz'])} dBZ — {lbl})\nและคาดว่าจะหยุดใน {fmt_eta(stop_time)}{warning}"
+                
         else:
-            lbl_f = dbz_label(first["predicted_dbz"])
-            lbl_s = dbz_label(strongest["predicted_dbz"])
-            return (
-                f"⏱ ฝนก้อนแรกใน {fmt_eta(first['eta_min'])} ({int(first['predicted_dbz'])} dBZ — {lbl_f})\n"
-                f"⚡ ก้อนหนักกว่ามาทีหลัง {fmt_eta(strongest['eta_min'])} ({int(strongest['predicted_dbz'])} dBZ — {lbl_s}){warning}"
-            )
+            # Not raining now: find when it starts
+            start_idx = -1
+            max_dbz = 0.0
+            max_idx = -1
+            
+            for i in range(1, len(predictions)):
+                dbz = predictions[i]["dbz"]
+                if dbz >= 15.0:
+                    if start_idx == -1:
+                        start_idx = i
+                    if dbz > max_dbz:
+                        max_dbz = dbz
+                        max_idx = i
+                        
+            if start_idx == -1:
+                max_time = predictions[-1]["time_offset"]
+                return f"☀️ ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน {fmt_eta(max_time)}นี้{warning}"
+                
+            start_time = predictions[start_idx]["time_offset"]
+            start_dbz = predictions[start_idx]["dbz"]
+            lbl_start = dbz_label(start_dbz)
+            
+            if max_idx > start_idx and max_dbz >= start_dbz + 15.0:
+                max_time = predictions[max_idx]["time_offset"]
+                lbl_max = dbz_label(max_dbz)
+                return (
+                    f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} ({int(start_dbz)} dBZ — {lbl_start})\n"
+                    f"⚡ และจะตกหนักขึ้นใน {fmt_eta(max_time)} ({int(max_dbz)} dBZ — {lbl_max}){warning}"
+                )
+            else:
+                return f"⚡ ฝนกำลังจะมาใน {fmt_eta(start_time)} ({int(start_dbz)} dBZ — {lbl_start}){warning}"
 
     @staticmethod
     def get_all_rain_clusters(
@@ -875,6 +956,8 @@ class TMDRadarProcessor:
             })
 
         clusters.sort(key=lambda c: c["dist"])
+        for i, c in enumerate(clusters):
+            c["label"] = chr(ord('A') + min(i, 25))
         return clusters
 
     @staticmethod
@@ -987,7 +1070,8 @@ class TMDRadarProcessor:
                 sign = "-" if eta < 0 else "~"
                 abs_eta = int(abs(eta))
                 time_str = f"{abs_eta}m" if abs_eta < 60 else f"{abs_eta//60}h{abs_eta%60}m"
-                cv2.putText(img, f"{sign}{time_str}", (cx + int(14 * scale), cy),
+                label_txt = f"{c_orig.get('label', '')}: {sign}{time_str}"
+                cv2.putText(img, label_txt, (cx + int(14 * scale), cy),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (255, 255, 255), int(1.5 * scale))
             else:
                 # Ambient (not approaching): dashed/thin circle + white/grey arrow
@@ -1008,9 +1092,10 @@ class TMDRadarProcessor:
                 if v_mag > 2:
                     cv2.arrowedLine(img, (cx, cy), (cx + vx_scaled, cy + vy_scaled),
                                     (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
-                # dBZ label in muted colour
-                cv2.putText(img, f"{int(dbz)}", (cx + int(11 * scale), cy - int(5 * scale)),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (200, 200, 200), int(scale * 0.7))
+                # dBZ and Cluster label in muted colour
+                label_txt = f"{c_orig.get('label', '')}: {int(dbz)}"
+                cv2.putText(img, label_txt, (cx + int(11 * scale), cy - int(5 * scale)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.4 * scale, (200, 200, 200), int(scale * 0.7))
 
         # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest
         incoming = [c for c in display_clouds if c.get("eta_min", 9999) >= -5]
@@ -1060,10 +1145,11 @@ class TMDRadarProcessor:
         return buffer.tobytes() if is_success else None
 
     @staticmethod
-    def generate_timeline_image(clouds: list) -> Optional[bytes]:
-        if not clouds:
+    def generate_timeline_image(predictions: list) -> Optional[bytes]:
+        if not predictions:
             return None
         try:
+            import io
             from PIL import Image, ImageDraw, ImageFont
         except ImportError:
             return None
@@ -1089,25 +1175,23 @@ class TMDRadarProcessor:
         draw.line([(base_x, 40), (base_x, height - 20)], fill=(255, 255, 255, 200), width=2)
         draw.text((base_x - 15, 25), "NOW", font=font, fill=(255, 255, 255, 255))
 
-        # Bin clouds by X coordinate to prevent overlapping exact same ETA
-        # Also keep growth_rate for the dominant cloud at each bin
-        binned_clouds = {}
-        for c in clouds:
-            eta = c["eta_min"]
-            dbz = c["predicted_dbz"]
-            growth = c.get("growth_rate", 0.0)
-            x = time_to_x(eta)
-            x = max(20, min(780, x))
-            if x not in binned_clouds or dbz > binned_clouds[x]["dbz"]:
-                binned_clouds[x] = {"eta": eta, "dbz": dbz, "growth": growth}
-
         last_x = -999
         y_offsets = {}
 
-        for x in sorted(binned_clouds.keys()):
-            eta    = binned_clouds[x]["eta"]
-            dbz    = binned_clouds[x]["dbz"]
-            growth = binned_clouds[x]["growth"]  # rate per 15min (e.g. 0.3 = +30%)
+        for i, p in enumerate(predictions):
+            eta = p["time_offset"]
+            dbz = p["dbz"]
+            
+            # Estimate growth relative to previous step
+            if i > 0 and predictions[i-1]["dbz"] > 0:
+                growth = (dbz - predictions[i-1]["dbz"]) / predictions[i-1]["dbz"]
+            elif i > 0 and dbz > 0 and predictions[i-1]["dbz"] == 0:
+                growth = 1.0 # 100% growth (new rain)
+            else:
+                growth = 0.0
+
+            x = time_to_x(eta)
+            x = max(20, min(780, x))
 
             h = int(dbz * 4)
 
@@ -1121,10 +1205,14 @@ class TMDRadarProcessor:
                 color = (color[0], color[1], color[2], 100)
 
             draw.rectangle([(x-10, baseline_y-h), (x+10, baseline_y)], fill=color)
+            
+            cluster_label = p.get("cluster")
+            if cluster_label:
+                draw.text((x-12, baseline_y-h-35), f"[{cluster_label}]", fill=(150, 200, 255, 255), font=font_small)
             draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=(255, 255, 255, 255), font=font)
 
             # ── Growth / decay trend arrow ─────────────────────────────────
-            arrow_y_base = baseline_y - h - 22
+            arrow_y_base = baseline_y - h - 35 if cluster_label else baseline_y - h - 22
             growth_pct = growth * 100.0
             if growth_pct > 5.0:
                 # Growing: green upward triangle above bar
