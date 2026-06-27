@@ -1057,6 +1057,60 @@ async def handle_devmock_command(chat_id: int, command: str):
                     parse_mode="HTML",
                 )
 
+        # ── /devmock visualize_flow [station] ──────────────────────────────────
+        elif command.startswith("/devmock visualize_flow"):
+            args = command.removeprefix("/devmock visualize_flow").strip()
+            station = args if args else "skn240"
+            await send_telegram_message(
+                chat_id, 
+                f"🛠️ กำลังสร้างภาพ Debug Optical Flow สำหรับสถานี {station}...", 
+                parse_mode="HTML"
+            )
+            
+            from app.services.tmd_radar_processor import TMDRadarProcessor
+            try:
+                processor = TMDRadarProcessor(station)
+                frames_data, _, _ = await processor.fetch_loop_gif_and_extract_frames()
+                if not frames_data or len(frames_data) < 2:
+                    await send_telegram_message(chat_id, "❌ ดึงภาพจาก TMD ไม่สำเร็จ หรือมีน้อยกว่า 2 เฟรม")
+                    return
+                    
+                import cv2
+                import numpy as np
+                import asyncio
+                
+                prev_frame = cv2.resize(frames_data[-2], (800, 800), interpolation=cv2.INTER_NEAREST)
+                curr_frame = cv2.resize(frames_data[-1], (800, 800), interpolation=cv2.INTER_NEAREST)
+                
+                flow = await asyncio.to_thread(processor.calculate_optical_flow, [prev_frame, curr_frame])
+                
+                from app.services.weather_manager import _DEV_CONFIG
+                clusters = await asyncio.to_thread(
+                    processor.get_all_rain_clusters,
+                    curr_frame, flow, 400, 400, 
+                    scan_radius=800,
+                    min_dbz=_DEV_CONFIG.get("min_dbz", 10.0),
+                    cluster_dist=25
+                )
+                
+                images = await asyncio.to_thread(
+                    processor.generate_flow_debug_images,
+                    prev_frame, curr_frame, flow, clusters
+                )
+                
+                from app.services.telegram import send_telegram_photo
+                await send_telegram_photo(chat_id, images["rain_mask"], "debug_1_rain_mask.png")
+                await send_telegram_photo(chat_id, images["flow_hsv"], "debug_2_flow_hsv.png")
+                await send_telegram_photo(chat_id, images["flow_grid"], "debug_3_flow_grid.png")
+                await send_telegram_photo(chat_id, images["clusters"], "debug_4_clusters.png")
+                
+                await send_telegram_message(chat_id, "✅ ส่งภาพ Debug ครบแล้วครับ")
+            except Exception as e:
+                import traceback
+                logger.error(f"visualize_flow error: {e}\n{traceback.format_exc()}")
+                await send_telegram_message(chat_id, f"❌ Error: {e}")
+            return
+
 
 async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False):
     import re

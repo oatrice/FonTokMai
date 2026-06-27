@@ -276,6 +276,66 @@ class TMDRadarProcessor:
         
         return flow
         
+    def generate_flow_debug_images(self, prev_img: np.ndarray, curr_img: np.ndarray, flow: np.ndarray, clusters: list) -> dict:
+        """
+        Generates debug images for optical flow analysis:
+        1. Rain Mask
+        2. HSV Heatmap
+        3. Flow Grid
+        4. Clusters
+        """
+        images = {}
+        
+        # 1. Rain Mask
+        curr_gray = self.extract_rain_mask(curr_img)
+        is_success, buffer = cv2.imencode(".png", curr_gray)
+        if is_success:
+            images["rain_mask"] = buffer.tobytes()
+            
+        # 2. HSV Heatmap
+        hsv = np.zeros((flow.shape[0], flow.shape[1], 3), dtype=np.uint8)
+        hsv[..., 1] = 255
+        mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+        hsv[..., 0] = ang * 180 / np.pi / 2
+        hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+        bgr_flow = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        is_success, buffer = cv2.imencode(".png", bgr_flow)
+        if is_success:
+            images["flow_hsv"] = buffer.tobytes()
+            
+        # 3. Flow Vector Grid
+        # Create a copy and ensure it's BGR for imencode if it's RGB
+        # If curr_img is RGB, cvtColor is needed later. Let's assume it's RGB.
+        grid_img = curr_img.copy()
+        step = 16
+        h, w = curr_img.shape[:2]
+        y, x = np.mgrid[step/2:h:step, step/2:w:step].reshape(2,-1).astype(int)
+        fx, fy = flow[y,x].T
+        lines = np.vstack([x, y, x+fx*3, y+fy*3]).T.reshape(-1, 2, 2)
+        lines = np.int32(lines + 0.5)
+        cv2.polylines(grid_img, lines, 0, (0, 255, 0), 1)
+        for (x1, y1), (_x2, _y2) in lines:
+            cv2.circle(grid_img, (x1, y1), 1, (0, 255, 0), -1)
+        is_success, buffer = cv2.imencode(".png", cv2.cvtColor(grid_img, cv2.COLOR_RGB2BGR))
+        if is_success:
+            images["flow_grid"] = buffer.tobytes()
+            
+        # 4. Cluster Averages
+        cluster_img = curr_img.copy()
+        for c in clusters:
+            cx, cy = c["cx"], c["cy"]
+            vx, vy = c["vx"], c["vy"]
+            size = c.get("size", 10)
+            r = int(math.sqrt(size) * 1.5)
+            cv2.rectangle(cluster_img, (cx - r, cy - r), (cx + r, cy + r), (255, 0, 255), 1)
+            cv2.arrowedLine(cluster_img, (cx, cy), (int(cx + vx*3), int(cy + vy*3)), (255, 255, 0), 2, tipLength=0.3)
+            
+        is_success, buffer = cv2.imencode(".png", cv2.cvtColor(cluster_img, cv2.COLOR_RGB2BGR))
+        if is_success:
+            images["clusters"] = buffer.tobytes()
+            
+        return images
+        
     def get_flow_vector_at(self, flow: np.ndarray, x: int, y: int) -> Tuple[float, float]:
         """Returns the (dx, dy) velocity vector from optical flow array at given pixel."""
         if x < 0 or x >= flow.shape[1] or y < 0 or y >= flow.shape[0]:
