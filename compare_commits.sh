@@ -21,21 +21,21 @@ for COMMIT in $COMMITS; do
     git checkout $COMMIT
     # Run the script
     export PYTHONPATH=$(pwd)/backend:$PYTHONPATH
-    cd backend
-    if [ -f ".venv/bin/python" ]; then
-        .venv/bin/python -m tests.test_skn240_scenario
-    elif [ -f "venv/bin/python" ]; then
-        venv/bin/python -m tests.test_skn240_scenario
+    if [ -f "backend/.venv/bin/python" ]; then
+        PYTHON_CMD="backend/.venv/bin/python"
+    elif [ -f "backend/venv/bin/python" ]; then
+        PYTHON_CMD="backend/venv/bin/python"
     else
-        python3 -m tests.test_skn240_scenario
+        PYTHON_CMD="python3"
     fi
-    cd ..
+    
+    $PYTHON_CMD compare_scenario.py
     
     # Create a directory for this commit's output
     mkdir -p comparison_output/$COMMIT
     
     # Move the generated images to the commit's folder
-    mv backend/tests/*.png comparison_output/$COMMIT/ 2>/dev/null || true
+    mv tracking_skn240_test.png comparison_output/$COMMIT/ 2>/dev/null || true
 done
 
 # Restore original branch
