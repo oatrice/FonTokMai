@@ -1257,7 +1257,7 @@ class TMDRadarProcessor:
 
         if show_clouds:
             # Draw approaching clouds (limit to top 3 strongest to avoid clutter)
-            incoming = [c for c in display_clouds if c.get("eta_min", 9999) >= -120]
+            incoming = [c for c in display_clouds if c.get("approaching", False) and -120 <= c.get("eta_min", 9999) <= 180]
             incoming.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
             for c in incoming[:3]:
                 _draw_cloud(c, is_approaching=True)

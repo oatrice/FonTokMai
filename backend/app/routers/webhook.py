@@ -1126,14 +1126,29 @@ async def handle_devmock_command(chat_id: int, command: str):
                 await send_telegram_message(chat_id, f"❌ อ่านเวลาจากภาพใหม่ไม่สำเร็จ")
                 return
                 
+            # Check for existing huge gaps in the cached frames (poisoned cache)
+            has_poisoned_cache = False
+            for i in range(1, len(frame_timestamps)):
+                if (frame_timestamps[i] - frame_timestamps[i-1]) / 60.0 > 30.0:
+                    has_poisoned_cache = True
+                    break
+                    
+            if has_poisoned_cache:
+                await send_telegram_message(chat_id, f"⚠️ ตรวจพบข้อมูลขาดช่วงเกิน 30 นาทีในระบบ ทำการล้าง Cache เพื่อบังคับดึง Loop GIF ใหม่ครับ")
+                _GLOBAL_TMD_CACHE.pop(station, None)
+                await repo.set_latest_radar_cache(station_code=station, frames=[])
+                return
+
             if new_ts <= frame_timestamps[-1]:
                 await send_telegram_message(chat_id, f"⚠️ ภาพล่าสุดในเว็บ ({datetime.fromtimestamp(new_ts).strftime('%H:%M')}) ยังไม่ใหม่กว่าที่เรามีอยู่ ({datetime.fromtimestamp(frame_timestamps[-1]).strftime('%H:%M')})")
                 return
                 
             gap_minutes = (new_ts - frame_timestamps[-1]) / 60.0
+            
             if gap_minutes > 30.0:
-                await send_telegram_message(chat_id, f"⚠️ ภาพใหม่ห่างจากภาพเดิมเกิน 30 นาที ({gap_minutes:.0f} นาที) ทำการล้าง Cache เพื่อบังคับดึง Loop GIF ใหม่ครับ")
+                await send_telegram_message(chat_id, f"⚠️ ตรวจพบข้อมูลขาดช่วงเกิน 30 นาทีในระบบ ทำการล้าง Cache เพื่อบังคับดึง Loop GIF ใหม่ครับ")
                 _GLOBAL_TMD_CACHE.pop(station, None)
+                await repo.set_latest_radar_cache(station_code=station, frames=[])
                 return
                 
             # Append new frame
