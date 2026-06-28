@@ -652,6 +652,7 @@ class WeatherManager:
                     search_radius=_cfg.get("search_radius", 80),
                     min_dbz=_cfg.get("min_dbz", 10.0),
                     cluster_dist=20,
+                    hit_radius=_cfg.get("hit_radius", 20),
                     cluster_min=_cfg.get("cluster_min", 3),
                     dot_threshold=_cfg.get("dot_threshold", 0.5),
                 )
