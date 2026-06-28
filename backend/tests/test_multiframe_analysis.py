@@ -123,8 +123,8 @@ def test_image_width_matches_frame_count(num_frames, expected_cols):
 
 
 def test_image_height_is_fixed():
-    """Height = THUMB_H + HEADER_H + DBZ_ROW_H + GROWTH_ROW_H = 270."""
-    EXPECTED_H = 200 + 28 + 22 + 20  # = 270
+    """Height = THUMB_H + HEADER_H + DBZ_ROW_H + GROWTH_ROW_H + LEGEND = 290."""
+    EXPECTED_H = 200 + 28 + 22 + 20 + 20 # = 290
     frames = [make_black_frame(), make_black_frame()]
     flow = np.zeros((480, 480, 2), dtype=np.float32)
     result = TMDRadarProcessor.generate_multiframe_analysis_image(

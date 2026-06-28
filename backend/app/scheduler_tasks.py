@@ -432,6 +432,9 @@ async def fetch_tmd_radar_routine():
                         if gap_to_now > 60.0 and (now_ts - last_gif_fallback_time) > 1800.0:
                             needs_fallback = True
                             fallback_reason = f"Static dead for {gap_to_now:.1f}m"
+                        elif ts and (ts - latest_ts) > 1800.0:
+                            needs_fallback = True
+                            fallback_reason = f"Large time gap detected ({int((ts - latest_ts)/60)}m) between {latest_ts} and {ts}"
                     else:
                         if (now_ts - last_gif_fallback_time) > 1800.0:
                             needs_fallback = True

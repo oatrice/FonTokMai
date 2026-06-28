@@ -1130,6 +1130,12 @@ async def handle_devmock_command(chat_id: int, command: str):
                 await send_telegram_message(chat_id, f"⚠️ ภาพล่าสุดในเว็บ ({datetime.fromtimestamp(new_ts).strftime('%H:%M')}) ยังไม่ใหม่กว่าที่เรามีอยู่ ({datetime.fromtimestamp(frame_timestamps[-1]).strftime('%H:%M')})")
                 return
                 
+            gap_minutes = (new_ts - frame_timestamps[-1]) / 60.0
+            if gap_minutes > 30.0:
+                await send_telegram_message(chat_id, f"⚠️ ภาพใหม่ห่างจากภาพเดิมเกิน 30 นาที ({gap_minutes:.0f} นาที) ทำการล้าง Cache เพื่อบังคับดึง Loop GIF ใหม่ครับ")
+                _GLOBAL_TMD_CACHE.pop(station, None)
+                return
+                
             # Append new frame
             frames.append(new_frame)
             frame_timestamps.append(new_ts)
