@@ -105,3 +105,36 @@ def test_approaching_clouds_warning():
     assert "ยังไม่มีแนวโน้มฝนตก" in summary
     assert "หมายเหตุ: ตรวจพบกลุ่มฝน (35 dBZ)" in summary
     assert "1 ชม. 56 นาที" in summary
+@patch("app.services.tmd_radar_processor.datetime")
+def test_approaching_clouds_warning_with_cache_delay(mock_datetime):
+    # Freeze time to 23:00 BKK
+    mock_datetime.now.return_value = datetime(2026, 6, 27, 23, 0, 0, tzinfo=timezone(timedelta(hours=7)))
+    
+    preds = make_predictions([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    clouds = [{"dbz_now": 35.0, "eta_min": 116.17}] # 116.17 mins from CACHE
+    
+    # 35 min cache delay
+    summary = TMDRadarProcessor.render_rain_summary(preds, time_offset_min=35.0, approaching_clouds=clouds)
+    
+    # Text should say ~55m for no rain (90m - 35m)
+    assert "ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน ~55 นาทีนี้" in summary
+    
+    # Warning should say ~1 ชม. 21 นาที (116.17m - 35m = 81.17m = 1h 21m)
+    assert "หมายเหตุ: ตรวจพบกลุ่มฝน (35 dBZ)" in summary
+    assert "1 ชม. 21 นาที" in summary
+    assert "00:21 น." in summary
+
+@patch("app.services.tmd_radar_processor.datetime")
+def test_approaching_clouds_warning_skip_if_already_raining(mock_datetime):
+    mock_datetime.now.return_value = datetime(2026, 6, 27, 23, 0, 0, tzinfo=timezone(timedelta(hours=7)))
+    
+    preds = make_predictions([30.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    clouds = [{"dbz_now": 35.0, "eta_min": 116.17}]
+    
+    summary = TMDRadarProcessor.render_rain_summary(preds, time_offset_min=0.0, approaching_clouds=clouds)
+    
+    # Should say raining now
+    assert "ฝนกำลังตกอยู่" in summary
+    # Should NOT have warning because it's already raining or rain is arriving sooner than max_time
+    assert "หมายเหตุ: ตรวจพบกลุ่มฝน" not in summary
+
