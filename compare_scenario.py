@@ -72,7 +72,7 @@ def test_scenario():
         }
     ]
     
-    processor.draw_pin_on_frame(frame, user_x, user_y)
+    # Do not call draw_pin_on_frame manually because generate_radar_tracking_image handles it internally
     
     # Using the time string in some commits requires now_utc but we can pass None or leave default if optional
     try:
