@@ -1295,8 +1295,11 @@ class TMDRadarProcessor:
                     txt = f"{c_orig.get('label', '')}: ~{time_str}"
                     
                 tw, th = int(55 * scale), int(15 * scale)
-                tx = cx - int(tw / 2)
-                ty = cy - int(18 * scale)
+                tx = arrow_sx - int(tw / 2)
+                if hull_rect:
+                    ty = hull_rect[1] - int(10 * scale) - th
+                else:
+                    ty = arrow_sy - int(20 * scale) - th
                 
                 labels.append({
                     'text': txt,
@@ -1307,8 +1310,8 @@ class TMDRadarProcessor:
                     'cy': ty - th/2,
                     'ideal_cx': tx + tw/2,
                     'ideal_cy': ty - th/2,
-                    'anchor_x': cx,
-                    'anchor_y': cy,
+                    'anchor_x': arrow_sx,
+                    'anchor_y': arrow_sy,
                     'scale': 0.45 * scale,
                     'fg': (255, 255, 255),
                     'bg': (0, 0, 0)
@@ -1343,11 +1346,8 @@ class TMDRadarProcessor:
                     
                 txt = f"{c_orig.get('label', '')}: {int(dbz)}"
                 tw, th = int(45 * scale), int(12 * scale)
-                if cx < ux:
-                    tx = cx - tw - int(4 * scale)
-                else:
-                    tx = cx + int(8 * scale)
-                ty = cy - int(6 * scale)
+                tx = cx - int(tw / 2)
+                ty = cy - int(16 * scale) - th
                 
                 labels.append({
                     'text': txt,
@@ -1382,9 +1382,9 @@ class TMDRadarProcessor:
             tx = int(lbl['cx'] - lbl['w']/2)
             ty = int(lbl['cy'] + lbl['h']/2)
             
-            moved_dist = math.hypot(lbl['cx'] - lbl['ideal_cx'], lbl['cy'] - lbl['ideal_cy'])
-            if moved_dist > 8 * scale:
-                cv2.line(img, (lbl['anchor_x'], lbl['anchor_y']), (int(lbl['cx']), int(lbl['cy'])), (150, 150, 150), max(2, int(scale * 1.2)))
+            dist_to_anchor = math.hypot(lbl['cx'] - lbl['anchor_x'], lbl['cy'] - lbl['anchor_y'])
+            if dist_to_anchor > 12 * scale:
+                cv2.line(img, (lbl['anchor_x'], lbl['anchor_y']), (int(lbl['cx']), int(lbl['cy'])), (150, 150, 150), max(2, int(scale * 1.0)))
                 
             cv2.putText(img, lbl['text'], (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, lbl['scale'], lbl['bg'], max(1, int(lbl['scale'] * 5.0)))
             cv2.putText(img, lbl['text'], (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, lbl['scale'], lbl['fg'], max(1, int(lbl['scale'] * 1.8)))
