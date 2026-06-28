@@ -1067,6 +1067,64 @@ class TMDRadarProcessor:
         return 0.0
 
     @staticmethod
+    def _resolve_label_collisions(labels, obstacles, img_w, img_h, iterations=30):
+        import math
+        
+        def get_overlap(c1x, c1y, w1, h1, c2x, c2y, w2, h2):
+            dx = c1x - c2x
+            dy = c1y - c2y
+            ox = (w1 + w2) / 2 - abs(dx)
+            oy = (h1 + h2) / 2 - abs(dy)
+            if ox > 0 and oy > 0:
+                return ox, oy, dx, dy
+            return 0, 0, dx, dy
+
+        for _ in range(iterations):
+            for i, lbl in enumerate(labels):
+                fx, fy = 0.0, 0.0
+                
+                dx_ideal = lbl['ideal_cx'] - lbl['cx']
+                dy_ideal = lbl['ideal_cy'] - lbl['cy']
+                fx += dx_ideal * 0.1
+                fy += dy_ideal * 0.1
+                
+                for obs in obstacles:
+                    ox, oy, w, h = obs[0], obs[1], obs[2], obs[3]
+                    obs_cx = ox + w / 2
+                    obs_cy = oy + h / 2
+                    
+                    ovx, ovy, dx, dy = get_overlap(
+                        lbl['cx'], lbl['cy'], lbl['w'], lbl['h'],
+                        obs_cx, obs_cy, w, h
+                    )
+                    
+                    if ovx > 0 and ovy > 0:
+                        dist = math.hypot(dx, dy)
+                        if dist == 0:
+                            dx, dy, dist = 1.0, 1.0, 1.414
+                        fx += (dx / dist) * (ovx + ovy) * 0.8
+                        fy += (dy / dist) * (ovx + ovy) * 0.8
+                
+                for j, other in enumerate(labels):
+                    if i == j: continue
+                    ovx, ovy, dx, dy = get_overlap(
+                        lbl['cx'], lbl['cy'], lbl['w'] + 2, lbl['h'] + 2,
+                        other['cx'], other['cy'], other['w'] + 2, other['h'] + 2
+                    )
+                    if ovx > 0 and ovy > 0:
+                        dist = math.hypot(dx, dy)
+                        if dist == 0:
+                            dx, dy, dist = 1.0, 1.0, 1.414
+                        fx += (dx / dist) * (ovx + ovy) * 0.5
+                        fy += (dy / dist) * (ovx + ovy) * 0.5
+                
+                lbl['cx'] += fx
+                lbl['cy'] += fy
+                
+                lbl['cx'] = max(lbl['w']/2 + 5, min(img_w - lbl['w']/2 - 5, lbl['cx']))
+                lbl['cy'] = max(lbl['h']/2 + 5, min(img_h - lbl['h']/2 - 5, lbl['cy']))
+
+    @staticmethod
     def generate_radar_tracking_image(
         frame: np.ndarray,
         user_x: int,
@@ -1079,14 +1137,9 @@ class TMDRadarProcessor:
         show_trajectory: bool = True,
         time_offset_min: float = 0.0
     ) -> Optional[bytes]:
-        """Generate zoomed radar tracking image.
-        
-        Always renders if there are any rain clusters in the area (approaching or not).
-        - clouds: approaching-only clusters (ETA-filtered)
-        - all_rain_clusters: every rain cluster visible in scan radius
-        """
-        display_clouds = clouds or []          # approaching, drawn with direction label
-        ambient_clouds = [                     # non-approaching, drawn as plain circles
+        import math
+        display_clouds = clouds or []
+        ambient_clouds = [
             c for c in (all_rain_clusters or [])
             if not any(
                 math.hypot(c["cx"] - d["cx"], c["cy"] - d["cy"]) < 30
@@ -1097,177 +1150,38 @@ class TMDRadarProcessor:
         from app.services.weather_manager import _DEV_CONFIG
         if _DEV_CONFIG.get("verbose"):
             logger.info(f"[TRACKING_IMG] Preparing to draw. display_clouds={len(display_clouds)}, ambient_clouds={len(ambient_clouds)}")
-            for c in display_clouds:
-                logger.info(f"[TRACKING_IMG] Approaching cluster {c.get('label', '?')}: dbz={c.get('dbz_now', 0)}, pos=({c['cx']},{c['cy']}), v=({c.get('vx',0):.2f},{c.get('vy',0):.2f}), eta={c.get('eta_min', 'None')}")
-            for c in ambient_clouds:
-                logger.info(f"[TRACKING_IMG] Ambient cluster {c.get('label', '?')}: dbz={c.get('dbz_now', 0)}, pos=({c['cx']},{c['cy']})")
-
+        
         if frame is None or (not display_clouds and not ambient_clouds):
             return None
 
-        
-        # Crop a 240x240 region around the user
         crop_r = 120
         h, w = frame.shape[:2]
-        
         x1 = max(0, user_x - crop_r)
         y1 = max(0, user_y - crop_r)
         x2 = min(w, user_x + crop_r)
         y2 = min(h, user_y + crop_r)
         
         crop_img = frame[y1:y2, x1:x2].copy()
-        
-        # Scale up by 3x for sharp, zoomed-in image in Telegram
         scale = 3.0
-
-        def _dbz_color(dbz):
-            if dbz >= 60: return (155, 89, 182)   # Purple
-            elif dbz >= 50: return (231, 76, 60)  # Red
-            elif dbz >= 40: return (243, 156, 18) # Orange
-            elif dbz >= 30: return (241, 196, 15) # Yellow
-            else: return (46, 204, 113)            # Green
-
-        def _draw_cloud(c_orig, is_approaching):
-            cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
-            # Skip if outside crop (with generous margin)
-            if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
-                return
-            cx = int((cx_orig - x1) * scale)
-            cy = int((cy_orig - y1) * scale)
-            dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
-            vx = c_orig.get("vx", 0)
-            vy = c_orig.get("vy", 0)
-
-            if is_approaching:
-                # Approaching: solid colour contour + yellow arrow + ETA label
-                color = _dbz_color(dbz)
-                hull_rect = None
-                if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
-                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for px, py in c_orig["pixels"]], dtype=np.int32)
-                    hull = cv2.convexHull(pts)
-                    hull_rect = cv2.boundingRect(hull)
-                    overlay = img.copy()
-                    cv2.fillPoly(overlay, [hull], color)
-                    cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
-                    cv2.polylines(img, [hull], True, color, max(1, int(2.0 * scale)))
-                    drawn_text_boxes.append((hull_rect[0] - 5, hull_rect[1] - 5, hull_rect[2] + 10, hull_rect[3] + 10))
-                else:
-                    r = int(12 * scale)
-                    cv2.circle(img, (cx, cy), r, color, int(1.5 * scale))
-                    drawn_text_boxes.append((cx - r, cy - r, 2*r, 2*r))
-                
-                # Arrow toward destination
-                vx_scaled = int(vx * scale * 3.0)
-                vy_scaled = int(vy * scale * 3.0)
-                
-                arrow_start_x, arrow_start_y = cx, cy
-                if hull_rect:
-                    arrow_start_x = hull_rect[0] + hull_rect[2] // 2
-                    arrow_start_y = hull_rect[1] + hull_rect[3] // 2
-
-                if vx_scaled == 0 and vy_scaled == 0:
-                    cv2.arrowedLine(img, (arrow_start_x, arrow_start_y), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.15)
-                else:
-                    cv2.arrowedLine(img, (arrow_start_x, arrow_start_y), (arrow_start_x + vx_scaled, arrow_start_y + vy_scaled), (255, 255, 0), int(1.5 * scale), tipLength=0.3)
-                
-                # ETA label
-                eta = max(1.0, float(c_orig.get("eta_min", 0)) - time_offset_min)
-                if eta <= 0:
-                    label_txt = f"{c_orig.get('label', '')} (Now)"
-                else:
-                    abs_eta = int(abs(eta))
-                    time_str = f"{abs_eta}m" if abs_eta < 60 else f"{abs_eta//60}h{abs_eta%60}m"
-                    label_txt = f"{c_orig.get('label', '')}: ~{time_str}"
-                
-                # Target near the center of the cloud mass (or centroid cx, cy)
-                text_x = cx - int(20 * scale)
-                text_y = cy - int(12 * scale)
-                
-                # Check for overlap with already drawn text boxes (like user pin) and shift vertically if needed
-                tw = int(55 * scale)
-                th = int(15 * scale)
-                for _ in range(10):  # Try shifting up to 10 times to find a free space
-                    is_overlapping = False
-                    for rx, ry, rw, rh in drawn_text_boxes:
-                        # AABB collision check
-                        if not (text_x + tw < rx or text_x > rx + rw or text_y < ry or text_y - th > ry + rh):
-                            is_overlapping = True
-                            break
-                    if is_overlapping:
-                        text_y -= int(18 * scale)  # Shift upwards
-                    else:
-                        break
-
-                # Clamp coordinates to keep labels on screen
-                text_x = max(10, min(img.shape[1] - tw - 10, text_x))
-                text_y = max(th + 10, min(img.shape[0] - 10, text_y))
-                    
-                logger.info(f"[DRAW_TEXT] Cluster '{label_txt}' at ({text_x}, {text_y})")
-                cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (0, 0, 0), int(3.5 * scale))
-                cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (255, 255, 255), int(1.5 * scale))
-                
-                # Record the text box (using top-left layout [x, y - th, w, th])
-                drawn_text_boxes.append((text_x, text_y - th, tw, th))
-                
-            else:
-                # Ambient: outline only, shorter arrow
-                color = _dbz_color(dbz)
-                # Draw as dashed circle approximation using arc segments
-                for angle_deg in range(0, 360, 30):
-                    import math as _m
-                    a1 = _m.radians(angle_deg)
-                    a2 = _m.radians(angle_deg + 20)
-                    r = int(10 * scale)
-                    p1 = (int(cx + r * _m.cos(a1)), int(cy + r * _m.sin(a1)))
-                    p2 = (int(cx + r * _m.cos(a2)), int(cy + r * _m.sin(a2)))
-                    cv2.line(img, p1, p2, color, int(scale * 0.8))
-                drawn_text_boxes.append((cx - r, cy - r, 2*r, 2*r))
-                # Wind direction arrow (white, shorter)
-                vx_scaled = int(vx * scale * 2.5)
-                vy_scaled = int(vy * scale * 2.5)
-                
-                if vx_scaled != 0 or vy_scaled != 0:
-                    cv2.arrowedLine(img, (cx, cy), (cx + vx_scaled, cy + vy_scaled), (255, 255, 255), int(scale * 0.8), tipLength=0.3)
-                    
-                label_txt = f"{c_orig.get('label', '')}: {int(dbz)}"
-                text_x = cx + int(11 * scale)
-                text_y = cy - int(5 * scale)
-                tw = int(45 * scale)
-                th = int(12 * scale)
-                
-                for _ in range(10):
-                    is_overlapping = False
-                    for rx, ry, rw, rh in drawn_text_boxes:
-                        if not (text_x + tw < rx or text_x > rx + rw or text_y < ry or text_y - th > ry + rh):
-                            is_overlapping = True
-                            break
-                    if is_overlapping:
-                        text_y -= int(15 * scale)
-                    else:
-                        break
-                        
-                # Clamp coordinates
-                text_x = max(5, min(img.shape[1] - tw - 5, text_x))
-                text_y = max(th + 5, min(img.shape[0] - 5, text_y))
-                
-                cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.4 * scale, (0, 0, 0), int(2.5 * scale))
-                cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.4 * scale, (200, 200, 200), int(scale * 0.7))
-                drawn_text_boxes.append((text_x, text_y - th, tw, th))
-
-        drawn_text_boxes = []
-        img = cv2.resize(crop_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
         
+        img = cv2.resize(crop_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
         ux = int((user_x - x1) * scale)
         uy = int((user_y - y1) * scale)
         
-        # Avoid drawing text directly over the user pin (define a box around user location)
-        drawn_text_boxes.append((ux - int(20 * scale), uy - int(20 * scale), int(40 * scale), int(40 * scale)))
+        def _dbz_color(dbz):
+            if dbz >= 60: return (155, 89, 182)
+            elif dbz >= 50: return (231, 76, 60)
+            elif dbz >= 40: return (243, 156, 18)
+            elif dbz >= 30: return (241, 196, 15)
+            else: return (46, 204, 113)
+
+        obstacles = []
+        labels = []
         
-        # Pre-register cloud circles as obstacles so trajectory text avoids them
-        # ── Draw Prediction Trajectory (Backward Ray) ──
+        obstacles.append((ux - int(12 * scale), uy - int(12 * scale), int(24 * scale), int(24 * scale)))
+        
         has_predicted_rain = predictions and any(p.get("dbz", 0) >= 10.0 for p in predictions)
         if show_trajectory and predictions and has_predicted_rain:
-            # We trace from user's location BACKWARDS to show where the incoming rain is coming from
             pts = []
             for p in predictions:
                 px_pred = p["src_x"]
@@ -1275,147 +1189,68 @@ class TMDRadarProcessor:
                 cx = int((px_pred - x1) * scale)
                 cy = int((py_pred - y1) * scale)
                 pts.append((cx, cy, p))
-
+            
             if len(pts) > 1:
-                # Draw points and labels
                 last_labeled_pt = None
                 for i, (cx, cy, p) in enumerate(pts):
-                    # Draw trajectory point colored by its DBZ intensity (with a black outline for contrast)
                     dbz_val = p.get("dbz", 0.0)
                     dot_color = _dbz_color(dbz_val) if dbz_val >= 10.0 else (200, 200, 200)
                     cv2.circle(img, (cx, cy), int(3.5 * scale), (0, 0, 0), -1)
                     cv2.circle(img, (cx, cy), int(2.2 * scale), dot_color, -1)
+                    obstacles.append((cx - int(2 * scale), cy - int(2 * scale), int(4 * scale), int(4 * scale)))
                     
                     if i > 0:
                         prev_cx, prev_cy, _ = pts[i-1]
                         cv2.line(img, (prev_cx, prev_cy), (cx, cy), (0, 255, 255), int(1.2 * scale))
-                    
+                        
                     eta = p.get("time_offset", 0)
-                    # Label every 3 steps (45m) or the very first step (>0) or last step
                     should_label = False
                     if eta > 0 and (i == 1 or i == len(pts)-1 or (eta % 45 == 0)):
                         if last_labeled_pt is None:
                             should_label = True
                         else:
-                            # prevent label crowding - increased to 30*scale for more spacing
                             if math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 30 * scale:
                                 should_label = True
-                                
+                    
                     if i == len(pts) - 1 and not should_label:
                         if last_labeled_pt is None or math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 10 * scale:
                             should_label = True
                             
                     if should_label:
-                        label = f"{eta}m"
+                        txt = f"{eta}m"
+                        tw, th = int(35 * scale), int(12 * scale)
                         tx = cx + int(12 * scale)
                         ty = cy - int(16 * scale)
                         
-                        # Clamp to keep trajectory text on screen
-                        tx = max(10, min(img.shape[1] - int(35 * scale), tx))
-                        ty = max(int(15 * scale), min(img.shape[0] - int(10 * scale), ty))
-                        
-                        # Size estimate for trajectory text (e.g. "90m")
-                        tw, th = int(35 * scale), int(12 * scale)
-                        
-                        # Check intersection with all existing boxes, try to shift up if overlapping
-                        for _ in range(10):
-                            is_overlapping_box = False
-                            for rx, ry, rw, rh in drawn_text_boxes:
-                                # AABB intersection check
-                                if not (tx + tw < rx or tx > rx + rw or ty < ry or ty - th > ry + rh):
-                                    is_overlapping_box = True
-                                    break
-                            
-                            if is_overlapping_box:
-                                ty -= int(15 * scale)
-                            else:
-                                break
-                        
-                        # Clamp to keep trajectory text on screen after shifts
-                        tx = max(10, min(img.shape[1] - tw - 5, tx))
-                        ty = max(th + 5, min(img.shape[0] - 10, ty))
-
-                        # Draw connector line from dot to text (avoiding text boxes)
-                        line_mask = np.zeros((img.shape[0], img.shape[1]), dtype=np.uint8)
-                        cv2.line(line_mask, (cx, cy), (tx - int(2 * scale), ty + int(2 * scale)), 255, max(1, int(1 * scale)))
-                        
-                        # Erase the area of existing text boxes so the line goes "behind" them
-                        for rx, ry, rw, rh in drawn_text_boxes:
-                            pad = int(2 * scale)
-                            cv2.rectangle(line_mask, (rx - pad, ry - pad), (rx + rw + pad, ry + rh + pad), 0, -1)
-                            
-                        # Apply the masked line to the image
-                        img[line_mask == 255] = (200, 200, 200)
-
-                        logger.info(f"[DRAW_TEXT] Trajectory '{label}' at ({tx}, {ty})")
-                        cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (0, 0, 0), int(2.5 * scale))
-                        cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.35 * scale, (255, 255, 255), int(1 * scale))
-                        drawn_text_boxes.append((tx, ty - th, tw, th))
-                        
-                        # Register the connector line as an obstacle for future texts (like ambient clouds)
-                        import math as _m
-                        num_segments = max(1, int(_m.hypot(tx - cx, ty - cy) / (8 * scale)))
-                        for _j in range(num_segments + 1):
-                            px = cx + _j * (tx - cx) // num_segments
-                            py = cy + _j * (ty - cy) // num_segments
-                            drawn_text_boxes.append((px - int(5 * scale), py - int(5 * scale), int(10 * scale), int(10 * scale)))
-
+                        labels.append({
+                            'text': txt,
+                            'type': 'trajectory',
+                            'w': tw, 'h': th,
+                            'cx': tx + tw/2,
+                            'cy': ty - th/2,
+                            'ideal_cx': tx + tw/2,
+                            'ideal_cy': ty - th/2,
+                            'anchor_x': cx,
+                            'anchor_y': cy,
+                            'scale': 0.35 * scale,
+                            'fg': (255, 255, 255),
+                            'bg': (0, 0, 0)
+                        })
                         last_labeled_pt = (cx, cy)
-
+        
         if show_clouds:
             incoming = [c for c in display_clouds if c.get("approaching", False) and -120 <= c.get("eta_min", 9999) <= 180]
             incoming.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
             
-            for c_orig in incoming[:3] + sorted(ambient_clouds, key=lambda c: c.get("dist", 9999))[:8]:
-                cx = int((c_orig["cx"] - x1) * scale)
-                cy = int((c_orig["cy"] - y1) * scale)
-                if c_orig.get("approaching", False):
-                    if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
-                        pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for px, py in c_orig["pixels"]], dtype=np.int32)
-                        hull = cv2.convexHull(pts)
-                        hull_rect = cv2.boundingRect(hull)
-                        drawn_text_boxes.append((hull_rect[0] - 5, hull_rect[1] - 5, hull_rect[2] + 10, hull_rect[3] + 10))
-                    else:
-                        r = int(12 * scale)
-                        drawn_text_boxes.append((cx - r, cy - r, 2*r, 2*r))
-                else:
-                    r = int(10 * scale)
-                    drawn_text_boxes.append((cx - r, cy - r, 2*r, 2*r))
-        
-        # Draw user pin in blue to match the main location target
-        cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
-        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(10 * scale), int(3 * scale))
-        
-        # Draw Hit Zone boundary (using hit_radius from config, fallback to 8)
-        hit_r = int(_DEV_CONFIG.get("hit_radius", 8) * scale)
-        import math as _m
-        for angle_deg in range(0, 360, 15):
-            a1 = _m.radians(angle_deg)
-            a2 = _m.radians(angle_deg + 8)
-            p1 = (int(ux + hit_r * _m.cos(a1)), int(uy + hit_r * _m.sin(a1)))
-            p2 = (int(ux + hit_r * _m.cos(a2)), int(uy + hit_r * _m.sin(a2)))
-            cv2.line(img, p1, p2, (0, 165, 255), int(1.2 * scale)) # Orange dashed line
-        
-        def _dbz_color(dbz):
-            if dbz >= 60: return (155, 89, 182)   # Purple
-            elif dbz >= 50: return (231, 76, 60)  # Red
-            elif dbz >= 40: return (243, 156, 18) # Orange
-            elif dbz >= 30: return (241, 196, 15) # Yellow
-            else: return (46, 204, 113)            # Green
-
-        def _draw_cloud(c_orig, is_approaching):
-            cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
-            # Skip if outside crop (with generous margin)
-            if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
-                return
-            cx = int((cx_orig - x1) * scale)
-            cy = int((cy_orig - y1) * scale)
-            dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
-            vx = c_orig.get("vx", 0)
-            vy = c_orig.get("vy", 0)
-
-            if is_approaching:
-                # Approaching: solid colour contour + yellow arrow + ETA label
+            for c_orig in incoming[:3]:
+                cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
+                if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
+                    continue
+                cx = int((cx_orig - x1) * scale)
+                cy = int((cy_orig - y1) * scale)
+                dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
+                vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
+                
                 color = _dbz_color(dbz)
                 hull_rect = None
                 if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
@@ -1426,124 +1261,123 @@ class TMDRadarProcessor:
                     cv2.fillPoly(overlay, [hull], color)
                     cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
                     cv2.polylines(img, [hull], True, color, max(1, int(2.0 * scale)))
-                    drawn_text_boxes.append((hull_rect[0] - 5, hull_rect[1] - 5, hull_rect[2] + 10, hull_rect[3] + 10))
+                    obstacles.append((hull_rect[0]-5, hull_rect[1]-5, hull_rect[2]+10, hull_rect[3]+10))
                 else:
                     r = int(12 * scale)
                     cv2.circle(img, (cx, cy), r, color, int(1.5 * scale))
-                    drawn_text_boxes.append((cx - r, cy - r, 2*r, 2*r))
+                    obs_r = int(14 * scale)
+                    obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
                 
-                # Arrow toward destination
-                vx_scaled = int(vx * scale * 3.0)
-                vy_scaled = int(vy * scale * 3.0)
-                
-                arrow_start_x, arrow_start_y = cx, cy
+                vx_s = int(vx * scale * 3.0)
+                vy_s = int(vy * scale * 3.0)
+                arrow_sx, arrow_sy = cx, cy
                 if hull_rect:
-                    arrow_start_x = hull_rect[0] + hull_rect[2] // 2
-                    arrow_start_y = hull_rect[1] + hull_rect[3] // 2
-
-                if vx_scaled == 0 and vy_scaled == 0:
-                    cv2.arrowedLine(img, (arrow_start_x, arrow_start_y), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.15)
-                else:
-                    cv2.arrowedLine(img, (arrow_start_x, arrow_start_y), (arrow_start_x + vx_scaled, arrow_start_y + vy_scaled), (255, 255, 0), int(1.5 * scale), tipLength=0.3)
+                    arrow_sx = hull_rect[0] + hull_rect[2] // 2
+                    arrow_sy = hull_rect[1] + hull_rect[3] // 2
                 
-                # ETA label
+                if vx_s == 0 and vy_s == 0:
+                    cv2.arrowedLine(img, (arrow_sx, arrow_sy), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.15)
+                else:
+                    cv2.arrowedLine(img, (arrow_sx, arrow_sy), (arrow_sx + vx_s, arrow_sy + vy_s), (255, 255, 0), int(1.5 * scale), tipLength=0.3)
+                    
                 eta = max(1.0, float(c_orig.get("eta_min", 0)) - time_offset_min)
                 if eta <= 0:
-                    label_txt = f"{c_orig.get('label', '')} (Now)"
+                    txt = f"{c_orig.get('label', '')} (Now)"
                 else:
                     abs_eta = int(abs(eta))
                     time_str = f"{abs_eta}m" if abs_eta < 60 else f"{abs_eta//60}h{abs_eta%60}m"
-                    label_txt = f"{c_orig.get('label', '')}: ~{time_str}"
-                
-                # Target near the center of the cloud mass (or centroid cx, cy)
-                text_x = cx - int(20 * scale)
-                text_y = cy - int(12 * scale)
-                
-                # Check for overlap with already drawn text boxes (like user pin) and shift vertically if needed
-                tw = int(55 * scale)
-                th = int(15 * scale)
-                for _ in range(10):  # Try shifting up to 10 times to find a free space
-                    is_overlapping = False
-                    for rx, ry, rw, rh in drawn_text_boxes:
-                        # AABB collision check
-                        if not (text_x + tw < rx or text_x > rx + rw or text_y < ry or text_y - th > ry + rh):
-                            is_overlapping = True
-                            break
-                    if is_overlapping:
-                        text_y -= int(18 * scale)  # Shift upwards
-                    else:
-                        break
-
-                # Clamp coordinates to keep labels on screen
-                text_x = max(10, min(img.shape[1] - tw - 10, text_x))
-                text_y = max(th + 10, min(img.shape[0] - 10, text_y))
+                    txt = f"{c_orig.get('label', '')}: ~{time_str}"
                     
-                logger.info(f"[DRAW_TEXT] Cluster '{label_txt}' at ({text_x}, {text_y})")
-                cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (0, 0, 0), int(3.5 * scale))
-                cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45 * scale, (255, 255, 255), int(1.5 * scale))
+                tw, th = int(55 * scale), int(15 * scale)
+                tx = cx - int(20 * scale)
+                ty = cy - int(12 * scale)
                 
-                # Record the text box (using top-left layout [x, y - th, w, th])
-                drawn_text_boxes.append((text_x, text_y - th, tw, th))
-            else:
-                # Ambient (not approaching): dashed/thin circle + white/grey arrow
-                color = _dbz_color(dbz)
-                # Draw as dashed circle approximation using arc segments
-                for angle_deg in range(0, 360, 30):
-                    import math as _m
-                    a1 = _m.radians(angle_deg)
-                    a2 = _m.radians(angle_deg + 20)
-                    r = int(10 * scale)
-                    p1 = (int(cx + r * _m.cos(a1)), int(cy + r * _m.sin(a1)))
-                    p2 = (int(cx + r * _m.cos(a2)), int(cy + r * _m.sin(a2)))
-                    cv2.line(img, p1, p2, color, int(scale * 0.8))
-                drawn_text_boxes.append((cx - r, cy - r, 2*r, 2*r))
-                drawn_text_boxes.append((cx - r, cy - r, 2*r, 2*r))
-                # Wind direction arrow (white, shorter)
-                vx_scaled = int(vx * scale * 2.5)
-                vy_scaled = int(vy * scale * 2.5)
-                v_mag = math.hypot(vx_scaled, vy_scaled)
-                if v_mag > 2:
-                    cv2.arrowedLine(img, (cx, cy), (cx + vx_scaled, cy + vy_scaled),
-                                    (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
-                # dBZ and Cluster label in muted colour
-                label_txt = f"{c_orig.get('label', '')}: {int(dbz)}"
-                text_x = cx + int(11 * scale)
-                text_y = cy - int(5 * scale)
-                tw = int(45 * scale)
-                th = int(12 * scale)
-                
-                for _ in range(10):
-                    is_overlapping = False
-                    for rx, ry, rw, rh in drawn_text_boxes:
-                        if not (text_x + tw < rx or text_x > rx + rw or text_y < ry or text_y - th > ry + rh):
-                            is_overlapping = True
-                            break
-                    if is_overlapping:
-                        text_y -= int(15 * scale)
-                    else:
-                        break
-                        
-                # Clamp coordinates
-                text_x = max(5, min(img.shape[1] - tw - 5, text_x))
-                text_y = max(th + 5, min(img.shape[0] - 5, text_y))
-                
-                cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.4 * scale, (0, 0, 0), int(2.5 * scale))
-                cv2.putText(img, label_txt, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.4 * scale, (200, 200, 200), int(scale * 0.7))
-                drawn_text_boxes.append((text_x, text_y - th, tw, th))
+                labels.append({
+                    'text': txt,
+                    'type': 'approaching',
+                    'w': tw, 'h': th,
+                    'cx': tx + tw/2,
+                    'cy': ty - th/2,
+                    'ideal_cx': tx + tw/2,
+                    'ideal_cy': ty - th/2,
+                    'anchor_x': cx,
+                    'anchor_y': cy,
+                    'scale': 0.45 * scale,
+                    'fg': (255, 255, 255),
+                    'bg': (0, 0, 0)
+                })
 
-        if show_clouds:
-            # Draw approaching clouds (limit to top 3 strongest to avoid clutter)
-            incoming = [c for c in display_clouds if c.get("approaching", False) and -120 <= c.get("eta_min", 9999) <= 180]
-            incoming.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
-            for c in incoming[:3]:
-                _draw_cloud(c, is_approaching=True)
-    
-            # Draw ambient (non-approaching) clusters, up to 8
             ambient_clouds.sort(key=lambda c: c.get("dist", 9999))
-            for c in ambient_clouds[:8]:
-                _draw_cloud(c, is_approaching=False)
+            for c_orig in ambient_clouds[:8]:
+                cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
+                if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
+                    continue
+                cx = int((cx_orig - x1) * scale)
+                cy = int((cy_orig - y1) * scale)
+                dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
+                vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
+                
+                color = _dbz_color(dbz)
+                for angle_deg in range(0, 360, 30):
+                    a1 = math.radians(angle_deg)
+                    a2 = math.radians(angle_deg + 20)
+                    r = int(10 * scale)
+                    p1 = (int(cx + r * math.cos(a1)), int(cy + r * math.sin(a1)))
+                    p2 = (int(cx + r * math.cos(a2)), int(cy + r * math.sin(a2)))
+                    cv2.line(img, p1, p2, color, int(scale * 0.8))
+                obs_r = int(10 * scale)
+                obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
+                
+                vx_s = int(vx * scale * 2.5)
+                vy_s = int(vy * scale * 2.5)
+                v_mag = math.hypot(vx_s, vy_s)
+                if v_mag > 2:
+                    cv2.arrowedLine(img, (cx, cy), (cx + vx_s, cy + vy_s), (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
+                    
+                txt = f"{c_orig.get('label', '')}: {int(dbz)}"
+                tw, th = int(45 * scale), int(12 * scale)
+                tx = cx + int(6 * scale)
+                ty = cy - int(6 * scale)
+                
+                labels.append({
+                    'text': txt,
+                    'type': 'ambient',
+                    'w': tw, 'h': th,
+                    'cx': tx + tw/2,
+                    'cy': ty - th/2,
+                    'ideal_cx': tx + tw/2,
+                    'ideal_cy': ty - th/2,
+                    'anchor_x': cx,
+                    'anchor_y': cy,
+                    'scale': 0.4 * scale,
+                    'fg': (200, 200, 200),
+                    'bg': (0, 0, 0)
+                })
 
-        # Add IDC timestamp overlay
+        hit_r = int(_DEV_CONFIG.get("hit_radius", 8) * scale)
+        for angle_deg in range(0, 360, 15):
+            a1 = math.radians(angle_deg)
+            a2 = math.radians(angle_deg + 8)
+            p1 = (int(ux + hit_r * math.cos(a1)), int(uy + hit_r * math.sin(a1)))
+            p2 = (int(ux + hit_r * math.cos(a2)), int(uy + hit_r * math.sin(a2)))
+            cv2.line(img, p1, p2, (0, 165, 255), int(1.2 * scale))
+            
+        cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
+        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(10 * scale), int(3 * scale))
+
+        TMDRadarProcessor._resolve_label_collisions(labels, obstacles, img.shape[1], img.shape[0])
+
+        for lbl in labels:
+            tx = int(lbl['cx'] - lbl['w']/2)
+            ty = int(lbl['cy'] + lbl['h']/2)
+            
+            moved_dist = math.hypot(lbl['cx'] - lbl['ideal_cx'], lbl['cy'] - lbl['ideal_cy'])
+            if moved_dist > 8 * scale:
+                cv2.line(img, (lbl['anchor_x'], lbl['anchor_y']), (int(lbl['cx']), int(lbl['cy'])), (150, 150, 150), max(2, int(scale * 1.2)))
+                
+            cv2.putText(img, lbl['text'], (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, lbl['scale'], lbl['bg'], max(1, int(lbl['scale'] * 5.0)))
+            cv2.putText(img, lbl['text'], (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, lbl['scale'], lbl['fg'], max(1, int(lbl['scale'] * 1.8)))
+
         if time_utc:
             try:
                 from PIL import Image, ImageFont, ImageDraw
@@ -1555,8 +1389,6 @@ class TMDRadarProcessor:
                     fnt = _load_thai_font(int(14 * scale))
 
                 draw = ImageDraw.Draw(img_pil, "RGBA")
-
-                # Handling older Pillow versions where textbbox might not be available
                 if hasattr(draw, 'textbbox'):
                     left, top, right, bottom = draw.textbbox((0, 0), time_str_idc, font=fnt)
                     text_w, text_h = right - left, bottom - top
@@ -1569,12 +1401,10 @@ class TMDRadarProcessor:
 
                 draw.rectangle([x_pos-pad, y_pos-pad, x_pos+text_w+pad, y_pos+text_h+pad], fill=(0, 0, 0, 200))
                 draw.text((x_pos, y_pos), time_str_idc, fill=(255, 255, 255, 255), font=fnt)
-
                 img = np.array(img_pil.convert("RGB"))
             except Exception as e:
                 print("PIL ERROR:", e)
 
-        # Convert RGB back to BGR for cv2.imencode
         img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         is_success, buffer = cv2.imencode(".png", img_bgr)
         return buffer.tobytes() if is_success else None
