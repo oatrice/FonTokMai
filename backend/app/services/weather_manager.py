@@ -640,6 +640,7 @@ class WeatherManager:
 
                 use_loop_mapping = frame_source == "loop_gif"
                 user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=use_loop_mapping)
+                px, py = user_px, user_py
                 import logging
                 logging.info(f"DEBUG_LOCATION: lat={lat}, lng={lng} -> user_px={user_px}, user_py={user_py} (station: {station_code}, is_loop={use_loop_mapping})")
                 if user_px is None or user_py is None:
