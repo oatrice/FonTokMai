@@ -1281,6 +1281,19 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
             await send_telegram_message(chat_id, "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")
             return
             
+        if target_location_name == "all":
+            await send_telegram_message(chat_id, f"⏳ กำลังตรวจสอบสภาพอากาศทั้งหมด {len(locs)} จุด...")
+            for l in locs:
+                loc_display = l.name.capitalize() if l.name else "Default"
+                msg_text = f"⏳ กำลังตรวจสอบสภาพอากาศที่ '{loc_display}'..."
+                loading_msg_id = await send_telegram_message_return_id(chat_id, msg_text)
+                await process_telegram_location(
+                    chat_id, lat=l.latitude, lng=l.longitude,
+                    force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
+                    show_advanced=show_advanced, location_name=loc_display
+                )
+            return
+
         if target_location_name:
             for l in locs:
                 if (l.name and l.name.lower() == target_location_name) or (target_location_name == "default" and l.name is None):
