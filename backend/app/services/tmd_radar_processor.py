@@ -790,7 +790,8 @@ class TMDRadarProcessor:
                 "predicted_dbz": predicted_dbz,
                 "dist": dist_c,
                 "eta_min": eta_min,
-                "pixels": [(g[0], g[1]) for g in group]
+                "pixels": [(g[0], g[1]) for g in group],
+                "approaching": True
             })
 
         clusters.sort(key=lambda c: c["eta_min"])
