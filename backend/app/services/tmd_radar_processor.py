@@ -1377,7 +1377,19 @@ class TMDRadarProcessor:
 
         TMDRadarProcessor._resolve_label_collisions(labels, obstacles, img.shape[1], img.shape[0])
 
+        for t_lbl in labels:
+            if t_lbl.get('type') == 'trajectory':
+                for a_lbl in labels:
+                    if a_lbl.get('type') == 'approaching':
+                        dx = abs(t_lbl['cx'] - a_lbl['cx'])
+                        dy = abs(t_lbl['cy'] - a_lbl['cy'])
+                        if dx < (t_lbl['w'] + a_lbl['w']) / 2 + 4 * scale and dy < (t_lbl['h'] + a_lbl['h']) / 2 + 4 * scale:
+                            t_lbl['hidden'] = True
+                            break
+
         for lbl in labels:
+            if lbl.get('hidden'):
+                continue
             tx = int(lbl['cx'] - lbl['w']/2)
             ty = int(lbl['cy'] + lbl['h']/2)
             
