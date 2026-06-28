@@ -1207,43 +1207,43 @@ class TMDRadarProcessor:
                         cv2.line(img, (prev_cx, prev_cy), (cx, cy), (0, 255, 255), int(1.2 * scale))
                         
                     eta = p.get("time_offset", 0)
-                    should_label = False
-                    if eta > 0 and (i == 1 or i == len(pts)-1 or (eta % 45 == 0)):
-                        if last_labeled_pt is None:
-                            should_label = True
-                        else:
-                            if math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 30 * scale:
-                                should_label = True
-                    
-                    if i == len(pts) - 1 and not should_label:
-                        if last_labeled_pt is None or math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 10 * scale:
-                            should_label = True
-                            
-                    if should_label:
-                        txt = f"{eta}m"
-                        tw, th = int(35 * scale), int(12 * scale)
-                        if cx < ux:
-                            tx = cx - tw - int(8 * scale)
-                        else:
-                            tx = cx + int(12 * scale)
-                        ty = cy - int(16 * scale)
-                        
-                        labels.append({
-                            'text': txt,
-                            'type': 'trajectory',
-                            'margin': 12 * scale,
-                            'w': tw, 'h': th,
-                            'cx': tx + tw/2,
-                            'cy': ty - th/2,
-                            'ideal_cx': tx + tw/2,
-                            'ideal_cy': ty - th/2,
-                            'anchor_x': cx,
-                            'anchor_y': cy,
-                            'scale': 0.35 * scale,
-                            'fg': (255, 255, 255),
-                            'bg': (0, 0, 0)
-                        })
-                        last_labeled_pt = (cx, cy)
+                    should_label = False  # Disabled trajectory text (15m, 90m) as requested
+                    # if eta > 0 and (i == 1 or i == len(pts)-1 or (eta % 45 == 0)):
+                    #     if last_labeled_pt is None:
+                    #         should_label = True
+                    #     else:
+                    #         if math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 30 * scale:
+                    #             should_label = True
+                    # 
+                    # if i == len(pts) - 1 and not should_label:
+                    #     if last_labeled_pt is None or math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 10 * scale:
+                    #         should_label = True
+                    #         
+                    # if should_label:
+                    #     txt = f"{eta}m"
+                    #     tw, th = int(35 * scale), int(12 * scale)
+                    #     if cx < ux:
+                    #         tx = cx - tw - int(8 * scale)
+                    #     else:
+                    #         tx = cx + int(12 * scale)
+                    #     ty = cy - int(16 * scale)
+                    #     
+                    #     labels.append({
+                    #         'text': txt,
+                    #         'type': 'trajectory',
+                    #         'margin': 12 * scale,
+                    #         'w': tw, 'h': th,
+                    #         'cx': tx + tw/2,
+                    #         'cy': ty - th/2,
+                    #         'ideal_cx': tx + tw/2,
+                    #         'ideal_cy': ty - th/2,
+                    #         'anchor_x': cx,
+                    #         'anchor_y': cy,
+                    #         'scale': 0.35 * scale,
+                    #         'fg': (255, 255, 255),
+                    #         'bg': (0, 0, 0)
+                    #     })
+                    #     last_labeled_pt = (cx, cy)
         
         if show_clouds:
             incoming = [c for c in display_clouds if c.get("approaching", False) and -120 <= c.get("eta_min", 9999) <= 180]
