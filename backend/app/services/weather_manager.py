@@ -27,6 +27,7 @@ _DEV_CONFIG: dict = {
     "min_dbz":        10.0,   # minimum dBZ to count as rain
     "dot_threshold":  0.5,    # dot product threshold (how directly it must approach)
     "flow_mode":      "average", # 'latest' or 'average'
+    "hit_radius":     8,      # radius around user to check for rain hits
     "verbose":        False,  # Enable verbose debugging logs
 }
 
@@ -812,7 +813,7 @@ class WeatherManager:
                 for steps in range(7):
                     offset_min = steps * 15
                     dbz, src_x, src_y = processor.extrapolate_rain_at_pixel(
-                        curr_frame, flow, px, py, steps=steps, radius=8,
+                        curr_frame, flow, px, py, steps=steps, radius=_cfg.get("hit_radius", 8),
                         fallback_vx=fallback_vx, fallback_vy=fallback_vy
                     )
                     

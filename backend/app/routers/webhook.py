@@ -1017,6 +1017,7 @@ async def handle_devmock_command(chat_id: int, command: str):
                     "\n<b>ปรับได้:</b>\n"
                     "<code>/devmock config cluster_min:1</code>\n"
                     "<code>/devmock config search_radius:120</code>\n"
+                    "<code>/devmock config hit_radius:8</code>\n"
                     "<code>/devmock config min_dbz:5</code>\n"
                     "<code>/devmock config dot_threshold:0.3</code>\n"
                     "<code>/devmock config flow_mode:average</code>\n"
