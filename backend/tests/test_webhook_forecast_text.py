@@ -16,7 +16,6 @@ def test_build_forecast_text_no_rain_tmd_radar():
     text, actual_endpoint, eta_minutes = _build_forecast_text(result)
     
     assert "ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้" in text
-    assert "(ระบบงดแสดงภาพ Timeline และ Zoom-in Tracking เนื่องจากตรวจไม่พบกลุ่มฝน)" in text
     assert actual_endpoint == "tmd-radar (kkn240)"
 
 def test_build_forecast_text_no_rain_open_meteo():

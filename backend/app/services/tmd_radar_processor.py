@@ -4,6 +4,7 @@ import time
 import logging
 import math
 import io
+import re
 import cv2
 import httpx
 import numpy as np
@@ -17,6 +18,38 @@ from google.cloud import storage
 from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING, IGNORED_COLORS
 
 logger = logging.getLogger(__name__)
+
+
+def _load_thai_font(size: int) -> "ImageFont.FreeTypeFont":
+    """Return the best available font that supports Thai characters.
+
+    Priority order (Thai-capable → Latin fallbacks → PIL default):
+      macOS  : Tahoma, Arial Unicode MS
+      Linux  : Noto Sans Thai, Garuda, LiberationSans, DejaVu Sans
+    """
+    candidates = [
+        # macOS Thai fonts
+        "/System/Library/Fonts/Supplemental/Tahoma.ttf",
+        "/Library/Fonts/Tahoma.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/Library/Fonts/Arial Unicode.ttf",
+        # Linux / Docker Thai fonts (install fonts-thai-tlwg or fonts-noto-core)
+        "/usr/share/fonts/truetype/thai-tlwg/Garuda.ttf",
+        "/usr/share/fonts/truetype/thai-tlwg/Loma.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        # Generic Latin fallbacks
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                continue
+    return ImageFont.load_default()
 
 class TMDRadarProcessor:
     def __init__(self, station_code: str):
@@ -126,8 +159,8 @@ class TMDRadarProcessor:
         if min_dist_ignored <= min_dist_dbz:
             return 0.0
             
-        # Tighter threshold (15) reduces false positives from map features
-        if min_dist_dbz < 15:
+        # Tighter threshold (25) reduces false positives from map features while allowing JPEG artifact tolerance
+        if min_dist_dbz < 25:
             return best_dbz
             
         return 0.0
@@ -135,7 +168,7 @@ class TMDRadarProcessor:
         """Converts an RGB radar frame into a grayscale mask representing rain intensity."""
         img_float = img.astype(np.float32)
         
-        min_dists = np.full(img.shape[:2], 15.0, dtype=np.float32)
+        min_dists = np.full(img.shape[:2], 25.0, dtype=np.float32)
         best_intensity = np.zeros(img.shape[:2], dtype=np.uint8)
         
         # Calculate min distance to any ignored color
@@ -230,9 +263,9 @@ class TMDRadarProcessor:
             next=curr_gray,
             flow=None,
             pyr_scale=0.5,
-            levels=3,
-            winsize=15,
-            iterations=3,
+            levels=5,
+            winsize=25,
+            iterations=5,
             poly_n=5,
             poly_sigma=1.2,
             flags=0
@@ -243,6 +276,164 @@ class TMDRadarProcessor:
         
         return flow
         
+    def generate_flow_debug_images(self, prev_img: np.ndarray, curr_img: np.ndarray, flow: np.ndarray, clusters: list) -> dict:
+        """
+        Generates debug images for optical flow analysis:
+        1. Rain Mask
+        2. HSV Heatmap
+        3. Flow Grid
+        4. Clusters
+        """
+        images = {}
+        
+        # 1. Rain Mask
+        curr_gray = self.extract_rain_mask(curr_img)
+        is_success, buffer = cv2.imencode(".png", curr_gray)
+        if is_success:
+            images["rain_mask"] = buffer.tobytes()
+            
+        # 2. HSV Heatmap
+        hsv = np.zeros((flow.shape[0], flow.shape[1], 3), dtype=np.uint8)
+        hsv[..., 1] = 255
+        mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+        hsv[..., 0] = ang * 180 / np.pi / 2
+        hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+        bgr_flow = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        is_success, buffer = cv2.imencode(".png", bgr_flow)
+        if is_success:
+            images["flow_hsv"] = buffer.tobytes()
+            
+        # 3. Flow Vector Grid
+        # Create a copy and ensure it's BGR for imencode if it's RGB
+        # If curr_img is RGB, cvtColor is needed later. Let's assume it's RGB.
+        grid_img = curr_img.copy()
+        step = 16
+        h, w = curr_img.shape[:2]
+        y, x = np.mgrid[step/2:h:step, step/2:w:step].reshape(2,-1).astype(int)
+        fx, fy = flow[y,x].T
+        lines = np.vstack([x, y, x+fx*3, y+fy*3]).T.reshape(-1, 2, 2)
+        lines = np.int32(lines + 0.5)
+        cv2.polylines(grid_img, lines, 0, (0, 255, 0), 1)
+        for (x1, y1), (_x2, _y2) in lines:
+            cv2.circle(grid_img, (x1, y1), 1, (0, 255, 0), -1)
+        is_success, buffer = cv2.imencode(".png", cv2.cvtColor(grid_img, cv2.COLOR_RGB2BGR))
+        if is_success:
+            images["flow_grid"] = buffer.tobytes()
+            
+        # 4. Cluster Averages
+        cluster_img = curr_img.copy()
+        for c in clusters:
+            cx, cy = c["cx"], c["cy"]
+            vx, vy = c["vx"], c["vy"]
+            size = c.get("size", 10)
+            r = int(math.sqrt(size) * 1.5)
+            cv2.rectangle(cluster_img, (cx - r, cy - r), (cx + r, cy + r), (255, 0, 255), 1)
+            cv2.arrowedLine(cluster_img, (cx, cy), (int(cx + vx*3), int(cy + vy*3)), (255, 255, 0), 2, tipLength=0.3)
+            
+        is_success, buffer = cv2.imencode(".png", cv2.cvtColor(cluster_img, cv2.COLOR_RGB2BGR))
+        if is_success:
+            images["clusters"] = buffer.tobytes()
+            
+        return images
+        
+    def generate_multiframe_flow_debug_images(self, frames: List[np.ndarray], user_px: int, user_py: int, min_dbz: float, flow_mode: str = "latest") -> dict:
+        """
+        Applies optical flow to all consecutive pairs in frames and horizontally concatenates
+        the 4 debug views into wide timeline images.
+        """
+        all_masks = []
+        all_hsvs = []
+        all_grids = []
+        all_clusters = []
+        
+        for i in range(len(frames) - 1):
+            curr_img = frames[i+1]
+            if flow_mode == "average":
+                flow = self.calculate_average_optical_flow(frames[:i+2])
+            else:
+                prev_img = frames[i]
+                flow = self.calculate_optical_flow([prev_img, curr_img])
+            
+            # 1. Rain Mask
+            curr_gray = self.extract_rain_mask(curr_img)
+            curr_gray_bgr = cv2.cvtColor(curr_gray, cv2.COLOR_GRAY2BGR)
+            
+            # 2. HSV Heatmap
+            hsv = np.zeros((flow.shape[0], flow.shape[1], 3), dtype=np.uint8)
+            hsv[..., 1] = 255
+            mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+            hsv[..., 0] = ang * 180 / np.pi / 2
+            hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+            bgr_flow = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+            
+            # 3. Flow Vector Grid
+            grid_img = curr_img.copy()
+            step = 16
+            h, w = curr_img.shape[:2]
+            y, x = np.mgrid[step/2:h:step, step/2:w:step].reshape(2,-1).astype(int)
+            fx, fy = flow[y,x].T
+            lines = np.vstack([x, y, x+fx*3, y+fy*3]).T.reshape(-1, 2, 2)
+            lines = np.int32(lines + 0.5)
+            cv2.polylines(grid_img, lines, 0, (0, 255, 0), 1)
+            for (x1, y1), (_x2, _y2) in lines:
+                cv2.circle(grid_img, (x1, y1), 1, (0, 255, 0), -1)
+            grid_img_bgr = cv2.cvtColor(grid_img, cv2.COLOR_RGB2BGR)
+            
+            # 4. Clusters
+            clusters = self.get_all_rain_clusters(
+                curr_img, flow, user_px, user_py, 
+                scan_radius=800, min_dbz=min_dbz, cluster_dist=25
+            )
+            cluster_img = curr_img.copy()
+            for c in clusters:
+                cx, cy = c["cx"], c["cy"]
+                vx, vy = c["vx"], c["vy"]
+                size = c.get("size", 10)
+                r = int(math.sqrt(size) * 1.5)
+                cv2.rectangle(cluster_img, (cx - r, cy - r), (cx + r, cy + r), (255, 0, 255), 1)
+                cv2.arrowedLine(cluster_img, (cx, cy), (int(cx + vx*3), int(cy + vy*3)), (255, 255, 0), 2, tipLength=0.3)
+            cluster_img_bgr = cv2.cvtColor(cluster_img, cv2.COLOR_RGB2BGR)
+            
+            # Draw frame index text
+            cv2.putText(curr_gray_bgr, f"Flow {i+1}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255,255,255), 3)
+            cv2.putText(bgr_flow, f"Flow {i+1}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255,255,255), 3)
+            cv2.putText(grid_img_bgr, f"Flow {i+1}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255,255,255), 3)
+            cv2.putText(cluster_img_bgr, f"Flow {i+1}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255,255,255), 3)
+            
+            # Draw vertical divider
+            cv2.line(curr_gray_bgr, (w-2, 0), (w-2, h-1), (80, 80, 80), 3)
+            cv2.line(bgr_flow, (w-2, 0), (w-2, h-1), (80, 80, 80), 3)
+            cv2.line(grid_img_bgr, (w-2, 0), (w-2, h-1), (80, 80, 80), 3)
+            cv2.line(cluster_img_bgr, (w-2, 0), (w-2, h-1), (80, 80, 80), 3)
+            
+            all_masks.append(curr_gray_bgr)
+            all_hsvs.append(bgr_flow)
+            all_grids.append(grid_img_bgr)
+            all_clusters.append(cluster_img_bgr)
+            
+        final_mask = np.hstack(all_masks)
+        final_hsv = np.hstack(all_hsvs)
+        final_grid = np.hstack(all_grids)
+        final_cluster = np.hstack(all_clusters)
+        
+        # Scale to 50% so it's not too huge (2000x400)
+        final_mask = cv2.resize(final_mask, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+        final_hsv = cv2.resize(final_hsv, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+        final_grid = cv2.resize(final_grid, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+        final_cluster = cv2.resize(final_cluster, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+        
+        images = {}
+        _, buf = cv2.imencode(".png", final_mask)
+        images["rain_mask"] = buf.tobytes()
+        _, buf = cv2.imencode(".png", final_hsv)
+        images["flow_hsv"] = buf.tobytes()
+        _, buf = cv2.imencode(".png", final_grid)
+        images["flow_grid"] = buf.tobytes()
+        _, buf = cv2.imencode(".png", final_cluster)
+        images["clusters"] = buf.tobytes()
+        
+        return images
+        
     def get_flow_vector_at(self, flow: np.ndarray, x: int, y: int) -> Tuple[float, float]:
         """Returns the (dx, dy) velocity vector from optical flow array at given pixel."""
         if x < 0 or x >= flow.shape[1] or y < 0 or y >= flow.shape[0]:
@@ -252,7 +443,11 @@ class TMDRadarProcessor:
         vy = float(flow[y, x, 1])
         return vx, vy
 
-    def extrapolate_rain_at_pixel(self, img: np.ndarray, flow: np.ndarray, px: int, py: int, steps: int, rate: float = 0.0, radius: int = 5) -> float:
+    def extrapolate_rain_at_pixel(
+        self, img: np.ndarray, flow: np.ndarray, px: int, py: int, steps: int,
+        rate: float = 0.0, radius: int = 5,
+        fallback_vx: float = 0.0, fallback_vy: float = 0.0
+    ) -> Tuple[float, int, int]:
         """
         Uses Semi-Lagrangian backward tracking to find the dBZ value that will arrive at (px, py) in 'steps' time intervals.
         Each step corresponds to the time difference between the frames used to compute the optical flow (e.g. 15 mins).
@@ -261,17 +456,24 @@ class TMDRadarProcessor:
         'radius' is used to search a local neighborhood (e.g. +/- 5 pixels) to account for slight movement inaccuracies and cloud edges.
         """
         if steps == 0:
-            return self.get_dbz_at_pixel(img, px, py)
+            return self.get_dbz_at_pixel(img, px, py), px, py
             
         # Get the flow vector at the target pixel
         vx, vy = self.get_flow_vector_at(flow, px, py)
         
+        # If local flow is zero/very small, fallback to the velocity of the approaching storm
+        if math.hypot(vx, vy) < 0.5 and (fallback_vx != 0.0 or fallback_vy != 0.0):
+            vx, vy = fallback_vx, fallback_vy
+            
         # Calculate source pixel (backward tracking)
         # Assuming linear constant velocity over the steps
         src_x = int(round(px - (vx * steps)))
         src_y = int(round(py - (vy * steps)))
         
         max_dbz = 0.0
+        best_sx = src_x
+        best_sy = src_y
+        
         # Check a bounding box of +/- radius around the source pixel
         for dy in range(-radius, radius + 1):
             for dx in range(-radius, radius + 1):
@@ -281,22 +483,67 @@ class TMDRadarProcessor:
                     d = self.get_dbz_at_pixel(img, sx, sy)
                     if d > max_dbz:
                         max_dbz = d
+                        best_sx = sx
+                        best_sy = sy
                         
         dbz = max_dbz
         
         if rate != 0.0 and dbz > 0:
             factor = 1.0 + rate
             if factor <= 0:
-                dbz = 0.0
-            else:
-                dbz = float(dbz * (factor ** steps))
-                
+                return 0.0, best_sx, best_sy
+            dbz *= (factor ** abs(steps))
+            
             if dbz > 75.0:
                 dbz = 75.0
             elif dbz < 10.0:
                 dbz = 0.0
+        return float(dbz), best_sx, best_sy
+
+    def calculate_average_optical_flow(self, frames: List[np.ndarray]) -> np.ndarray:
+        """
+        Calculates a temporal-averaged optical flow (Lagrangian) across multiple consecutive frames.
+        It computes the optical flow between each consecutive pair, then for each pixel in the 
+        latest frame, it traces backwards through time to sum up the velocities along the cloud's path.
+        Returns the averaged flow vector for each pixel in the final frame.
+        """
+        if len(frames) < 2:
+            raise ValueError("At least 2 frames required for optical flow")
+            
+        # Calculate flow for each consecutive pair
+        flows = []
+        for i in range(len(frames) - 1):
+            flows.append(self.calculate_optical_flow([frames[i], frames[i+1]]))
+            
+        N = len(flows)
+        if N == 1:
+            return flows[0]
+            
+        H, W = flows[0].shape[:2]
+        Y, X = np.indices((H, W))
+        curr_x = X.astype(np.float32)
+        curr_y = Y.astype(np.float32)
         
-        return float(dbz)
+        total_vx = np.zeros((H, W), dtype=np.float32)
+        total_vy = np.zeros((H, W), dtype=np.float32)
+        
+        # Trace backward from the newest frame to the oldest
+        for i in range(N - 1, -1, -1):
+            # Sample the velocity at the current traced coordinates
+            mapped_flow = cv2.remap(flows[i], curr_x, curr_y, interpolation=cv2.INTER_LINEAR)
+            vx = mapped_flow[..., 0]
+            vy = mapped_flow[..., 1]
+            
+            total_vx += vx
+            total_vy += vy
+            
+            # Move the coordinates backward in time for the next iteration
+            curr_x -= vx
+            curr_y -= vy
+            
+        # Return the temporal average
+        avg_flow = np.stack([total_vx / N, total_vy / N], axis=-1)
+        return avg_flow
 
     @staticmethod
     def draw_pin_on_frame(img: np.ndarray, x: int, y: int) -> None:
@@ -416,6 +663,8 @@ class TMDRadarProcessor:
         min_dbz: float = 20.0,
         cluster_dist: int = 20,
         hit_radius: int = 20,
+        cluster_min: int = 3,
+        dot_threshold: float = 0.5,
     ) -> list:
         """
         Scans all rain pixels within search_radius of (user_x, user_y).
@@ -436,8 +685,12 @@ class TMDRadarProcessor:
         valid_y_max = crop_y0 + crop_h
 
         candidates = []
+        dbz_pass = 0
+        dot_pass = 0
+        total_scanned = 0
         for dy in range(-search_radius, search_radius + 1, 2):
             for dx in range(-search_radius, search_radius + 1, 2):
+                total_scanned += 1
                 sx = user_x + dx
                 sy = user_y + dy
                 # Skip pixels outside the valid radar area (legend, borders)
@@ -448,6 +701,7 @@ class TMDRadarProcessor:
                 d = self.get_dbz_at_pixel(curr_frame, sx, sy)
                 if d < min_dbz:
                     continue
+                dbz_pass += 1
                 cvx, cvy = self.get_flow_vector_at(flow, sx, sy)
                 to_x = user_x - sx
                 to_y = user_y - sy
@@ -455,9 +709,10 @@ class TMDRadarProcessor:
                 if dist == 0:
                     continue
                 dot = (cvx * to_x + cvy * to_y) / dist
-                # Only keep pixels whose flow APPROACHES the user (dot > 0)
-                if dot <= 0:
+                # Only keep pixels whose flow APPROACHES the user (dot > dot_threshold)
+                if dot <= dot_threshold:
                     continue
+                dot_pass += 1
                 
                 v_mag = math.sqrt(cvx ** 2 + cvy ** 2)
                 if v_mag < 0.1:
@@ -472,6 +727,12 @@ class TMDRadarProcessor:
                 prev_y = int(round(sy - cvy))
                 d_prev = self.get_dbz_at_pixel(prev_frame, prev_x, prev_y) if prev_frame is not None else d
                 candidates.append((sx, sy, cvx, cvy, d, d_prev, dist, dot))
+
+        logger.info(
+            f"[DEBUG_APPROACH] user_x={user_x}, user_y={user_y}, min_dbz={min_dbz}, "
+            f"scanned={total_scanned}, dbz_pass={dbz_pass}, dot_pass={dot_pass}, "
+            f"candidates={len(candidates)}"
+        )
 
         if not candidates:
             return []
@@ -495,7 +756,7 @@ class TMDRadarProcessor:
                             used[j] = True
                             queue.append(c2)
 
-            if len(group) < 3:
+            if len(group) < cluster_min:
                 continue
 
             total_w = sum(g[4] for g in group)
@@ -529,19 +790,17 @@ class TMDRadarProcessor:
                 "predicted_dbz": predicted_dbz,
                 "dist": dist_c,
                 "eta_min": eta_min,
+                "pixels": [(g[0], g[1]) for g in group],
+                "approaching": True
             })
 
         clusters.sort(key=lambda c: c["eta_min"])
         return clusters
 
     @staticmethod
-    def render_rain_summary(clouds: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0) -> str:
+    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None) -> str:
         """
-        Generates a smart, non-redundant rain summary line for Telegram.
-
-        - If no reliable clouds: returns a 'no rain' message.
-        - If first cloud = strongest: merges into one line.
-        - If a stronger cloud follows: shows two distinct lines.
+        Generates a smart, non-redundant rain summary line for Telegram based on the pixel's time-series predictions.
         """
         warning = "\n⚠️ ข้อมูลขาดช่วง (ความแม่นยำต่ำ)" if confidence_score < 1.0 else ""
         
@@ -550,155 +809,634 @@ class TMDRadarProcessor:
             if m < 0:
                 m = 0
             if m < 60:
-                return f"~{m}m"
+                return f"~{m} นาที"
             h = m // 60
             r = m % 60
-            return f"~{h}h{r}m" if r else f"~{h}hr"
+            return f"~{h} ชม. {r} นาที" if r else f"~{h} ชม."
 
         def dbz_label(dbz: float) -> str:
             if dbz >= 55: return "ฝนหนักมาก"
-            if dbz >= 40: return "ฝนหนัก"
-            if dbz >= 25: return "ฝนปานกลาง"
+            if dbz >= 35: return "ฝนหนัก"
+            if dbz >= 20: return "ฝนปานกลาง"
             return "ฝนเบา"
 
-        # Filter for incoming or currently active rain only (-10 to confidence cutoff)
-        reliable = [c for c in clouds if c["predicted_dbz"] >= 15 and -10 <= c["eta_min"] <= confidence_cutoff_min]
+        def fmt_clock_time(minutes_offset: float) -> str:
+            m = int(round(minutes_offset - time_offset_min))
+            if m < 0:
+                m = 0
+            bkk_now = datetime.now(timezone(timedelta(hours=7)))
+            target = bkk_now + timedelta(minutes=m)
+            return target.strftime('%H:%M น.')
 
-        if not reliable:
-            return f"ℹ️ ไม่พบฝนในระยะ 90 นาทีข้างหน้า{warning}"
+        if not predictions:
+            return f"ℹ️ ไม่สามารถพยากรณ์ล่วงหน้าได้{warning}"
 
-        first    = reliable[0]
-        strongest = max(reliable, key=lambda c: c["predicted_dbz"])
+        rain_events = []
+        in_rain = False
+        start_idx = -1
+        max_dbz = 0.0
+        max_idx = -1
+        
+        for i, p in enumerate(predictions):
+            dbz = p["dbz"]
+            if dbz >= 15.0:
+                if not in_rain:
+                    in_rain = True
+                    start_idx = i
+                    max_dbz = dbz
+                    max_idx = i
+                else:
+                    if dbz > max_dbz:
+                        max_dbz = dbz
+                        max_idx = i
+            else:
+                if in_rain:
+                    in_rain = False
+                    rain_events.append({
+                        "start_idx": start_idx,
+                        "stop_idx": i,
+                        "max_dbz": max_dbz,
+                        "max_idx": max_idx
+                    })
+        
+        if in_rain:
+            rain_events.append({
+                "start_idx": start_idx,
+                "stop_idx": -1,
+                "max_dbz": max_dbz,
+                "max_idx": max_idx
+            })
 
-        if first is strongest:
-            lbl = dbz_label(first["predicted_dbz"])
-            return f"⚡ ฝนกำลังจะมาใน {fmt_eta(first['eta_min'])} ({int(first['predicted_dbz'])} dBZ — {lbl}){warning}"
+        active_event = None
+        for event in rain_events:
+            stop_idx = event["stop_idx"]
+            if stop_idx == -1:
+                active_event = event
+                break
+            
+            stop_time = predictions[stop_idx]["time_offset"]
+            if stop_time - time_offset_min > 0:
+                active_event = event
+                break
+
+        if not active_event:
+            max_time = predictions[-1]["time_offset"]
+            text = f"☀️ ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน {fmt_eta(max_time)}นี้"
+            if approaching_clouds:
+                far_clouds = [c for c in approaching_clouds if c.get("eta_min", 0) > max_time]
+                if far_clouds:
+                    soonest = min(far_clouds, key=lambda c: c.get("eta_min", 999))
+                    eta_val = max(1.0, float(soonest["eta_min"]) - time_offset_min)
+                    eta_h = int(eta_val // 60)
+                    eta_m = int(eta_val % 60)
+                    time_str = f"~{eta_h} ชม. {eta_m} นาที" if eta_h > 0 else f"~{eta_m} นาที"
+                    if eta_h > 0 and eta_m == 0:
+                        time_str = f"~{eta_h} ชม."
+                    text += f"\n☁️ หมายเหตุ: ตรวจพบกลุ่มฝน ({int(soonest.get('dbz_now', 0))} dBZ) กำลังเคลื่อนมา อาจจะถึงในอีก {time_str} (เวลาประมาณ {fmt_clock_time(float(soonest['eta_min']))})"
+            
+            return text + warning
+
+        start_idx = active_event["start_idx"]
+        stop_idx = active_event["stop_idx"]
+        max_dbz = active_event["max_dbz"]
+        max_idx = active_event["max_idx"]
+        
+        start_time = predictions[start_idx]["time_offset"]
+        start_dbz = predictions[start_idx]["dbz"]
+        lbl_start = dbz_label(start_dbz)
+        
+        adj_start = start_time - time_offset_min
+        
+        if adj_start <= 0:
+            msg_start = f"🌧️ ฝนกำลังตกอยู่ ({int(start_dbz)} dBZ — {lbl_start})"
+            if stop_idx == -1:
+                max_time = predictions[-1]["time_offset"]
+                msg_duration = f"และคาดว่าจะตกต่อเนื่องถึงอย่างน้อย {fmt_eta(max_time)} (เวลา {fmt_clock_time(max_time)})"
+            else:
+                stop_time = predictions[stop_idx]["time_offset"]
+                msg_duration = f"และคาดว่าจะหยุดตกในอีก {fmt_eta(stop_time)} (เวลาประมาณ {fmt_clock_time(stop_time)})"
         else:
-            lbl_f = dbz_label(first["predicted_dbz"])
-            lbl_s = dbz_label(strongest["predicted_dbz"])
+            msg_start = f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} (เวลาประมาณ {fmt_clock_time(start_time)}) ({int(start_dbz)} dBZ — {lbl_start})"
+            if stop_idx == -1:
+                max_time = predictions[-1]["time_offset"]
+                duration = int(max_time - start_time)
+                msg_duration = f"และคาดว่าจะตกต่อเนื่องอย่างน้อย {duration} นาที (ถึงอย่างน้อย {fmt_clock_time(max_time)})"
+            else:
+                stop_time = predictions[stop_idx]["time_offset"]
+                duration = int(stop_time - start_time)
+                msg_duration = f"และคาดว่าจะตกต่อเนื่องประมาณ {duration} นาที (ถึงเวลาประมาณ {fmt_clock_time(stop_time)})"
+        
+        if max_idx > start_idx and max_dbz >= start_dbz + 15.0:
+            max_time = predictions[max_idx]["time_offset"]
+            lbl_max = dbz_label(max_dbz)
             return (
-                f"⏱ ฝนก้อนแรกใน {fmt_eta(first['eta_min'])} ({int(first['predicted_dbz'])} dBZ — {lbl_f})\n"
-                f"⚡ ก้อนหนักกว่ามาทีหลัง {fmt_eta(strongest['eta_min'])} ({int(strongest['predicted_dbz'])} dBZ — {lbl_s}){warning}"
+                f"{msg_start}\n"
+                f"⚡ และจะตกหนักขึ้นใน {fmt_eta(max_time)} ({int(max_dbz)} dBZ — {lbl_max})\n"
+                f"{msg_duration}{warning}"
             )
+        else:
+            return f"{msg_start}\n{msg_duration}{warning}"
 
     @staticmethod
-    def generate_radar_tracking_image(frame: np.ndarray, user_x: int, user_y: int, clouds: list, time_utc: datetime = None) -> Optional[bytes]:
-        if frame is None or not clouds:
-            return None
+    def get_all_rain_clusters(
+        frame: np.ndarray,
+        flow: np.ndarray,
+        user_x: int,
+        user_y: int,
+        scan_radius: int = 200,
+        min_dbz: float = 10.0,
+        cluster_dist: int = 25,
+    ) -> list:
+        """
+        Scan a wide radius for ALL rain clusters (regardless of direction).
+        Returns a list of dicts with cx, cy, vx, vy, dbz_now, eta_min, approaching.
+        Used for the always-visible radar overlay (circles + arrows).
+        """
+        h, w = frame.shape[:2]
+        candidates = []
+        for dy in range(-scan_radius, scan_radius + 1, 1):
+            for dx in range(-scan_radius, scan_radius + 1, 1):
+                sx = user_x + dx
+                sy = user_y + dy
+                if sx < 0 or sx >= w or sy < 0 or sy >= h:
+                    continue
+                d = TMDRadarProcessor._get_dbz_at_pixel_static(frame, sx, sy)
+                if d < min_dbz:
+                    continue
+                vx = float(flow[sy, sx, 0])
+                vy = float(flow[sy, sx, 1])
+                candidates.append((sx, sy, vx, vy, d))
+
+        if not candidates:
+            return []
+
+        # Simple greedy clustering
+        used = [False] * len(candidates)
+        clusters = []
+        for i, c1 in enumerate(candidates):
+            if used[i]:
+                continue
+            group = [c1]
+            used[i] = True
+            queue = [c1]
+            while queue:
+                cur = queue.pop()
+                for j, c2 in enumerate(candidates):
+                    if used[j]:
+                        continue
+                    if math.hypot(cur[0] - c2[0], cur[1] - c2[1]) <= cluster_dist:
+                        used[j] = True
+                        group.append(c2)
+                        queue.append(c2)
+
+            total_w = sum(g[4] for g in group)
+            if total_w <= 0:
+                continue
+            cx = int(sum(g[0] * g[4] for g in group) / total_w)
+            cy = int(sum(g[1] * g[4] for g in group) / total_w)
+            avg_vx = sum(g[2] for g in group) / len(group)
+            avg_vy = sum(g[3] for g in group) / len(group)
+            dbz_now = max(g[4] for g in group)
+
+            v_mag = math.hypot(avg_vx, avg_vy)
+            dist = math.hypot(cx - user_x, cy - user_y)
+
+            # Determine if approaching
+            approaching = False
+            eta_min = None
+            if v_mag > 0.1 and dist > 0:
+                vx_norm = avg_vx / v_mag
+                vy_norm = avg_vy / v_mag
+                vec_x = user_x - cx
+                vec_y = user_y - cy
+                dot = vx_norm * (vec_x / dist) + vy_norm * (vec_y / dist)
+                if dot > 0.3:  # looser than find_approaching_clouds threshold
+                    approaching = True
+                    eta_min = (dist / (v_mag * dot)) * 15.0
+
+            if eta_min is None:
+                eta_min = (dist / v_mag * 15.0) if v_mag > 0.1 else 9999.0
+
+            xmin = min(g[0] for g in group)
+            xmax = max(g[0] for g in group)
+            ymin = min(g[1] for g in group)
+            ymax = max(g[1] for g in group)
+
+            clusters.append({
+                "cx": cx, "cy": cy,
+                "vx": avg_vx, "vy": avg_vy,
+                "dbz_now": dbz_now,
+                "predicted_dbz": dbz_now,
+                "dist": dist,
+                "eta_min": eta_min,
+                "approaching": approaching,
+                "size": len(group),
+                "xmin": xmin, "xmax": xmax,
+                "ymin": ymin, "ymax": ymax,
+                "pixels": [(g[0], g[1]) for g in group]
+            })
+
+        clusters.sort(key=lambda c: c["dist"])
+        for i, c in enumerate(clusters):
+            c["label"] = chr(ord('A') + min(i, 25))
+        return clusters
+
+    @staticmethod
+    def _get_dbz_at_pixel_static(img: np.ndarray, x: int, y: int) -> float:
+        """Static version of get_dbz_at_pixel for use in classmethod/staticmethod context."""
+        pixel = img[y, x]
+        r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
+        min_dist_dbz = float('inf')
+        best_dbz = 0.0
+        min_dist_ignored = float('inf')
+
+        for color, dbz in DBZ_COLOR_MAPPING.items():
+            dist = math.sqrt((r - color[0])**2 + (g - color[1])**2 + (b - color[2])**2)
+            if dist < min_dist_dbz:
+                min_dist_dbz = dist
+                best_dbz = dbz
+
+        for ic in IGNORED_COLORS:
+            dist = math.sqrt((r - ic[0])**2 + (g - ic[1])**2 + (b - ic[2])**2)
+            if dist < min_dist_ignored:
+                min_dist_ignored = dist
+
+        if min_dist_ignored <= min_dist_dbz:
+            return 0.0
+        if min_dist_dbz < 25:
+            return best_dbz
+        return 0.0
+
+    @staticmethod
+    def _resolve_label_collisions(labels, obstacles, img_w, img_h, iterations=30):
+        import math
         
-        # Crop a 240x240 region around the user
+        def get_overlap(c1x, c1y, w1, h1, c2x, c2y, w2, h2):
+            dx = c1x - c2x
+            dy = c1y - c2y
+            ox = (w1 + w2) / 2 - abs(dx)
+            oy = (h1 + h2) / 2 - abs(dy)
+            if ox > 0 and oy > 0:
+                return ox, oy, dx, dy
+            return 0, 0, dx, dy
+
+        for _ in range(iterations):
+            for i, lbl in enumerate(labels):
+                fx, fy = 0.0, 0.0
+                
+                dx_ideal = lbl['ideal_cx'] - lbl['cx']
+                dy_ideal = lbl['ideal_cy'] - lbl['cy']
+                fx += dx_ideal * 0.1
+                fy += dy_ideal * 0.1
+                
+                margin = lbl.get('margin', 4)
+                for obs in obstacles:
+                    ox, oy, w, h = obs[0], obs[1], obs[2], obs[3]
+                    obs_cx = ox + w / 2
+                    obs_cy = oy + h / 2
+                    
+                    ovx, ovy, dx, dy = get_overlap(
+                        lbl['cx'], lbl['cy'], lbl['w'] + margin, lbl['h'] + margin,
+                        obs_cx, obs_cy, w, h
+                    )
+                    
+                    if ovx > 0 and ovy > 0:
+                        dist = math.hypot(dx, dy)
+                        if dist == 0:
+                            dx, dy, dist = 1.0, 1.0, 1.414
+                        fx += (dx / dist) * (ovx + ovy) * 0.8
+                        fy += (dy / dist) * (ovx + ovy) * 0.8
+                
+                for j, other in enumerate(labels):
+                    if i == j: continue
+                    margin_other = other.get('margin', 4)
+                    ovx, ovy, dx, dy = get_overlap(
+                        lbl['cx'], lbl['cy'], lbl['w'] + margin, lbl['h'] + margin,
+                        other['cx'], other['cy'], other['w'] + margin_other, other['h'] + margin_other
+                    )
+                    if ovx > 0 and ovy > 0:
+                        dist = math.hypot(dx, dy)
+                        if dist == 0:
+                            dx, dy, dist = 1.0, 1.0, 1.414
+                        fx += (dx / dist) * (ovx + ovy) * 0.5
+                        fy += (dy / dist) * (ovx + ovy) * 0.5
+                
+                lbl['cx'] += fx
+                lbl['cy'] += fy
+                
+                lbl['cx'] = max(lbl['w']/2 + 5, min(img_w - lbl['w']/2 - 5, lbl['cx']))
+                lbl['cy'] = max(lbl['h']/2 + 5, min(img_h - lbl['h']/2 - 5, lbl['cy']))
+
+    @staticmethod
+    def generate_radar_tracking_image(
+        frame: np.ndarray,
+        user_x: int,
+        user_y: int,
+        clouds: list,
+        time_utc: datetime = None,
+        all_rain_clusters: list = None,
+        predictions: list = None,
+        show_clouds: bool = True,
+        show_trajectory: bool = True,
+        time_offset_min: float = 0.0
+    ) -> Optional[bytes]:
+        import math
+        display_clouds = clouds or []
+        ambient_clouds = [
+            c for c in (all_rain_clusters or [])
+            if not any(
+                math.hypot(c["cx"] - d["cx"], c["cy"] - d["cy"]) < 30
+                for d in display_clouds
+            )
+        ] if all_rain_clusters else []
+        
+        from app.services.weather_manager import _DEV_CONFIG
+        if _DEV_CONFIG.get("verbose"):
+            logger.info(f"[TRACKING_IMG] Preparing to draw. display_clouds={len(display_clouds)}, ambient_clouds={len(ambient_clouds)}")
+        
+        if frame is None or (not display_clouds and not ambient_clouds):
+            return None
+
         crop_r = 120
         h, w = frame.shape[:2]
-        
         x1 = max(0, user_x - crop_r)
         y1 = max(0, user_y - crop_r)
         x2 = min(w, user_x + crop_r)
         y2 = min(h, user_y + crop_r)
         
         crop_img = frame[y1:y2, x1:x2].copy()
-        
-        # Scale up by 3x for sharp, zoomed-in image in Telegram
         scale = 3.0
-        img = cv2.resize(crop_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
         
+        img = cv2.resize(crop_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
         ux = int((user_x - x1) * scale)
         uy = int((user_y - y1) * scale)
         
-        # Draw user pin in blue to match the main location target
+        def _dbz_color(dbz):
+            if dbz >= 60: return (155, 89, 182)
+            elif dbz >= 50: return (231, 76, 60)
+            elif dbz >= 40: return (243, 156, 18)
+            elif dbz >= 30: return (241, 196, 15)
+            else: return (46, 204, 113)
+
+        obstacles = []
+        labels = []
+        
+        obstacles.append((ux - int(12 * scale), uy - int(12 * scale), int(24 * scale), int(24 * scale)))
+        
+        has_predicted_rain = predictions and any(p.get("dbz", 0) >= 10.0 for p in predictions)
+        if show_trajectory and predictions and has_predicted_rain:
+            pts = []
+            for p in predictions:
+                px_pred = p["src_x"]
+                py_pred = p["src_y"]
+                cx = int((px_pred - x1) * scale)
+                cy = int((py_pred - y1) * scale)
+                pts.append((cx, cy, p))
+            
+            if len(pts) > 1:
+                last_labeled_pt = None
+                for i, (cx, cy, p) in enumerate(pts):
+                    dbz_val = p.get("dbz", 0.0)
+                    dot_color = _dbz_color(dbz_val) if dbz_val >= 10.0 else (200, 200, 200)
+                    cv2.circle(img, (cx, cy), int(3.5 * scale), (0, 0, 0), -1)
+                    cv2.circle(img, (cx, cy), int(2.2 * scale), dot_color, -1)
+                    obstacles.append((cx - int(2 * scale), cy - int(2 * scale), int(4 * scale), int(4 * scale)))
+                    
+                    if i > 0:
+                        prev_cx, prev_cy, _ = pts[i-1]
+                        cv2.line(img, (prev_cx, prev_cy), (cx, cy), (0, 255, 255), int(1.2 * scale))
+                        
+                    eta = p.get("time_offset", 0)
+                    should_label = False  # Disabled trajectory text (15m, 90m) as requested
+                    # if eta > 0 and (i == 1 or i == len(pts)-1 or (eta % 45 == 0)):
+                    #     if last_labeled_pt is None:
+                    #         should_label = True
+                    #     else:
+                    #         if math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 30 * scale:
+                    #             should_label = True
+                    # 
+                    # if i == len(pts) - 1 and not should_label:
+                    #     if last_labeled_pt is None or math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 10 * scale:
+                    #         should_label = True
+                    #         
+                    # if should_label:
+                    #     txt = f"{eta}m"
+                    #     tw, th = int(35 * scale), int(12 * scale)
+                    #     if cx < ux:
+                    #         tx = cx - tw - int(8 * scale)
+                    #     else:
+                    #         tx = cx + int(12 * scale)
+                    #     ty = cy - int(16 * scale)
+                    #     
+                    #     labels.append({
+                    #         'text': txt,
+                    #         'type': 'trajectory',
+                    #         'margin': 12 * scale,
+                    #         'w': tw, 'h': th,
+                    #         'cx': tx + tw/2,
+                    #         'cy': ty - th/2,
+                    #         'ideal_cx': tx + tw/2,
+                    #         'ideal_cy': ty - th/2,
+                    #         'anchor_x': cx,
+                    #         'anchor_y': cy,
+                    #         'scale': 0.35 * scale,
+                    #         'fg': (255, 255, 255),
+                    #         'bg': (0, 0, 0)
+                    #     })
+                    #     last_labeled_pt = (cx, cy)
+        
+        if show_clouds:
+            incoming = [c for c in display_clouds if c.get("approaching", False) and -120 <= c.get("eta_min", 9999) <= 180]
+            incoming.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
+            
+            for c_orig in incoming[:3]:
+                cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
+                cx = int((cx_orig - x1) * scale)
+                cy = int((cy_orig - y1) * scale)
+                dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
+                vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
+                
+                color = _dbz_color(dbz)
+                hull_rect = None
+                if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
+                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for px, py in c_orig["pixels"]], dtype=np.int32)
+                    hull = cv2.convexHull(pts)
+                    hull_rect = cv2.boundingRect(hull)
+                    overlay = img.copy()
+                    cv2.fillPoly(overlay, [hull], color)
+                    cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
+                    cv2.polylines(img, [hull], True, color, max(1, int(2.0 * scale)))
+                    obstacles.append((hull_rect[0]-5, hull_rect[1]-5, hull_rect[2]+10, hull_rect[3]+10))
+                else:
+                    r = int(12 * scale)
+                    cv2.circle(img, (cx, cy), r, color, int(1.5 * scale))
+                    obs_r = int(14 * scale)
+                    obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
+                
+                vx_s = int(vx * scale * 3.0)
+                vy_s = int(vy * scale * 3.0)
+                arrow_sx, arrow_sy = cx, cy
+                if hull_rect:
+                    arrow_sx = hull_rect[0] + hull_rect[2] // 2
+                    arrow_sy = hull_rect[1] + hull_rect[3] // 2
+                
+                if vx_s == 0 and vy_s == 0:
+                    cv2.arrowedLine(img, (arrow_sx, arrow_sy), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.15)
+                else:
+                    cv2.arrowedLine(img, (arrow_sx, arrow_sy), (arrow_sx + vx_s, arrow_sy + vy_s), (255, 255, 0), int(1.5 * scale), tipLength=0.3)
+                    
+                eta = max(1.0, float(c_orig.get("eta_min", 0)) - time_offset_min)
+                if eta <= 0:
+                    txt = f"{c_orig.get('label', '')} (Now)"
+                else:
+                    abs_eta = int(abs(eta))
+                    time_str = f"{abs_eta}m" if abs_eta < 60 else f"{abs_eta//60}h{abs_eta%60}m"
+                    txt = f"{c_orig.get('label', '')}: ~{time_str}"
+                    
+                tw, th = int(55 * scale), int(15 * scale)
+                tx = arrow_sx - int(tw / 2)
+                if hull_rect:
+                    ty = hull_rect[1] - int(10 * scale) - th
+                else:
+                    ty = arrow_sy - int(20 * scale) - th
+                
+                labels.append({
+                    'text': txt,
+                    'type': 'approaching',
+                    'margin': 8 * scale,
+                    'w': tw, 'h': th,
+                    'cx': tx + tw/2,
+                    'cy': ty - th/2,
+                    'ideal_cx': tx + tw/2,
+                    'ideal_cy': ty - th/2,
+                    'anchor_x': arrow_sx,
+                    'anchor_y': arrow_sy,
+                    'scale': 0.45 * scale,
+                    'fg': (255, 255, 255),
+                    'bg': (0, 0, 0)
+                })
+
+            ambient_clouds.sort(key=lambda c: c.get("dist", 9999))
+            for c_orig in ambient_clouds[:8]:
+                cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
+                if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
+                    continue
+                cx = int((cx_orig - x1) * scale)
+                cy = int((cy_orig - y1) * scale)
+                dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
+                vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
+                
+                color = _dbz_color(dbz)
+                for angle_deg in range(0, 360, 30):
+                    a1 = math.radians(angle_deg)
+                    a2 = math.radians(angle_deg + 20)
+                    r = int(10 * scale)
+                    p1 = (int(cx + r * math.cos(a1)), int(cy + r * math.sin(a1)))
+                    p2 = (int(cx + r * math.cos(a2)), int(cy + r * math.sin(a2)))
+                    cv2.line(img, p1, p2, color, int(scale * 0.8))
+                obs_r = int(10 * scale)
+                obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
+                
+                vx_s = int(vx * scale * 2.5)
+                vy_s = int(vy * scale * 2.5)
+                v_mag = math.hypot(vx_s, vy_s)
+                if v_mag > 2:
+                    cv2.arrowedLine(img, (cx, cy), (cx + vx_s, cy + vy_s), (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
+                    
+                txt = f"{c_orig.get('label', '')}: {int(dbz)}"
+                tw, th = int(45 * scale), int(12 * scale)
+                tx = cx - int(tw / 2)
+                ty = cy - int(16 * scale) - th
+                
+                labels.append({
+                    'text': txt,
+                    'type': 'ambient',
+                    'margin': 0,
+                    'w': tw, 'h': th,
+                    'cx': tx + tw/2,
+                    'cy': ty - th/2,
+                    'ideal_cx': tx + tw/2,
+                    'ideal_cy': ty - th/2,
+                    'anchor_x': cx,
+                    'anchor_y': cy,
+                    'scale': 0.4 * scale,
+                    'fg': (200, 200, 200),
+                    'bg': (0, 0, 0)
+                })
+
+        hit_r = int(_DEV_CONFIG.get("hit_radius", 8) * scale)
+        for angle_deg in range(0, 360, 15):
+            a1 = math.radians(angle_deg)
+            a2 = math.radians(angle_deg + 8)
+            p1 = (int(ux + hit_r * math.cos(a1)), int(uy + hit_r * math.sin(a1)))
+            p2 = (int(ux + hit_r * math.cos(a2)), int(uy + hit_r * math.sin(a2)))
+            cv2.line(img, p1, p2, (0, 165, 255), int(1.2 * scale))
+            
         cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
         cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(10 * scale), int(3 * scale))
-        
-        # Filter for incoming clouds only (ETA >= -5) and limit to top 3 strongest to avoid overlap
-        incoming = [c for c in clouds if c["eta_min"] >= -5]
-        incoming.sort(key=lambda c: c["predicted_dbz"], reverse=True)
-        top_clouds = incoming[:3]
-        
-        for c in top_clouds:
-            cx_orig, cy_orig = c["cx"], c["cy"]
-            
-            # Only draw if the cloud is within or near the crop
-            if cx_orig < x1 - 50 or cx_orig > x2 + 50 or cy_orig < y1 - 50 or cy_orig > y2 + 50:
-                continue
-                
-            cx = int((cx_orig - x1) * scale)
-            cy = int((cy_orig - y1) * scale)
-            eta = c["eta_min"]
-            dbz = c["predicted_dbz"]
-            
-            if dbz >= 60: color = (155, 89, 182) # Purple
-            elif dbz >= 50: color = (231, 76, 60) # Red
-            elif dbz >= 40: color = (243, 156, 18) # Orange
-            elif dbz >= 30: color = (241, 196, 15) # Yellow
-            else: color = (46, 204, 113) # Green
-            
-            cv2.circle(img, (cx, cy), int(12 * scale), color, int(1.5 * scale))
-            
-            # Draw wind direction arrow (vx, vy are pixels per 15 mins)
-            vx_scaled = int(c.get("vx", 0) * scale * 3.0)  # Show ~45 min trajectory
-            vy_scaled = int(c.get("vy", 0) * scale * 3.0)
-            
-            # If there's no movement, just point to user as fallback
-            if vx_scaled == 0 and vy_scaled == 0:
-                cv2.arrowedLine(img, (cx, cy), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.1)  # RGB Yellow
-            else:
-                target_x = cx + vx_scaled
-                target_y = cy + vy_scaled
-                cv2.arrowedLine(img, (cx, cy), (target_x, target_y), (255, 255, 0), int(1.5 * scale), tipLength=0.3)  # RGB Yellow
-            
-            sign = "-" if eta < 0 else "~"
-            abs_eta = int(abs(eta))
-            if abs_eta < 60:
-                time_str = f"{abs_eta} m"
-            else:
-                time_str = f"{abs_eta // 60} hr {abs_eta % 60} m"
-                
-            cv2.putText(img, f"{sign}{time_str}", (cx + int(15 * scale), cy), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale, (255, 255, 255), int(1.5 * scale))
 
-        # Add IDC timestamp overlay
+        TMDRadarProcessor._resolve_label_collisions(labels, obstacles, img.shape[1], img.shape[0])
+
+        for t_lbl in labels:
+            if t_lbl.get('type') == 'trajectory':
+                for a_lbl in labels:
+                    if a_lbl.get('type') == 'approaching':
+                        dx = abs(t_lbl['cx'] - a_lbl['cx'])
+                        dy = abs(t_lbl['cy'] - a_lbl['cy'])
+                        if dx < (t_lbl['w'] + a_lbl['w']) / 2 + 4 * scale and dy < (t_lbl['h'] + a_lbl['h']) / 2 + 4 * scale:
+                            t_lbl['hidden'] = True
+                            break
+
+        for lbl in labels:
+            if lbl.get('hidden'):
+                continue
+            tx = int(lbl['cx'] - lbl['w']/2)
+            ty = int(lbl['cy'] + lbl['h']/2)
+            
+            dist_to_anchor = math.hypot(lbl['cx'] - lbl['anchor_x'], lbl['cy'] - lbl['anchor_y'])
+            if dist_to_anchor > 12 * scale:
+                cv2.line(img, (lbl['anchor_x'], lbl['anchor_y']), (int(lbl['cx']), int(lbl['cy'])), (150, 150, 150), max(2, int(scale * 1.0)))
+                
+            cv2.putText(img, lbl['text'], (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, lbl['scale'], lbl['bg'], max(1, int(lbl['scale'] * 5.0)))
+            cv2.putText(img, lbl['text'], (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, lbl['scale'], lbl['fg'], max(1, int(lbl['scale'] * 1.8)))
+
         if time_utc:
             try:
                 from PIL import Image, ImageFont, ImageDraw
                 img_pil = Image.fromarray(img).convert("RGBA")
                 time_str_idc = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
                 try:
-                    fnt = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", int(14 * scale))
+                    fnt = _load_thai_font(int(14 * scale))
                 except:
-                    try:
-                        fnt = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(14 * scale))
-                    except:
-                        fnt = ImageFont.load_default()
-                        
+                    fnt = _load_thai_font(int(14 * scale))
+
                 draw = ImageDraw.Draw(img_pil, "RGBA")
-                
-                # Handling older Pillow versions where textbbox might not be available
                 if hasattr(draw, 'textbbox'):
                     left, top, right, bottom = draw.textbbox((0, 0), time_str_idc, font=fnt)
                     text_w, text_h = right - left, bottom - top
                 else:
                     text_w, text_h = draw.textsize(time_str_idc, font=fnt)
-                
+
                 pad = int(4 * scale)
                 x_pos = img_pil.width - text_w - int(8 * scale)
                 y_pos = int(8 * scale)
-                
+
                 draw.rectangle([x_pos-pad, y_pos-pad, x_pos+text_w+pad, y_pos+text_h+pad], fill=(0, 0, 0, 200))
                 draw.text((x_pos, y_pos), time_str_idc, fill=(255, 255, 255, 255), font=fnt)
-                
                 img = np.array(img_pil.convert("RGB"))
             except Exception as e:
                 print("PIL ERROR:", e)
 
-        # Convert RGB back to BGR for cv2.imencode
         img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         is_success, buffer = cv2.imencode(".png", img_bgr)
         return buffer.tobytes() if is_success else None
 
     @staticmethod
-    def generate_timeline_image(clouds: list) -> Optional[bytes]:
-        if not clouds:
+    def generate_timeline_image(predictions: list) -> Optional[bytes]:
+        if not predictions:
             return None
         try:
+            import io
             from PIL import Image, ImageDraw, ImageFont
         except ImportError:
             return None
@@ -707,17 +1445,8 @@ class TMDRadarProcessor:
         img = Image.new("RGBA", (width, height), (30, 30, 30, 255))
         draw = ImageDraw.Draw(img, "RGBA")
         
-        try:
-            # Fallback for systems that don't have Helvetica
-            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 16)
-            font_small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
-        except:
-            try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 16)
-                font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 14)
-            except:
-                font = ImageFont.load_default()
-                font_small = font
+        font       = _load_thai_font(16)
+        font_small = _load_thai_font(14)
             
         baseline_y = 350
         draw.line([(0, baseline_y), (width, baseline_y)], fill=(100, 100, 100, 255), width=2)
@@ -733,53 +1462,408 @@ class TMDRadarProcessor:
         draw.line([(base_x, 40), (base_x, height - 20)], fill=(255, 255, 255, 200), width=2)
         draw.text((base_x - 15, 25), "NOW", font=font, fill=(255, 255, 255, 255))
 
-        # Bin clouds by X coordinate to prevent overlapping exact same ETA
-        binned_clouds = {}
-        for c in clouds:
-            eta = c["eta_min"]
-            dbz = c["predicted_dbz"]
-            x = time_to_x(eta)
-            x = max(20, min(780, x))
-            if x not in binned_clouds or dbz > binned_clouds[x]["dbz"]:
-                binned_clouds[x] = {"eta": eta, "dbz": dbz}
-
         last_x = -999
         y_offsets = {}
-        
-        for x in sorted(binned_clouds.keys()):
-            eta = binned_clouds[x]["eta"]
-            dbz = binned_clouds[x]["dbz"]
+
+        for i, p in enumerate(predictions):
+            eta = p["time_offset"]
+            dbz = p["dbz"]
             
+            # Estimate growth relative to previous step
+            if i > 0 and predictions[i-1]["dbz"] > 0:
+                growth = (dbz - predictions[i-1]["dbz"]) / predictions[i-1]["dbz"]
+            elif i > 0 and dbz > 0 and predictions[i-1]["dbz"] == 0:
+                growth = 1.0 # 100% growth (new rain)
+            else:
+                growth = 0.0
+
+            x = time_to_x(eta)
+            x = max(20, min(780, x))
+
             h = int(dbz * 4)
-            
-            if dbz >= 60: color = (155, 89, 182, 230) # Purple
-            elif dbz >= 50: color = (231, 76, 60, 230) # Red
+
+            if dbz >= 60: color = (155, 89, 182, 230)   # Purple
+            elif dbz >= 50: color = (231, 76, 60, 230)  # Red
             elif dbz >= 40: color = (243, 156, 18, 230) # Orange
             elif dbz >= 30: color = (241, 196, 15, 230) # Yellow
-            else: color = (46, 204, 113, 230) # Green
-            
+            elif dbz > 0: color = (46, 204, 113, 230)   # Green
+            else: color = (100, 100, 100, 100)          # Grey/Clear for 0 dBz
+
             if eta > 90:
                 color = (color[0], color[1], color[2], 100)
-                
-            draw.rectangle([(x-10, baseline_y-h), (x+10, baseline_y)], fill=color)
-            draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=(255, 255, 255, 255), font=font)
+
+            if dbz > 0:
+                draw.rectangle([(x-10, baseline_y-h), (x+10, baseline_y)], fill=color)
             
-            # Smart text offset to avoid overlapping labels
+            cluster_label = p.get("cluster")
+            if cluster_label:
+                draw.text((x-12, baseline_y-h-35), f"[{cluster_label}]", fill=(150, 200, 255, 255), font=font_small)
+            
+            text_color = (255, 255, 255, 255) if dbz > 0 else (120, 120, 120, 255)
+            draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=text_color, font=font)
+
+            # ── Growth / decay trend arrow ─────────────────────────────────
+            arrow_y_base = baseline_y - h - 35 if cluster_label else baseline_y - h - 22
+            growth_pct = growth * 100.0
+            
+            if dbz > 0:
+                if growth_pct > 5.0:
+                    # Growing: green upward triangle above bar
+                    arr_color = (46, 213, 115, 230)   # Bright green
+                    pts = [(x, arrow_y_base - 14), (x - 7, arrow_y_base), (x + 7, arrow_y_base)]
+                    draw.polygon(pts, fill=arr_color)
+                    draw.text((x - 18, arrow_y_base - 30), f"+{growth_pct:.0f}%", fill=arr_color, font=font_small)
+                elif growth_pct < -5.0:
+                    # Decaying: red downward triangle above bar
+                    arr_color = (255, 71, 87, 230)    # Bright red
+                    pts = [(x, arrow_y_base), (x - 7, arrow_y_base - 14), (x + 7, arrow_y_base - 14)]
+                    draw.polygon(pts, fill=arr_color)
+                    draw.text((x - 20, arrow_y_base - 30), f"{growth_pct:.0f}%", fill=arr_color, font=font_small)
+                else:
+                    # Stable: small grey dash
+                    draw.rectangle([(x - 6, arrow_y_base - 10), (x + 6, arrow_y_base - 7)],
+                                    fill=(160, 160, 160, 180))
+            else:
+                # 0 dBz: Clear sky indicator instead of arrows
+                draw.text((x-15, arrow_y_base - 12), "Clear", fill=(120, 120, 120, 180), font=font_small)
+
+            # Smart text offset to avoid overlapping ETA labels
             y_off = 20
             if x - last_x < 40:
-                # Cycle through 20, 35, 50 to prevent cascading off screen
                 prev_off = y_offsets.get(last_x, 50)
                 y_off = 35 if prev_off == 20 else (50 if prev_off == 35 else 20)
             y_offsets[x] = y_off
             last_x = x
-            
+
             m = int(round(abs(eta)))
             t_str = f"~{m}m" if m < 60 else f"~{m//60}h{m%60}m"
             sign = "-" if eta < 0 else ""
             draw.text((x-15, baseline_y+y_off), f"{sign}{t_str}", fill=(200, 200, 200, 255), font=font_small)
-            
+
+        # ── Legend ─────────────────────────────────────────────────────────
+        leg_y = height - 20
+        # Growing: draw upward triangle + label
+        draw.polygon([(18, leg_y + 2), (12, leg_y + 12), (24, leg_y + 12)], fill=(46, 213, 115, 200))
+        draw.text((28, leg_y), "กำลังแรงขึ้น", fill=(46, 213, 115, 200), font=font_small)
+        # Decaying: draw downward triangle + label (wide at top → narrow at bottom)
+        draw.polygon([(162, leg_y + 2), (174, leg_y + 2), (168, leg_y + 12)], fill=(255, 71, 87, 200))
+        draw.text((178, leg_y), "อ่อนกำลังลง", fill=(255, 71, 87, 200), font=font_small)
+        # Stable: draw dash + label
+        draw.rectangle([(313, leg_y + 5), (327, leg_y + 8)], fill=(160, 160, 160, 200))
+        draw.text((332, leg_y), "คงที่", fill=(160, 160, 160, 200), font=font_small)
+
         buf = io.BytesIO()
         img.save(buf, format="PNG")
+        return buf.getvalue()
+
+
+    @staticmethod
+    def generate_multiframe_analysis_image(
+        frames: "List[np.ndarray]",
+        flow: "np.ndarray",
+        user_x: int,
+        user_y: int,
+        clouds: list,
+        processor: "TMDRadarProcessor",
+        time_utc: "Optional[datetime]" = None,
+        gap_minutes: float = 15.0,
+        frame_timestamps: "Optional[List[int]]" = None,
+    ) -> "Optional[bytes]":
+        """
+        Produces a horizontal strip of radar frame thumbnails with cloud-cluster
+        trajectory overlays and per-frame growth/decay measurements.
+
+        Layout (one column per frame, oldest → newest left to right):
+
+            ┌──────────┬──────────┬──────────┬──────────┐
+            │ t-45m    │ t-30m    │ t-15m    │ NOW      │  ← timestamp row
+            │[radar]   │[radar]   │[radar]   │[radar]   │  ← cropped thumbnail
+            │ ●──→     │  ●──→   │   ●──→  │    ●     │  ← cluster dot+arrow
+            │ 32 dBZ   │ 38 dBZ  │ 42 dBZ  │ 45 dBZ  │  ← dBZ per frame
+            │  +14%    │  +19%   │  +11%   │    --   │  ← growth/decay Δ
+            └──────────┴──────────┴──────────┴──────────┘
+
+        Parameters
+        ----------
+        frames      : RGB numpy frames (oldest first), at most 6 are used.
+        flow        : Dense optical flow computed from the last 2 frames.
+        user_x/y    : Pixel coordinate of the user's location in each frame.
+        clouds      : Cloud cluster list from find_approaching_clouds().
+        processor   : TMDRadarProcessor instance (for dbz/wind helpers).
+        time_utc    : Timestamp of the LATEST frame (for labelling).
+        gap_minutes : Average minutes between consecutive frames (default 15).
+        frame_timestamps: List of UTC epoch ints, one per frame (oldest first).
+                      When provided, each panel label uses the exact scan time
+                      instead of time_utc - steps×gap_minutes estimate.
+        """
+        try:
+            from PIL import Image as PILImage, ImageDraw as PILDraw, ImageFont as PILFont
+        except ImportError:
+            return None
+
+        if not frames or len(frames) < 2:
+            return None
+
+        # ── Layout constants ────────────────────────────────────────────────
+        MAX_FRAMES = 6
+        use_frames = frames[-MAX_FRAMES:]          # up to 6, oldest first
+        n = len(use_frames)
+
+        THUMB_W, THUMB_H = 200, 200                # thumbnail size (px)
+        TITLE_H  = 20                              # top title bar
+        HEADER_H = 28                              # timestamp row height (below title)
+        DBZ_ROW_H = 22                             # dBZ label row
+        GROWTH_ROW_H = 20                          # growth/decay row
+        PANEL_H = THUMB_H + TITLE_H + HEADER_H + DBZ_ROW_H + GROWTH_ROW_H
+        TOTAL_W = THUMB_W * n
+        TOTAL_H = PANEL_H
+
+        BG_COLOR   = (18, 18, 30, 255)            # near-black bg
+        GRID_COLOR = (50, 50, 70, 255)
+        TEXT_WHITE = (230, 230, 230, 255)
+        TEXT_DIM   = (140, 140, 160, 255)
+        NOW_BORDER = (74, 144, 226, 255)           # blue highlight for NOW panel
+
+        canvas = PILImage.new("RGBA", (TOTAL_W, TOTAL_H), BG_COLOR)
+        draw   = PILDraw.Draw(canvas, "RGBA")
+
+        # ── Font loading ─────────────────────────────────────────────────────
+        font_sm  = _load_thai_font(11)
+        font_med = _load_thai_font(13)
+
+        # ── Title bar (full-width, above all panels) ─────────────────────────
+        draw.rectangle([0, 0, TOTAL_W - 1, TITLE_H - 1], fill=(28, 28, 50, 255))
+        title = f"Radar Analysis  ({n} frames × {int(gap_minutes)}m)"
+        draw.text((8, 3), title, font=font_sm, fill=(180, 180, 220, 220))
+
+
+        # ── Helper: dBZ → colour (RGB) ───────────────────────────────────────
+        def _dbz_color(dbz: float):
+            if dbz >= 60: return (155, 89, 182)   # Purple
+            if dbz >= 50: return (231, 76,  60)   # Red
+            if dbz >= 40: return (243, 156, 18)   # Orange
+            if dbz >= 30: return (241, 196, 15)   # Yellow
+            if dbz >= 15: return (46,  204, 113)  # Green
+            return (100, 100, 100)                # Gray (trace)
+
+        # ── Identify top clouds to trace (max 2 strongest) ──────────────────
+        incoming = sorted(
+            [c for c in clouds if c.get("eta_min", 0) >= -30],
+            key=lambda c: c.get("predicted_dbz", 0),
+            reverse=True,
+        )[:2]
+
+        # ── Per-frame cluster positions & dBZ ───────────────────────────────
+        # For cloud c in the CURRENT frame (index = n-1),
+        # its position in frame[i] is back-traced by (n-1-i) steps.
+        # cluster_data[cloud_idx][frame_idx] = {"px": int, "py": int, "dbz": float}
+        cluster_data: list = []
+        for c in incoming:
+            vx, vy = c.get("vx", 0.0), c.get("vy", 0.0)
+            cx_now, cy_now = int(c["cx"]), int(c["cy"])
+            pts = []
+            for fi in range(n):
+                steps_back = (n - 1 - fi)          # 0 for latest frame
+                px = int(round(cx_now - vx * steps_back))
+                py = int(round(cy_now - vy * steps_back))
+                dbz = processor._get_max_dbz_in_radius(use_frames[fi], px, py, radius=12)
+                pts.append({"px": px, "py": py, "dbz": dbz})
+            cluster_data.append(pts)
+
+        # ── Build each panel ─────────────────────────────────────────────────
+        crop_r = THUMB_W // 2
+
+        for fi in range(n):
+            frame = use_frames[fi]
+            is_now = (fi == n - 1)
+            panel_x = fi * THUMB_W
+
+            # Frame timestamp label — prefer per-frame OCR timestamp over estimate
+            # frame_timestamps is aligned to ALL frames; use_frames is the last MAX_FRAMES
+            ts_offset = len(frames) - n  # oldest used frame index in original list
+            frame_ts_idx = ts_offset + fi  # index in original frame_timestamps list
+
+            if (frame_timestamps and
+                    frame_ts_idx < len(frame_timestamps) and
+                    frame_timestamps[frame_ts_idx]):
+                frame_dt = datetime.fromtimestamp(
+                    frame_timestamps[frame_ts_idx], tz=ZoneInfo("Asia/Bangkok")
+                )
+                hm = frame_dt.strftime("%H:%M")
+                ts_label = f"NOW  {hm}" if is_now else hm
+            elif time_utc is not None:
+                delta_back = (n - 1 - fi) * gap_minutes
+                frame_dt = time_utc - timedelta(minutes=delta_back)
+                hm = frame_dt.astimezone(ZoneInfo("Asia/Bangkok")).strftime("%H:%M")
+                ts_label = f"NOW  {hm}" if is_now else f"-{int(delta_back)}m  {hm}"
+            else:
+                ts_label = "NOW" if is_now else f"-{(n-1-fi)*int(gap_minutes)}m"
+
+            # Header background  (sits below TITLE_H)
+            hdr_color = (30, 60, 100, 255) if is_now else (28, 28, 45, 255)
+            draw.rectangle([panel_x, TITLE_H, panel_x + THUMB_W - 1, TITLE_H + HEADER_H - 1],
+                           fill=hdr_color)
+            draw.text((panel_x + 6, TITLE_H + 6), ts_label, font=font_med,
+                      fill=(255, 255, 255, 255) if is_now else TEXT_DIM)
+
+            # "NOW" border highlight
+            if is_now:
+                draw.rectangle(
+                    [panel_x, TITLE_H, panel_x + THUMB_W - 1, PANEL_H - 1],
+                    outline=NOW_BORDER, width=2,
+                )
+
+            # ── Crop thumbnail from frame ─────────────────────────────────
+            fh, fw = frame.shape[:2]
+            x1 = max(0, user_x - crop_r)
+            y1 = max(0, user_y - crop_r)
+            x2 = min(fw, user_x + crop_r)
+            y2 = min(fh, user_y + crop_r)
+            crop = frame[y1:y2, x1:x2].copy()
+
+            if crop.shape[0] == 0 or crop.shape[1] == 0:
+                continue
+
+            thumb_top = TITLE_H + HEADER_H
+
+            # Resize to fixed THUMB_W × THUMB_H
+            crop_resized = cv2.resize(crop, (THUMB_W, THUMB_H), interpolation=cv2.INTER_LANCZOS4)
+            thumb_pil = PILImage.fromarray(crop_resized, mode="RGB").convert("RGBA")
+            thumb_draw = PILDraw.Draw(thumb_pil, "RGBA")
+
+            # Scale factors for mapping original coords into thumbnail
+            sx = THUMB_W / max(1, x2 - x1)
+            sy = THUMB_H / max(1, y2 - y1)
+            # User pin position in thumbnail
+            ux_t = int((user_x - x1) * sx)
+            uy_t = int((user_y - y1) * sy)
+            # Clamp
+            ux_t = max(4, min(THUMB_W - 4, ux_t))
+            uy_t = max(4, min(THUMB_H - 4, uy_t))
+
+            # Draw user pin (white ring + blue cross)
+            thumb_draw.ellipse([ux_t - 6, uy_t - 6, ux_t + 6, uy_t + 6],
+                               outline=(255, 255, 255, 220), width=2)
+            thumb_draw.line([(ux_t - 5, uy_t), (ux_t + 5, uy_t)], fill=(0, 120, 255, 255), width=2)
+            thumb_draw.line([(ux_t, uy_t - 5), (ux_t, uy_t + 5)], fill=(0, 120, 255, 255), width=2)
+
+            # ── Draw each tracked cluster in this frame ───────────────────
+            for ci, pts in enumerate(cluster_data):
+                pt = pts[fi]
+                dbz = pt["dbz"]
+                if dbz == 0 and not any(pts[j]["dbz"] > 0 for j in range(fi + 1, n)):
+                    continue  # Nothing to show
+
+                # Cluster pixel in thumbnail coords
+                cpx = int((pt["px"] - x1) * sx)
+                cpy = int((pt["py"] - y1) * sy)
+                cpx = max(4, min(THUMB_W - 4, cpx))
+                cpy = max(4, min(THUMB_H - 4, cpy))
+
+                c_rgb = _dbz_color(dbz) if dbz > 0 else (80, 80, 80)
+                c_rgba = c_rgb + (200,)
+
+                # Cluster circle
+                r = 8
+                thumb_draw.ellipse([cpx - r, cpy - r, cpx + r, cpy + r],
+                                   outline=c_rgba, width=2)
+
+                # Arrow pointing toward user (or next position)
+                vx_ci = incoming[ci].get("vx", 0.0)
+                vy_ci = incoming[ci].get("vy", 0.0)
+                arrow_len = 18
+                mag = math.sqrt(vx_ci**2 + vy_ci**2) or 1
+                ax = int(cpx + (vx_ci / mag) * arrow_len)
+                ay = int(cpy + (vy_ci / mag) * arrow_len)
+                if abs(ax - cpx) > 2 or abs(ay - cpy) > 2:
+                    thumb_draw.line([(cpx, cpy), (ax, ay)],
+                                    fill=(255, 255, 0, 200), width=2)
+                    # Arrowhead (simple triangle)
+                    dx, dy = ax - cpx, ay - cpy
+                    perp_x, perp_y = -dy, dx
+                    pmag = math.sqrt(perp_x**2 + perp_y**2) or 1
+                    tip1 = (ax - int((dx - perp_x / pmag * 4) * 0.4),
+                            ay - int((dy - perp_y / pmag * 4) * 0.4))
+                    tip2 = (ax - int((dx + perp_x / pmag * 4) * 0.4),
+                            ay - int((dy + perp_y / pmag * 4) * 0.4))
+                    thumb_draw.polygon([ax, ay, tip1[0], tip1[1], tip2[0], tip2[1]],
+                                       fill=(255, 255, 0, 200))
+
+                # Trajectory line connecting cluster across frames
+                if fi > 0:
+                    prev_pt = pts[fi - 1]
+                    ppx = int((prev_pt["px"] - x1) * sx)
+                    ppy = int((prev_pt["py"] - y1) * sy)
+                    ppx = max(0, min(THUMB_W - 1, ppx))
+                    ppy = max(0, min(THUMB_H - 1, ppy))
+                    thumb_draw.line([(ppx, ppy), (cpx, cpy)],
+                                    fill=(255, 200, 0, 80), width=1)
+
+            # Paste thumbnail onto canvas
+            canvas.paste(thumb_pil, (panel_x, thumb_top))
+
+            # ── dBZ row ───────────────────────────────────────────────────
+            dbz_y = thumb_top + THUMB_H
+            draw.rectangle([panel_x, dbz_y, panel_x + THUMB_W - 1, dbz_y + DBZ_ROW_H - 1],
+                           fill=(22, 22, 38, 255))
+
+            # Report max dBZ across tracked clusters in this frame
+            max_dbz_frame = max(
+                (pts[fi]["dbz"] for pts in cluster_data), default=0.0
+            )
+            # For mock scenario: if no real radar dBZ, use cloud's dbz_now
+            if max_dbz_frame == 0 and incoming:
+                c0 = incoming[0]
+                steps_back = (n - 1 - fi)
+                gr = c0.get("growth_rate", 0.0)
+                max_dbz_frame = max(0.0, min(75.0, c0.get("dbz_now", 0.0) * ((1 + gr) ** (-steps_back))))
+
+            if max_dbz_frame > 0:
+                dbz_col = _dbz_color(max_dbz_frame) + (230,)
+                dbz_lbl = f"{int(max_dbz_frame)} dBZ"
+            else:
+                dbz_col = TEXT_DIM
+                dbz_lbl = "-- dBZ"
+            draw.text((panel_x + 6, dbz_y + 4), dbz_lbl, font=font_sm, fill=dbz_col)
+
+            # ── Growth/decay row ──────────────────────────────────────────
+            gd_y = dbz_y + DBZ_ROW_H
+            draw.rectangle([panel_x, gd_y, panel_x + THUMB_W - 1, gd_y + GROWTH_ROW_H - 1],
+                           fill=(16, 16, 30, 255))
+
+            if fi == 0:
+                gd_lbl = "  --"
+                gd_col = TEXT_DIM
+            elif max_dbz_frame == 0:
+                gd_lbl = "  --"
+                gd_col = TEXT_DIM
+            else:
+                prev_max = max(
+                    (pts[fi - 1]["dbz"] for pts in cluster_data), default=0.0
+                )
+                # Fallback for mock (no real radar dBZ in past frame)
+                if prev_max == 0 and incoming:
+                    c0 = incoming[0]
+                    gr = c0.get("growth_rate", 0.0)
+                    prev_max = max(0.0, min(75.0, c0.get("dbz_now", 0.0) * ((1 + gr) ** (-(n - fi)))))
+                if prev_max == 0:
+                    gd_lbl = " new"
+                    gd_col = (46, 204, 113, 230)
+                else:
+                    delta_pct = ((max_dbz_frame - prev_max) / prev_max) * 100.0
+                    sign = "+" if delta_pct >= 0 else ""
+                    gd_lbl = f"{sign}{delta_pct:.0f}%"
+                    gd_col = (46, 204, 113, 230) if delta_pct >= 0 else (231, 76, 60, 230)
+
+            draw.text((panel_x + 6, gd_y + 3), gd_lbl, font=font_sm, fill=gd_col)
+
+        # ── Draw separators on top ────────────────────────────────────────────
+        for fi in range(1, n):
+            panel_x = fi * THUMB_W
+            draw.line([(panel_x, TITLE_H), (panel_x, PANEL_H)], fill=(80, 80, 100, 220), width=2)
+
+        buf = io.BytesIO()
+        canvas.convert("RGB").save(buf, format="PNG")
         return buf.getvalue()
 
     def calculate_lagrangian_growth(self, frames: list, flow: np.ndarray, target_x: int, target_y: int, steps_ahead: int, max_lookback_frames: int = 2) -> float:
@@ -823,6 +1907,36 @@ class TMDRadarProcessor:
         growth_pct = ((curr_dbz - past_dbz) / past_dbz) * 100.0
         return max(-100.0, min(100.0, growth_pct))
 
+    @staticmethod
+    def parse_html_timestamp(html: str) -> Optional[datetime]:
+        """Parse TMD station PHP embed version string, e.g. v=250626_1030 → UTC datetime."""
+        match = re.search(r'v=(\d{6})_(\d{4})', html)
+        if not match:
+            return None
+        date_str = match.group(1)
+        time_str = match.group(2)
+        year = int('20' + date_str[0:2])
+        month = int(date_str[2:4])
+        day = int(date_str[4:6])
+        hour = int(time_str[0:2])
+        minute = int(time_str[2:4])
+        bkk_tz = ZoneInfo('Asia/Bangkok')
+        dt_bkk = datetime(year, month, day, hour, minute, tzinfo=bkk_tz)
+        return dt_bkk.astimezone(timezone.utc)
+
+    async def fetch_station_timestamp_utc(self) -> Optional[datetime]:
+        """Fetch the authoritative latest-frame timestamp from the TMD station PHP page."""
+        prefix = self.station_code[:3]
+        php_url = f"https://weather.tmd.go.th/{prefix}.php"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(php_url)
+                if resp.status_code == 200:
+                    return self.parse_html_timestamp(resp.text)
+        except Exception as e:
+            logger.warning(f"[{self.station_code}] HTML timestamp fetch failed: {e}")
+        return None
+
     async def fetch_latest_image_bytes(self) -> Optional[bytes]:
         """Fetches the latest static radar image (Polling method)."""
         
@@ -834,6 +1948,19 @@ class TMDRadarProcessor:
                     return response.content
         except Exception:
             pass
+        return None
+
+    async def decode_static_frame(self) -> Optional[np.ndarray]:
+        """Download and decode the latest static radar image as an RGB numpy frame."""
+        static_bytes = await self.fetch_latest_image_bytes()
+        if not static_bytes:
+            return None
+        arr = np.frombuffer(static_bytes, np.uint8)
+        frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if frame is None:
+            return None
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
     async def fetch_loop_gif_and_extract_frames(self) -> Tuple[List[np.ndarray], Optional['datetime'], Optional[bytes]]:
         """Fetches the Loop.gif and extracts frames, the Last-Modified datetime, and raw GIF bytes."""
         
@@ -861,20 +1988,7 @@ class TMDRadarProcessor:
                             php_url = f"https://weather.tmd.go.th/{self.station_code[:3]}.php"
                             php_resp = await client.get(php_url)
                             if php_resp.status_code == 200:
-                                import re
-                                from zoneinfo import ZoneInfo
-                                match = re.search(r'v=(\d{6})_(\d{4})', php_resp.text)
-                                if match:
-                                    date_str = match.group(1)
-                                    time_str = match.group(2)
-                                    year = int('20' + date_str[0:2])
-                                    month = int(date_str[2:4])
-                                    day = int(date_str[4:6])
-                                    hour = int(time_str[0:2])
-                                    minute = int(time_str[2:4])
-                                    bkk_tz = ZoneInfo('Asia/Bangkok')
-                                    dt_bkk = datetime(year, month, day, hour, minute, tzinfo=bkk_tz)
-                                    dt = dt_bkk.astimezone(timezone.utc)
+                                dt = self.parse_html_timestamp(php_resp.text)
                         except Exception as e:
                             print(f"Error fetching exact timestamp from HTML: {e}")
                             
@@ -903,7 +2017,7 @@ class TMDRadarProcessor:
                     normalized_frames = []
                     for frame in frames:
                         if frame.shape[:2] != (target_h, target_w):
-                            frame = cv2.resize(frame, (target_w, target_h), interpolation=cv2.INTER_AREA)
+                            frame = cv2.resize(frame, (target_w, target_h), interpolation=cv2.INTER_NEAREST)
                         normalized_frames.append(frame)
                     frames = normalized_frames
                     

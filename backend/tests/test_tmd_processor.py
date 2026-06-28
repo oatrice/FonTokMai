@@ -206,12 +206,12 @@ def test_extrapolate_rain_at_pixel():
         # Rain currently at (20, 20).
         # In 2 steps, rain moves 2 * 5 = +10 in x and y. So it will reach (30, 30).
         # Backward tracking from (30, 30) with 2 steps: src = 30 - 2*5 = 20.
-        dbz_future = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2)
+        dbz_future, _, _ = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2)
         assert dbz_future == 35.0
         
         # After 1 step, it should be at (25, 25), so target (30, 30) should have 0 dBZ.
         # We pass radius=0 because the new default radius=5 would still find the pixel at (20, 20).
-        dbz_1step = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=1, radius=0)
+        dbz_1step, _, _ = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=1, radius=0)
         assert dbz_1step == 0.0
 
 def test_draw_pin_on_frame():
@@ -238,23 +238,66 @@ def test_extrapolate_rain_with_growth_decay():
         flow[:, :, 1] = 5.0
         
         # Test Normal Extrapolation (no growth/decay passed)
-        dbz_base = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2)
+        dbz_base, _, _ = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2)
         assert dbz_base == 40.0
         
         # Test with Growth (rate = 0.1 per step) -> 40 * (1 + 0.1)^2 = 48.4
-        dbz_growth = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=0.1)
+        dbz_growth, _, _ = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=0.1)
         assert abs(dbz_growth - 48.4) < 0.1
         
         # Test with Decay (rate = -0.1 per step) -> 40 * (1 - 0.1)^2 = 32.4
-        dbz_decay = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=-0.1)
+        dbz_decay, _, _ = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=-0.1)
         assert abs(dbz_decay - 32.4) < 0.1
         
         # Test Damping/Max threshold (e.g. rate = 2.0 -> very high growth)
         # Should be capped at 75.0 (MAX_DBZ)
-        dbz_capped = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=2.0)
+        dbz_capped, _, _ = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=2.0)
         assert dbz_capped == 75.0
         
         # Test Min threshold (e.g. rate = -0.9 -> very high decay)
         # 40 * (0.1)^2 = 0.4 -> below MIN_DBZ (e.g., 10), so should be 0.0
-        dbz_min = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=-0.9)
+        dbz_min, _, _ = processor.extrapolate_rain_at_pixel(img, flow, px=30, py=30, steps=2, rate=-0.9)
         assert dbz_min == 0.0
+
+
+def test_parse_html_timestamp_bangkok_to_utc():
+    html = '<img src="kkn240_latest.gif?v=250626_1030">'
+    dt = TMDRadarProcessor.parse_html_timestamp(html)
+    assert dt is not None
+    from datetime import timezone
+    from zoneinfo import ZoneInfo
+    assert dt.astimezone(ZoneInfo("Asia/Bangkok")).strftime("%H:%M") == "10:30"
+
+
+def test_parse_html_timestamp_missing_returns_none():
+    assert TMDRadarProcessor.parse_html_timestamp("<html></html>") is None
+
+def test_find_approaching_clouds_returns_approaching_true():
+    processor = TMDRadarProcessor(station_code="kkn120")
+    curr_frame = np.zeros((800, 800, 3), dtype=np.uint8)
+    prev_frame = np.zeros((800, 800, 3), dtype=np.uint8)
+    flow = np.zeros((800, 800, 2), dtype=np.float32)
+    
+    # User at (400, 400)
+    user_x, user_y = 400, 400
+    
+    # Mock get_dbz_at_pixel so it returns 40.0 for a block of pixels near (380, 380)
+    def mock_get_dbz(img, x, y):
+        if 378 <= x <= 382 and 378 <= y <= 382:
+            return 40.0
+        return 0.0
+        
+    # Flow is moving towards user: from (380, 380) to (400, 400) means vx=1, vy=1
+    flow[:, :, 0] = 1.0
+    flow[:, :, 1] = 1.0
+    
+    with patch.object(processor, 'get_dbz_at_pixel', side_effect=mock_get_dbz):
+        clouds = processor.find_approaching_clouds(
+            curr_frame, prev_frame, flow, user_x, user_y,
+            search_radius=20, min_dbz=10.0, cluster_dist=10, cluster_min=1, dot_threshold=0.5
+        )
+        
+        assert len(clouds) > 0, "Should find approaching cloud"
+        assert clouds[0].get("approaching") is True, "Cloud must have 'approaching' flag set to True"
+        assert len(clouds[0].get("pixels", [])) > 0, "Cloud must contain pixels"
+

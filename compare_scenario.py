@@ -1,0 +1,108 @@
+import cv2
+import numpy as np
+from app.services.tmd_radar_processor import TMDRadarProcessor
+import os
+
+def test_scenario():
+    processor = TMDRadarProcessor("skn240")
+    
+    bg_path = "skn240_bg.png"
+    if not os.path.exists(bg_path):
+        print("Downloading skn240 background...")
+        import urllib.request
+        try:
+            url = processor.config.static_image_url
+            urllib.request.urlretrieve(url, bg_path)
+        except Exception as e:
+            print(f"Failed to download background: {e}")
+    
+    if os.path.exists(bg_path):
+        frame = cv2.imread(bg_path)
+    else:
+        # Fake frame 800x800 (standard for skn240)
+        frame = np.zeros((800, 800, 3), dtype=np.uint8)
+    
+    # User at 17.255266, 104.773468
+    user_lat, user_lng = 17.255266, 104.773468
+    user_x, user_y = processor.latlng_to_pixel(user_lat, user_lng, is_loop=False)
+    print(f"DEBUG_LOCATION: lat={user_lat}, lng={user_lng} -> user_px={user_x}, user_py={user_y} (station: skn240, is_loop=False)")
+    # 536, 375
+    
+    # Cloud A: Approaching, big cloud with a hull
+    # Cloud A centroid
+    cxA, cyA = user_x - 60, user_y - 80
+    pixels_A = []
+    for dx in range(-30, 30, 2):
+        for dy in range(-20, 40, 2):
+            if (dx*dx/900 + dy*dy/1600) <= 1:
+                pixels_A.append((cxA + dx, cyA + dy))
+                cv2.circle(frame, (cxA + dx, cyA + dy), 1, (0, 255, 255), -1)
+                
+    # Cloud B: Ambient (not approaching), small cloud
+    cxB, cyB = user_x + 90, user_y - 20
+    pixels_B = []
+    for dx in range(-15, 15, 2):
+        for dy in range(-15, 15, 2):
+            if (dx*dx/225 + dy*dy/225) <= 1:
+                pixels_B.append((cxB + dx, cyB + dy))
+                cv2.circle(frame, (cxB + dx, cyB + dy), 1, (0, 100, 255), -1)
+
+    clouds = [
+        {
+            "label": "A",
+            "cx": cxA, "cy": cyA,
+            "vx": 3.0, "vy": 4.0, # moving towards user_x, user_y
+            "eta_min": 15,
+            "dbz_now": 35.0,
+            "predicted_dbz": 45.0,
+            "approaching": True,
+            "pixels": pixels_A,
+            "dist": 100.0,
+            "growth_rate": 0.1
+        },
+        {
+            "label": "B",
+            "cx": cxB, "cy": cyB,
+            "vx": 1.0, "vy": -1.0, # moving away
+            "eta_min": 9999,
+            "dbz_now": 20.0,
+            "predicted_dbz": 20.0,
+            "approaching": False,
+            "pixels": pixels_B,
+            "dist": 92.0,
+            "growth_rate": -0.1
+        }
+    ]
+    
+    # Do not call draw_pin_on_frame manually because generate_radar_tracking_image handles it internally
+    
+    # Using the time string in some commits requires now_utc but we can pass None or leave default if optional
+    try:
+        from datetime import datetime, timezone
+        now_utc = datetime.now(timezone.utc)
+        img_bytes = processor.generate_radar_tracking_image(
+            frame=frame, 
+            user_x=user_x, 
+            user_y=user_y, 
+            clouds=[clouds[0]],  # display_clouds (approaching)
+            time_utc=now_utc,
+            all_rain_clusters=clouds # all clusters so ambient gets drawn
+        )
+    except TypeError:
+        # Older commits might have a different signature
+        try:
+            img_bytes = processor.generate_radar_tracking_image(frame, user_x, user_y, [clouds[0]])
+        except Exception:
+            # Try just passing all of them if all_rain_clusters is not supported
+            img_bytes = processor.generate_radar_tracking_image(frame, user_x, user_y, clouds)
+
+    if img_bytes:
+        out_path = "tracking_skn240_test.png"
+        with open(out_path, "wb") as f:
+            f.write(img_bytes)
+        print("Saved tracking_skn240_test.png successfully.")
+    else:
+        print("Failed to generate image.")
+
+if __name__ == '__main__':
+    test_scenario()

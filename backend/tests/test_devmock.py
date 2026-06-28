@@ -126,7 +126,8 @@ async def test_webhook_devmock_command():
             }
         }
         bg_tasks = BackgroundTasks()
-        await telegram_webhook(request, bg_tasks)
+        with patch.dict("os.environ", {"BOT_ENV": "development"}):
+            await telegram_webhook(request, bg_tasks)
         # Execute background tasks manually for testing
         for task in bg_tasks.tasks:
             await task.func(*task.args, **task.kwargs)

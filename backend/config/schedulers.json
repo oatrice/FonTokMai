@@ -4,7 +4,8 @@
     "schedule": "*/5 * * * *",
     "endpoint_path": "check-disasters-frequent",
     "time_zone": "Asia/Bangkok",
-    "description": "\u26a0\ufe0f DO NOT EDIT - Managed by CI/CD setup_schedulers.sh"
+    "description": "\u26a0\ufe0f DO NOT EDIT - Managed by CI/CD setup_schedulers.sh",
+    "state": "PAUSED"
   },
   {
     "job_name": "fonmayang-fetch-radar",
@@ -25,6 +26,7 @@
     "schedule": "0 * * * *",
     "endpoint_path": "check-disasters-infrequent",
     "time_zone": "Asia/Bangkok",
-    "description": "\u26a0\ufe0f DO NOT EDIT - Managed by CI/CD setup_schedulers.sh"
+    "description": "\u26a0\ufe0f DO NOT EDIT - Managed by CI/CD setup_schedulers.sh",
+    "state": "PAUSED"
   }
 ]

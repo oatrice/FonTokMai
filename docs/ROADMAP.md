@@ -27,6 +27,26 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #121 - Feature: Parametric Mock Scenario System for TMD Radar (/devmock scenario)
+- **GitHub:** [#121](https://gitlab.com/oatricedev/FonMaYang/-/issues/121)
+- **Status:** 🟢 **Ready**
+
+### Issue #120 - Needs follow-up: Issue #73 audit incomplete due to sparse metrics window
+- **GitHub:** [#120](https://gitlab.com/oatricedev/FonMaYang/-/issues/120)
+- **Status:** 🟢 **Ready**
+
+### Issue #119 - DevOps: Setup GCP Performance Monitoring Dashboard (CPU, RAM, Request Count) via Grafana or Cloud Monitoring
+- **GitHub:** [#119](https://gitlab.com/oatricedev/FonMaYang/-/issues/119)
+- **Status:** 🟢 **Ready**
+
+### Issue #118 - DevOps: Configure live BetterStack/UptimeRobot Status Page and alert routing
+- **GitHub:** [#118](https://gitlab.com/oatricedev/FonMaYang/-/issues/118)
+- **Status:** 🟢 **Ready**
+
+### Issue #117 - Feature: Implement Cloud Tasks Historical Metrics Tracking and Admin Dashboard
+- **GitHub:** [#117](https://gitlab.com/oatricedev/FonMaYang/-/issues/117)
+- **Status:** 🟢 **Ready**
+
 ### Issue #116 - Optimize EMSC Worker webhook to reduce Cloud Run costs
 - **GitHub:** [#116](https://gitlab.com/oatricedev/FonMaYang/-/issues/116)
     - ✅ **Done** (0.43.0)

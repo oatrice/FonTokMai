@@ -123,6 +123,17 @@ class FirestoreLocationRepository(LocationRepository):
         else:
             await doc_ref.set({"state": state})
 
+    async def get_global_dev_config(self) -> Optional[dict]:
+        doc_ref = self.db.collection('system_config').document('dev_config')
+        doc = await doc_ref.get()
+        if doc.exists:
+            return doc.to_dict()
+        return None
+
+    async def set_global_dev_config(self, config: dict) -> None:
+        doc_ref = self.db.collection('system_config').document('dev_config')
+        await doc_ref.set(config)
+
     async def save_feedback(
         self,
         chat_id: int,

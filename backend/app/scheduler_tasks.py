@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 from app.dependencies import get_repo_context
 from app.services.weather_manager import WeatherManager
 from app.services.metrics_service import MetricsService
-from app.services.telegram import send_telegram_message, send_telegram_document, send_telegram_photo, get_radar_inline_keyboard, DEVELOPER_CHAT_IDS
+from app.services.telegram import send_telegram_message, send_telegram_document, send_telegram_photo, send_telegram_raw_document, get_radar_inline_keyboard, DEVELOPER_CHAT_IDS
 
 logger = logging.getLogger(__name__)
 
@@ -153,12 +153,16 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                 rain_summary = result.get("rain_summary")
                 if rain_summary:
                     text += f"{rain_summary}\n"
-                else:
-                    growth_rate = result.get("growth_rate_pct")
-                    if growth_rate is not None:
-                        if growth_rate > 5.0: text += f"📈 แนวโน้มกลุ่มฝน: กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%)\n"
-                        elif growth_rate < -5.0: text += f"📉 แนวโน้มกลุ่มฝน: อ่อนกำลังลง ({growth_rate:.1f}%)\n"
-                        else: text += f"➖ แนวโน้มกลุ่มฝน: คงที่\n"
+
+                # Growth/decay trend — แสดงเสมอ ไม่ว่าจะมี rain_summary หรือไม่
+                growth_rate = result.get("growth_rate_pct")
+                if growth_rate is not None and "ไม่พบฝน" not in (rain_summary or ""):
+                    if growth_rate > 5.0:
+                        text += f"📈 พัฒนาการเมฆฝน (15 นาทีที่ผ่านมา): กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%/15min)\n"
+                    elif growth_rate < -5.0:
+                        text += f"📉 พัฒนาการเมฆฝน (15 นาทีที่ผ่านมา): อ่อนกำลังลง ({growth_rate:.1f}%/15min)\n"
+                    else:
+                        text += f"➖ พัฒนาการเมฆฝน (15 นาทีที่ผ่านมา): คงที่\n"
                         
                 text += f"📡 แหล่งข้อมูล: {source_name}\n"
                 bkk_tz = timezone(timedelta(hours=7))
@@ -232,6 +236,24 @@ async def _process_location(loc, repo, weather_manager, now, sem):
         except Exception as e:
             logger.error(f"Failed to check rain for chat_id {loc.chat_id}: {e}")
             return 0, 1
+
+
+async def run_alert_for_locations(target_locs: list):
+    """Run the rain check and alert pipeline for a specific list of locations only.
+    Used by /devmock scenario loc:name to fire an alert for a single saved location
+    without triggering the full scheduler sweep.
+    """
+    try:
+        await fetch_tmd_radar_routine()
+    except Exception as e:
+        logger.error(f"[run_alert_for_locations] Radar fetch error: {e}")
+
+    async with get_repo_context() as repo:
+        weather_manager = WeatherManager()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        sem = asyncio.Semaphore(5)
+        tasks = [_process_location(loc, repo, weather_manager, now, sem) for loc in target_locs]
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def check_rain_and_alert():
@@ -356,11 +378,26 @@ async def fetch_tmd_radar_routine():
             if static_bytes:
                 np_arr = np.frombuffer(static_bytes, np.uint8)
                 frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-                
+
                 # Since OpenCV reads in BGR, we convert to RGB for consistency with original PIL logic
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                
+
+                logger.info(f"[{station}] ✅ Static fetch OK — {len(static_bytes):,} bytes, shape={frame.shape[:2]}")
                 ts = await ocr_svc.get_frame_timestamp(frame, fallback_ts=now_ts)
+                ocr_ok = ts is not None and ts != now_ts
+                if ocr_ok:
+                    from zoneinfo import ZoneInfo
+                    _bkk = ZoneInfo("Asia/Bangkok")
+                    _dt  = datetime.fromtimestamp(ts, _bkk).strftime("%H:%M:%S")
+                    logger.info(f"[{station}] 🔍 OCR resolved ts={ts} ({_dt} BKK) — from cache or live OCR")
+                else:
+                    logger.warning(
+                        f"[{station}] ⚠️  OCR failed (fallback_ts={ts} = wall-clock) — "
+                        f"frame will NOT be saved to avoid corrupting sliding window"
+                    )
+                    ts = None  # Treat as if static had no valid timestamp
+            else:
+                logger.warning(f"[{station}] ❌ Static fetch FAILED — will attempt GIF fallback if enabled")
 
             # 3. Check cache
             async with get_repo_context() as repo:
@@ -369,6 +406,16 @@ async def fetch_tmd_radar_routine():
                 frames = cache.get("frames", []) if cache else []
                 latest_ts = frames[0]["timestamp"] if frames else 0
                 last_gif_fallback_time = cache.get("last_gif_fallback_time", 0.0) if cache else 0.0
+
+                # Sanity-check: if latest_ts is in the future (e.g. corrupted wall-clock fallback),
+                # reset to 0 so a fresh valid OCR timestamp can replace it.
+                if latest_ts > now_ts + 300:  # >5 min in the future = clearly corrupt
+                    logger.warning(
+                        f"[{station}] ⚠️  Firestore latest_ts={latest_ts} is in the future "
+                        f"(now={now_ts}, delta={latest_ts - now_ts}s) — resetting to 0 to unblock cache"
+                    )
+                    latest_ts = 0
+
                 
                 needs_fallback = False
                 fallback_reason = ""
@@ -385,26 +432,41 @@ async def fetch_tmd_radar_routine():
                         if gap_to_now > 60.0 and (now_ts - last_gif_fallback_time) > 1800.0:
                             needs_fallback = True
                             fallback_reason = f"Static dead for {gap_to_now:.1f}m"
+                        elif ts and (ts - latest_ts) > 1800.0:
+                            needs_fallback = True
+                            fallback_reason = f"Large time gap detected ({int((ts - latest_ts)/60)}m) between {latest_ts} and {ts}"
                     else:
                         if (now_ts - last_gif_fallback_time) > 1800.0:
                             needs_fallback = True
                             fallback_reason = "Cache is empty"
 
+                # Bootstrap: Firestore has <2 frames regardless of static freshness.
+                # Must be checked BEFORE the early return so stations with unchanged
+                # images (ts == latest_ts) still get GIF bootstrapped.
+                if enable_fallback and not needs_fallback and len(frames) < 2:
+                    if (now_ts - last_gif_fallback_time) > 1800.0:
+                        needs_fallback = True
+                        fallback_reason = f"Cache has <2 frames ({len(frames)})"
+
                 # If we already have this timestamp (or static is down) and no fallback is needed, do nothing
                 if not needs_fallback and ((ts and ts <= latest_ts) or not static_bytes):
                     logger.debug(f"[{station}] Image unchanged or unavailable (ts {ts}). Skipping.")
                     return result
-                
-                # It's a new image! (only insert if it's actually new)
+
+                # It's a new image! Only insert if OCR succeeded (ts is not None) and it's newer.
+                # If OCR failed, ts=None → skip saving to avoid wall-clock timestamps in the window.
+                new_url = None
                 if ts and ts > latest_ts:
+                    logger.info(f"[{station}] 🆕 New frame detected (ts={ts} > latest={latest_ts}) — saving to Firestore")
                     new_url = await processor.save_polled_frame(static_bytes)
                     frames.insert(0, {"url": new_url, "timestamp": ts})
+                    # Ensure monotonic order after insert
+                    frames = sorted(frames, key=lambda f: f["timestamp"])
+                    frames.reverse()  # newest first
+                elif ts:
+                    logger.info(f"[{station}] ♻️  Frame unchanged (ts={ts} == latest={latest_ts}) — no write needed")
 
-                # Also fallback if we have <2 frames (e.g., startup)
-                if len(frames) < 2 and enable_fallback and not needs_fallback:
-                    if (now_ts - last_gif_fallback_time) > 1800.0:
-                        needs_fallback = True
-                        fallback_reason = f"Cache has <2 frames ({len(frames)})"
+
                     
                 if needs_fallback:
                     logger.warning(f"[{station}] GIF fallback triggered: {fallback_reason}")
@@ -414,33 +476,56 @@ async def fetch_tmd_radar_routine():
                     logger.info(f"[{station}] Executing GIF fallback recovery...")
                     fallback_frames_data, fallback_dt, loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
                     if fallback_frames_data and len(fallback_frames_data) >= 2:
-                        logger.info(f"[{station}] GIF fallback found {len(fallback_frames_data)} frames")
+                        logger.info(f"[{station}] 🌀 GIF fallback: fetched {len(fallback_frames_data)} frames from loop GIF")
                         # Keep up to 6 newest frames and reverse so newest is first
                         recent_fallback = fallback_frames_data[-6:]
                         recent_fallback.reverse()
-                        
+
                         new_frames_list = []
                         base_ts = ts if ts else now_ts
                         for i, f_img in enumerate(recent_fallback):
                             f_ts = await ocr_svc.get_frame_timestamp(f_img, fallback_ts=base_ts - i * 900)
+                            # Resize to 800×800 so weather_manager's is_loop detection
+                            # (frame.shape < 800) does NOT misfire on these frames,
+                            # ensuring static pixel coordinates are used for optical flow.
+                            if f_img.shape[0] != 800 or f_img.shape[1] != 800:
+                                f_img = cv2.resize(f_img, (800, 800), interpolation=cv2.INTER_NEAREST)
                             is_success, buffer = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
                             if is_success:
                                 f_url = await processor.save_polled_frame(buffer.tobytes())
                                 new_frames_list.append({"url": f_url, "timestamp": f_ts})
-                        
+
+
                         if new_frames_list:
-                            # Verify if the GIF is ACTUALLY newer than what we have
-                            gif_newest_ts = new_frames_list[0]["timestamp"]
+                            gif_newest_ts    = new_frames_list[0]["timestamp"]
                             current_newest_ts = frames[0]["timestamp"] if frames else 0
-                            
-                            if gif_newest_ts > current_newest_ts + 300:
+
+                            # Bootstrap case: Firestore had <2 frames before fallback.
+                            # Use GIF frames as historical context (older frames), then
+                            # place the fresh static frame on top if it's newer.
+                            # Do NOT discard GIF even though gif_newest_ts < static_ts.
+                            is_bootstrap = fallback_reason.startswith("Cache has <2") or fallback_reason == "Cache is empty"
+
+                            if is_bootstrap:
+                                # Merge: static (newest) + GIF history (older context)
+                                if ts and ts > gif_newest_ts:
+                                    new_frames_list.insert(0, {"url": new_url, "timestamp": ts})
+                                frames = new_frames_list
+                                logger.info(
+                                    f"[{station}] 🌀 Bootstrap: merged static+GIF → "
+                                    f"{len(frames)} frames (static={ts}, gif_newest={gif_newest_ts})"
+                                )
+                            elif gif_newest_ts > current_newest_ts + 300:
+                                # Dead static image: only adopt GIF if it has genuinely newer data
                                 logger.info(f"[{station}] GIF data is newer (GIF: {gif_newest_ts}, Static: {current_newest_ts}). Adopting GIF frames.")
-                                # If the polled static image is newer than the newest GIF frame, we merge them
                                 if ts and ts > gif_newest_ts:
                                     new_frames_list.insert(0, {"url": new_url, "timestamp": ts})
                                 frames = new_frames_list
                             else:
                                 logger.warning(f"[{station}] GIF data is NOT newer (GIF: {gif_newest_ts}, Static: {current_newest_ts}). Discarding GIF.")
+
+                    else:
+                        logger.warning(f"[{station}] 🌀 GIF fallback: failed to extract ≥2 frames from loop GIF")
                 
                 frames = frames[:6] # Keep max 6 frames
                 

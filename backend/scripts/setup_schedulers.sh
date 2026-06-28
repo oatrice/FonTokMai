@@ -42,11 +42,12 @@ setup_job() {
   local SCHEDULE=$2
   local ENDPOINT=$3
   local DESCRIPTION=${4:-"⚠️ DO NOT EDIT - Managed by CI/CD setup_schedulers.sh"}
+  local STATE=${5:-"ACTIVE"}
 
   local FULL_URL="${BASE_URL}/api/v1/cron/${ENDPOINT}"
   
   echo "--------------------------------------------------"
-  echo "Configuring job: $JOB_NAME"
+  echo "Configuring job: $JOB_NAME (State: $STATE)"
   echo "Schedule: $SCHEDULE"
   echo "Target: $FULL_URL"
   
@@ -76,6 +77,15 @@ setup_job() {
       --max-retry-attempts=0 \
       --description="$DESCRIPTION"
   fi
+
+  # Apply state
+  if [ "$STATE" = "PAUSED" ]; then
+    echo "Pausing job $JOB_NAME..."
+    gcloud scheduler jobs pause $JOB_NAME --location=$LOCATION --project=$PROJECT_ID
+  else
+    echo "Resuming job $JOB_NAME..."
+    gcloud scheduler jobs resume $JOB_NAME --location=$LOCATION --project=$PROJECT_ID || true
+  fi
 }
 
 # 3. Setup Jobs from JSON config
@@ -97,11 +107,12 @@ try:
     for j in jobs:
         # Pass description if it exists, otherwise pass a default
         desc = j.get('description', '⚠️ DO NOT EDIT - Managed by CI/CD setup_schedulers.sh')
+        state = j.get('state', 'ACTIVE')
         # Use single quotes for safe eval, but be careful with single quotes inside strings
         job_name = j['job_name']
         schedule = j['schedule']
         endpoint = j['endpoint_path']
-        print(f\"setup_job '{job_name}' '{schedule}' '{endpoint}' '{desc}'\")
+        print(f\"setup_job '{job_name}' '{schedule}' '{endpoint}' '{desc}' '{state}'\")
 except Exception as e:
     print(f'echo \"Failed to parse JSON: {e}\"; exit 1')
 " "$CONFIG_FILE" | while read -r cmd; do
