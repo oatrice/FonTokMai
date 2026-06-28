@@ -137,6 +137,7 @@ async def process_telegram_location(
     force_endpoint: str = None,
     message_id_to_edit: int = None,
     show_advanced: bool = False,
+    location_name: str = None,
 ):
     """
     ดึงข้อมูลพยากรณ์ฝนผ่าน WeatherManager (รองรับ fallback chain อัตโนมัติ)
@@ -145,6 +146,7 @@ async def process_telegram_location(
     พารามิเตอร์:
       force_endpoint: ถ้าระบุ ("global"/"local") จะบังคับใช้ endpoint นั้นโดยตรง
       message_id_to_edit: ถ้ามี ให้แก้ไขข้อความเดิม (loading state) แทนการส่งใหม่
+      location_name: ชื่อของสถานที่ที่จะแสดงในข้อความผลลัพธ์
     """
     try:
         async with get_repo_context() as repo:
@@ -158,6 +160,9 @@ async def process_telegram_location(
         )
 
         text, actual_endpoint, eta_minutes = _build_forecast_text(result)
+        
+        if location_name:
+            text = f"📍 **พื้นที่:** {location_name}\n\n" + text
 
         if result.get("is_outdated"):
             text = "⚠️ **ยังไม่มีข้อมูลล่าสุดจากกรมอุตุฯ (TMD Radar)**\nแนะนำให้เปลี่ยนไปใช้ API อื่น (เช่น Tomorrow.io หรือ Open-Meteo) แทนชั่วคราวครับ\n"
@@ -1300,7 +1305,7 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
     await process_telegram_location(
         chat_id, lat=loc.latitude, lng=loc.longitude,
         force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
-        show_advanced=show_advanced
+        show_advanced=show_advanced, location_name=loc_display
     )
 
 
