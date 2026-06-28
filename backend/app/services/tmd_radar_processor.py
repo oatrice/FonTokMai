@@ -1088,13 +1088,14 @@ class TMDRadarProcessor:
                 fx += dx_ideal * 0.1
                 fy += dy_ideal * 0.1
                 
+                margin = lbl.get('margin', 4)
                 for obs in obstacles:
                     ox, oy, w, h = obs[0], obs[1], obs[2], obs[3]
                     obs_cx = ox + w / 2
                     obs_cy = oy + h / 2
                     
                     ovx, ovy, dx, dy = get_overlap(
-                        lbl['cx'], lbl['cy'], lbl['w'], lbl['h'],
+                        lbl['cx'], lbl['cy'], lbl['w'] + margin, lbl['h'] + margin,
                         obs_cx, obs_cy, w, h
                     )
                     
@@ -1107,9 +1108,10 @@ class TMDRadarProcessor:
                 
                 for j, other in enumerate(labels):
                     if i == j: continue
+                    margin_other = other.get('margin', 4)
                     ovx, ovy, dx, dy = get_overlap(
-                        lbl['cx'], lbl['cy'], lbl['w'] + 2, lbl['h'] + 2,
-                        other['cx'], other['cy'], other['w'] + 2, other['h'] + 2
+                        lbl['cx'], lbl['cy'], lbl['w'] + margin, lbl['h'] + margin,
+                        other['cx'], other['cy'], other['w'] + margin_other, other['h'] + margin_other
                     )
                     if ovx > 0 and ovy > 0:
                         dist = math.hypot(dx, dy)
@@ -1219,12 +1221,16 @@ class TMDRadarProcessor:
                     if should_label:
                         txt = f"{eta}m"
                         tw, th = int(35 * scale), int(12 * scale)
-                        tx = cx + int(12 * scale)
+                        if cx < ux:
+                            tx = cx - tw - int(8 * scale)
+                        else:
+                            tx = cx + int(12 * scale)
                         ty = cy - int(16 * scale)
                         
                         labels.append({
                             'text': txt,
                             'type': 'trajectory',
+                            'margin': 12 * scale,
                             'w': tw, 'h': th,
                             'cx': tx + tw/2,
                             'cy': ty - th/2,
@@ -1289,12 +1295,13 @@ class TMDRadarProcessor:
                     txt = f"{c_orig.get('label', '')}: ~{time_str}"
                     
                 tw, th = int(55 * scale), int(15 * scale)
-                tx = cx - int(20 * scale)
-                ty = cy - int(12 * scale)
+                tx = cx - int(tw / 2)
+                ty = cy - int(18 * scale)
                 
                 labels.append({
                     'text': txt,
                     'type': 'approaching',
+                    'margin': 8 * scale,
                     'w': tw, 'h': th,
                     'cx': tx + tw/2,
                     'cy': ty - th/2,
@@ -1336,12 +1343,16 @@ class TMDRadarProcessor:
                     
                 txt = f"{c_orig.get('label', '')}: {int(dbz)}"
                 tw, th = int(45 * scale), int(12 * scale)
-                tx = cx + int(6 * scale)
+                if cx < ux:
+                    tx = cx - tw - int(4 * scale)
+                else:
+                    tx = cx + int(8 * scale)
                 ty = cy - int(6 * scale)
                 
                 labels.append({
                     'text': txt,
                     'type': 'ambient',
+                    'margin': 0,
                     'w': tw, 'h': th,
                     'cx': tx + tw/2,
                     'cy': ty - th/2,
