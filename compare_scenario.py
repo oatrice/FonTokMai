@@ -23,8 +23,10 @@ def test_scenario():
         frame = np.zeros((800, 800, 3), dtype=np.uint8)
     
     # User at 17.255266, 104.773468
-    user_x, user_y = processor.latlng_to_pixel(17.255266, 104.773468)
-    # 456, 320
+    user_lat, user_lng = 17.255266, 104.773468
+    user_x, user_y = processor.latlng_to_pixel(user_lat, user_lng, is_loop=False)
+    print(f"DEBUG_LOCATION: lat={user_lat}, lng={user_lng} -> user_px={user_x}, user_py={user_y} (station: skn240, is_loop=False)")
+    # 536, 375
     
     # Cloud A: Approaching, big cloud with a hull
     # Cloud A centroid
