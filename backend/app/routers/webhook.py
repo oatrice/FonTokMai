@@ -249,22 +249,24 @@ async def process_telegram_location(
         
         from app.services.telegram import send_telegram_photo, send_telegram_document, send_telegram_raw_document
         
-        if static_bytes:
-            await send_telegram_photo(chat_id, static_bytes, "radar_latest.png")
-            
-        if timeline_bytes:
-            await send_telegram_photo(chat_id, timeline_bytes, "rain_timeline.png")
+        if show_advanced:
+            if static_bytes:
+                await send_telegram_photo(chat_id, static_bytes, "radar_latest.png")
+                
+            if timeline_bytes:
+                await send_telegram_photo(chat_id, timeline_bytes, "rain_timeline.png")
+
+            if multiframe_bytes:
+                await send_telegram_photo(chat_id, multiframe_bytes, "radar_multiframe.png")
+                
+            if hq_gif_bytes:
+                await send_telegram_raw_document(chat_id, hq_gif_bytes, "radar_nowcast_full.gif")
             
         if tracking_bytes:
             await send_telegram_photo(chat_id, tracking_bytes, "radar_tracking.png")
-
-        if multiframe_bytes:
-            await send_telegram_photo(chat_id, multiframe_bytes, "radar_multiframe.png")
             
         if gif_bytes:
             await send_telegram_document(chat_id, gif_bytes, "radar_nowcast.gif")
-        if hq_gif_bytes:
-            await send_telegram_raw_document(chat_id, hq_gif_bytes, "radar_nowcast_full.gif")
 
         if show_advanced:
             advanced_data = await weather_manager.get_advanced_alerts(lat, lng, mock_state=mock_state)
@@ -1381,6 +1383,15 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
             if not tasks_svc.enqueue_task("worker/handle-radar", {"chat_id": chat_id}):
                 background_tasks.add_task(handle_radar_command, chat_id)
             return {"status": "ok"}
+
+        if text.startswith(("/rain", "/check", "/devmock")) and chat_id:
+            import os
+            if os.getenv("BOT_ENV", "production").lower() != "development":
+                background_tasks.add_task(
+                    send_telegram_message, chat_id, 
+                    "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน"
+                )
+                return {"status": "ok"}
 
         if text.startswith("/rain_pro") and chat_id:
             if not tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text, "show_advanced": True}):
