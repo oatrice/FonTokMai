@@ -1250,8 +1250,6 @@ class TMDRadarProcessor:
             
             for c_orig in incoming[:3]:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
-                if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
-                    continue
                 cx = int((cx_orig - x1) * scale)
                 cy = int((cy_orig - y1) * scale)
                 dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
