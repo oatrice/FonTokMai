@@ -6,11 +6,21 @@ import os
 def test_scenario():
     processor = TMDRadarProcessor("skn240")
     
-    # Fake frame 800x800 (standard for skn240)
-    frame = np.zeros((800, 800, 3), dtype=np.uint8)
+    bg_path = "skn240_bg.png"
+    if not os.path.exists(bg_path):
+        print("Downloading skn240 background...")
+        import urllib.request
+        try:
+            url = processor.config.static_image_url
+            urllib.request.urlretrieve(url, bg_path)
+        except Exception as e:
+            print(f"Failed to download background: {e}")
     
-    # Draw some fake terrain/map just so it's not totally black
-    # cv2.rectangle(frame, (0, 0), (800, 800), (30, 30, 30), -1)
+    if os.path.exists(bg_path):
+        frame = cv2.imread(bg_path)
+    else:
+        # Fake frame 800x800 (standard for skn240)
+        frame = np.zeros((800, 800, 3), dtype=np.uint8)
     
     # User at 17.255266, 104.773468
     user_x, user_y = processor.latlng_to_pixel(17.255266, 104.773468)
