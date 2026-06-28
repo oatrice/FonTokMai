@@ -19,6 +19,10 @@ for COMMIT in $COMMITS; do
     
     # Checkout the commit
     git checkout $COMMIT
+    
+    # Restore the test script from the target branch
+    git checkout $CURRENT_BRANCH -- compare_scenario.py
+    
     # Run the script
     export PYTHONPATH=$(pwd)/backend:$PYTHONPATH
     if [ -f "backend/.venv/bin/python" ]; then
