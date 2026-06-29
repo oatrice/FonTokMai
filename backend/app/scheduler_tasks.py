@@ -123,36 +123,40 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                     last_rain_val = loc.last_alert_max_rain or 0.0
                     text += f"⚠️ *อัปเดต: ฝนทวีความรุนแรงขึ้น!*\n({last_rain_val:.1f} mm/hr → {max_rain:.1f} mm/hr)\n\n"
 
-                if eta_minutes == 0: text += f"🌧️ ฝนกำลังตกอยู่ที่พิกัด{loc_name_str}ของคุณ ณ ขณะนี้\n"
-                else:
-                    text += f"🌧️ ฝนกำลังเคลื่อนมาทางพิกัด{loc_name_str}ของคุณ\n"
-                    text += f"⏰ จะเริ่มตกเวลา: {start_time_str} (ในอีก {eta_minutes} นาที)\n"
-                
-                duration_text = f"ตกต่อเนื่อง {duration_min} นาที"
-                if duration_min >= 60:
-                    hrs = duration_min // 60
-                    mins = duration_min % 60
-                    duration_text = f"ตกต่อเนื่อง {hrs} ชม. {mins} นาที" if mins > 0 else f"ตกต่อเนื่อง {hrs} ชม."
-                    
-                if duration_min > 0: text += f"🛑 คาดว่าจะหยุดเวลา: {end_time_str} ({duration_text})\n\n"
-                else: text += "\n"
-                    
-                if intensity_str == "ไม่มีฝน" and eta_minutes > 0:
-                    if max_rain > 10.0: max_int = "ฝนตกหนักมาก"
-                    elif max_rain > 2.5: max_int = "ฝนตกหนัก"
-                    elif max_rain > 0.5: max_int = "ฝนตกปานกลาง"
-                    else: max_int = "ฝนตกเล็กน้อย"
-                    text += f"💧 ความรุนแรง (สูงสุด): {max_int} ({max_rain:.1f} mm/hr)\n"
-                else:
-                    text += f"💧 ความรุนแรง: {intensity_str} ({max_rain:.1f} mm/hr)\n"
-                
-                wind_dir_text = result.get("wind_dir_text", "ไม่ทราบ")
-                if wind_speed_kmh > 0: text += f"🌬️ สภาพลม: {wind_speed_kmh:.1f} km/h (พัดไปทางทิศ {wind_dir_text})\n"
-                if eta_minutes > 0 and wind_speed_kmh > 0: text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\n"
-                    
                 rain_summary = result.get("rain_summary")
                 if rain_summary:
-                    text += f"{rain_summary}\n"
+                    text += f"🌧️ ข้อมูลพยากรณ์ฝนสำหรับพิกัด{loc_name_str}ของคุณ\n"
+                    text += f"{rain_summary}\n\n"
+                    wind_dir_text = result.get("wind_dir_text", "ไม่ทราบ")
+                    if wind_speed_kmh > 0: text += f"🌬️ สภาพลม: {wind_speed_kmh:.1f} km/h (พัดไปทางทิศ {wind_dir_text})\n"
+                    if eta_minutes is not None and eta_minutes > 0 and wind_speed_kmh > 0: text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\n"
+                else:
+                    if eta_minutes == 0: text += f"🌧️ ฝนกำลังตกอยู่ที่พิกัด{loc_name_str}ของคุณ ณ ขณะนี้\n"
+                    else:
+                        text += f"🌧️ ฝนกำลังเคลื่อนมาทางพิกัด{loc_name_str}ของคุณ\n"
+                        text += f"⏰ จะเริ่มตกเวลา: {start_time_str} (ในอีก {eta_minutes} นาที)\n"
+                    
+                    duration_text = f"ตกต่อเนื่อง {duration_min} นาที"
+                    if duration_min >= 60:
+                        hrs = duration_min // 60
+                        mins = duration_min % 60
+                        duration_text = f"ตกต่อเนื่อง {hrs} ชม. {mins} นาที" if mins > 0 else f"ตกต่อเนื่อง {hrs} ชม."
+                        
+                    if duration_min > 0: text += f"🛑 คาดว่าจะหยุดเวลา: {end_time_str} ({duration_text})\n\n"
+                    else: text += "\n"
+                        
+                    if intensity_str == "ไม่มีฝน" and eta_minutes > 0:
+                        if max_rain > 10.0: max_int = "ฝนตกหนักมาก"
+                        elif max_rain > 2.5: max_int = "ฝนตกหนัก"
+                        elif max_rain > 0.5: max_int = "ฝนตกปานกลาง"
+                        else: max_int = "ฝนตกเล็กน้อย"
+                        text += f"💧 ความรุนแรง (สูงสุด): {max_int} ({max_rain:.1f} mm/hr)\n"
+                    else:
+                        text += f"💧 ความรุนแรง: {intensity_str} ({max_rain:.1f} mm/hr)\n"
+                    
+                    wind_dir_text = result.get("wind_dir_text", "ไม่ทราบ")
+                    if wind_speed_kmh > 0: text += f"🌬️ สภาพลม: {wind_speed_kmh:.1f} km/h (พัดไปทางทิศ {wind_dir_text})\n"
+                    if eta_minutes is not None and eta_minutes > 0 and wind_speed_kmh > 0: text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\n"
 
                 # Growth/decay trend — แสดงเสมอ ไม่ว่าจะมี rain_summary หรือไม่
                 growth_rate = result.get("growth_rate_pct")
