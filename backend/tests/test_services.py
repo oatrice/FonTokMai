@@ -134,7 +134,7 @@ async def test_weather_manager_compare_all_apis():
     manager = WeatherManager()
     manager.tomorrow_svc.predict_rain_by_location = AsyncMock(return_value={"endpoint": "tomorrow", "max_rain": 1.0})
     
-    async def mock_rainbow(lat, lng, endpoint_type="global", mock_state=None):
+    async def mock_rainbow(lat, lng, endpoint_type="global", mock_state=None, location_name=None):
         return {"endpoint": endpoint_type, "max_rain": 2.0}
         
     manager.rainbow_svc.predict_rain_by_location = AsyncMock(side_effect=mock_rainbow)

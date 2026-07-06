@@ -339,7 +339,7 @@ class WeatherManager:
             "endpoint": "error",
         }
 
-    async def compare_all_apis(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
+    async def compare_all_apis(self, lat: float, lng: float, mock_state: Optional[str] = None, location_name: Optional[str] = None) -> dict:
         """
         เรียก 3 API พร้อมกันเพื่อเปรียบเทียบผลลัพธ์
         """

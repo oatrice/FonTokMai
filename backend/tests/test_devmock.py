@@ -126,7 +126,7 @@ async def test_webhook_devmock_command():
             }
         }
         bg_tasks = BackgroundTasks()
-        with patch.dict("os.environ", {"BOT_ENV": "development"}):
+        with patch.dict("os.environ", {"ENVIRONMENT": "development", "BOT_ENV": "development"}):
             await telegram_webhook(request, bg_tasks)
         # Execute background tasks manually for testing
         for task in bg_tasks.tasks:
@@ -186,5 +186,5 @@ async def test_scheduler_mock_state_injection():
                         mock_metrics_cls.return_value = AsyncMock()
                         await check_rain_and_alert()
                         # Should pass mock_state="rain" to predict_rain
-                        mock_svc.predict_rain.assert_called_with(10.0, 20.0, mock_state="rain")
+                        mock_svc.predict_rain.assert_called_with(10.0, 20.0, mock_state="rain", location_name=None)
                         mock_send.assert_called()

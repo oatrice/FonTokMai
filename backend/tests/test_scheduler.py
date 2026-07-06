@@ -67,7 +67,7 @@ async def test_check_rain_and_alert_rain_incoming(
 
     # Assertions
     mock_repo.get_active_locations.assert_called_once()
-    mock_wm_instance.predict_rain.assert_called_once_with(13.0, 100.0, mock_state=None)
+    mock_wm_instance.predict_rain.assert_called_once_with(13.0, 100.0, mock_state=None, location_name="home")
     
     mock_send_msg.assert_called_once()
     call_args, call_kwargs = mock_send_msg.call_args
