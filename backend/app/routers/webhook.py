@@ -157,6 +157,7 @@ async def process_telegram_location(
             lat, lng,
             mock_state=mock_state,
             force_endpoint=force_endpoint,
+            location_name=location_name,
         )
 
         text, actual_endpoint, eta_minutes = _build_forecast_text(result)
@@ -1386,7 +1387,7 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
 
         if text.startswith(("/rain", "/check", "/devmock")) and chat_id:
             import os
-            if os.getenv("BOT_ENV", "production").lower() != "development":
+            if os.getenv("ENVIRONMENT", "production").lower() != "development":
                 background_tasks.add_task(
                     send_telegram_message, chat_id, 
                     "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน"

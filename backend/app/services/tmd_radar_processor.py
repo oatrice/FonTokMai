@@ -29,11 +29,17 @@ def _load_thai_font(size: int) -> "ImageFont.FreeTypeFont":
     """
     candidates = [
         # macOS Thai fonts
+        "/System/Library/Fonts/Supplemental/Thonburi.ttc",
+        "/System/Library/Fonts/ThonburiUI.ttc",
+        "/System/Library/Fonts/Supplemental/Ayuthaya.ttf",
+        "/System/Library/Fonts/Supplemental/Sathu.ttf",
         "/System/Library/Fonts/Supplemental/Tahoma.ttf",
         "/Library/Fonts/Tahoma.ttf",
         "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
         "/Library/Fonts/Arial Unicode.ttf",
         # Linux / Docker Thai fonts (install fonts-thai-tlwg or fonts-noto-core)
+        "/usr/share/fonts/truetype/tlwg/Garuda.ttf",
+        "/usr/share/fonts/truetype/tlwg/Loma.ttf",
         "/usr/share/fonts/truetype/thai-tlwg/Garuda.ttf",
         "/usr/share/fonts/truetype/thai-tlwg/Loma.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf",
@@ -550,13 +556,19 @@ class TMDRadarProcessor:
         """Draws the blue location pin on the image at the specified pixel coordinates."""
         if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
             return
+            
+        overlay = img.copy()
+        
         # White halo for contrast
-        cv2.circle(img, (x, y), radius=14, color=(255, 255, 255), thickness=5)
-        cv2.circle(img, (x, y), radius=20, color=(255, 255, 255), thickness=3)
+        cv2.circle(overlay, (x, y), radius=14, color=(255, 255, 255), thickness=5)
+        cv2.circle(overlay, (x, y), radius=20, color=(255, 255, 255), thickness=3)
         # Blue target body. The frame data is RGB, so this must be RGB blue.
         color = (0, 0, 255)
-        cv2.circle(img, (x, y), radius=12, color=color, thickness=4)
-        cv2.drawMarker(img, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=24, thickness=4)
+        cv2.circle(overlay, (x, y), radius=12, color=color, thickness=4)
+        cv2.drawMarker(overlay, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=24, thickness=4)
+        
+        # Apply semi-transparent overlay (alpha = 0.6)
+        cv2.addWeighted(overlay, 0.6, img, 0.4, 0, img)
 
     def get_wind_speed_kmh_from_vector(self, vx: float, vy: float) -> float:
         pixel_speed_15m = math.sqrt(vx**2 + vy**2)
@@ -1432,7 +1444,7 @@ class TMDRadarProcessor:
         return buffer.tobytes() if is_success else None
 
     @staticmethod
-    def generate_timeline_image(predictions: list) -> Optional[bytes]:
+    def generate_timeline_image(predictions: list, location_name: str = None) -> Optional[bytes]:
         if not predictions:
             return None
         try:
@@ -1499,8 +1511,8 @@ class TMDRadarProcessor:
             if cluster_label:
                 draw.text((x-12, baseline_y-h-35), f"[{cluster_label}]", fill=(150, 200, 255, 255), font=font_small)
             
-            text_color = (255, 255, 255, 255) if dbz > 0 else (120, 120, 120, 255)
-            draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=text_color, font=font)
+            if dbz > 0:
+                draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=(255, 255, 255, 255), font=font)
 
             # ── Growth / decay trend arrow ─────────────────────────────────
             arrow_y_base = baseline_y - h - 35 if cluster_label else baseline_y - h - 22
@@ -1551,6 +1563,13 @@ class TMDRadarProcessor:
         # Stable: draw dash + label
         draw.rectangle([(313, leg_y + 5), (327, leg_y + 8)], fill=(160, 160, 160, 200))
         draw.text((332, leg_y), "คงที่", fill=(160, 160, 160, 200), font=font_small)
+
+        if location_name:
+            loc_text = f"พิกัด: {location_name}"
+            # text length roughly
+            text_bbox = draw.textbbox((0, 0), loc_text, font=font)
+            text_w = text_bbox[2] - text_bbox[0]
+            draw.text((width - text_w - 20, 20), loc_text, fill=(200, 200, 200, 255), font=font)
 
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -1946,8 +1965,10 @@ class TMDRadarProcessor:
                 response = await client.get(url)
                 if response.status_code == 200:
                     return response.content
-        except Exception:
-            pass
+                else:
+                    logger.warning(f"[{self.station_code}] Failed to fetch static image: HTTP {response.status_code}")
+        except Exception as e:
+            logger.error(f"[{self.station_code}] Exception in fetch_latest_image_bytes: {e}", exc_info=True)
         return None
 
     async def decode_static_frame(self) -> Optional[np.ndarray]:

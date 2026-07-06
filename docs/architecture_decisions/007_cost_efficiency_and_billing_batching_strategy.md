@@ -40,5 +40,4 @@
     - #65 Merge ใน `feat/72-65-feature-budget-based-auto-shut` → v0.29.0
 *   **Batch 2 (Issue #72 & #69)** ได้ดำเนินการเสร็จสมบูรณ์ในเวอร์ชัน `0.29.0` แล้ว (สถานะ: **Done**)
     - Merge commit: `f4bc2c1`, Implementation commit: `9d7687f`
-    - หมายเหตุ: แม้ Batch 2 จะเสร็จแล้ว แต่ Incident #84 (17 มิ.ย. 2568) แสดงให้เห็นว่า Cost Optimization ยังต้องการ Phase ถัดไป → ดู ADR 008
-
+    - หมายเหตุ: แม้ Batch 2 จะเสร็จแล้ว แต่ Incident #84 (17 มิ.ย. 2026) แสดงให้เห็นว่า Cost Optimization ยังต้องการ Phase ถัดไป → ดู ADR 008

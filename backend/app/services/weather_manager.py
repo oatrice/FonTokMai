@@ -265,6 +265,7 @@ class WeatherManager:
         lng: float,
         mock_state: Optional[str] = None,
         force_endpoint: Optional[str] = None,
+        location_name: Optional[str] = None,
     ) -> dict:
         """
         ดึงข้อมูลพยากรณ์ฝนโดยผ่านระบบ Fallback อัตโนมัติ:
@@ -279,10 +280,10 @@ class WeatherManager:
             "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
             "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
             "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state),
-            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state),
-            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state),
-            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state)
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state, location_name=location_name),
+            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state, location_name=location_name),
+            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state, location_name=location_name),
+            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state, location_name=location_name)
         }
 
         # --- โหมดบังคับ endpoint (ไม่ผ่าน fallback) ---
@@ -338,7 +339,7 @@ class WeatherManager:
             "endpoint": "error",
         }
 
-    async def compare_all_apis(self, lat: float, lng: float, mock_state: Optional[str] = None) -> dict:
+    async def compare_all_apis(self, lat: float, lng: float, mock_state: Optional[str] = None, location_name: Optional[str] = None) -> dict:
         """
         เรียก 3 API พร้อมกันเพื่อเปรียบเทียบผลลัพธ์
         """
@@ -376,7 +377,7 @@ class WeatherManager:
             safe_call("rainbow-local", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state)),
             safe_call("rainbow-global", self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state)),
             safe_call("open-meteo", self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state)),
-            safe_call("tmd-radar", self._get_tmd_prediction(lat, lng, mock_state=mock_state))
+            safe_call("tmd-radar", self._get_tmd_prediction(lat, lng, mock_state=mock_state, location_name=location_name))
         ]
         
         results = await asyncio.gather(*tasks)
@@ -501,7 +502,7 @@ class WeatherManager:
         )
         return _GLOBAL_TMD_CACHE[station_code]
 
-    async def _get_tmd_prediction(self, lat: float, lng: float, force_station: Optional[str] = None, mock_state: Optional[str] = None) -> dict:
+    async def _get_tmd_prediction(self, lat: float, lng: float, force_station: Optional[str] = None, mock_state: Optional[str] = None, location_name: Optional[str] = None) -> dict:
         """
         Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
         Uses dot-product approach vector filter to find approaching cloud clusters,
@@ -782,6 +783,10 @@ class WeatherManager:
 
                 current_utc = datetime.now(timezone.utc)
                 time_offset_min = (current_utc - now_utc).total_seconds() / 60.0
+                # If the data age is more than 24 hours, it is likely mock or historical data for testing.
+                # Reset time_offset_min to 0.0 so that timelines and ETAs are calculated relative to the latest frame.
+                if time_offset_min > 1440.0:
+                    time_offset_min = 0.0
                 data_age_minutes = time_offset_min
                 
                 confidence_score = 1.0
@@ -936,7 +941,7 @@ class WeatherManager:
                         adj_p["time_offset"] = p["time_offset"] - time_offset_min
                         adjusted_predictions.append(adj_p)
                         
-                    timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, adjusted_predictions)
+                    timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, adjusted_predictions, location_name)
                     
                     if len(frames) >= 2:
                         multiframe_bytes = await asyncio.to_thread(

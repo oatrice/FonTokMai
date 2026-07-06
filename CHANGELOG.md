@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.46.0] - 2026-07-06
+
+### Added
+- Added support for generating weather timeline images with enhanced Thai font support and testing utilities.
+
+### Changed
+- Reorganized rain forecast message structure for better readability.
+- Improved radar prediction pipeline by passing location names to enhance visualization labels.
+
 ## [0.45.0] - 2026-06-28
 
 ### Added

@@ -301,3 +301,30 @@ def test_find_approaching_clouds_returns_approaching_true():
         assert clouds[0].get("approaching") is True, "Cloud must have 'approaching' flag set to True"
         assert len(clouds[0].get("pixels", [])) > 0, "Cloud must contain pixels"
 
+
+def test_generate_timeline_image():
+    # Test empty predictions
+    assert TMDRadarProcessor.generate_timeline_image([]) is None
+    
+    # Test valid predictions without location_name
+    predictions = [
+        {"time_offset": 0, "dbz": 0.0, "intensity": "ไม่มีฝน", "rain_mm_hr": 0.0, "is_raining": False},
+        {"time_offset": 15, "dbz": 30.0, "intensity": "ฝนตกปานกลาง", "rain_mm_hr": 3.0, "is_raining": True},
+    ]
+    img_bytes = TMDRadarProcessor.generate_timeline_image(predictions)
+    assert img_bytes is not None
+    assert isinstance(img_bytes, bytes)
+    assert img_bytes.startswith(b"\x89PNG")  # Valid PNG signature
+    
+    # Test valid predictions with location_name (English)
+    img_bytes_with_loc = TMDRadarProcessor.generate_timeline_image(predictions, location_name="TestLocation")
+    assert img_bytes_with_loc is not None
+    assert isinstance(img_bytes_with_loc, bytes)
+    assert img_bytes_with_loc.startswith(b"\x89PNG")
+
+    # Test valid predictions with Thai location_name to ensure no font loading issues
+    img_bytes_thai = TMDRadarProcessor.generate_timeline_image(predictions, location_name="บ้านของฉัน (Home)")
+    assert img_bytes_thai is not None
+    assert isinstance(img_bytes_thai, bytes)
+    assert img_bytes_thai.startswith(b"\x89PNG")
+
