@@ -157,6 +157,7 @@ async def process_telegram_location(
             lat, lng,
             mock_state=mock_state,
             force_endpoint=force_endpoint,
+            location_name=location_name,
         )
 
         text, actual_endpoint, eta_minutes = _build_forecast_text(result)

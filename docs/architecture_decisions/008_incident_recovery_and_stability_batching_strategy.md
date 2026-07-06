@@ -2,7 +2,7 @@
 
 ## Context
 
-เมื่อวันที่ 10–17 มิถุนายน 2568 ระบบ FonMaYang เผชิญกับเหตุการณ์ฉุกเฉิน (Incident #84) ที่ส่งผลให้ค่าใช้จ่ายบน Cloud Run พุ่งสูงอย่างผิดปกติถึง 2,657,500% สาเหตุหลักมาจากปัจจัยที่ทับซ้อนกัน 3 ประการ ได้แก่:
+เมื่อวันที่ 10–17 มิถุนายน 2026 ระบบ FonMaYang เผชิญกับเหตุการณ์ฉุกเฉิน (Incident #84) ที่ส่งผลให้ค่าใช้จ่ายบน Cloud Run พุ่งสูงอย่างผิดปกติถึง 2,657,500% สาเหตุหลักมาจากปัจจัยที่ทับซ้อนกัน 3 ประการ ได้แก่:
 
 1. **OCR Fallback Trap** — Fallback Chain ใน `ocr_service.py` ที่ชนโควต้า Cloud Vision + Gemini ทำให้แต่ละ Request ใช้เวลา 1–2 นาที
 2. **WebSocket vs Cloud Run Architecture** — `start_emsc_websocket` รันอยู่บน Cloud Run ที่เปิด CPU Throttling ทำให้เกิด Memory Leak และบล็อก Scale-to-Zero (สร้าง Idle Cost อย่างมหาศาล)
@@ -124,7 +124,7 @@ gcloud run services update fontokmai-api --max-instances 2 --region asia-southea
 | C | ตั้งค่า CPU Always-On บน API Service เดิม | **~฿2,300/เดือน** | Low |
 | D | Compute Engine e2-micro (Free Tier / or low-cost region) | ต่ำมาก | High (ดูแล VM) |
 
-**✅ Decision Made (18 มิ.ย. 2568):** เลือก **Option D**
+**✅ Decision Made (18 มิ.ย. 2026):** เลือก **Option D**
 - แยก WebSocket Worker ออกไปเป็น Standalone `emsc_worker` microservice รันบน Google Compute Engine (e2-micro)
 - ลดภาระ (Complexity) ในการดูแล VM ด้วยการทำ **CI/CD Automation ผ่าน GitLab** ให้เชื่อมต่อผ่าน OS Login และสั่งรัน shell script อัปเดต/restart `systemd` service อัตโนมัติเมื่อมีการ push code
 - การส่งข้อมูลกลับมาที่ระบบหลักใช้วิธีเรียก Internal Webhook (`/api/v1/internal/emsc-webhook`) ที่มี Secret header ป้องกัน
@@ -215,7 +215,7 @@ gcloud run services update fontokmai-api --max-instances 2 --region asia-southea
 ## Execution Sequence (ภาพรวมลำดับการดำเนินงาน)
 
 ```
-ปัจจุบัน (17 มิ.ย. 2568)
+ปัจจุบัน (17 มิ.ย. 2026)
 │
 ├─[Phase 0]─► Infra: Pause Scheduler + max-instances=2        ← ทำทันทีวันนี้
 │
@@ -232,7 +232,7 @@ gcloud run services update fontokmai-api --max-instances 2 --region asia-southea
 
 ---
 
-## Status Table (อัปเดต ณ 17 มิ.ย. 2568)
+## Status Table (อัปเดต ณ 17 มิ.ย. 2026)
 
 | Phase / Batch | สถานะ | Issues |
 |--------------|-------|--------|

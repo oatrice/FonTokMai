@@ -31,7 +31,7 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                 if time_since_last_alert < timedelta(minutes=ALERT_COOLDOWN_MINUTES):
                     try:
                         mock_state_pre = await repo.get_mock_state(loc.chat_id)
-                        pre_result = await weather_manager.predict_rain(loc.latitude, loc.longitude, mock_state=mock_state_pre)
+                        pre_result = await weather_manager.predict_rain(loc.latitude, loc.longitude, mock_state=mock_state_pre, location_name=loc.name)
                         current_max_rain = pre_result.get("max_rain", 0.0)
                         last_max_rain = loc.last_alert_max_rain or 0.0
 
@@ -57,7 +57,7 @@ async def _process_location(loc, repo, weather_manager, now, sem):
 
             if not severity_escalated:
                 mock_state = await repo.get_mock_state(loc.chat_id)
-                result = await weather_manager.predict_rain(loc.latitude, loc.longitude, mock_state=mock_state)
+                result = await weather_manager.predict_rain(loc.latitude, loc.longitude, mock_state=mock_state, location_name=loc.name)
 
             max_rain = result.get("max_rain", 0.0)
             if max_rain < RAIN_TRIGGER_THRESHOLD_MM:

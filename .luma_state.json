@@ -1,15 +1,137 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "idle",
-  "active_issues": [],
-  "active_branch": null,
-  "started_at": null,
-  "checklist": {},
-  "context": {},
+  "phase": "reviewing",
+  "active_issues": [
+    {
+      "number": 127,
+      "title": "Make blue location pin semi-transparent",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/127",
+      "body": null,
+      "project_item_id": "GLAB_127",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 131,
+      "title": "fix: แก้ไขภาษาไทยในรูป timeline (Production only) และแสดงชื่อพิกัด (เช่น Home, Work)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/131",
+      "body": null,
+      "project_item_id": "GLAB_131",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    }
+  ],
+  "active_branch": "feat/127-131-make-blue-location-pin-semi-tr",
+  "started_at": "2026-07-06T09:37:57.592577",
+  "checklist": {
+    "step_planning": true,
+    "step_coding": true
+  },
+  "context": {
+    "pending_doc_updates": {
+      "pending": [
+        "CHANGELOG.md",
+        "README.md",
+        "VERSION"
+      ],
+      "changed_files": [
+        "backend/Dockerfile",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/app/services/weather_manager.py",
+        "docs/ROADMAP.md",
+        "docs/architecture_decisions/007_cost_efficiency_and_billing_batching_strategy.md",
+        "docs/architecture_decisions/008_incident_recovery_and_stability_batching_strategy.md",
+        "luma/prompts/prompt_20260628_130447_894273ad.md",
+        "luma/prompts/prompt_20260628_130447_894273ad.md.response.md",
+        "luma/prompts/prompt_20260628_130448_139fe6e2.md",
+        "luma/prompts/prompt_20260628_130448_139fe6e2.md.response.md",
+        "luma/prompts/prompt_20260706_023750_79b63e60.md",
+        "luma_metrics.json",
+        "luma_state.json"
+      ],
+      "meaningful_files": [
+        "backend/Dockerfile",
+        "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/app/services/weather_manager.py",
+        "luma_metrics.json",
+        "luma_state.json"
+      ],
+      "version_file": "VERSION",
+      "has_meaningful_changes": true
+    },
+    "target_planning_repos": [
+      {
+        "name": "FonMaYang",
+        "path": "/Users/oatrice/Software Project/FonMaYang",
+        "repo": "oatricedev/FonMaYang",
+        "slug": "fonmayang",
+        "kanban_number": 1,
+        "kanban_id": "",
+        "platform": "gitlab",
+        "status_workflow": {
+          "selectable_statuses": [
+            "Ready",
+            "In Progress",
+            "Todo"
+          ],
+          "selection_order": [
+            "In Progress",
+            "Ready",
+            "Todo"
+          ],
+          "active_statuses": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review"
+          ],
+          "active_sort_order": [
+            "In Progress",
+            "Ready",
+            "Todo",
+            "In Review",
+            "Backlog"
+          ],
+          "board_order": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review",
+            "Done",
+            "Closed"
+          ],
+          "done_statuses": [
+            "Done",
+            "Closed"
+          ],
+          "status_icons": {
+            "Backlog": "📥 ",
+            "Ready": "✅ ",
+            "Todo": "📝 ",
+            "In Progress": "🔥 ",
+            "In Review": "👀 ",
+            "Done": "✅ ",
+            "Closed": "✅ "
+          },
+          "action_status_map": {
+            "select_issue": "In Progress",
+            "create_pr": "In Review",
+            "pr_merged": "Done"
+          }
+        }
+      }
+    ]
+  },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-06-29T18:15:18.529216"
+  "last_updated": "2026-07-06T09:38:04.766675"
 }

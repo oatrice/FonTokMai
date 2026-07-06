@@ -550,13 +550,19 @@ class TMDRadarProcessor:
         """Draws the blue location pin on the image at the specified pixel coordinates."""
         if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
             return
+            
+        overlay = img.copy()
+        
         # White halo for contrast
-        cv2.circle(img, (x, y), radius=14, color=(255, 255, 255), thickness=5)
-        cv2.circle(img, (x, y), radius=20, color=(255, 255, 255), thickness=3)
+        cv2.circle(overlay, (x, y), radius=14, color=(255, 255, 255), thickness=5)
+        cv2.circle(overlay, (x, y), radius=20, color=(255, 255, 255), thickness=3)
         # Blue target body. The frame data is RGB, so this must be RGB blue.
         color = (0, 0, 255)
-        cv2.circle(img, (x, y), radius=12, color=color, thickness=4)
-        cv2.drawMarker(img, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=24, thickness=4)
+        cv2.circle(overlay, (x, y), radius=12, color=color, thickness=4)
+        cv2.drawMarker(overlay, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=24, thickness=4)
+        
+        # Apply semi-transparent overlay (alpha = 0.6)
+        cv2.addWeighted(overlay, 0.6, img, 0.4, 0, img)
 
     def get_wind_speed_kmh_from_vector(self, vx: float, vy: float) -> float:
         pixel_speed_15m = math.sqrt(vx**2 + vy**2)
@@ -1432,7 +1438,7 @@ class TMDRadarProcessor:
         return buffer.tobytes() if is_success else None
 
     @staticmethod
-    def generate_timeline_image(predictions: list) -> Optional[bytes]:
+    def generate_timeline_image(predictions: list, location_name: str = None) -> Optional[bytes]:
         if not predictions:
             return None
         try:
@@ -1551,6 +1557,13 @@ class TMDRadarProcessor:
         # Stable: draw dash + label
         draw.rectangle([(313, leg_y + 5), (327, leg_y + 8)], fill=(160, 160, 160, 200))
         draw.text((332, leg_y), "คงที่", fill=(160, 160, 160, 200), font=font_small)
+
+        if location_name:
+            loc_text = f"พิกัด: {location_name}"
+            # text length roughly
+            text_bbox = draw.textbbox((0, 0), loc_text, font=font)
+            text_w = text_bbox[2] - text_bbox[0]
+            draw.text((width - text_w - 20, 20), loc_text, fill=(200, 200, 200, 255), font=font)
 
         buf = io.BytesIO()
         img.save(buf, format="PNG")

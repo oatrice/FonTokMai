@@ -27,6 +27,66 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #137 - Feature: Integrate Multimodal Gen AI with 6-frame sequence for rain forecasting
+- **GitHub:** [#137](https://gitlab.com/oatricedev/FonMaYang/-/issues/137)
+- **Status:** 🟢 **Ready**
+
+### Issue #136 - Feature: Add Language Settings Menu (Support English Switch)
+- **GitHub:** [#136](https://gitlab.com/oatricedev/FonMaYang/-/issues/136)
+- **Status:** 🟢 **Ready**
+
+### Issue #135 - Feature: Implement Emergency Admin Bypass Password for restricted bot commands in Production
+- **GitHub:** [#135](https://gitlab.com/oatricedev/FonMaYang/-/issues/135)
+- **Status:** 🟢 **Ready**
+
+### Issue #134 - แก้ไข Cloud Tasks fonmayang-fetch-radar ให้เป็นทุกๆ 10 นาที
+- **GitHub:** [#134](https://gitlab.com/oatricedev/FonMaYang/-/issues/134)
+- **Status:** 🟢 **Ready**
+
+### Issue #133 - Fix Cloud Tasks timeout (504 Deadline Exceeded) caused by unsafe gRPC fork
+- **GitHub:** [#133](https://gitlab.com/oatricedev/FonMaYang/-/issues/133)
+- **Status:** 🟢 **Ready**
+
+### Issue #132 - Fix notification formatting duplication in scheduler tasks
+- **GitHub:** [#132](https://gitlab.com/oatricedev/FonMaYang/-/issues/132)
+- **Status:** 🟢 **Ready**
+
+### Issue #131 - fix: แก้ไขภาษาไทยในรูป timeline (Production only) และแสดงชื่อพิกัด (เช่น Home, Work)
+- **GitHub:** [#131](https://gitlab.com/oatricedev/FonMaYang/-/issues/131)
+- **Status:** 🟢 **Ready**
+
+### Issue #130 - Calculate and display remaining rain duration in Telegram
+- **GitHub:** [#130](https://gitlab.com/oatricedev/FonMaYang/-/issues/130)
+- **Status:** 🟢 **Ready**
+
+### Issue #129 - Research and Implement Cloud Motion Prediction (Rain Nowcasting) using Radar Analysis
+- **GitHub:** [#129](https://gitlab.com/oatricedev/FonMaYang/-/issues/129)
+- **Status:** 🟢 **Ready**
+
+### Issue #127 - Make blue location pin semi-transparent
+- **GitHub:** [#127](https://gitlab.com/oatricedev/FonMaYang/-/issues/127)
+- **Status:** 🟢 **Ready**
+
+### Issue #126 - feat: align TMD radar polling interval with actual TMD image update schedule
+- **GitHub:** [#126](https://gitlab.com/oatricedev/FonMaYang/-/issues/126)
+- **Status:** 🟢 **Ready**
+
+### Issue #125 - chore: gRPC fork warnings polluting logs — FD from fork parent still in poll list
+- **GitHub:** [#125](https://gitlab.com/oatricedev/FonMaYang/-/issues/125)
+- **Status:** 🟢 **Ready**
+
+### Issue #124 - bug: Cloud Tasks 504 Deadline Exceeded causes silent failure — devmock/rain command dropped silently
+- **GitHub:** [#124](https://gitlab.com/oatricedev/FonMaYang/-/issues/124)
+- **Status:** 🟢 **Ready**
+
+### Issue #123 - bug: Xweather 429 circuit breaker triggered every devmock/scheduler cycle with multiple locations
+- **GitHub:** [#123](https://gitlab.com/oatricedev/FonMaYang/-/issues/123)
+- **Status:** 🟢 **Ready**
+
+### Issue #122 - bug: Triple alert spam — user with multiple locations receives duplicate alerts per cycle
+- **GitHub:** [#122](https://gitlab.com/oatricedev/FonMaYang/-/issues/122)
+- **Status:** 🟢 **Ready**
+
 ### Issue #121 - Feature: Parametric Mock Scenario System for TMD Radar (/devmock scenario)
 - **GitHub:** [#121](https://gitlab.com/oatricedev/FonMaYang/-/issues/121)
 - **Status:** 🟢 **Ready**
