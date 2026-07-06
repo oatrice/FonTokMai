@@ -53,7 +53,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #131 - fix: แก้ไขภาษาไทยในรูป timeline (Production only) และแสดงชื่อพิกัด (เช่น Home, Work)
 - **GitHub:** [#131](https://gitlab.com/oatricedev/FonMaYang/-/issues/131)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.46.0)
 
 ### Issue #130 - Calculate and display remaining rain duration in Telegram
 - **GitHub:** [#130](https://gitlab.com/oatricedev/FonMaYang/-/issues/130)
@@ -65,7 +65,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #127 - Make blue location pin semi-transparent
 - **GitHub:** [#127](https://gitlab.com/oatricedev/FonMaYang/-/issues/127)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.46.0)
 
 ### Issue #126 - feat: align TMD radar polling interval with actual TMD image update schedule
 - **GitHub:** [#126](https://gitlab.com/oatricedev/FonMaYang/-/issues/126)
