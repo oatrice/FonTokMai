@@ -29,11 +29,17 @@ def _load_thai_font(size: int) -> "ImageFont.FreeTypeFont":
     """
     candidates = [
         # macOS Thai fonts
+        "/System/Library/Fonts/Supplemental/Thonburi.ttc",
+        "/System/Library/Fonts/ThonburiUI.ttc",
+        "/System/Library/Fonts/Supplemental/Ayuthaya.ttf",
+        "/System/Library/Fonts/Supplemental/Sathu.ttf",
         "/System/Library/Fonts/Supplemental/Tahoma.ttf",
         "/Library/Fonts/Tahoma.ttf",
         "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
         "/Library/Fonts/Arial Unicode.ttf",
         # Linux / Docker Thai fonts (install fonts-thai-tlwg or fonts-noto-core)
+        "/usr/share/fonts/truetype/tlwg/Garuda.ttf",
+        "/usr/share/fonts/truetype/tlwg/Loma.ttf",
         "/usr/share/fonts/truetype/thai-tlwg/Garuda.ttf",
         "/usr/share/fonts/truetype/thai-tlwg/Loma.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf",
@@ -1505,8 +1511,8 @@ class TMDRadarProcessor:
             if cluster_label:
                 draw.text((x-12, baseline_y-h-35), f"[{cluster_label}]", fill=(150, 200, 255, 255), font=font_small)
             
-            text_color = (255, 255, 255, 255) if dbz > 0 else (120, 120, 120, 255)
-            draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=text_color, font=font)
+            if dbz > 0:
+                draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=(255, 255, 255, 255), font=font)
 
             # ── Growth / decay trend arrow ─────────────────────────────────
             arrow_y_base = baseline_y - h - 35 if cluster_label else baseline_y - h - 22
@@ -1959,8 +1965,10 @@ class TMDRadarProcessor:
                 response = await client.get(url)
                 if response.status_code == 200:
                     return response.content
-        except Exception:
-            pass
+                else:
+                    logger.warning(f"[{self.station_code}] Failed to fetch static image: HTTP {response.status_code}")
+        except Exception as e:
+            logger.error(f"[{self.station_code}] Exception in fetch_latest_image_bytes: {e}", exc_info=True)
         return None
 
     async def decode_static_frame(self) -> Optional[np.ndarray]:

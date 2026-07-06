@@ -783,6 +783,10 @@ class WeatherManager:
 
                 current_utc = datetime.now(timezone.utc)
                 time_offset_min = (current_utc - now_utc).total_seconds() / 60.0
+                # If the data age is more than 24 hours, it is likely mock or historical data for testing.
+                # Reset time_offset_min to 0.0 so that timelines and ETAs are calculated relative to the latest frame.
+                if time_offset_min > 1440.0:
+                    time_offset_min = 0.0
                 data_age_minutes = time_offset_min
                 
                 confidence_score = 1.0

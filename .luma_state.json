@@ -26,7 +26,8 @@
   "started_at": "2026-07-06T09:37:57.592577",
   "checklist": {
     "step_planning": true,
-    "step_coding": true
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -133,5 +134,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-06T09:38:04.766675"
+  "last_updated": "2026-07-06T09:43:53.687054"
 }
