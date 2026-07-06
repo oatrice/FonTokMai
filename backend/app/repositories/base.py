@@ -128,3 +128,18 @@ class LocationRepository(ABC):
     ) -> list[dict]:
         """ดึงรายการ cron run logs ย้อนหลัง N วัน คืนค่าเป็น list of dict"""
         pass
+
+    @abstractmethod
+    async def save_admin_bypass(self, chat_id: int, expires_in_minutes: int = 60) -> None:
+        """บันทึก session ของ Admin Bypass"""
+        pass
+
+    @abstractmethod
+    async def delete_admin_bypass(self, chat_id: int) -> None:
+        """ลบ session ของ Admin Bypass"""
+        pass
+
+    @abstractmethod
+    async def has_active_admin_bypass(self, chat_id: int) -> bool:
+        """ตรวจสอบว่า user นี้มี Admin Bypass ที่ยังไม่หมดอายุหรือไม่"""
+        pass

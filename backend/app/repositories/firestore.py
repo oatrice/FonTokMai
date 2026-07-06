@@ -375,3 +375,34 @@ class FirestoreLocationRepository(LocationRepository):
             })
             
         return metrics
+
+    async def save_admin_bypass(self, chat_id: int, expires_in_minutes: int = 60) -> None:
+        from datetime import timedelta
+        doc_ref = self.db.collection('admin_bypass').document(str(chat_id))
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_in_minutes)
+        await doc_ref.set({
+            "expires_at": expires_at,
+            "created_at": datetime.now(timezone.utc)
+        })
+
+    async def delete_admin_bypass(self, chat_id: int) -> None:
+        doc_ref = self.db.collection('admin_bypass').document(str(chat_id))
+        await doc_ref.delete()
+
+    async def has_active_admin_bypass(self, chat_id: int) -> bool:
+        doc_ref = self.db.collection('admin_bypass').document(str(chat_id))
+        doc = await doc_ref.get()
+        if not doc.exists:
+            return False
+            
+        data = doc.to_dict()
+        expires_at = data.get("expires_at")
+        
+        if not expires_at:
+            return False
+            
+        # Handle Firestore DatetimeWithNanoseconds
+        if getattr(expires_at, "tzinfo", None) is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            
+        return expires_at > datetime.now(timezone.utc)

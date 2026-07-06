@@ -173,7 +173,8 @@ class OCRService:
         try:
             import asyncio
             # frame is numpy array, pytesseract can handle it directly
-            text = await asyncio.to_thread(pytesseract.image_to_string, frame)
+            # Use PSM 6 (Assume a single uniform block of text) to drastically improve accuracy on cropped timestamp strips.
+            text = await asyncio.to_thread(pytesseract.image_to_string, frame, config="--psm 6")
             return text
         except Exception as e:
             print(f"pytesseract Exception: {e}")
@@ -182,15 +183,35 @@ class OCRService:
     def _extract_timestamp_from_text(self, text: str, *, _debug_hash: str = "") -> Optional[int]:
         """
         Parse text like "06 Jun 2026 09:30" or "2026-06-06 09:30:00"
-        TMD radar typically has formats like "06/06/2026 09:30"
+        TMD radar typically has formats like "06/06/2026 09:30" or "2026-06-06 09:30:00"
         """
         if not text:
             return None
 
+        # Clean text first: sometimes OCR mis-detects colons as spaces or other symbols,
+        # e.g., "13 0004" instead of "13:00:04" or similar.
+        # Let's try standard regex search first
         match = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}(?::\d{2})?)', text)
-        if match:
+        
+        # If not found, look for space-separated time blocks after a date string: "YYYY-MM-DD HH MM SS"
+        if not match:
+            # Match date followed by 2 or 3 groups of digits (e.g. HH MM or HH MM SS)
+            match_loose = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\s+(\d{2})\s+(\d{2})(?:\s+(\d{2}))?', text)
+            if match_loose:
+                date_str = match_loose.group(1)
+                h = match_loose.group(2)
+                m = match_loose.group(3)
+                s = match_loose.group(4) if match_loose.group(4) else "00"
+                # Standardize time string format for parsing below
+                time_str = f"{h}:{m}:{s}"
+                match = match_loose
+            else:
+                return None
+        else:
             date_str = match.group(1)
             time_str = match.group(2)
+
+        if match:
             # Log the matched snippet and surrounding context so we can see
             # exactly what the OCR engine read and from which part of the text.
             ctx_start = max(0, match.start() - 30)
@@ -206,6 +227,11 @@ class OCRService:
                     day, month, year = map(int, date_str.split('/'))
                 else:
                     year, month, day = map(int, date_str.split('-'))
+
+                # We clean up common OCR year errors: e.g. "2086" -> "2026"
+                if year > 2050:
+                    # If the year is way in the future (like 2086), it's likely an OCR error for 2026
+                    year = 2026
 
                 time_parts = list(map(int, time_str.split(':')))
                 hour   = time_parts[0]

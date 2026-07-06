@@ -433,9 +433,21 @@ async def fetch_tmd_radar_routine():
                 if enable_fallback:
                     if frames:
                         gap_to_now = (now_ts - latest_ts) / 60.0
+                        
+                        # หาก OCR สำเร็จ แต่เวลาภาพนิ่งปัจจุบันเก่ากว่าเวลาจริงเกิน 120 นาที
+                        # แสดงว่ารูป Static บนเว็บ TMD ค้างหรือไม่ได้อัปเดต ให้ทำ Fallback ทันที
+                        is_static_outdated = False
+                        if ts:
+                            static_age_minutes = (now_ts - ts) / 60.0
+                            if static_age_minutes > 120.0:
+                                is_static_outdated = True
+                                
                         if gap_to_now > 60.0 and (now_ts - last_gif_fallback_time) > 1800.0:
                             needs_fallback = True
                             fallback_reason = f"Static dead for {gap_to_now:.1f}m"
+                        elif is_static_outdated and (now_ts - last_gif_fallback_time) > 1800.0:
+                            needs_fallback = True
+                            fallback_reason = f"Static image is outdated by {static_age_minutes:.1f}m"
                         elif ts and (ts - latest_ts) > 1800.0:
                             needs_fallback = True
                             fallback_reason = f"Large time gap detected ({int((ts - latest_ts)/60)}m) between {latest_ts} and {ts}"

@@ -27,6 +27,30 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "mock_token")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 TELEGRAM_EDIT_REPLY_MARKUP_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageReplyMarkup"
 
+def log_audit_event(event_type: str, chat_id: int, username: str, details: dict):
+    audit_data = {
+        "event_type": event_type,
+        "chat_id": chat_id,
+        "username": username or "unknown",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "details": details
+    }
+    logger.info(json.dumps(audit_data, ensure_ascii=False))
+
+async def check_admin_access(chat_id: int) -> bool:
+    import os
+    is_prod = os.getenv("ENVIRONMENT", "production").lower() != "development"
+
+    async with get_repo_context() as repo:
+        if await repo.has_active_admin_bypass(chat_id):
+            return True
+            
+    # ถ้าอยู่ใน Development mode, Developer เข้าถึงได้เลยโดยไม่ต้อง bypass
+    if str(chat_id) in DEVELOPER_CHAT_IDS and not is_prod:
+        return True
+        
+    return False
+
 
 def format_duration_text(minutes: int) -> str:
     if minutes < 60:
@@ -377,7 +401,7 @@ async def handle_callback_query(callback_query: dict):
 
     # Handle Developer Raw Data Request
     if data.startswith("raw_"):
-        if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        if not await check_admin_access(chat_id):
             answer_text = "คุณไม่มีสิทธิ์เข้าถึงข้อมูลดิบ"
         else:
             parts = data.split("_")
@@ -622,13 +646,16 @@ async def handle_radar_command(chat_id: int):
         await send_telegram_message(chat_id, text, reply_markup=reply_markup)
 
 
-async def handle_tmd_fallback_command(chat_id: int, command: str):
+async def handle_tmd_fallback_command(chat_id: int, command: str, username: str = ""):
     """
     /tmd_fallback on
     /tmd_fallback off
     """
-    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+    if not await check_admin_access(chat_id):
         return
+
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
 
     parts = command.strip().split()
     if len(parts) < 2:
@@ -659,9 +686,12 @@ async def handle_tmd_fallback_command(chat_id: int, command: str):
     )
 
 
-async def handle_devmock_command(chat_id: int, command: str):
-    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+async def handle_devmock_command(chat_id: int, command: str, username: str = ""):
+    if not await check_admin_access(chat_id):
         return
+
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
 
     async with get_repo_context() as repo:
         if command == "/devmock rain":
@@ -1370,7 +1400,8 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
                 return {"status": "ok"}
 
         text = message.get("text", "")
-        logger.info(f"[WEBHOOK] Received text='{text}' chat_id={chat_id}")
+        username = message.get("from", {}).get("username", "")
+        logger.info(f"[WEBHOOK] Received text='{text}' chat_id={chat_id} username={username}")
 
         from app.services.cloud_tasks import CloudTasksService
         tasks_svc = CloudTasksService()
@@ -1384,15 +1415,43 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
             if not tasks_svc.enqueue_task("worker/handle-radar", {"chat_id": chat_id}):
                 background_tasks.add_task(handle_radar_command, chat_id)
             return {"status": "ok"}
+            
+        if text.startswith("/bypass_logout") and chat_id:
+            async def _do_logout():
+                async with get_repo_context() as repo:
+                    await repo.delete_admin_bypass(chat_id)
+                log_audit_event("bypass_logout", chat_id, username, {})
+                await send_telegram_message(chat_id, "ออกจากระบบ Emergency Admin Bypass เรียบร้อยแล้ว")
+            background_tasks.add_task(_do_logout)
+            return {"status": "ok"}
 
-        if text.startswith(("/rain", "/check", "/devmock")) and chat_id:
+        if text.startswith("/bypass ") and chat_id:
+            password = text.removeprefix("/bypass ").strip()
+            async def _do_login():
+                import os
+                actual_pass = os.getenv("ADMIN_BYPASS_PASSWORD")
+                if actual_pass and password == actual_pass:
+                    async with get_repo_context() as repo:
+                        await repo.save_admin_bypass(chat_id)
+                    log_audit_event("bypass_login_success", chat_id, username, {})
+                    await send_telegram_message(chat_id, "✅ ยืนยันรหัสผ่านถูกต้อง! เปิดใช้งาน Emergency Admin Bypass (1 ชั่วโมง)")
+                else:
+                    log_audit_event("bypass_login_failed", chat_id, username, {})
+                    await send_telegram_message(chat_id, "❌ รหัสผ่านไม่ถูกต้อง")
+            background_tasks.add_task(_do_login)
+            return {"status": "ok"}
+
+        if text.startswith(("/rain", "/check", "/devmock", "/tmd_fallback")) and chat_id:
             import os
-            if os.getenv("ENVIRONMENT", "production").lower() != "development":
-                background_tasks.add_task(
-                    send_telegram_message, chat_id, 
-                    "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน"
-                )
-                return {"status": "ok"}
+            is_dev_env = os.getenv("ENVIRONMENT", "production").lower() == "development"
+            if not is_dev_env:
+                has_access = await check_admin_access(chat_id)
+                if not has_access:
+                    background_tasks.add_task(
+                        send_telegram_message, chat_id, 
+                        "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน"
+                    )
+                    return {"status": "ok"}
 
         if text.startswith("/rain_pro") and chat_id:
             if not tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text, "show_advanced": True}):

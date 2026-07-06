@@ -78,3 +78,9 @@ class CronRunLog(Base):
     locations_checked = Column(Integer, default=0, nullable=False)
     errors = Column(Integer, default=0, nullable=False)
     extra_data = Column(Text, nullable=True)                    # JSON string for extra fields
+
+class AdminBypass(Base):
+    __tablename__ = "admin_bypass"
+
+    chat_id = Column(BigInteger, primary_key=True, index=True)
+    expires_at = Column(DateTime, nullable=False)
