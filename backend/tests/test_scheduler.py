@@ -79,7 +79,7 @@ async def test_check_rain_and_alert_rain_incoming(
     reply_markup = call_args[2] if len(call_args) > 2 else call_kwargs.get("reply_markup")
     assert reply_markup is not None
     kb = reply_markup["inline_keyboard"]
-    assert len(kb) == 5
+    assert len(kb) == 4
 
     mock_repo.update_last_alerted.assert_called_once()
 

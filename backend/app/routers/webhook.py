@@ -135,10 +135,6 @@ def _build_forecast_text(result: dict) -> str:
             else:
                 text += f"🌬️ สภาพลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
 
-        if not rain_summary:
-            if duration_min > 0:
-                text += f"⏱️ คาดว่าจะตกต่อเนื่องประมาณ: {format_duration_text(duration_min)}\n"
-
         growth_rate = result.get("growth_rate_pct")
         if growth_rate is not None and has_rain_or_clouds:
             if growth_rate > 5.0:

@@ -358,6 +358,18 @@ class WeatherManager:
                 error_msg = str(e) if str(e) else repr(e)
                 error_msg = re.sub(r'client_id=[^&\s]+', 'client_id=***', error_msg)
                 error_msg = re.sub(r'client_secret=[^&\s]+', 'client_secret=***', error_msg)
+                
+                if "401" in error_msg:
+                    error_msg = "แหล่งข้อมูลปิดปรับปรุงหรือสิทธิ์การเข้าถึงมีปัญหาชั่วคราว"
+                elif "429" in error_msg:
+                    error_msg = "ดึงข้อมูลถี่เกินไปชั่วคราว กรุณาเว้นระยะแล้วลองใหม่อีกครั้ง"
+                elif "timeout" in error_msg.lower():
+                    error_msg = "การเชื่อมต่อขัดข้องหรือสัญญาณขาดหายชั่วคราว"
+                elif "403" in error_msg:
+                    error_msg = "แหล่งข้อมูลปฏิเสธการเชื่อมต่อชั่วคราว"
+                elif "50" in error_msg:
+                    error_msg = "ระบบเซิร์ฟเวอร์ของผู้ให้บริการขัดข้องชั่วคราว"
+                    
                 logger.error(f"Error fetching from {name}: {error_msg}")
                 return name, {"error": error_msg, "endpoint": name, "max_rain": 0.0, "accuracy_score": reliabilities.get(name, 0.0)}
 
@@ -839,6 +851,26 @@ class WeatherManager:
                         dbz = max(dbz, 40.0)
                     elif mock_state == "clear":
                         dbz = 0.0
+                    elif mock_state and mock_state.startswith("{"):
+                        try:
+                            scenario = json.loads(mock_state)
+                            if scenario.get("no_rain") or scenario.get("clear"):
+                                dbz = 0.0
+                            else:
+                                mock_dbz = float(scenario.get("dbz", 35.0))
+                                if "rain_in" in scenario:
+                                    rain_in = float(scenario["rain_in"])
+                                    if offset_min >= rain_in:
+                                        dbz = max(dbz, mock_dbz)
+                                elif "rain_stopping" in scenario:
+                                    rain_stopping = float(scenario["rain_stopping"])
+                                    if offset_min < rain_stopping:
+                                        dbz = max(dbz, mock_dbz)
+                                else:
+                                    # Default fallback to mock dbz if not specified
+                                    dbz = max(dbz, mock_dbz)
+                        except Exception:
+                            pass
                         
                     if dbz > max_dbz:
                         max_dbz = dbz

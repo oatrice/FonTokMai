@@ -27,6 +27,18 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #140 - UX: Display user-friendly API error messages instead of raw HTTP exceptions in /rain_pro
+- **GitHub:** [#140](https://gitlab.com/oatricedev/FonMaYang/-/issues/140)
+    - ✅ **Done** (0.48.0)
+
+### Issue #139 - Feature: Rotate ADMIN_BYPASS_PASSWORD dynamically using TOTP (OTP)
+- **GitHub:** [#139](https://gitlab.com/oatricedev/FonMaYang/-/issues/139)
+- **Status:** 🟢 **Ready**
+
+### Issue #138 - Implement radar noise filtering and multi-station cross-referencing to prevent false rain alerts
+- **GitHub:** [#138](https://gitlab.com/oatricedev/FonMaYang/-/issues/138)
+- **Status:** 🟢 **Ready**
+
 ### Issue #137 - Feature: Integrate Multimodal Gen AI with 6-frame sequence for rain forecasting
 - **GitHub:** [#137](https://gitlab.com/oatricedev/FonMaYang/-/issues/137)
 - **Status:** 🟢 **Ready**
@@ -49,7 +61,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #132 - Fix notification formatting duplication in scheduler tasks
 - **GitHub:** [#132](https://gitlab.com/oatricedev/FonMaYang/-/issues/132)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.48.0)
 
 ### Issue #131 - fix: แก้ไขภาษาไทยในรูป timeline (Production only) และแสดงชื่อพิกัด (เช่น Home, Work)
 - **GitHub:** [#131](https://gitlab.com/oatricedev/FonMaYang/-/issues/131)
@@ -81,11 +93,11 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #123 - bug: Xweather 429 circuit breaker triggered every devmock/scheduler cycle with multiple locations
 - **GitHub:** [#123](https://gitlab.com/oatricedev/FonMaYang/-/issues/123)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.48.0)
 
 ### Issue #122 - bug: Triple alert spam — user with multiple locations receives duplicate alerts per cycle
 - **GitHub:** [#122](https://gitlab.com/oatricedev/FonMaYang/-/issues/122)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.48.0)
 
 ### Issue #121 - Feature: Parametric Mock Scenario System for TMD Radar (/devmock scenario)
 - **GitHub:** [#121](https://gitlab.com/oatricedev/FonMaYang/-/issues/121)
