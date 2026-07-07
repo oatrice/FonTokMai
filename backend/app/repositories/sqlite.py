@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -10,9 +10,10 @@ class SQLiteLocationRepository(LocationRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_location(self, chat_id: int, name: str = "default") -> Optional[UserLocation]:
+    async def get_location(self, chat_id: Union[str, int], name: str = "default") -> Optional[UserLocation]:
         from sqlalchemy import or_
-        conditions = [UserLocation.chat_id == chat_id]
+        chat_id_str = str(chat_id)
+        conditions = [UserLocation.chat_id == chat_id_str]
         if name == "default":
             conditions.append(or_(UserLocation.name == name, UserLocation.name.is_(None)))
         else:
@@ -23,14 +24,24 @@ class SQLiteLocationRepository(LocationRepository):
         )
         return result.scalars().first()
 
-    async def get_user_locations(self, chat_id: int) -> List[UserLocation]:
+    async def get_user_locations(self, chat_id: Union[str, int]) -> List[UserLocation]:
+        chat_id_str = str(chat_id)
         result = await self.session.execute(
-            select(UserLocation).where(UserLocation.chat_id == chat_id)
+            select(UserLocation).where(UserLocation.chat_id == chat_id_str)
         )
         return list(result.scalars().all())
 
-    async def save_location(self, chat_id: int, lat: float, lng: float, retention_type: str, name: str = "default") -> UserLocation:
-        loc = await self.get_location(chat_id, name)
+    async def save_location(
+        self,
+        chat_id: Union[str, int],
+        lat: float,
+        lng: float,
+        retention_type: str,
+        name: str = "default",
+        platform: str = "telegram"
+    ) -> UserLocation:
+        chat_id_str = str(chat_id)
+        loc = await self.get_location(chat_id_str, name)
         
         expires_at = None
         if retention_type == "TWO_MONTHS":
@@ -41,14 +52,16 @@ class SQLiteLocationRepository(LocationRepository):
             loc.longitude = lng
             loc.retention_type = retention_type
             loc.expires_at = expires_at
+            loc.platform = platform
         else:
             loc = UserLocation(
-                chat_id=chat_id,
+                chat_id=chat_id_str,
                 name=name,
                 latitude=lat,
                 longitude=lng,
                 retention_type=retention_type,
-                expires_at=expires_at
+                expires_at=expires_at,
+                platform=platform
             )
             self.session.add(loc)
             
@@ -77,26 +90,29 @@ class SQLiteLocationRepository(LocationRepository):
         await self.session.commit()
         return location
 
-    async def delete_location(self, chat_id: int, name: str = "default") -> bool:
-        loc = await self.get_location(chat_id, name)
+    async def delete_location(self, chat_id: Union[str, int], name: str = "default") -> bool:
+        chat_id_str = str(chat_id)
+        loc = await self.get_location(chat_id_str, name)
         if loc:
             await self.session.delete(loc)
             await self.session.commit()
             return True
         return False
 
-    async def get_mock_state(self, chat_id: int) -> Optional[str]:
+    async def get_mock_state(self, chat_id: Union[str, int]) -> Optional[str]:
         from app.models import DeveloperMock
+        chat_id_str = str(chat_id)
         result = await self.session.execute(
-            select(DeveloperMock).where(DeveloperMock.chat_id == chat_id)
+            select(DeveloperMock).where(DeveloperMock.chat_id == chat_id_str)
         )
         mock = result.scalars().first()
         return mock.state if mock else None
 
-    async def set_mock_state(self, chat_id: int, state: Optional[str]) -> None:
+    async def set_mock_state(self, chat_id: Union[str, int], state: Optional[str]) -> None:
         from app.models import DeveloperMock
+        chat_id_str = str(chat_id)
         result = await self.session.execute(
-            select(DeveloperMock).where(DeveloperMock.chat_id == chat_id)
+            select(DeveloperMock).where(DeveloperMock.chat_id == chat_id_str)
         )
         mock = result.scalars().first()
         
@@ -107,7 +123,7 @@ class SQLiteLocationRepository(LocationRepository):
             if mock:
                 mock.state = state
             else:
-                mock = DeveloperMock(chat_id=chat_id, state=state)
+                mock = DeveloperMock(chat_id=chat_id_str, state=state)
                 self.session.add(mock)
                 
         await self.session.commit()
@@ -143,15 +159,16 @@ class SQLiteLocationRepository(LocationRepository):
 
     async def save_feedback(
         self,
-        chat_id: int,
+        chat_id: Union[str, int],
         lat: float,
         lng: float,
         feedback_type: str,
         prediction_context: Optional[str] = None
     ):
         from app.models import UserFeedback, ApiReliability
+        chat_id_str = str(chat_id)
         feedback = UserFeedback(
-            chat_id=chat_id,
+            chat_id=chat_id_str,
             latitude=lat,
             longitude=lng,
             timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
@@ -191,20 +208,22 @@ class SQLiteLocationRepository(LocationRepository):
         await self.session.refresh(feedback)
         return feedback
 
-    async def has_disaster_alert_been_sent(self, chat_id: int, event_id: str) -> bool:
+    async def has_disaster_alert_been_sent(self, chat_id: Union[str, int], event_id: str) -> bool:
         from app.models import DisasterAlertHistory
+        chat_id_str = str(chat_id)
         result = await self.session.execute(
             select(DisasterAlertHistory).where(
-                (DisasterAlertHistory.chat_id == chat_id) & 
+                (DisasterAlertHistory.chat_id == chat_id_str) & 
                 (DisasterAlertHistory.event_id == event_id)
             )
         )
         return result.scalars().first() is not None
 
-    async def mark_disaster_alert_sent(self, chat_id: int, event_id: str, event_type: str) -> None:
+    async def mark_disaster_alert_sent(self, chat_id: Union[str, int], event_id: str, event_type: str) -> None:
         from app.models import DisasterAlertHistory
+        chat_id_str = str(chat_id)
         history = DisasterAlertHistory(
-            chat_id=chat_id,
+            chat_id=chat_id_str,
             event_id=event_id,
             event_type=event_type,
             alerted_at=datetime.now(timezone.utc).replace(tzinfo=None)
@@ -369,34 +388,37 @@ class SQLiteLocationRepository(LocationRepository):
             
         return metrics
 
-    async def save_admin_bypass(self, chat_id: int, expires_in_minutes: int = 60) -> None:
+    async def save_admin_bypass(self, chat_id: Union[str, int], expires_in_minutes: int = 60) -> None:
         from app.models import AdminBypass
+        chat_id_str = str(chat_id)
         expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=expires_in_minutes)
         result = await self.session.execute(
-            select(AdminBypass).where(AdminBypass.chat_id == chat_id)
+            select(AdminBypass).where(AdminBypass.chat_id == chat_id_str)
         )
         record = result.scalars().first()
         if record:
             record.expires_at = expires_at
         else:
-            record = AdminBypass(chat_id=chat_id, expires_at=expires_at)
+            record = AdminBypass(chat_id=chat_id_str, expires_at=expires_at)
             self.session.add(record)
         await self.session.commit()
 
-    async def delete_admin_bypass(self, chat_id: int) -> None:
+    async def delete_admin_bypass(self, chat_id: Union[str, int]) -> None:
         from app.models import AdminBypass
+        chat_id_str = str(chat_id)
         result = await self.session.execute(
-            select(AdminBypass).where(AdminBypass.chat_id == chat_id)
+            select(AdminBypass).where(AdminBypass.chat_id == chat_id_str)
         )
         record = result.scalars().first()
         if record:
             await self.session.delete(record)
             await self.session.commit()
 
-    async def has_active_admin_bypass(self, chat_id: int) -> bool:
+    async def has_active_admin_bypass(self, chat_id: Union[str, int]) -> bool:
         from app.models import AdminBypass
+        chat_id_str = str(chat_id)
         result = await self.session.execute(
-            select(AdminBypass).where(AdminBypass.chat_id == chat_id)
+            select(AdminBypass).where(AdminBypass.chat_id == chat_id_str)
         )
         record = result.scalars().first()
         if not record:

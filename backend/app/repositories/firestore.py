@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime, timezone
 import firebase_admin
 from firebase_admin import credentials, firestore_async
@@ -15,12 +15,13 @@ class FirestoreLocationRepository(LocationRepository):
         self.db = firestore_async.client()
         self.collection = self.db.collection('user_locations')
 
-    async def get_location(self, chat_id: int, name: str = "default") -> Optional[UserLocation]:
-        doc_ref = self.collection.document(f"{chat_id}_{name}")
+    async def get_location(self, chat_id: Union[str, int], name: str = "default") -> Optional[UserLocation]:
+        chat_id_str = str(chat_id)
+        doc_ref = self.collection.document(f"{chat_id_str}_{name}")
         doc = await doc_ref.get()
         if not doc.exists and name == "default":
             # Check legacy document ID format
-            doc_ref = self.collection.document(str(chat_id))
+            doc_ref = self.collection.document(chat_id_str)
             doc = await doc_ref.get()
             
         if doc.exists:
@@ -28,14 +29,23 @@ class FirestoreLocationRepository(LocationRepository):
             return self._dict_to_model(data)
         return None
 
-    async def get_user_locations(self, chat_id: int) -> List[UserLocation]:
+    async def get_user_locations(self, chat_id: Union[str, int]) -> List[UserLocation]:
+        chat_id_str = str(chat_id)
         locations = []
-        async for doc in self.collection.where("chat_id", "==", chat_id).stream():
+        async for doc in self.collection.where("chat_id", "==", chat_id_str).stream():
             data = doc.to_dict()
             locations.append(self._dict_to_model(data))
         return locations
 
-    async def save_location(self, chat_id: int, lat: float, lng: float, retention_type: str, name: str = "default") -> UserLocation:
+    async def save_location(
+        self,
+        chat_id: Union[str, int],
+        lat: float,
+        lng: float,
+        retention_type: str,
+        name: str = "default",
+        platform: str = "telegram"
+    ) -> UserLocation:
         expires_at = None
         if retention_type == "TWO_MONTHS":
             # Just keep it as UTC timestamp or python datetime
@@ -43,16 +53,18 @@ class FirestoreLocationRepository(LocationRepository):
             from datetime import timedelta
             expires_at = datetime.now(timezone.utc) + timedelta(days=60)
             
+        chat_id_str = str(chat_id)
         data = {
-            "chat_id": chat_id,
+            "chat_id": chat_id_str,
             "name": name,
             "latitude": lat,
             "longitude": lng,
             "retention_type": retention_type,
-            "expires_at": expires_at
+            "expires_at": expires_at,
+            "platform": platform
         }
         
-        doc_ref = self.collection.document(f"{chat_id}_{name}")
+        doc_ref = self.collection.document(f"{chat_id_str}_{name}")
         await doc_ref.set(data)
         
         return self._dict_to_model(data)
@@ -90,12 +102,13 @@ class FirestoreLocationRepository(LocationRepository):
         return location
 
 
-    async def delete_location(self, chat_id: int, name: str = "default") -> bool:
-        doc_ref = self.collection.document(f"{chat_id}_{name}")
+    async def delete_location(self, chat_id: Union[str, int], name: str = "default") -> bool:
+        chat_id_str = str(chat_id)
+        doc_ref = self.collection.document(f"{chat_id_str}_{name}")
         doc = await doc_ref.get()
         if not doc.exists and name == "default":
             # Check legacy document ID format
-            doc_ref = self.collection.document(str(chat_id))
+            doc_ref = self.collection.document(chat_id_str)
             
         await doc_ref.delete()
         return True
@@ -108,16 +121,18 @@ class FirestoreLocationRepository(LocationRepository):
                 data[field] = val.astimezone(timezone.utc).replace(tzinfo=None)
         return UserLocation(**data)
 
-    async def get_mock_state(self, chat_id: int) -> Optional[str]:
-        doc_ref = self.db.collection('dev_mocks').document(str(chat_id))
+    async def get_mock_state(self, chat_id: Union[str, int]) -> Optional[str]:
+        chat_id_str = str(chat_id)
+        doc_ref = self.db.collection('dev_mocks').document(chat_id_str)
         doc = await doc_ref.get()
         if doc.exists:
             data = doc.to_dict()
             return data.get("state")
         return None
 
-    async def set_mock_state(self, chat_id: int, state: Optional[str]) -> None:
-        doc_ref = self.db.collection('dev_mocks').document(str(chat_id))
+    async def set_mock_state(self, chat_id: Union[str, int], state: Optional[str]) -> None:
+        chat_id_str = str(chat_id)
+        doc_ref = self.db.collection('dev_mocks').document(chat_id_str)
         if state is None:
             await doc_ref.delete()
         else:
@@ -136,16 +151,17 @@ class FirestoreLocationRepository(LocationRepository):
 
     async def save_feedback(
         self,
-        chat_id: int,
+        chat_id: Union[str, int],
         lat: float,
         lng: float,
         feedback_type: str,
         prediction_context: Optional[str] = None
     ):
         timestamp = datetime.now(timezone.utc)
+        chat_id_str = str(chat_id)
         
         data = {
-            "chat_id": chat_id,
+            "chat_id": chat_id_str,
             "latitude": lat,
             "longitude": lng,
             "timestamp": timestamp,
@@ -191,15 +207,17 @@ class FirestoreLocationRepository(LocationRepository):
         data["id"] = doc_ref.id
         return data
 
-    async def has_disaster_alert_been_sent(self, chat_id: int, event_id: str) -> bool:
-        doc_ref = self.db.collection('disaster_alerts_history').document(f"{chat_id}_{event_id}")
+    async def has_disaster_alert_been_sent(self, chat_id: Union[str, int], event_id: str) -> bool:
+        chat_id_str = str(chat_id)
+        doc_ref = self.db.collection('disaster_alerts_history').document(f"{chat_id_str}_{event_id}")
         doc = await doc_ref.get()
         return doc.exists
 
-    async def mark_disaster_alert_sent(self, chat_id: int, event_id: str, event_type: str) -> None:
-        doc_ref = self.db.collection('disaster_alerts_history').document(f"{chat_id}_{event_id}")
+    async def mark_disaster_alert_sent(self, chat_id: Union[str, int], event_id: str, event_type: str) -> None:
+        chat_id_str = str(chat_id)
+        doc_ref = self.db.collection('disaster_alerts_history').document(f"{chat_id_str}_{event_id}")
         await doc_ref.set({
-            "chat_id": chat_id,
+            "chat_id": chat_id_str,
             "event_id": event_id,
             "event_type": event_type,
             "timestamp": datetime.now(timezone.utc)
@@ -376,21 +394,24 @@ class FirestoreLocationRepository(LocationRepository):
             
         return metrics
 
-    async def save_admin_bypass(self, chat_id: int, expires_in_minutes: int = 60) -> None:
+    async def save_admin_bypass(self, chat_id: Union[str, int], expires_in_minutes: int = 60) -> None:
         from datetime import timedelta
-        doc_ref = self.db.collection('admin_bypass').document(str(chat_id))
+        chat_id_str = str(chat_id)
+        doc_ref = self.db.collection('admin_bypass').document(chat_id_str)
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_in_minutes)
         await doc_ref.set({
             "expires_at": expires_at,
             "created_at": datetime.now(timezone.utc)
         })
 
-    async def delete_admin_bypass(self, chat_id: int) -> None:
-        doc_ref = self.db.collection('admin_bypass').document(str(chat_id))
+    async def delete_admin_bypass(self, chat_id: Union[str, int]) -> None:
+        chat_id_str = str(chat_id)
+        doc_ref = self.db.collection('admin_bypass').document(chat_id_str)
         await doc_ref.delete()
 
-    async def has_active_admin_bypass(self, chat_id: int) -> bool:
-        doc_ref = self.db.collection('admin_bypass').document(str(chat_id))
+    async def has_active_admin_bypass(self, chat_id: Union[str, int]) -> bool:
+        chat_id_str = str(chat_id)
+        doc_ref = self.db.collection('admin_bypass').document(chat_id_str)
         doc = await doc_ref.get()
         if not doc.exists:
             return False

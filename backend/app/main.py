@@ -79,7 +79,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-from app.routers import weather, webhook, scheduler, metrics, worker, budget_webhook
+from app.routers import weather, webhook, scheduler, metrics, worker, budget_webhook, line_webhook
 
 app.include_router(weather.router)
 app.include_router(webhook.router)
@@ -87,8 +87,14 @@ app.include_router(scheduler.router)
 app.include_router(metrics.router)
 app.include_router(worker.router)
 app.include_router(budget_webhook.router)
+app.include_router(line_webhook.router)
 from app.routers import internal
 app.include_router(internal.router)
+ 
+from fastapi.staticfiles import StaticFiles
+import os
+os.makedirs("static/temp_media", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/", include_in_schema=False)

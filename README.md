@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.48.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
+**v0.49.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
 ใช้ภาพเรดาร์ TMD + Optical Flow เพื่อคาดการณ์ฝนล่วงหน้า 15–90 นาที
 
 ---
@@ -11,19 +11,20 @@
 - **Rain Prediction** — คาดการณ์เวลาฝนจะมาถึง (ETA) และความเข้ม (dBZ) ล่วงหน้าสูงสุด 90 นาที
 - **Multi-Provider Fallback** — รองรับ Tomorrow.io, Rainbow API, Xweather, Open-Meteo เป็น fallback
 - **Telegram Bot** — แจ้งเตือนผ่าน Telegram พร้อมภาพเรดาร์ tracking, timeline, และ multi-frame analysis
+- **LINE Bot** — แจ้งเตือนและรับส่งพิกัด/คำสั่งทาง LINE OA พร้อมส่งภาพเรดาร์ล่าสุด และแผนภูมิวิเคราะห์กลุ่มฝน
 - **Multi-Frame Radar Analysis** — ภาพ strip แสดงสูงสุด 6 frames เรียงตามเวลา พร้อม trajectory overlay และ growth/decay % ต่อ frame
 - **Scheduler** — Cloud Scheduler ส่งแจ้งเตือนอัตโนมัติทุก 15 นาที
 
 ---
 
-## Telegram Commands
+## Bot Commands (Telegram & LINE)
 
 ---
 
 ### User Commands
 | Command | Description |
 |---|---|
-| (ส่ง Location) | พยากรณ์ฝน ณ ตำแหน่งนั้น |
+| (ส่ง Location) | พยากรณ์ฝน ณ ตำแหน่งนั้น และบันทึกเพื่อสมัครรับแจ้งเตือน |
 | `/rain` | ดูสภาพอากาศตำแหน่งล่าสุด |
 | `/rain tmd-radar` | บังคับใช้ TMD Radar endpoint |
 | `/rain <location_name>` | ดูสภาพอากาศตำแหน่งที่บันทึกไว้ |
@@ -68,7 +69,7 @@ clusters:N       จำนวนก้อนเมฆ 1–5 (default 1)
 ## Architecture
 
 ```
-Telegram Webhook
+Telegram / LINE Webhook
     │
     ▼
 WeatherManager.predict_rain()
@@ -82,7 +83,9 @@ WeatherManager.predict_rain()
 **Key Services:**
 - `backend/app/services/weather_manager.py` — Orchestrator, mock state handler
 - `backend/app/services/tmd_radar_processor.py` — Image processing, optical flow, visualization
+- `backend/app/services/notification.py` — Abstract notification dispatcher (Telegram & LINE)
 - `backend/app/routers/webhook.py` — Telegram webhook entry point
+- `backend/app/routers/line_webhook.py` — LINE webhook entry point
 - `backend/app/scheduler_tasks.py` — Scheduled rain alerts
 
 ---
@@ -110,6 +113,7 @@ Key test files:
 - `tests/test_tmd_radar_e2e.py` — End-to-end TMD radar processing
 - `tests/test_e2e_mock_scenario.py` — Parametric mock scenario (33 tests)
 - `tests/test_multiframe_analysis.py` — Multi-frame visualization (16 tests)
+- `tests/test_line_integration.py` — LINE integration, commands, and webhook handling
 
 ---
 
@@ -117,4 +121,4 @@ Key test files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.48.0** — Scheduler Alert Spam, Rate Limits, and API UX (Grouping user location alerts, staggered concurrency, and friendly error translation)
+Current: **v0.49.0** — LINE OA Integration, Bot Commands Consistency, and Local Media Hosting (Refactored database schema chat_id to String, added LINE Webhook command router, and local static server for development testing)

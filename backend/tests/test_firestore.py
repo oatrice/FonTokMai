@@ -50,7 +50,7 @@ async def test_get_location_found(firestore_repo):
     
     loc = await firestore_repo.get_location(chat_id, "Home")
     assert loc is not None
-    assert loc.chat_id == chat_id
+    assert str(loc.chat_id) == str(chat_id)
     assert loc.name == "Home"
     assert loc.latitude == 10.0
     assert loc.expires_at == now
@@ -80,7 +80,7 @@ async def test_save_location_two_months(firestore_repo):
     
     loc = await firestore_repo.save_location(chat_id, lat, lng, "TWO_MONTHS", "Work")
     
-    assert loc.chat_id == chat_id
+    assert str(loc.chat_id) == str(chat_id)
     assert loc.name == "Work"
     assert loc.latitude == lat
     assert loc.retention_type == "TWO_MONTHS"
@@ -92,7 +92,7 @@ async def test_save_location_two_months(firestore_repo):
     # Verify set was called
     mock_doc_ref.set.assert_called_once()
     set_args = mock_doc_ref.set.call_args[0][0]
-    assert set_args["chat_id"] == chat_id
+    assert str(set_args["chat_id"]) == str(chat_id)
     assert set_args["retention_type"] == "TWO_MONTHS"
     assert "expires_at" in set_args
 
@@ -122,16 +122,16 @@ async def test_get_active_locations(firestore_repo):
     # So we might query all and filter in Python, or use a specific index/query strategy.
     # We will test the repository's logic.
     mock_doc1 = MagicMock()
-    mock_doc1.to_dict.return_value = {"chat_id": 1, "latitude": 10.0, "longitude": 20.0, "retention_type": "FOREVER", "expires_at": None}
+    mock_doc1.to_dict.return_value = {"chat_id": "1", "latitude": 10.0, "longitude": 20.0, "retention_type": "FOREVER", "expires_at": None}
     
     mock_doc2 = MagicMock()
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     future = now + timedelta(days=10)
-    mock_doc2.to_dict.return_value = {"chat_id": 2, "latitude": 10.0, "longitude": 20.0, "retention_type": "TWO_MONTHS", "expires_at": future}
+    mock_doc2.to_dict.return_value = {"chat_id": "2", "latitude": 10.0, "longitude": 20.0, "retention_type": "TWO_MONTHS", "expires_at": future}
     
     mock_doc3 = MagicMock() # Expired
     past = now - timedelta(days=10)
-    mock_doc3.to_dict.return_value = {"chat_id": 3, "latitude": 10.0, "longitude": 20.0, "retention_type": "TWO_MONTHS", "expires_at": past}
+    mock_doc3.to_dict.return_value = {"chat_id": "3", "latitude": 10.0, "longitude": 20.0, "retention_type": "TWO_MONTHS", "expires_at": past}
     
     # Mock stream to return docs
     async def mock_stream():
@@ -143,9 +143,9 @@ async def test_get_active_locations(firestore_repo):
     locs = await firestore_repo.get_active_locations()
     assert len(locs) == 2
     chat_ids = [l.chat_id for l in locs]
-    assert 1 in chat_ids
-    assert 2 in chat_ids
-    assert 3 not in chat_ids
+    assert "1" in chat_ids
+    assert "2" in chat_ids
+    assert "3" not in chat_ids
 
 @pytest.mark.asyncio
 async def test_update_last_alerted(firestore_repo):
@@ -199,7 +199,7 @@ async def test_get_user_locations(firestore_repo):
     assert len(locs) == 2
     assert locs[0].name == "Home"
     assert locs[1].name == "Work"
-    firestore_repo.mock_collection.where.assert_called_once_with("chat_id", "==", chat_id)
+    firestore_repo.mock_collection.where.assert_called_once_with("chat_id", "==", str(chat_id))
 
 @pytest.mark.asyncio
 async def test_save_feedback_firestore(firestore_repo):
