@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.0] - 2026-07-07
+
+### Added
+- Added script `setup_iam_roles.sh` to configure GCP IAM roles for the Cloud Run runtime service account.
+- Added environment synchronization checks under `backend/tests/test_deploy_env_sync.py`.
+
+### Changed
+- Refactored background scheduler to group locations per user (`chat_id`) and batch multiple alerts into a single consolidated notification.
+- Optimized scheduler concurrency by reducing the semaphore threshold and introducing staggering delays (stagger) to prevent API rate limits (429 errors).
+- Improved API comparison UI to map raw weather service exception traces to user-friendly, non-technical Thai error messages.
+- Polished notification formatting spacing for locations with default names.
+
+### Fixed
+- Fixed alert duplicate spam for users with multiple active locations in the same proactive cycle.
+- Fixed a mock scenario parsing bug where TMD radar prediction lists did not correctly inherit mock DBZ values.
+- Cleaned up duplicate duration text rendering in Telegram webhook forecasts.
+
 ## [0.47.0] - 2026-07-07
 
 ### Added

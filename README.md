@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.47.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
+**v0.48.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
 ใช้ภาพเรดาร์ TMD + Optical Flow เพื่อคาดการณ์ฝนล่วงหน้า 15–90 นาที
 
 ---
@@ -17,6 +17,8 @@
 ---
 
 ## Telegram Commands
+
+---
 
 ### User Commands
 | Command | Description |
@@ -90,6 +92,7 @@ WeatherManager.predict_rain()
 | Script | Description |
 |---|---|
 | `backend/scripts/check_public_access.sh` | Audit Cloud Run IAM public access |
+| `backend/scripts/setup_iam_roles.sh` | Configure IAM roles for Cloud Run Service Account |
 | `backend/scripts/setup_schedulers.sh` | Apply Cloud Scheduler jobs from config |
 | `backend/scripts/sync_schedulers.py` | Sync scheduler config from GCP |
 
@@ -114,4 +117,4 @@ Key test files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.47.0** — Developer Tools & Bot Management (Admin Bypass, metrics, and budget controls)
+Current: **v0.48.0** — Scheduler Alert Spam, Rate Limits, and API UX (Grouping user location alerts, staggered concurrency, and friendly error translation)
