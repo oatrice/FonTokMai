@@ -20,11 +20,9 @@ BKK_TZ = ZoneInfo("Asia/Bangkok")
 
 import asyncio
 
-async def _process_location(loc, repo, weather_manager, now, sem):
+async def _evaluate_location(loc, repo, weather_manager, now, sem):
     async with sem:
         try:
-            alerts_sent = 0
-            errors = 0
             severity_escalated = False
             if loc.last_alerted_at:
                 time_since_last_alert = now - loc.last_alerted_at
@@ -50,10 +48,10 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                                 f"Skipping chat_id {loc.chat_id} (cooldown, "
                                 f"rain {current_max_rain:.1f} mm/hr ≤ last {last_max_rain:.1f} mm/hr)"
                             )
-                            return 0, 0
+                            return None
                     except Exception as e:
                         logger.warning(f"Smart Cooldown pre-check failed for {loc.chat_id}: {e}. Skipping.")
-                        return 0, 0
+                        return None
 
             if not severity_escalated:
                 mock_state = await repo.get_mock_state(loc.chat_id)
@@ -65,11 +63,16 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                     logger.info(f"Sending All-Clear alert for chat_id {loc.chat_id}")
                     loc_name_str = f" '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else " "
                     text = f"☀️ สภาพอากาศ ณ พิกัด{loc_name_str}เคลียร์แล้ว\n(ไม่มีแนวโน้มฝนตกในขณะนี้)"
-                    await send_telegram_message(loc.chat_id, text)
-                    await repo.update_last_alerted(loc, now, max_rain=0.0)
+                    return {
+                        "loc": loc,
+                        "type": "all_clear",
+                        "text": text,
+                        "max_rain": 0.0,
+                        "result": result
+                    }
                 else:
                     logger.debug(f"Skipping alert for {loc.chat_id}: Max rain {max_rain} mm/hr < threshold {RAIN_TRIGGER_THRESHOLD_MM}")
-                return 0, 0
+                return None
 
             predictions = result.get("predictions", [])
             eta_minutes = None
@@ -158,7 +161,6 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                     if wind_speed_kmh > 0: text += f"🌬️ สภาพลม: {wind_speed_kmh:.1f} km/h (พัดไปทางทิศ {wind_dir_text})\n"
                     if eta_minutes is not None and eta_minutes > 0 and wind_speed_kmh > 0: text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\n"
 
-                # Growth/decay trend — แสดงเสมอ ไม่ว่าจะมี rain_summary หรือไม่
                 growth_rate = result.get("growth_rate_pct")
                 if growth_rate is not None and "ไม่พบฝน" not in (rain_summary or ""):
                     if growth_rate > 5.0:
@@ -169,77 +171,161 @@ async def _process_location(loc, repo, weather_manager, now, sem):
                         text += f"➖ พัฒนาการเมฆฝน (15 นาทีที่ผ่านมา): คงที่\n"
                         
                 text += f"📡 แหล่งข้อมูล: {source_name}\n"
-                bkk_tz = timezone(timedelta(hours=7))
-                update_time_str = datetime.now(bkk_tz).strftime("%d/%m/%Y %H:%M:%S")
+                bkk_tz_now = timezone(timedelta(hours=7))
+                update_time_str = datetime.now(bkk_tz_now).strftime("%d/%m/%Y %H:%M:%S")
                 text += f"🔄 ข้อมูลอัปเดตล่าสุด: {update_time_str}\n"
-                    
-                is_dev = str(loc.chat_id) in DEVELOPER_CHAT_IDS
-                reply_markup = get_radar_inline_keyboard(loc.latitude, loc.longitude, is_developer=is_dev)
-                
-                r_lat = round(loc.latitude, 4)
-                r_lng = round(loc.longitude, 4)
-                reply_markup["inline_keyboard"].append([{"text": "📊 เทียบข้อมูล", "callback_data": f"compare_api_{r_lat}_{r_lng}"}])
-                ep_map = {"tomorrow": "t", "rainbow-local": "rl", "rainbow-global": "rg", "xweather": "xw", "open-meteo": "om"}
-                ep_code = ep_map.get(result.get("endpoint"), "u")
-                cb_data = f"fb_falsealarm_{r_lat}_{r_lng}_{ep_code}_{max_rain:.1f}"
-                reply_markup["inline_keyboard"].append([{"text": "❌ แจ้งเตือนผิดพลาด (ฝนไม่ตกจริง)", "callback_data": cb_data}])
-                
-                logger.info(f"Alerting chat_id {loc.chat_id}: ETA {eta_minutes} mins")
-                await send_telegram_message(loc.chat_id, text, reply_markup=reply_markup)
-                
-                gif_bytes = result.get("radar_gif_bytes")
-                static_bytes = result.get("radar_static_bytes")
-                tracking_bytes = result.get("radar_tracking_bytes")
-                timeline_bytes = result.get("rain_timeline_bytes")
-                
-                if static_bytes: await send_telegram_photo(loc.chat_id, static_bytes, "radar_latest.png")
-                if timeline_bytes: await send_telegram_photo(loc.chat_id, timeline_bytes, "rain_timeline.png")
-                if tracking_bytes: await send_telegram_photo(loc.chat_id, tracking_bytes, "radar_tracking.png")
-                if gif_bytes: await send_telegram_document(loc.chat_id, gif_bytes, "radar_nowcast.gif")
-                
-                await repo.update_last_alerted(loc, now, max_rain=max_rain)
+
+                advanced_data = None
+                try:
+                    mock_state = await repo.get_mock_state(loc.chat_id)
+                    advanced_data = await weather_manager.get_advanced_alerts(loc.latitude, loc.longitude, mock_state=mock_state)
+                except Exception as e:
+                    logger.error(f"Failed to get advanced alerts: {e}")
+
+                return {
+                    "loc": loc,
+                    "type": "rain",
+                    "text": text,
+                    "max_rain": max_rain,
+                    "result": result,
+                    "advanced_data": advanced_data
+                }
+
+            return None
+        except Exception as e:
+            logger.error(f"Failed to evaluate location {loc.name} for chat_id {loc.chat_id}: {e}")
+            return {"loc": loc, "type": "error", "error": str(e)}
+
+
+async def _send_combined_alerts(chat_id, eval_results, repo, now):
+    alerts_sent = 0
+    errors = 0
+
+    valid_results = [r for r in eval_results if r and r.get("type") != "error"]
+    error_results = [r for r in eval_results if r and r.get("type") == "error"]
+    errors += len(error_results)
+
+    if not valid_results:
+        return 0, errors
+
+    combined_text_parts = []
+    
+    # Initialize reply_markup with the first location's radar inline keyboard
+    primary_loc = valid_results[0]["loc"]
+    is_dev = str(chat_id) in DEVELOPER_CHAT_IDS
+    reply_markup = get_radar_inline_keyboard(primary_loc.latitude, primary_loc.longitude, is_developer=is_dev)
+    
+    for r in valid_results:
+        combined_text_parts.append(r["text"])
+        
+        loc = r["loc"]
+        loc_name = loc.name.capitalize() if loc.name and loc.name.lower() != "default" else "Default"
+        r_lat = round(loc.latitude, 4)
+        r_lng = round(loc.longitude, 4)
+        
+        # 1 button row for radar comparisons / false alarms
+        row = []
+        row.append({"text": f"📊 เทียบ {loc_name}", "callback_data": f"compare_api_{r_lat}_{r_lng}"})
+        
+        if r["type"] == "rain":
+            result = r["result"]
+            max_rain = r["max_rain"]
+            ep_map = {"tomorrow": "t", "rainbow-local": "rl", "rainbow-global": "rg", "xweather": "xw", "open-meteo": "om"}
+            ep_code = ep_map.get(result.get("endpoint"), "u")
+            cb_data = f"fb_falsealarm_{r_lat}_{r_lng}_{ep_code}_{max_rain:.1f}"
+            row.append({"text": f"❌ ผิดพลาด {loc_name}", "callback_data": cb_data})
+            
+        reply_markup["inline_keyboard"].append(row)
+
+    combined_text = "\n" + "─" * 20 + "\n\n"
+    combined_text = combined_text.join(combined_text_parts)
+
+    try:
+        await send_telegram_message(chat_id, combined_text, reply_markup=reply_markup)
+        alerts_sent += 1
+    except Exception as e:
+        logger.error(f"Failed to send combined text alert for chat_id {chat_id}: {e}")
+        return 0, errors + 1
+
+    for r in valid_results:
+        if r["type"] == "rain":
+            loc = r["loc"]
+            result = r["result"]
+            
+            gif_bytes = result.get("radar_gif_bytes")
+            static_bytes = result.get("radar_static_bytes")
+            tracking_bytes = result.get("radar_tracking_bytes")
+            timeline_bytes = result.get("rain_timeline_bytes")
+            
+            try:
+                if static_bytes: await send_telegram_photo(chat_id, static_bytes, f"radar_latest_{loc.name}.png")
+                if timeline_bytes: await send_telegram_photo(chat_id, timeline_bytes, f"rain_timeline_{loc.name}.png")
+                if tracking_bytes: await send_telegram_photo(chat_id, tracking_bytes, f"radar_tracking_{loc.name}.png")
+                if gif_bytes: await send_telegram_document(chat_id, gif_bytes, f"radar_nowcast_{loc.name}.gif")
+            except Exception as e:
+                logger.error(f"Failed to send images for {loc.name} of chat_id {chat_id}: {e}")
+                errors += 1
+
+            try:
+                await repo.update_last_alerted(loc, now, max_rain=r["max_rain"])
+            except Exception as e:
+                logger.error(f"Failed to update db for {loc.name}: {e}")
+                errors += 1
+        elif r["type"] == "all_clear":
+            loc = r["loc"]
+            try:
+                await repo.update_last_alerted(loc, now, max_rain=0.0)
+            except Exception as e:
+                logger.error(f"Failed to update db for all-clear: {e}")
+                errors += 1
+
+    for r in valid_results:
+        if r["type"] == "rain" and r.get("advanced_data"):
+            loc = r["loc"]
+            advanced_data = r["advanced_data"]
+            has_advisory = len(advanced_data.get("advisories", [])) > 0
+            has_lightning = advanced_data.get("lightning") is not None
+            has_stormcell = advanced_data.get("stormcell") is not None
+            
+            if has_advisory or has_lightning or has_stormcell:
+                loc_name_str = f"สำหรับพิกัด '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else ""
+                adv_text = f"🚨 *ข้อมูลเตือนภัยขั้นสูงรอบตัวคุณ {loc_name_str}*\n\n"
+                if has_advisory:
+                    for adv in advanced_data["advisories"]: adv_text += f"⚠️ ประกาศเตือนภัย: {adv.get('name', '')}\n"
+                    adv_text += "\n"
+                if has_lightning:
+                    lightning = advanced_data["lightning"]
+                    adv_text += f"⚡ ฟ้าผ่าระยะใกล้สุด: {lightning.get('distance_km', 0):.1f} กม.\n\n"
+                if has_stormcell:
+                    stormcell = advanced_data["stormcell"]
+                    if stormcell.get('distance_km') is None:
+                        adv_text += f"🌪️ แนวโน้มกลุ่มฝน/ลม (Contingency):\n"
+                        adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
+                        adv_text += f"   - ความเร็วลม: {stormcell.get('speed_kmh', 0):.1f} km/h\n\n"
+                        adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Open-Meteo (Fallback)"
+                    else:
+                        adv_text += f"🌪️ ตรวจพบกลุ่มพายุ: ระยะห่าง {stormcell.get('distance_km', 0):.1f} กม.\n"
+                        adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
+                        adv_text += f"   - ความเร็ว: {stormcell.get('speed_kmh', 0):.1f} km/h\n"
+                        adv_text += f"   - ความรุนแรงสูงสุด (dBZ): {stormcell.get('max_dbz', 0)}\n\n"
+                        adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
+                elif has_advisory or has_lightning:
+                    adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
                 
                 try:
-                    advanced_data = await weather_manager.get_advanced_alerts(loc.latitude, loc.longitude, mock_state=mock_state)
-                    has_advisory = len(advanced_data.get("advisories", [])) > 0
-                    has_lightning = advanced_data.get("lightning") is not None
-                    has_stormcell = advanced_data.get("stormcell") is not None
-                    
-                    if has_advisory or has_lightning or has_stormcell:
-                        adv_text = "🚨 *ข้อมูลเตือนภัยขั้นสูงรอบตัวคุณ*\n\n"
-                        if has_advisory:
-                            for adv in advanced_data["advisories"]: adv_text += f"⚠️ ประกาศเตือนภัย: {adv.get('name', '')}\n"
-                            adv_text += "\n"
-                        if has_lightning:
-                            lightning = advanced_data["lightning"]
-                            adv_text += f"⚡ ฟ้าผ่าระยะใกล้สุด: {lightning.get('distance_km', 0):.1f} กม.\n\n"
-                        if has_stormcell:
-                            stormcell = advanced_data["stormcell"]
-                            if stormcell.get('distance_km') is None:
-                                adv_text += f"🌪️ แนวโน้มกลุ่มฝน/ลม (Contingency):\n"
-                                adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
-                                adv_text += f"   - ความเร็วลม: {stormcell.get('speed_kmh', 0):.1f} km/h\n\n"
-                                adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Open-Meteo (Fallback)"
-                            else:
-                                adv_text += f"🌪️ ตรวจพบกลุ่มพายุ: ระยะห่าง {stormcell.get('distance_km', 0):.1f} กม.\n"
-                                adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
-                                adv_text += f"   - ความเร็ว: {stormcell.get('speed_kmh', 0):.1f} km/h\n"
-                                adv_text += f"   - ความรุนแรงสูงสุด (dBZ): {stormcell.get('max_dbz', 0)}\n\n"
-                                adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
-                        elif has_advisory or has_lightning:
-                            adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
-                        await send_telegram_message(loc.chat_id, adv_text)
+                    await send_telegram_message(chat_id, adv_text)
                 except Exception as e:
-                    logger.error(f"Failed to process advanced alerts for {loc.chat_id}: {e}")
+                    logger.error(f"Failed to send advanced alert for {loc.name}: {e}")
                     errors += 1
-                
-                alerts_sent += 1
-                return alerts_sent, errors
 
-            return 0, 0
-        except Exception as e:
-            logger.error(f"Failed to check rain for chat_id {loc.chat_id}: {e}")
-            return 0, 1
+    return alerts_sent, errors
+
+
+async def _process_location(loc, repo, weather_manager, now, sem):
+    eval_res = await _evaluate_location(loc, repo, weather_manager, now, sem)
+    if not eval_res:
+        return 0, 0
+    return await _send_combined_alerts(loc.chat_id, [eval_res], repo, now)
 
 
 async def run_alert_for_locations(target_locs: list):
@@ -295,20 +381,19 @@ async def check_rain_and_alert():
         
         async def _process_chat_group(chat_id, locs, stagger_idx):
             await asyncio.sleep(stagger_idx * 0.5)
-            chat_alerts = 0
-            chat_errors = 0
             
-            # Evaluate locations sequentially for this user.
-            # Stop after sending the first rain alert to prevent spamming the user.
+            # Evaluate all user locations
+            eval_results = []
             for loc in locs:
-                sent, err = await _process_location(loc, repo, weather_manager, now, sem)
-                chat_alerts += sent
-                chat_errors += err
-                if sent > 0:
-                    logger.info(f"Chat {chat_id} received an alert for '{loc.name}'. Skipping remaining locations.")
-                    break
+                eval_res = await _evaluate_location(loc, repo, weather_manager, now, sem)
+                if eval_res:
+                    eval_results.append(eval_res)
                     
-            return chat_alerts, chat_errors
+            if not eval_results:
+                return 0, 0
+                
+            # Send them combined
+            return await _send_combined_alerts(chat_id, eval_results, repo, now)
 
         tasks = [_process_chat_group(chat_id, locs, idx) for idx, (chat_id, locs) in enumerate(chat_groups.items())]
         results = await asyncio.gather(*tasks, return_exceptions=True)
