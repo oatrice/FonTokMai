@@ -1,19 +1,27 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 from app.models import UserLocation
 
 class LocationRepository(ABC):
     @abstractmethod
-    async def get_location(self, chat_id: int, name: str = "default") -> Optional[UserLocation]:
+    async def get_location(self, chat_id: Union[str, int], name: str = "default") -> Optional[UserLocation]:
         pass
 
     @abstractmethod
-    async def get_user_locations(self, chat_id: int) -> list[UserLocation]:
+    async def get_user_locations(self, chat_id: Union[str, int]) -> list[UserLocation]:
         pass
 
     @abstractmethod
-    async def save_location(self, chat_id: int, lat: float, lng: float, retention_type: str, name: str = "default") -> UserLocation:
+    async def save_location(
+        self,
+        chat_id: Union[str, int],
+        lat: float,
+        lng: float,
+        retention_type: str,
+        name: str = "default",
+        platform: str = "telegram"
+    ) -> UserLocation:
         pass
 
     @abstractmethod
@@ -31,16 +39,16 @@ class LocationRepository(ABC):
         pass
 
     @abstractmethod
-    async def delete_location(self, chat_id: int, name: str = "default") -> bool:
+    async def delete_location(self, chat_id: Union[str, int], name: str = "default") -> bool:
         pass
 
     @abstractmethod
-    async def get_mock_state(self, chat_id: int) -> Optional[str]:
+    async def get_mock_state(self, chat_id: Union[str, int]) -> Optional[str]:
         """Get the developer mock state for a chat_id. Returns 'rain', 'clear', or None."""
         pass
 
     @abstractmethod
-    async def set_mock_state(self, chat_id: int, state: Optional[str]) -> None:
+    async def set_mock_state(self, chat_id: Union[str, int], state: Optional[str]) -> None:
         """Set the developer mock state for a chat_id. Set to None to disable mock."""
         pass
 
@@ -57,7 +65,7 @@ class LocationRepository(ABC):
     @abstractmethod
     async def save_feedback(
         self,
-        chat_id: int,
+        chat_id: Union[str, int],
         lat: float,
         lng: float,
         feedback_type: str,
@@ -67,12 +75,12 @@ class LocationRepository(ABC):
         pass
 
     @abstractmethod
-    async def has_disaster_alert_been_sent(self, chat_id: int, event_id: str) -> bool:
+    async def has_disaster_alert_been_sent(self, chat_id: Union[str, int], event_id: str) -> bool:
         """Check if a disaster alert has already been processed and sent."""
         pass
 
     @abstractmethod
-    async def mark_disaster_alert_sent(self, chat_id: int, event_id: str, event_type: str) -> None:
+    async def mark_disaster_alert_sent(self, chat_id: Union[str, int], event_id: str, event_type: str) -> None:
         """Mark a disaster alert as sent to prevent duplicate processing."""
         pass
 
@@ -130,16 +138,16 @@ class LocationRepository(ABC):
         pass
 
     @abstractmethod
-    async def save_admin_bypass(self, chat_id: int, expires_in_minutes: int = 60) -> None:
+    async def save_admin_bypass(self, chat_id: Union[str, int], expires_in_minutes: int = 60) -> None:
         """บันทึก session ของ Admin Bypass"""
         pass
 
     @abstractmethod
-    async def delete_admin_bypass(self, chat_id: int) -> None:
+    async def delete_admin_bypass(self, chat_id: Union[str, int]) -> None:
         """ลบ session ของ Admin Bypass"""
         pass
 
     @abstractmethod
-    async def has_active_admin_bypass(self, chat_id: int) -> bool:
+    async def has_active_admin_bypass(self, chat_id: Union[str, int]) -> bool:
         """ตรวจสอบว่า user นี้มี Admin Bypass ที่ยังไม่หมดอายุหรือไม่"""
         pass

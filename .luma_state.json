@@ -1,79 +1,37 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 122,
-      "title": "bug: Triple alert spam — user with multiple locations receives duplicate alerts per cycle",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/122",
+      "number": 5,
+      "title": "Integrate Notification Services for Line OA",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/5",
       "body": null,
-      "project_item_id": "GLAB_122",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 123,
-      "title": "bug: Xweather 429 circuit breaker triggered every devmock/scheduler cycle with multiple locations",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/123",
-      "body": null,
-      "project_item_id": "GLAB_123",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 132,
-      "title": "Fix notification formatting duplication in scheduler tasks",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/132",
-      "body": null,
-      "project_item_id": "GLAB_132",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 140,
-      "title": "UX: Display user-friendly API error messages instead of raw HTTP exceptions in /rain_pro",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/140",
-      "body": null,
-      "project_item_id": "GLAB_140",
+      "project_item_id": "GLAB_5",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/122-123-132-140-bug-triple-alert-spam-user-wit",
-  "started_at": "2026-07-07T16:34:31.312143",
+  "active_branch": "feat/5-integrate-notification-service",
+  "started_at": "2026-07-07T17:21:19.494962",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/weather_manager.py",
-        "backend/scripts/setup_iam_roles.sh",
-        "backend/tests/test_deploy_env_sync.py",
-        "backend/tests/test_scheduler.py",
-        "docs/ROADMAP.md",
-        "luma/prompts/prompt_20260707_094217_bb588230.md.response.md",
-        "luma/prompts/prompt_20260707_101224_e30cc2f5.md",
-        "luma/prompts/prompt_20260707_101226_ee5d2699.md",
+        "VERSION"
+      ],
+      "changed_files": [
+        "luma/prompts/prompt_20260707_102116_9d8dc3a5.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/weather_manager.py",
-        "backend/scripts/setup_iam_roles.sh",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -148,5 +106,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-07T17:13:05.889442"
+  "last_updated": "2026-07-07T17:21:24.429849"
 }

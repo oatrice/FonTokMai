@@ -40,7 +40,7 @@ async def test_save_and_get_location(db_session):
     
     loc = await get_location(db_session, chat_id)
     assert loc is not None
-    assert loc.chat_id == chat_id
+    assert str(loc.chat_id) == str(chat_id)
     assert loc.latitude == lat
     assert loc.longitude == lng
     assert loc.retention_type == retention_type
@@ -95,7 +95,7 @@ async def test_save_feedback(db_session):
     feedback = await repo.save_feedback(chat_id, lat, lng, "false_alarm", "Source: Tomorrow.io, max_rain: 1.5 mm/hr")
     
     assert feedback is not None
-    assert feedback.chat_id == chat_id
+    assert str(feedback.chat_id) == str(chat_id)
     assert feedback.feedback_type == "false_alarm"
     
     # Check if api_reliability for Tomorrow.io has been updated

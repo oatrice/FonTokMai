@@ -7,6 +7,7 @@ from app.dependencies import get_repo_context
 from app.services.weather_manager import WeatherManager
 from app.services.metrics_service import MetricsService
 from app.services.telegram import send_telegram_message, send_telegram_document, send_telegram_photo, send_telegram_raw_document, get_radar_inline_keyboard, DEVELOPER_CHAT_IDS
+from app.services.notification import get_notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -210,8 +211,10 @@ async def _send_combined_alerts(chat_id, eval_results, repo, now):
 
     combined_text_parts = []
     
-    # Initialize reply_markup with the first location's radar inline keyboard
     primary_loc = valid_results[0]["loc"]
+    platform = getattr(primary_loc, "platform", "telegram") or "telegram"
+    notifier = get_notification_service(platform)
+
     is_dev = str(chat_id) in DEVELOPER_CHAT_IDS
     reply_markup = get_radar_inline_keyboard(primary_loc.latitude, primary_loc.longitude, is_developer=is_dev)
     
@@ -241,10 +244,13 @@ async def _send_combined_alerts(chat_id, eval_results, repo, now):
     combined_text = combined_text.join(combined_text_parts)
 
     try:
-        await send_telegram_message(chat_id, combined_text, reply_markup=reply_markup)
+        if platform == "telegram":
+            await send_telegram_message(int(chat_id), combined_text, reply_markup=reply_markup)
+        else:
+            await notifier.send_text_message(str(chat_id), combined_text, reply_markup=reply_markup)
         alerts_sent += 1
     except Exception as e:
-        logger.error(f"Failed to send combined text alert for chat_id {chat_id}: {e}")
+        logger.error(f"Failed to send combined text alert for chat_id {chat_id} on {platform}: {e}")
         return 0, errors + 1
 
     for r in valid_results:
@@ -258,12 +264,19 @@ async def _send_combined_alerts(chat_id, eval_results, repo, now):
             timeline_bytes = result.get("rain_timeline_bytes")
             
             try:
-                if static_bytes: await send_telegram_photo(chat_id, static_bytes, f"radar_latest_{loc.name}.png")
-                if timeline_bytes: await send_telegram_photo(chat_id, timeline_bytes, f"rain_timeline_{loc.name}.png")
-                if tracking_bytes: await send_telegram_photo(chat_id, tracking_bytes, f"radar_tracking_{loc.name}.png")
-                if gif_bytes: await send_telegram_document(chat_id, gif_bytes, f"radar_nowcast_{loc.name}.gif")
+                if platform == "telegram":
+                    chat_id_val = int(chat_id)
+                    if static_bytes: await send_telegram_photo(chat_id_val, static_bytes, f"radar_latest_{loc.name}.png")
+                    if timeline_bytes: await send_telegram_photo(chat_id_val, timeline_bytes, f"rain_timeline_{loc.name}.png")
+                    if tracking_bytes: await send_telegram_photo(chat_id_val, tracking_bytes, f"radar_tracking_{loc.name}.png")
+                    if gif_bytes: await send_telegram_document(chat_id_val, gif_bytes, f"radar_nowcast_{loc.name}.gif")
+                else:
+                    if static_bytes: await notifier.send_photo(str(chat_id), static_bytes, f"radar_latest_{loc.name}.png")
+                    if timeline_bytes: await notifier.send_photo(str(chat_id), timeline_bytes, f"rain_timeline_{loc.name}.png")
+                    if tracking_bytes: await notifier.send_photo(str(chat_id), tracking_bytes, f"radar_tracking_{loc.name}.png")
+                    if gif_bytes: await notifier.send_document(str(chat_id), gif_bytes, f"radar_nowcast_{loc.name}.gif")
             except Exception as e:
-                logger.error(f"Failed to send images for {loc.name} of chat_id {chat_id}: {e}")
+                logger.error(f"Failed to send images for {loc.name} of chat_id {chat_id} on {platform}: {e}")
                 errors += 1
 
             try:
@@ -313,9 +326,12 @@ async def _send_combined_alerts(chat_id, eval_results, repo, now):
                     adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
                 
                 try:
-                    await send_telegram_message(chat_id, adv_text)
+                    if platform == "telegram":
+                        await send_telegram_message(int(chat_id), adv_text)
+                    else:
+                        await notifier.send_text_message(str(chat_id), adv_text)
                 except Exception as e:
-                    logger.error(f"Failed to send advanced alert for {loc.name}: {e}")
+                    logger.error(f"Failed to send advanced alert for {loc.name} on {platform}: {e}")
                     errors += 1
 
     return alerts_sent, errors
