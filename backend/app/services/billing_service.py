@@ -8,7 +8,7 @@ class BillingService:
     def __init__(self):
         self.client = budgets_v1.BudgetServiceClient()
         self.billing_account_id = os.getenv("GCP_BILLING_ACCOUNT_ID")
-        self.budget_display_name = os.getenv("GCP_BUDGET_DISPLAY_NAME", "FonMaYang Budget")
+        self.budget_display_name = os.getenv("GCP_BUDGET_DISPLAY_NAME", "fontokmai-api-monthly-budget")
 
     async def update_budget(self, amount: float) -> bool:
         if not self.billing_account_id:

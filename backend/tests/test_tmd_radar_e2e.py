@@ -243,3 +243,54 @@ async def test_tmd_radar_fresh_loop_fallback_works(monkeypatch):
     assert result["radar_tracking_bytes"] is not None
     assert result["rain_timeline_bytes"] is not None
     assert ("kkn240", True) in calls
+
+
+def test_tmd_prediction_timestamps_based_on_now_utc(monkeypatch):
+    """
+    Test that predictions from TMD Radar use the cache's frame time (now_utc)
+    rather than the server's current run time (current_utc).
+    """
+    import asyncio
+    from datetime import datetime, timezone, timedelta
+    import time
+    import numpy as np
+    import cv2
+
+    _install_weather_manager_import_stubs(monkeypatch)
+
+    from app.services.weather_manager import WeatherManager
+    from app.services import weather_manager as wm
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+
+    lat, lng = 17.8785, 102.7420
+    dummy_image = np.zeros((800, 800, 3), dtype=np.uint8)
+    
+    # 20 minutes in the past
+    past_now_utc = datetime.now(timezone.utc) - timedelta(minutes=20)
+    
+    processor = TMDRadarProcessor("kkn240")
+    dummy_flow = processor.calculate_optical_flow([dummy_image, dummy_image])
+    cached_entry = ([dummy_image, dummy_image], past_now_utc, time.time(), dummy_flow)
+
+    original_cache = wm._GLOBAL_TMD_CACHE.copy()
+    wm._GLOBAL_TMD_CACHE.clear()
+    for station_code in ["kkn120", "kkn240", "skn240"]:
+        wm._GLOBAL_TMD_CACHE[station_code] = cached_entry
+
+    try:
+        result = asyncio.run(WeatherManager()._get_tmd_prediction(lat, lng))
+    finally:
+        wm._GLOBAL_TMD_CACHE.clear()
+        wm._GLOBAL_TMD_CACHE.update(original_cache)
+
+    assert result is not None
+    predictions = result.get("predictions", [])
+    assert len(predictions) > 0
+    
+    # The first prediction timestamp should match past_now_utc, not current time
+    pred_time_0 = datetime.fromisoformat(predictions[0]["time"].replace("Z", "+00:00"))
+    time_diff_sec = abs((pred_time_0 - past_now_utc).total_seconds())
+    
+    # It must be within 1 second of past_now_utc
+    assert time_diff_sec < 1.0
+
