@@ -35,6 +35,16 @@ class FirestoreLocationRepository(LocationRepository):
         async for doc in self.collection.where("chat_id", "==", chat_id_str).stream():
             data = doc.to_dict()
             locations.append(self._dict_to_model(data))
+            
+        if not locations:
+            try:
+                chat_id_int = int(chat_id)
+                async for doc in self.collection.where("chat_id", "==", chat_id_int).stream():
+                    data = doc.to_dict()
+                    locations.append(self._dict_to_model(data))
+            except ValueError:
+                pass
+                
         return locations
 
     async def save_location(

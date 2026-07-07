@@ -184,10 +184,10 @@ async def test_get_user_locations(firestore_repo):
     firestore_repo.mock_collection.where.return_value = mock_query
     
     mock_doc1 = MagicMock()
-    mock_doc1.to_dict.return_value = {"chat_id": chat_id, "name": "Home", "latitude": 10.0, "longitude": 20.0}
+    mock_doc1.to_dict.return_value = {"chat_id": str(chat_id), "name": "Home", "latitude": 10.0, "longitude": 20.0}
     
     mock_doc2 = MagicMock()
-    mock_doc2.to_dict.return_value = {"chat_id": chat_id, "name": "Work", "latitude": 30.0, "longitude": 40.0}
+    mock_doc2.to_dict.return_value = {"chat_id": str(chat_id), "name": "Work", "latitude": 30.0, "longitude": 40.0}
     
     async def mock_stream():
         yield mock_doc1
@@ -200,6 +200,43 @@ async def test_get_user_locations(firestore_repo):
     assert locs[0].name == "Home"
     assert locs[1].name == "Work"
     firestore_repo.mock_collection.where.assert_called_once_with("chat_id", "==", str(chat_id))
+
+@pytest.mark.asyncio
+async def test_get_user_locations_handles_integer_chat_id(firestore_repo):
+    chat_id = 5555
+    mock_query_str = MagicMock()
+    mock_query_int = MagicMock()
+    
+    # Mocking where to return query matching either string or int
+    def mock_where(field, op, value):
+        if isinstance(value, str):
+            return mock_query_str
+        elif isinstance(value, int):
+            return mock_query_int
+        return MagicMock()
+        
+    firestore_repo.mock_collection.where = mock_where
+    
+    # When querying with string, yield no results
+    async def mock_stream_empty():
+        if False:
+            yield
+            
+    mock_query_str.stream = mock_stream_empty
+    
+    # When querying with int, yield mock documents
+    mock_doc1 = MagicMock()
+    mock_doc1.to_dict.return_value = {"chat_id": chat_id, "name": "Home", "latitude": 10.0, "longitude": 20.0}
+    
+    async def mock_stream_int():
+        yield mock_doc1
+        
+    mock_query_int.stream = mock_stream_int
+    
+    locs = await firestore_repo.get_user_locations(chat_id)
+    assert len(locs) == 1
+    assert locs[0].name == "Home"
+
 
 @pytest.mark.asyncio
 async def test_save_feedback_firestore(firestore_repo):
