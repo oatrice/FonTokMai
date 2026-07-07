@@ -256,7 +256,12 @@ async def run_alert_for_locations(target_locs: list):
         weather_manager = WeatherManager()
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         sem = asyncio.Semaphore(5)
-        tasks = [_process_location(loc, repo, weather_manager, now, sem) for loc in target_locs]
+        
+        async def _process_with_stagger(loc, idx):
+            await asyncio.sleep(idx * 0.5)
+            return await _process_location(loc, repo, weather_manager, now, sem)
+            
+        tasks = [_process_with_stagger(loc, idx) for idx, loc in enumerate(target_locs)]
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
@@ -280,8 +285,32 @@ async def check_rain_and_alert():
         weather_manager = WeatherManager()
         now = datetime.now(timezone.utc).replace(tzinfo=None)
 
-        sem = asyncio.Semaphore(15)
-        tasks = [_process_location(loc, repo, weather_manager, now, sem) for loc in locations]
+        # Issue #122: Group locations by chat_id to prevent triple alert spam
+        chat_groups = {}
+        for loc in locations:
+            chat_groups.setdefault(loc.chat_id, []).append(loc)
+
+        # Issue #123: Reduce concurrency and add stagger
+        sem = asyncio.Semaphore(5)
+        
+        async def _process_chat_group(chat_id, locs, stagger_idx):
+            await asyncio.sleep(stagger_idx * 0.5)
+            chat_alerts = 0
+            chat_errors = 0
+            
+            # Evaluate locations sequentially for this user.
+            # Stop after sending the first rain alert to prevent spamming the user.
+            for loc in locs:
+                sent, err = await _process_location(loc, repo, weather_manager, now, sem)
+                chat_alerts += sent
+                chat_errors += err
+                if sent > 0:
+                    logger.info(f"Chat {chat_id} received an alert for '{loc.name}'. Skipping remaining locations.")
+                    break
+                    
+            return chat_alerts, chat_errors
+
+        tasks = [_process_chat_group(chat_id, locs, idx) for idx, (chat_id, locs) in enumerate(chat_groups.items())]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         for r in results:
