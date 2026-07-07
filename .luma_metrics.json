@@ -167,15 +167,15 @@
       "post_story_point": 3.0,
       "estimated_mandays": 0.5,
       "start_datetime": "2026-04-08T08:38:26",
-      "actual_mandays": 0.0,
+      "actual_mandays": 90.5,
       "due_date": "2026-05-31T23:59:59",
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-07-07T18:43:46",
       "effort_level": "Low",
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-05-29T10:34:06.291Z",
-      "updated_at": "2026-07-07T18:42:22.667793"
+      "updated_at": "2026-07-07T18:43:46.922952"
     },
     "oatricedev/FonMaYang#9": {
       "issue_key": "oatricedev/FonMaYang#9",
