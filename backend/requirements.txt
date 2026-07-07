@@ -20,3 +20,4 @@ Pillow
 
 google-cloud-tasks==2.16.2
 google-cloud-monitoring
+google-cloud-billing-budgets

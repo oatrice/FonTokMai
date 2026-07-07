@@ -646,6 +646,95 @@ async def handle_radar_command(chat_id: int):
         await send_telegram_message(chat_id, text, reply_markup=reply_markup)
 
 
+async def handle_metrics_command(chat_id: int, command: str, username: str = ""):
+    if not await check_admin_access(chat_id):
+        return
+
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
+
+    parts = command.strip().split()
+    days = 7
+    if len(parts) > 1:
+        try:
+            days = int(parts[1])
+        except ValueError:
+            pass
+
+    async with get_repo_context() as repo:
+        try:
+            logs = await repo.get_cron_metrics(days=days)
+        except Exception as e:
+            logger.error(f"Failed to fetch metrics: {e}")
+            await send_telegram_message(chat_id, "❌ ไม่สามารถดึงข้อมูล metrics ได้ในขณะนี้")
+            return
+
+    if not logs:
+        await send_telegram_message(chat_id, f"ℹ️ ไม่มีข้อมูล metrics ในช่วง {days} วันที่ผ่านมา")
+        return
+
+    import io
+    import csv
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    writer.writerow(["routine_name", "run_at", "duration_s", "alerts_sent", "locations_checked", "errors", "extra_data"])
+    
+    for log in logs:
+        run_at_str = log.get("run_at").isoformat() if log.get("run_at") else ""
+        extra_str = json.dumps(log.get("extra_data"), ensure_ascii=False) if log.get("extra_data") else ""
+        writer.writerow([
+            log.get("routine_name"),
+            run_at_str,
+            log.get("duration_s"),
+            log.get("alerts_sent"),
+            log.get("locations_checked"),
+            log.get("errors"),
+            extra_str
+        ])
+        
+    csv_data = output.getvalue().encode("utf-8")
+    
+    await send_telegram_document(chat_id, csv_data, f"metrics_{days}_days.csv")
+
+
+async def handle_setbudget_command(chat_id: int, command: str, username: str = ""):
+    if not await check_admin_access(chat_id):
+        return
+
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
+
+    parts = command.strip().split()
+    if len(parts) < 2:
+        await send_telegram_message(
+            chat_id, "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณาพิมพ์: /setbudget <จำนวนงบประมาณ (ตัวเลข)>"
+        )
+        return
+
+    try:
+        amount = float(parts[1])
+    except ValueError:
+        await send_telegram_message(
+            chat_id, "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณาพิมพ์: /setbudget <จำนวนงบประมาณ (ตัวเลข)>"
+        )
+        return
+
+    from app.services.billing_service import BillingService
+    billing_svc = BillingService()
+    success = await billing_svc.update_budget(amount)
+    
+    if success:
+        await send_telegram_message(
+            chat_id, f"✅ ปรับงบประมาณ GCP สำเร็จเป็น {amount} THB เรียบร้อยแล้ว"
+        )
+    else:
+        await send_telegram_message(
+            chat_id, "❌ ไม่สามารถปรับงบประมาณ GCP ได้ กรุณาตรวจสอบ logs ของระบบ"
+        )
+
+
 async def handle_tmd_fallback_command(chat_id: int, command: str, username: str = ""):
     """
     /tmd_fallback on
@@ -1441,7 +1530,7 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
             background_tasks.add_task(_do_login)
             return {"status": "ok"}
 
-        if text.startswith(("/rain", "/check", "/devmock", "/tmd_fallback")) and chat_id:
+        if text.startswith(("/rain", "/check", "/devmock", "/tmd_fallback", "/metrics", "/setbudget")) and chat_id:
             import os
             is_dev_env = os.getenv("ENVIRONMENT", "production").lower() == "development"
             if not is_dev_env:
@@ -1452,6 +1541,14 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
                         "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน"
                     )
                     return {"status": "ok"}
+
+        if text.startswith("/metrics") and chat_id:
+            background_tasks.add_task(handle_metrics_command, chat_id, text.strip(), username)
+            return {"status": "ok"}
+
+        if text.startswith("/setbudget") and chat_id:
+            background_tasks.add_task(handle_setbudget_command, chat_id, text.strip(), username)
+            return {"status": "ok"}
 
         if text.startswith("/rain_pro") and chat_id:
             if not tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text, "show_advanced": True}):
@@ -1469,7 +1566,7 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
             return {"status": "ok"}
 
         if text.startswith("/tmd_fallback") and chat_id:
-            background_tasks.add_task(handle_tmd_fallback_command, chat_id, text.strip())
+            background_tasks.add_task(handle_tmd_fallback_command, chat_id, text.strip(), username)
             return {"status": "ok"}
 
         # /check — shorthand alias for /rain tmd-radar (for manual testing)

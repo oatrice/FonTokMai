@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "coding",
   "active_issues": [
     {
       "number": 135,
@@ -11,10 +11,28 @@
       "project_item_id": "GLAB_135",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 68,
+      "title": "Feature: Export metrics via Telegram command (/metrics)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/68",
+      "body": null,
+      "project_item_id": "GLAB_68",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 81,
+      "title": "Feature: Adjust GCP Budget via Telegram command (/setbudget)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/81",
+      "body": null,
+      "project_item_id": "GLAB_81",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
     }
   ],
   "active_branch": "feat/135-feature-implement-emergency-ad",
-  "started_at": "2026-07-06T15:07:31.820124",
+  "started_at": "2026-07-07T09:23:12.267199",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -28,25 +46,31 @@
         "VERSION"
       ],
       "changed_files": [
+        "backend/.env.example",
         "backend/app/models.py",
         "backend/app/repositories/base.py",
         "backend/app/repositories/firestore.py",
         "backend/app/repositories/sqlite.py",
         "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/ocr_service.py",
+        "backend/app/services/tmd_radar_config.py",
         "backend/tests/test_admin_bypass.py",
         "backend/tests/test_devmock.py",
-        "backend/tests/test_output.png",
-        "backend/tests/tracking_test.png",
-        "luma/prompts/prompt_20260706_080730_9d8b9875.md",
+        "luma/prompts/prompt_20260706_080800_4d6bb566.md.response.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/.env.example",
         "backend/app/models.py",
         "backend/app/repositories/base.py",
         "backend/app/repositories/firestore.py",
         "backend/app/repositories/sqlite.py",
         "backend/app/routers/webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/ocr_service.py",
+        "backend/app/services/tmd_radar_config.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -122,5 +146,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-06T15:08:00.057027"
+  "last_updated": "2026-07-07T09:23:12.267361"
 }
