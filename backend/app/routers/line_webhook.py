@@ -210,17 +210,29 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
         tracking_bytes = result.get("radar_tracking_bytes")
         gif_bytes = result.get("radar_gif_bytes")
         timeline_bytes = result.get("rain_timeline_bytes")
+        multiframe_bytes = result.get("radar_multiframe_bytes")
         
-        if static_bytes:
-            await notifier.send_photo(user_id, static_bytes, f"radar_latest_{loc.name}.png")
-        if timeline_bytes:
-            await notifier.send_photo(user_id, timeline_bytes, f"rain_timeline_{loc.name}.png")
-        if tracking_bytes:
-            await notifier.send_photo(user_id, tracking_bytes, f"radar_tracking_{loc.name}.png")
-        if gif_bytes:
-            await notifier.send_document(user_id, gif_bytes, f"radar_nowcast_{loc.name}.gif")
-            
         show_advanced = (cmd_name == "/rain_pro")
+        
+        import asyncio
+        tasks = []
+        if show_advanced:
+            if static_bytes:
+                tasks.append(notifier.send_photo(user_id, static_bytes, f"radar_latest_{loc.name}.png"))
+            if tracking_bytes:
+                tasks.append(notifier.send_photo(user_id, tracking_bytes, f"radar_tracking_{loc.name}.png"))
+            if timeline_bytes:
+                tasks.append(notifier.send_photo(user_id, timeline_bytes, f"rain_timeline_{loc.name}.png"))
+            if multiframe_bytes:
+                tasks.append(notifier.send_document(user_id, multiframe_bytes, f"radar_multiframe_{loc.name}.gif"))
+        else:
+            if tracking_bytes:
+                tasks.append(notifier.send_photo(user_id, tracking_bytes, f"radar_tracking_{loc.name}.png"))
+            if gif_bytes:
+                tasks.append(notifier.send_document(user_id, gif_bytes, f"radar_nowcast_{loc.name}.gif"))
+                
+        if tasks:
+            await asyncio.gather(*tasks)
         if show_advanced:
             advanced_data = result.get("advanced_alerts", {})
             advisories = advanced_data.get("advisories", [])
