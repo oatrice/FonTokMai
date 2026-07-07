@@ -368,3 +368,41 @@ class SQLiteLocationRepository(LocationRepository):
             })
             
         return metrics
+
+    async def save_admin_bypass(self, chat_id: int, expires_in_minutes: int = 60) -> None:
+        from app.models import AdminBypass
+        expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=expires_in_minutes)
+        result = await self.session.execute(
+            select(AdminBypass).where(AdminBypass.chat_id == chat_id)
+        )
+        record = result.scalars().first()
+        if record:
+            record.expires_at = expires_at
+        else:
+            record = AdminBypass(chat_id=chat_id, expires_at=expires_at)
+            self.session.add(record)
+        await self.session.commit()
+
+    async def delete_admin_bypass(self, chat_id: int) -> None:
+        from app.models import AdminBypass
+        result = await self.session.execute(
+            select(AdminBypass).where(AdminBypass.chat_id == chat_id)
+        )
+        record = result.scalars().first()
+        if record:
+            await self.session.delete(record)
+            await self.session.commit()
+
+    async def has_active_admin_bypass(self, chat_id: int) -> bool:
+        from app.models import AdminBypass
+        result = await self.session.execute(
+            select(AdminBypass).where(AdminBypass.chat_id == chat_id)
+        )
+        record = result.scalars().first()
+        if not record:
+            return False
+        
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        if record.expires_at > now:
+            return True
+        return False

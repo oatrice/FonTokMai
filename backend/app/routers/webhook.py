@@ -27,6 +27,30 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "mock_token")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 TELEGRAM_EDIT_REPLY_MARKUP_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageReplyMarkup"
 
+def log_audit_event(event_type: str, chat_id: int, username: str, details: dict):
+    audit_data = {
+        "event_type": event_type,
+        "chat_id": chat_id,
+        "username": username or "unknown",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "details": details
+    }
+    logger.info(json.dumps(audit_data, ensure_ascii=False))
+
+async def check_admin_access(chat_id: int) -> bool:
+    import os
+    is_prod = os.getenv("ENVIRONMENT", "production").lower() != "development"
+
+    async with get_repo_context() as repo:
+        if await repo.has_active_admin_bypass(chat_id):
+            return True
+            
+    # ถ้าอยู่ใน Development mode, Developer เข้าถึงได้เลยโดยไม่ต้อง bypass
+    if str(chat_id) in DEVELOPER_CHAT_IDS and not is_prod:
+        return True
+        
+    return False
+
 
 def format_duration_text(minutes: int) -> str:
     if minutes < 60:
@@ -377,7 +401,7 @@ async def handle_callback_query(callback_query: dict):
 
     # Handle Developer Raw Data Request
     if data.startswith("raw_"):
-        if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        if not await check_admin_access(chat_id):
             answer_text = "คุณไม่มีสิทธิ์เข้าถึงข้อมูลดิบ"
         else:
             parts = data.split("_")
@@ -622,13 +646,105 @@ async def handle_radar_command(chat_id: int):
         await send_telegram_message(chat_id, text, reply_markup=reply_markup)
 
 
-async def handle_tmd_fallback_command(chat_id: int, command: str):
+async def handle_metrics_command(chat_id: int, command: str, username: str = ""):
+    if not await check_admin_access(chat_id):
+        return
+
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
+
+    parts = command.strip().split()
+    days = 7
+    if len(parts) > 1:
+        try:
+            days = int(parts[1])
+        except ValueError:
+            pass
+
+    async with get_repo_context() as repo:
+        try:
+            logs = await repo.get_cron_metrics(days=days)
+        except Exception as e:
+            logger.error(f"Failed to fetch metrics: {e}")
+            await send_telegram_message(chat_id, "❌ ไม่สามารถดึงข้อมูล metrics ได้ในขณะนี้")
+            return
+
+    if not logs:
+        await send_telegram_message(chat_id, f"ℹ️ ไม่มีข้อมูล metrics ในช่วง {days} วันที่ผ่านมา")
+        return
+
+    import io
+    import csv
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    writer.writerow(["routine_name", "run_at", "duration_s", "alerts_sent", "locations_checked", "errors", "extra_data"])
+    
+    for log in logs:
+        run_at_str = log.get("run_at").isoformat() if log.get("run_at") else ""
+        extra_str = json.dumps(log.get("extra_data"), ensure_ascii=False) if log.get("extra_data") else ""
+        writer.writerow([
+            log.get("routine_name"),
+            run_at_str,
+            log.get("duration_s"),
+            log.get("alerts_sent"),
+            log.get("locations_checked"),
+            log.get("errors"),
+            extra_str
+        ])
+        
+    csv_data = output.getvalue().encode("utf-8")
+    
+    await send_telegram_document(chat_id, csv_data, f"metrics_{days}_days.csv")
+
+
+async def handle_setbudget_command(chat_id: int, command: str, username: str = ""):
+    if not await check_admin_access(chat_id):
+        return
+
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
+
+    parts = command.strip().split()
+    if len(parts) < 2:
+        await send_telegram_message(
+            chat_id, "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณาพิมพ์: /setbudget <จำนวนงบประมาณ (ตัวเลข)>"
+        )
+        return
+
+    try:
+        amount = float(parts[1])
+    except ValueError:
+        await send_telegram_message(
+            chat_id, "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณาพิมพ์: /setbudget <จำนวนงบประมาณ (ตัวเลข)>"
+        )
+        return
+
+    from app.services.billing_service import BillingService
+    billing_svc = BillingService()
+    success = await billing_svc.update_budget(amount)
+    
+    if success:
+        await send_telegram_message(
+            chat_id, f"✅ ปรับงบประมาณ GCP สำเร็จเป็น {amount} THB เรียบร้อยแล้ว"
+        )
+    else:
+        await send_telegram_message(
+            chat_id, "❌ ไม่สามารถปรับงบประมาณ GCP ได้ กรุณาตรวจสอบ logs ของระบบ"
+        )
+
+
+async def handle_tmd_fallback_command(chat_id: int, command: str, username: str = ""):
     """
     /tmd_fallback on
     /tmd_fallback off
     """
-    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+    if not await check_admin_access(chat_id):
         return
+
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
 
     parts = command.strip().split()
     if len(parts) < 2:
@@ -659,9 +775,12 @@ async def handle_tmd_fallback_command(chat_id: int, command: str):
     )
 
 
-async def handle_devmock_command(chat_id: int, command: str):
-    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+async def handle_devmock_command(chat_id: int, command: str, username: str = ""):
+    if not await check_admin_access(chat_id):
         return
+
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
 
     async with get_repo_context() as repo:
         if command == "/devmock rain":
@@ -1134,6 +1253,19 @@ async def handle_devmock_command(chat_id: int, command: str):
                 await send_telegram_message(chat_id, f"❌ อ่านเวลาจากภาพใหม่ไม่สำเร็จ")
                 return
                 
+            # Check if the retrieved static image is outdated (older than 2 hours)
+            now_ts = time.time()
+            static_age_minutes = (now_ts - new_ts) / 60.0
+            if static_age_minutes > 120.0:
+                await send_telegram_message(
+                    chat_id, 
+                    f"⚠️ ตรวจพบภาพนิ่ง (Static) ล้าหลังเกิน 2 ชั่วโมง ({static_age_minutes:.0f} นาที) ทำการล้าง Cache เพื่อบังคับดึง Loop GIF ใหม่ครับ"
+                )
+                _GLOBAL_TMD_CACHE.pop(station, None)
+                async with get_repo_context() as repo:
+                    await repo.set_latest_radar_cache(station, [])
+                return
+                
             if new_ts <= frame_timestamps[-1]:
                 await send_telegram_message(chat_id, f"⚠️ ภาพล่าสุดในเว็บ ({datetime.fromtimestamp(new_ts).strftime('%H:%M')}) ยังไม่ใหม่กว่าที่เรามีอยู่ ({datetime.fromtimestamp(frame_timestamps[-1]).strftime('%H:%M')})")
                 return
@@ -1370,7 +1502,8 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
                 return {"status": "ok"}
 
         text = message.get("text", "")
-        logger.info(f"[WEBHOOK] Received text='{text}' chat_id={chat_id}")
+        username = message.get("from", {}).get("username", "")
+        logger.info(f"[WEBHOOK] Received text='{text}' chat_id={chat_id} username={username}")
 
         from app.services.cloud_tasks import CloudTasksService
         tasks_svc = CloudTasksService()
@@ -1384,15 +1517,51 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
             if not tasks_svc.enqueue_task("worker/handle-radar", {"chat_id": chat_id}):
                 background_tasks.add_task(handle_radar_command, chat_id)
             return {"status": "ok"}
+            
+        if text.startswith("/bypass_logout") and chat_id:
+            async def _do_logout():
+                async with get_repo_context() as repo:
+                    await repo.delete_admin_bypass(chat_id)
+                log_audit_event("bypass_logout", chat_id, username, {})
+                await send_telegram_message(chat_id, "ออกจากระบบ Emergency Admin Bypass เรียบร้อยแล้ว")
+            background_tasks.add_task(_do_logout)
+            return {"status": "ok"}
 
-        if text.startswith(("/rain", "/check", "/devmock")) and chat_id:
+        if text.startswith("/bypass ") and chat_id:
+            password = text.removeprefix("/bypass ").strip()
+            async def _do_login():
+                import os
+                actual_pass = os.getenv("ADMIN_BYPASS_PASSWORD")
+                if actual_pass and password == actual_pass:
+                    async with get_repo_context() as repo:
+                        await repo.save_admin_bypass(chat_id)
+                    log_audit_event("bypass_login_success", chat_id, username, {})
+                    await send_telegram_message(chat_id, "✅ ยืนยันรหัสผ่านถูกต้อง! เปิดใช้งาน Emergency Admin Bypass (1 ชั่วโมง)")
+                else:
+                    log_audit_event("bypass_login_failed", chat_id, username, {})
+                    await send_telegram_message(chat_id, "❌ รหัสผ่านไม่ถูกต้อง")
+            background_tasks.add_task(_do_login)
+            return {"status": "ok"}
+
+        if text.startswith(("/rain", "/check", "/devmock", "/tmd_fallback", "/metrics", "/setbudget")) and chat_id:
             import os
-            if os.getenv("ENVIRONMENT", "production").lower() != "development":
-                background_tasks.add_task(
-                    send_telegram_message, chat_id, 
-                    "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน"
-                )
-                return {"status": "ok"}
+            is_dev_env = os.getenv("ENVIRONMENT", "production").lower() == "development"
+            if not is_dev_env:
+                has_access = await check_admin_access(chat_id)
+                if not has_access:
+                    background_tasks.add_task(
+                        send_telegram_message, chat_id, 
+                        "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน"
+                    )
+                    return {"status": "ok"}
+
+        if text.startswith("/metrics") and chat_id:
+            background_tasks.add_task(handle_metrics_command, chat_id, text.strip(), username)
+            return {"status": "ok"}
+
+        if text.startswith("/setbudget") and chat_id:
+            background_tasks.add_task(handle_setbudget_command, chat_id, text.strip(), username)
+            return {"status": "ok"}
 
         if text.startswith("/rain_pro") and chat_id:
             if not tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text, "show_advanced": True}):
@@ -1410,7 +1579,7 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
             return {"status": "ok"}
 
         if text.startswith("/tmd_fallback") and chat_id:
-            background_tasks.add_task(handle_tmd_fallback_command, chat_id, text.strip())
+            background_tasks.add_task(handle_tmd_fallback_command, chat_id, text.strip(), username)
             return {"status": "ok"}
 
         # /check — shorthand alias for /rain tmd-radar (for manual testing)

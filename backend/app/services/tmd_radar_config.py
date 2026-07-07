@@ -93,7 +93,7 @@ STATIONS = {
         name="Khon Kaen (240km)",
         static_image_url="https://weather.tmd.go.th/kkn/kkn240_latest.gif",
         loop_page_url="https://weather.tmd.go.th/kknLoop.php",
-        loop_gif_url="https://weather.tmd.go.th/kkn/kkn240Loop.gif",
+        loop_gif_url="https://weather.tmd.go.th/kkn/kknloop.gif",
         bbox=KKN240_BBOX,
         projection_type="azimuthal",
         center_lat=16.4322,
@@ -105,15 +105,15 @@ STATIONS = {
         static_crop_height=720,
         loop_crop_x=80,
         loop_crop_y=40,
-        loop_crop_width=600,
-        loop_crop_height=600
+        loop_crop_width=720,
+        loop_crop_height=720
     ),
     "skn240": StationConfig(
         code="skn240",
         name="Sakon Nakhon (240km)",
         static_image_url="https://weather.tmd.go.th/skn/skn240_latest.jpg",
         loop_page_url="https://weather.tmd.go.th/sknLoop.php",
-        loop_gif_url="https://weather.tmd.go.th/skn/skn240Loop.gif",
+        loop_gif_url="https://weather.tmd.go.th/skn/sknloop.gif",
         bbox=SKN_BBOX,
         projection_type="azimuthal",
         center_lat=17.1607,
@@ -123,10 +123,10 @@ STATIONS = {
         static_crop_y=28,
         static_crop_width=728,
         static_crop_height=728,
-        loop_crop_x=61,
-        loop_crop_y=24,
-        loop_crop_width=620,
-        loop_crop_height=620
+        loop_crop_x=72,
+        loop_crop_y=28,
+        loop_crop_width=728,
+        loop_crop_height=728
     )
 }
 

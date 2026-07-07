@@ -37,7 +37,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #135 - Feature: Implement Emergency Admin Bypass Password for restricted bot commands in Production
 - **GitHub:** [#135](https://gitlab.com/oatricedev/FonMaYang/-/issues/135)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.47.0)
 
 ### Issue #134 - แก้ไข Cloud Tasks fonmayang-fetch-radar ให้เป็นทุกๆ 10 นาที
 - **GitHub:** [#134](https://gitlab.com/oatricedev/FonMaYang/-/issues/134)
@@ -237,7 +237,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #81 - Feature: Adjust GCP Budget via Telegram command (/setbudget)
 - **GitHub:** [#81](https://gitlab.com/oatricedev/FonMaYang/-/issues/81)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.47.0)
 
 ### Issue #80 - Feature: Route billing and system alerts to dedicated DevBot
 - **GitHub:** [#80](https://gitlab.com/oatricedev/FonMaYang/-/issues/80)
@@ -289,7 +289,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #68 - Feature: Export metrics via Telegram command (/metrics)
 - **GitHub:** [#68](https://gitlab.com/oatricedev/FonMaYang/-/issues/68)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.47.0)
 
 ### Issue #67 - Feature: Implement build-time versioning and display deployment info in Telegram
 - **GitHub:** [#67](https://gitlab.com/oatricedev/FonMaYang/-/issues/67)

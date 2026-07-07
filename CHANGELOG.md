@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.47.0] - 2026-07-07
+
+### Added
+- Added `/metrics` Telegram command for exporting system metrics logs as CSV.
+- Added `/setbudget` Telegram command for dynamically adjusting the GCP Billing Budget.
+- Added GCP Billing Budget Service using `google-cloud-billing-budgets` client library.
+- Added `AdminBypass` model and repository methods (SQLite/Firestore) to support temporary authorization for restricted bot commands in Production.
+- Added unit and integration tests for Admin Bypass and Developer commands.
+
+### Changed
+- Improved OCR timestamp extraction accuracy on cropped radar image headers using Tesseract PSM 6.
+- Enhanced outdated static image detection to trigger automatic fallbacks to GIF loops.
+- Updated radar configurations for Khon Kaen (`kkn240`) and Sakon Nakhon (`skn240`) to fetch high-resolution GIFs.
+
+### Fixed
+- Fixed GCP budget update display name mapping issues.
+- Fixed weather prediction timing calculations and radar configuration crops.
+
 ## [0.46.0] - 2026-07-06
 
 ### Added

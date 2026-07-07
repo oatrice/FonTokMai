@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.44.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
+**v0.47.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
 ใช้ภาพเรดาร์ TMD + Optical Flow เพื่อคาดการณ์ฝนล่วงหน้า 15–90 นาที
 
 ---
@@ -29,6 +29,10 @@
 ### Developer Commands (DEVELOPER_CHAT_IDS only)
 | Command | Description |
 |---|---|
+| `/bypass <password>` | ยืนยันรหัสผ่านเพื่อเปิดใช้งาน Emergency Admin Bypass (1 ชั่วโมง) |
+| `/bypass_logout` | ออกจากระบบ Emergency Admin Bypass |
+| `/metrics [days]` | ส่งออกประวัติการรัน Cron metrics เป็นไฟล์ CSV |
+| `/setbudget <amount>` | ปรับเปลี่ยนวงเงินงบประมาณ GCP แบบ Dynamic |
 | `/devmock help` | แสดงทุก command |
 | `/devmock rain` | จำลองฝนตกหนัก (Boost เมฆจริง) |
 | `/devmock storm` | จำลองพายุ (สร้างเมฆปลอม 5 ก้อน) |
@@ -110,4 +114,4 @@ Key test files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.44.0** — Parametric Mock Scenario + Multi-Frame Radar Visualization
+Current: **v0.47.0** — Developer Tools & Bot Management (Admin Bypass, metrics, and budget controls)

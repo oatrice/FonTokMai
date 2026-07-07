@@ -135,6 +135,7 @@ async def test_webhook_devmock_command():
     with patch("app.routers.webhook.DEVELOPER_CHAT_IDS", ["123"]):
         with patch("app.routers.webhook.get_repo_context") as mock_ctx:
             mock_repo = AsyncMock()
+            mock_repo.has_active_admin_bypass.return_value = False
             mock_ctx.return_value.__aenter__.return_value = mock_repo
             await call_webhook("/devmock rain")
             mock_repo.set_mock_state.assert_not_called()
