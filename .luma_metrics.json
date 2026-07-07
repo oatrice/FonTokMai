@@ -1533,13 +1533,13 @@
       "start_datetime": null,
       "actual_mandays": 0.0,
       "due_date": "2026-06-17T23:59:59",
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-07-07T12:07:49",
       "effort_level": "Low",
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-08T05:20:55.182Z",
-      "updated_at": "2026-07-07T12:04:50.175092"
+      "updated_at": "2026-07-07T12:07:49.211997"
     },
     "oatricedev/FonMaYang#67": {
       "issue_key": "oatricedev/FonMaYang#67",
@@ -1885,13 +1885,13 @@
       "start_datetime": null,
       "actual_mandays": 0.0,
       "due_date": "2026-06-17T23:59:59",
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-07-07T12:07:49",
       "effort_level": "Low",
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-16T16:02:02.219Z",
-      "updated_at": "2026-07-07T12:04:50.578471"
+      "updated_at": "2026-07-07T12:07:49.214817"
     },
     "oatricedev/FonMaYang#80": {
       "issue_key": "oatricedev/FonMaYang#80",
@@ -2721,13 +2721,13 @@
       "start_datetime": null,
       "actual_mandays": 0.0,
       "due_date": "2026-07-08T23:59:59",
-      "actual_completion_date": null,
+      "actual_completion_date": "2026-07-07T12:07:49",
       "effort_level": "Medium",
       "notes": null,
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-06-29T16:00:44.549Z",
-      "updated_at": "2026-07-07T12:04:49.967360"
+      "updated_at": "2026-07-07T12:07:49.208213"
     },
     "oatricedev/FonMaYang#134": {
       "issue_key": "oatricedev/FonMaYang#134",
