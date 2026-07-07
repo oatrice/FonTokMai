@@ -360,15 +360,15 @@ class WeatherManager:
                 error_msg = re.sub(r'client_secret=[^&\s]+', 'client_secret=***', error_msg)
                 
                 if "401" in error_msg:
-                    error_msg = "ระบบไม่สามารถเชื่อมต่อกับผู้ให้บริการได้ (API Key มีปัญหา)"
+                    error_msg = "แหล่งข้อมูลปิดปรับปรุงหรือสิทธิ์การเข้าถึงมีปัญหาชั่วคราว"
                 elif "429" in error_msg:
-                    error_msg = "ระบบถูกจำกัดการใช้งานชั่วคราว (Rate Limit)"
+                    error_msg = "ดึงข้อมูลถี่เกินไปชั่วคราว กรุณาเว้นระยะแล้วลองใหม่อีกครั้ง"
                 elif "timeout" in error_msg.lower():
-                    error_msg = "ขาดการเชื่อมต่อกับเซิร์ฟเวอร์ (Timeout)"
+                    error_msg = "การเชื่อมต่อขัดข้องหรือสัญญาณขาดหายชั่วคราว"
                 elif "403" in error_msg:
-                    error_msg = "ระบบไม่มีสิทธิ์เข้าถึงข้อมูล (Permission Denied)"
+                    error_msg = "แหล่งข้อมูลปฏิเสธการเชื่อมต่อชั่วคราว"
                 elif "50" in error_msg:
-                    error_msg = "เซิร์ฟเวอร์ผู้ให้บริการขัดข้องชั่วคราว"
+                    error_msg = "ระบบเซิร์ฟเวอร์ของผู้ให้บริการขัดข้องชั่วคราว"
                     
                 logger.error(f"Error fetching from {name}: {error_msg}")
                 return name, {"error": error_msg, "endpoint": name, "max_rain": 0.0, "accuracy_score": reliabilities.get(name, 0.0)}
