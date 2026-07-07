@@ -206,9 +206,9 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
             
         await notifier.send_text_message(user_id, text)
         
-        static_bytes = result.get("static_radar_bytes")
+        static_bytes = result.get("radar_static_bytes")
         tracking_bytes = result.get("radar_tracking_bytes")
-        gif_bytes = result.get("radar_nowcast_gif_bytes")
+        gif_bytes = result.get("radar_gif_bytes")
         timeline_bytes = result.get("rain_timeline_bytes")
         
         if static_bytes:

@@ -90,6 +90,11 @@ app.include_router(budget_webhook.router)
 app.include_router(line_webhook.router)
 from app.routers import internal
 app.include_router(internal.router)
+ 
+from fastapi.staticfiles import StaticFiles
+import os
+os.makedirs("static/temp_media", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/", include_in_schema=False)

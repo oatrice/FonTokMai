@@ -73,8 +73,22 @@ class LineNotificationService(NotificationService):
         self.config = Configuration(access_token=self.access_token)
 
     def _upload_media(self, media_bytes: bytes, content_type: str, file_ext: str) -> Optional[str]:
-        """Uploads media bytes to GCS and returns a public URL for Line to fetch."""
+        """Uploads media bytes to GCS or hosts locally, returning a public URL for Line to fetch."""
         try:
+            base_url = os.getenv("WORKER_BASE_URL")
+            if base_url:
+                static_dir = os.path.join(os.getcwd(), "static", "temp_media")
+                os.makedirs(static_dir, exist_ok=True)
+                
+                filename = f"{uuid.uuid4()}{file_ext}"
+                file_path = os.path.join(static_dir, filename)
+                with open(file_path, "wb") as f:
+                    f.write(media_bytes)
+                
+                url = f"{base_url.rstrip('/')}/static/temp_media/{filename}"
+                logger.info(f"Hosted Line media locally via ngrok: {url}")
+                return url
+
             from google.cloud import storage
             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
             client = storage.Client()
@@ -88,7 +102,7 @@ class LineNotificationService(NotificationService):
             url = f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/{encoded_path}?alt=media"
             return url
         except Exception as e:
-            logger.error(f"Failed to upload Line temp media to GCS: {e}")
+            logger.error(f"Failed to host Line temp media: {e}")
             return None
 
     async def send_text_message(self, recipient_id: str, text: str, reply_markup: Optional[dict] = None) -> bool:
@@ -96,6 +110,9 @@ class LineNotificationService(NotificationService):
         try:
             import asyncio
             def _send():
+                if recipient_id.startswith("U1234567890") or self.access_token == "mock_token":
+                    logger.info(f"[MOCK LINE PUSH TEXT] Recipient: {recipient_id}\nContent:\n{text}")
+                    return True
                 with ApiClient(self.config) as api_client:
                     line_bot_api = MessagingApi(api_client)
                     push_message_request = PushMessageRequest(
@@ -113,6 +130,9 @@ class LineNotificationService(NotificationService):
     async def send_photo(self, recipient_id: str, photo_data: bytes, filename: str) -> bool:
         try:
             import asyncio
+            if recipient_id.startswith("U1234567890") or self.access_token == "mock_token":
+                logger.info(f"[MOCK LINE PUSH PHOTO] Recipient: {recipient_id}, File: {filename}")
+                return True
             url = await asyncio.to_thread(self._upload_media, photo_data, "image/png", ".png")
             if not url:
                 logger.error(f"Could not get public URL for photo {filename}")
@@ -137,6 +157,9 @@ class LineNotificationService(NotificationService):
         # Since Line doesn't have an exact equivalent of document, we upload and send as ImageMessage
         try:
             import asyncio
+            if recipient_id.startswith("U1234567890") or self.access_token == "mock_token":
+                logger.info(f"[MOCK LINE PUSH DOC] Recipient: {recipient_id}, File: {filename}")
+                return True
             ext = ".gif" if filename.lower().endswith(".gif") else ".png"
             mime = "image/gif" if ext == ".gif" else "image/png"
             url = await asyncio.to_thread(self._upload_media, document_data, mime, ext)
