@@ -10,7 +10,7 @@ from linebot.v3.messaging import (
     ReplyMessageRequest,
     TextMessage,
 )
-from linebot.v3.webhooks import MessageEvent, LocationMessageContent
+from linebot.v3.webhooks import MessageEvent, LocationMessageContent, TextMessageContent
 
 from app.dependencies import get_repo_context
 from app.services.weather_manager import WeatherManager
@@ -72,6 +72,174 @@ async def process_line_location(user_id: str, lat: float, lng: float, title: str
         import asyncio
         await asyncio.to_thread(_reply)
 
+async def process_line_command(user_id: str, command: str, reply_token: str):
+    from app.routers.webhook import _build_forecast_text
+    from app.services.notification import get_notification_service
+    
+    notifier = get_notification_service("line")
+    parts = command.strip().split()
+    cmd_name = parts[0].lower()
+    
+    # 1. Handle /devmock command
+    if cmd_name == "/devmock":
+        if len(parts) < 2:
+            await notifier.send_text_message(user_id, "ℹ️ รูปแบบการใช้งาน: /devmock [rain|clear|off]")
+            return
+        state = parts[1].lower()
+        if state == "off":
+            state = None
+        elif state not in ("rain", "clear"):
+            await notifier.send_text_message(user_id, "❌ สถานะไม่ถูกต้อง กรุณาเลือก: rain, clear, off")
+            return
+            
+        async with get_repo_context() as repo:
+            await repo.set_mock_state(user_id, state)
+        await notifier.send_text_message(user_id, f"✅ ตั้งค่าสถานะจำลอง (mock state) เป็น '{state or 'off'}' เรียบร้อยแล้ว")
+        return
+
+    # 2. Handle /mylocation command
+    if cmd_name == "/mylocation":
+        async with get_repo_context() as repo:
+            locs = await repo.get_user_locations(user_id)
+        if not locs:
+            await notifier.send_text_message(user_id, "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")
+            return
+        
+        lines = ["📍 พิกัดของคุณที่บันทึกไว้:"]
+        for idx, loc in enumerate(locs, 1):
+            name = loc.name or "default"
+            lines.append(f"{idx}. {name} ({loc.latitude}, {loc.longitude}) [{loc.retention_type}]")
+        await notifier.send_text_message(user_id, "\n".join(lines))
+        return
+
+    # 3. Handle /rain, /rain_pro, /check commands
+    if cmd_name in ("/rain", "/rain_pro", "/check"):
+        import re
+        coords_match = re.search(r'([+-]?\d+\.\d+)[,\s]+([+-]?\d+\.\d+)', command)
+        custom_lat = None
+        custom_lng = None
+        if coords_match:
+            try:
+                custom_lat = float(coords_match.group(1))
+                custom_lng = float(coords_match.group(2))
+                command = command.replace(coords_match.group(0), "").strip()
+            except ValueError:
+                pass
+                
+        parts = command.strip().split()
+        force_provider = None
+        target_location_name = None
+        
+        known_providers = ["tmd-radar", "tomorrow", "rainbow-local", "rainbow-global", "xweather", "open-meteo", "tmd", "kkn120", "kkn240", "skn240"]
+        provider_aliases = {"tmd": "tmd-radar"}
+        
+        if cmd_name == "/check":
+            force_provider = "tmd-radar"
+            
+        if len(parts) > 1:
+            part1 = parts[1].lower()
+            if part1 in known_providers:
+                force_provider = part1
+                if len(parts) > 2:
+                    target_location_name = parts[2].lower()
+            else:
+                target_location_name = part1
+                if len(parts) > 2 and parts[2].lower() in known_providers:
+                    force_provider = parts[2].lower()
+                    
+        if force_provider in provider_aliases:
+            force_provider = provider_aliases[force_provider]
+            
+        loc = None
+        if custom_lat is not None and custom_lng is not None:
+            from app.models import UserLocation
+            loc = UserLocation(
+                chat_id=user_id,
+                latitude=custom_lat,
+                longitude=custom_lng,
+                name=f"{custom_lat}, {custom_lng}"
+            )
+        else:
+            async with get_repo_context() as repo:
+                locs = await repo.get_user_locations(user_id)
+            if not locs:
+                await notifier.send_text_message(user_id, "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")
+                return
+                
+            if target_location_name:
+                for l in locs:
+                    if (l.name and l.name.lower() == target_location_name) or (target_location_name == "default" and l.name is None):
+                        loc = l
+                        break
+                if not loc:
+                    available_locs = ", ".join([l.name for l in locs if l.name])
+                    await notifier.send_text_message(user_id, f"⚠️ ไม่พบพิกัดชื่อ '{target_location_name}'\nพิกัดที่มี: {available_locs or 'default'}")
+                    return
+            else:
+                loc = locs[0]
+                
+        loc_display = loc.name.capitalize() if loc.name else "ระบบอัตโนมัติ"
+        
+        await notifier.send_text_message(user_id, f"⏳ กำลังตรวจสอบสภาพอากาศที่ '{loc_display}'...")
+        
+        async with get_repo_context() as repo:
+            mock_state = await repo.get_mock_state(user_id)
+            
+        weather_manager = WeatherManager()
+        result = await weather_manager.predict_rain(
+            loc.latitude, loc.longitude,
+            mock_state=mock_state,
+            force_endpoint=force_provider,
+            location_name=loc_display
+        )
+        
+        text, actual_endpoint, eta_minutes = _build_forecast_text(result)
+        if loc_display:
+            text = f"📍 พื้นที่: {loc_display}\n\n" + text
+            
+        if result.get("is_outdated"):
+            text = "⚠️ ยังไม่มีข้อมูลล่าสุดจากกรมอุตุฯ (TMD Radar)\nแนะนำให้เปลี่ยนไปใช้ API อื่น (เช่น Tomorrow.io หรือ Open-Meteo) แทนชั่วคราวครับ\n"
+            
+        if actual_endpoint == "error":
+            await notifier.send_text_message(user_id, "⚠️ ขออภัย ไม่สามารถเชื่อมต่อกับระบบพยากรณ์ฝนได้ในขณะนี้\nกรุณาลองใหม่อีกครั้งในภายหลัง")
+            return
+            
+        await notifier.send_text_message(user_id, text)
+        
+        static_bytes = result.get("static_radar_bytes")
+        tracking_bytes = result.get("radar_tracking_bytes")
+        gif_bytes = result.get("radar_nowcast_gif_bytes")
+        timeline_bytes = result.get("rain_timeline_bytes")
+        
+        if static_bytes:
+            await notifier.send_photo(user_id, static_bytes, f"radar_latest_{loc.name}.png")
+        if timeline_bytes:
+            await notifier.send_photo(user_id, timeline_bytes, f"rain_timeline_{loc.name}.png")
+        if tracking_bytes:
+            await notifier.send_photo(user_id, tracking_bytes, f"radar_tracking_{loc.name}.png")
+        if gif_bytes:
+            await notifier.send_document(user_id, gif_bytes, f"radar_nowcast_{loc.name}.gif")
+            
+        show_advanced = (cmd_name == "/rain_pro")
+        if show_advanced:
+            advanced_data = result.get("advanced_alerts", {})
+            advisories = advanced_data.get("advisories", [])
+            lightning = advanced_data.get("lightning", {})
+            stormcells = advanced_data.get("stormcells", [])
+            
+            has_advisory = len(advisories) > 0
+            has_lightning = bool(lightning.get("detected", False))
+            has_stormcell = len(stormcells) > 0
+            
+            if has_advisory or has_lightning or has_stormcell:
+                from app.routers.webhook import _build_advanced_text
+                adv_text = _build_advanced_text(advisories, lightning, stormcells)
+                await notifier.send_text_message(user_id, adv_text)
+        return
+
+    # 4. Unknown Command
+    await notifier.send_text_message(user_id, f"❓ ไม่รู้จักคำสั่ง '{cmd_name}'")
+
 async def handle_line_events(events, background_tasks: BackgroundTasks):
     for event in events:
         if not isinstance(event, MessageEvent):
@@ -87,6 +255,13 @@ async def handle_line_events(events, background_tasks: BackgroundTasks):
             
             logger.info(f"Processing Line location sharing: user={user_id}, lat={lat}, lng={lng}")
             background_tasks.add_task(process_line_location, user_id, lat, lng, title, event.reply_token)
+        
+        # Handle Text Commands
+        elif isinstance(event.message, TextMessageContent):
+            text = event.message.text.strip()
+            if text.startswith("/"):
+                logger.info(f"Processing Line text command: user={user_id}, text={text}")
+                background_tasks.add_task(process_line_command, user_id, text, event.reply_token)
 
 @router.post("/webhook")
 async def line_webhook(

@@ -135,3 +135,76 @@ async def test_line_webhook_success_flow():
                 platform="line"
             )
 
+@pytest.mark.asyncio
+async def test_line_webhook_text_commands():
+    """Test successful Line webhook text command event processing."""
+    from app.routers.line_webhook import line_webhook
+    from contextlib import asynccontextmanager
+    from fastapi import BackgroundTasks
+    import json
+    import asyncio
+
+    payload = {
+        "events": [
+          {
+            "type": "message",
+            "replyToken": "mockReplyToken123",
+            "source": {
+              "type": "user",
+              "userId": "U1234567890abcdef1234567890abcdef"
+            },
+            "message": {
+              "id": "12345678",
+              "type": "text",
+              "text": "/devmock rain",
+              "quoteToken": "mockQuoteToken123"
+            },
+            "timestamp": 1625616000000,
+            "mode": "active",
+            "webhookEventId": "01FZ5286598QCHAX97525A1A8A",
+            "deliveryContext": {
+              "isRedelivery": False
+            }
+          }
+        ]
+    }
+
+    req = AsyncMock()
+    req.json.return_value = payload
+    req.body.return_value = json.dumps(payload).encode("utf-8")
+    req.url.hostname = "localhost"
+    
+    bg_tasks = BackgroundTasks()
+
+    with patch("app.services.notification.get_notification_service") as mock_get_notifier:
+        mock_notifier = AsyncMock()
+        mock_get_notifier.return_value = mock_notifier
+
+        with patch("app.routers.line_webhook.get_repo_context") as mock_get_repo_context:
+            mock_repo = AsyncMock()
+            
+            @asynccontextmanager
+            async def mock_context():
+                yield mock_repo
+            mock_get_repo_context.side_effect = mock_context
+            
+            await line_webhook(req, bg_tasks, "MOCK_SIGNATURE")
+            print("INITIAL BG TASKS:", bg_tasks.tasks)
+            
+            # Manually execute all nested background tasks
+            while bg_tasks.tasks:
+                t = bg_tasks.tasks.pop(0)
+                print(f"RUNNING TASK: {t.func.__name__} with args {t.args}")
+                if asyncio.iscoroutinefunction(t.func):
+                    await t.func(*t.args, **t.kwargs)
+                else:
+                    t.func(*t.args, **t.kwargs)
+                print("CURRENT BG TASKS:", bg_tasks.tasks)
+            
+            mock_repo.set_mock_state.assert_called_once_with(
+                "U1234567890abcdef1234567890abcdef",
+                "rain"
+            )
+
+
+
