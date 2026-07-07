@@ -40,18 +40,19 @@ async def test_metrics_command_security():
     req = create_webhook_request(chat_id, "/metrics")
     bg_tasks = BackgroundTasks()
 
-    with patch("app.routers.webhook.DEVELOPER_CHAT_IDS", ["123"]):
-        with patch("app.routers.webhook.get_repo_context") as mock_ctx:
-            mock_repo = AsyncMock()
-            mock_repo.has_active_admin_bypass.return_value = False
-            mock_ctx.return_value.__aenter__.return_value = mock_repo
-            
-            with patch("app.routers.webhook.send_telegram_message") as mock_send:
-                await telegram_webhook(req, bg_tasks)
-                # Execute bg task
-                for t in bg_tasks.tasks:
-                    await t.func(*t.args, **t.kwargs)
-                mock_send.assert_called_with(chat_id, "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน")
+    with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+        with patch("app.routers.webhook.DEVELOPER_CHAT_IDS", ["123"]):
+            with patch("app.routers.webhook.get_repo_context") as mock_ctx:
+                mock_repo = AsyncMock()
+                mock_repo.has_active_admin_bypass.return_value = False
+                mock_ctx.return_value.__aenter__.return_value = mock_repo
+                
+                with patch("app.routers.webhook.send_telegram_message") as mock_send:
+                    await telegram_webhook(req, bg_tasks)
+                    # Execute bg task
+                    for t in bg_tasks.tasks:
+                        await t.func(*t.args, **t.kwargs)
+                    mock_send.assert_called_with(chat_id, "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน")
 
 @pytest.mark.asyncio
 async def test_metrics_command_success():
@@ -103,17 +104,18 @@ async def test_setbudget_command_security():
     req = create_webhook_request(chat_id, "/setbudget 20")
     bg_tasks = BackgroundTasks()
 
-    with patch("app.routers.webhook.DEVELOPER_CHAT_IDS", ["123"]):
-        with patch("app.routers.webhook.get_repo_context") as mock_ctx:
-            mock_repo = AsyncMock()
-            mock_repo.has_active_admin_bypass.return_value = False
-            mock_ctx.return_value.__aenter__.return_value = mock_repo
-            
-            with patch("app.routers.webhook.send_telegram_message") as mock_send:
-                await telegram_webhook(req, bg_tasks)
-                for t in bg_tasks.tasks:
-                    await t.func(*t.args, **t.kwargs)
-                mock_send.assert_called_with(chat_id, "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน")
+    with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+        with patch("app.routers.webhook.DEVELOPER_CHAT_IDS", ["123"]):
+            with patch("app.routers.webhook.get_repo_context") as mock_ctx:
+                mock_repo = AsyncMock()
+                mock_repo.has_active_admin_bypass.return_value = False
+                mock_ctx.return_value.__aenter__.return_value = mock_repo
+                
+                with patch("app.routers.webhook.send_telegram_message") as mock_send:
+                    await telegram_webhook(req, bg_tasks)
+                    for t in bg_tasks.tasks:
+                        await t.func(*t.args, **t.kwargs)
+                    mock_send.assert_called_with(chat_id, "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน")
 
 @pytest.mark.asyncio
 async def test_setbudget_command_success():

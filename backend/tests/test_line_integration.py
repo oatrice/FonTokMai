@@ -60,3 +60,78 @@ def test_line_webhook_router_verification_and_event_handling():
         headers={"X-Line-Signature": "invalid_signature"}
     )
     assert response.status_code in (400, 403)
+
+@pytest.mark.asyncio
+async def test_line_webhook_success_flow():
+    """Test successful Line webhook location event processing."""
+    from app.main import app
+    from contextlib import asynccontextmanager
+
+    payload = {
+        "events": [
+          {
+            "type": "message",
+            "replyToken": "mockReplyToken123",
+            "source": {
+              "type": "user",
+              "userId": "U1234567890abcdef1234567890abcdef"
+            },
+            "message": {
+              "id": "12345678",
+              "type": "location",
+              "title": "Home Test Location",
+              "latitude": 13.7563,
+              "longitude": 100.5018
+            },
+            "timestamp": 1625616000000,
+            "mode": "active",
+            "webhookEventId": "01FZ5286598QCHAX97525A1A8A",
+            "deliveryContext": {
+              "isRedelivery": False
+            }
+          }
+        ]
+    }
+    
+    mock_weather_result = {
+        "predictions": [
+            {"time": "2026-05-29T10:00:00Z", "rain": 0.0}
+        ],
+        "max_rain": 0.0,
+        "intensity": "ไม่มีฝน (No Rain)",
+        "duration_minutes": 0,
+        "wind_speed_kmh": 5.0,
+        "endpoint": "tomorrow",
+    }
+
+    with patch("app.routers.line_webhook.WeatherManager") as mock_wm_cls:
+        mock_wm_instance = mock_wm_cls.return_value
+        mock_wm_instance.predict_rain = AsyncMock(return_value=mock_weather_result)
+
+        with patch("app.routers.line_webhook.get_repo_context") as mock_get_repo_context:
+            mock_repo = AsyncMock()
+            mock_repo.get_mock_state.return_value = None
+            
+            @asynccontextmanager
+            async def mock_context():
+                yield mock_repo
+            mock_get_repo_context.side_effect = mock_context
+            
+            client = TestClient(app)
+            response = client.post(
+                "/api/v1/line/webhook",
+                json=payload,
+                headers={"X-Line-Signature": "MOCK_SIGNATURE"}
+            )
+            assert response.status_code == 200
+            assert response.json() == {"status": "ok"}
+            
+            mock_repo.save_location.assert_called_once_with(
+                chat_id="U1234567890abcdef1234567890abcdef",
+                lat=13.7563,
+                lng=100.5018,
+                retention_type="FOREVER",
+                name="Home Test Location",
+                platform="line"
+            )
+

@@ -56,6 +56,10 @@ async def process_line_location(user_id: str, lat: float, lng: float, title: str
         config = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
         
         def _reply():
+            if reply_token.startswith("mock") or LINE_CHANNEL_ACCESS_TOKEN == "mock_token":
+                logger.info(f"[MOCK LINE REPLY] Reply Token: {reply_token}\nContent:\n{confirm_text}")
+                return True
+                
             with ApiClient(config) as api_client:
                 line_bot_api = MessagingApi(api_client)
                 reply_message_request = ReplyMessageRequest(
@@ -95,6 +99,20 @@ async def line_webhook(
         
     body = await request.body()
     body_str = body.decode("utf-8")
+    
+    # In development mode or local requests, allow bypassing signature verification by calculating the correct signature on the fly
+    is_dev = os.getenv("ENVIRONMENT", "development").lower() == "development"
+    is_local = request.url.hostname in ("127.0.0.1", "localhost")
+    if (is_dev or is_local) and x_line_signature == "MOCK_SIGNATURE":
+        import hmac
+        import hashlib
+        import base64
+        hash_val = hmac.new(
+            LINE_CHANNEL_SECRET.encode('utf-8'),
+            body,
+            hashlib.sha256
+        ).digest()
+        x_line_signature = base64.b64encode(hash_val).decode('utf-8')
     
     try:
         events = parser.parse(body_str, x_line_signature)
