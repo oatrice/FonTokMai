@@ -851,6 +851,26 @@ class WeatherManager:
                         dbz = max(dbz, 40.0)
                     elif mock_state == "clear":
                         dbz = 0.0
+                    elif mock_state and mock_state.startswith("{"):
+                        try:
+                            scenario = json.loads(mock_state)
+                            if scenario.get("no_rain") or scenario.get("clear"):
+                                dbz = 0.0
+                            else:
+                                mock_dbz = float(scenario.get("dbz", 35.0))
+                                if "rain_in" in scenario:
+                                    rain_in = float(scenario["rain_in"])
+                                    if offset_min >= rain_in:
+                                        dbz = max(dbz, mock_dbz)
+                                elif "rain_stopping" in scenario:
+                                    rain_stopping = float(scenario["rain_stopping"])
+                                    if offset_min < rain_stopping:
+                                        dbz = max(dbz, mock_dbz)
+                                else:
+                                    # Default fallback to mock dbz if not specified
+                                    dbz = max(dbz, mock_dbz)
+                        except Exception:
+                            pass
                         
                     if dbz > max_dbz:
                         max_dbz = dbz

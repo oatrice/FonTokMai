@@ -61,7 +61,7 @@ async def _evaluate_location(loc, repo, weather_manager, now, sem):
             if max_rain < RAIN_TRIGGER_THRESHOLD_MM:
                 if loc.last_alert_max_rain and loc.last_alert_max_rain > 0.0:
                     logger.info(f"Sending All-Clear alert for chat_id {loc.chat_id}")
-                    loc_name_str = f" '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else " "
+                    loc_name_str = f" '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else ""
                     text = f"☀️ สภาพอากาศ ณ พิกัด{loc_name_str}เคลียร์แล้ว\n(ไม่มีแนวโน้มฝนตกในขณะนี้)"
                     return {
                         "loc": loc,
@@ -111,7 +111,7 @@ async def _evaluate_location(loc, repo, weather_manager, now, sem):
                 elif endpoint_source == "rainbow-local": source_name = "Rainbow (Local)"
                 elif endpoint_source == "rainbow-global": source_name = "Rainbow (Global)"
                 
-                loc_name_str = f" '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else " "
+                loc_name_str = f" '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else ""
                 
                 if not rain_start_dt:
                     rain_start_dt = datetime.now(timezone.utc) + timedelta(minutes=eta_minutes)
