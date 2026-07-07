@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 5,
@@ -45,10 +45,7 @@
         "backend/tests/test_developer_commands.py",
         "backend/tests/test_firestore.py",
         "backend/tests/test_line_integration.py",
-        "backend/tests/test_output.png",
-        "backend/tests/tracking_test.png",
-        "luma/prompts/prompt_20260707_114206_b665992f.md",
-        "luma/prompts/prompt_20260707_114208_490773bf.md",
+        "docs/ROADMAP.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -136,7 +133,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/53",
   "pr_number": null,
-  "last_updated": "2026-07-07T18:42:25.487357"
+  "last_updated": "2026-07-07T18:45:53.629339"
 }

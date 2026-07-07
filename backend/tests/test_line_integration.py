@@ -9,6 +9,13 @@ from app.repositories.base import LocationRepository
 @pytest.mark.asyncio
 async def test_location_repository_supports_string_chat_id():
     """Verify repository save and retrieve works with string chat_id (e.g. Line user id)."""
+    import os
+    if os.getenv("STORAGE_BACKEND", "sqlite").lower() == "sqlite":
+        from app.database import engine
+        from app.models import Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
     from app.dependencies import get_repo_context
     async with get_repo_context() as repo:
         chat_id = "U1234567890abcdef1234567890abcdef"
