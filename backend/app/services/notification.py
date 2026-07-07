@@ -75,8 +75,9 @@ class LineNotificationService(NotificationService):
     def _upload_media(self, media_bytes: bytes, content_type: str, file_ext: str) -> Optional[str]:
         """Uploads media bytes to GCS or hosts locally, returning a public URL for Line to fetch."""
         try:
+            is_dev = os.getenv("ENVIRONMENT", "development").lower() == "development"
             base_url = os.getenv("WORKER_BASE_URL")
-            if base_url:
+            if is_dev and base_url:
                 static_dir = os.path.join(os.getcwd(), "static", "temp_media")
                 os.makedirs(static_dir, exist_ok=True)
                 
