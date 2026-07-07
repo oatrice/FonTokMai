@@ -73,23 +73,9 @@ class LineNotificationService(NotificationService):
         self.config = Configuration(access_token=self.access_token)
 
     def _upload_media(self, media_bytes: bytes, content_type: str, file_ext: str) -> Optional[str]:
-        """Uploads media bytes to GCS or hosts locally, returning a public URL for Line to fetch."""
+        """Uploads media bytes to GCS (public) or hosts locally as fallback, returning a public URL."""
+        # 1. Try GCS first (preferred for production multi-instance load balancing)
         try:
-            is_dev = os.getenv("ENVIRONMENT", "development").lower() == "development"
-            base_url = os.getenv("WORKER_BASE_URL")
-            if is_dev and base_url:
-                static_dir = os.path.join(os.getcwd(), "static", "temp_media")
-                os.makedirs(static_dir, exist_ok=True)
-                
-                filename = f"{uuid.uuid4()}{file_ext}"
-                file_path = os.path.join(static_dir, filename)
-                with open(file_path, "wb") as f:
-                    f.write(media_bytes)
-                
-                url = f"{base_url.rstrip('/')}/static/temp_media/{filename}"
-                logger.info(f"Hosted Line media locally via ngrok: {url}")
-                return url
-
             from google.cloud import storage
             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
             client = storage.Client()
@@ -99,12 +85,48 @@ class LineNotificationService(NotificationService):
             blob = bucket.blob(filename)
             blob.upload_from_string(media_bytes, content_type=content_type)
             
-            encoded_path = urllib.parse.quote(filename, safe='')
-            url = f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/{encoded_path}?alt=media"
-            return url
-        except Exception as e:
-            logger.error(f"Failed to host Line temp media: {e}")
-            return None
+            # Make the object public so LINE can access it without tokens
+            try:
+                blob.make_public()
+                url = blob.public_url
+                logger.info(f"Successfully uploaded and made public on GCS: {url}")
+                return url
+            except Exception as e:
+                logger.warning(f"Failed to make GCS blob public, trying signed URL: {e}")
+                import datetime
+                try:
+                    url = blob.generate_signed_url(
+                        version="v4",
+                        expiration=datetime.timedelta(minutes=30),
+                        method="GET"
+                    )
+                    logger.info(f"Generated GCS signed URL: {url}")
+                    return url
+                except Exception as sign_err:
+                    logger.warning(f"Failed to generate signed URL: {sign_err}")
+                    # Fall through to local hosting fallback
+        except Exception as gcs_err:
+            logger.warning(f"GCS upload failed, falling back to local static hosting: {gcs_err}")
+
+        # 2. Fallback: Host locally (uses ngrok in dev, or local filesystem in production)
+        try:
+            base_url = os.getenv("WORKER_BASE_URL")
+            if base_url:
+                static_dir = os.path.join(os.getcwd(), "static", "temp_media")
+                os.makedirs(static_dir, exist_ok=True)
+                
+                filename = f"{uuid.uuid4()}{file_ext}"
+                file_path = os.path.join(static_dir, filename)
+                with open(file_path, "wb") as f:
+                    f.write(media_bytes)
+                
+                url = f"{base_url.rstrip('/')}/static/temp_media/{filename}"
+                logger.info(f"Hosted Line media locally (fallback): {url}")
+                return url
+        except Exception as local_err:
+            logger.error(f"Failed to host Line temp media locally: {local_err}")
+            
+        return None
 
     async def send_text_message(self, recipient_id: str, text: str, reply_markup: Optional[dict] = None) -> bool:
         # Line does not use standard telegram reply_markups. We send text messages directly.
