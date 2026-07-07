@@ -1253,6 +1253,19 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "")
                 await send_telegram_message(chat_id, f"❌ อ่านเวลาจากภาพใหม่ไม่สำเร็จ")
                 return
                 
+            # Check if the retrieved static image is outdated (older than 2 hours)
+            now_ts = time.time()
+            static_age_minutes = (now_ts - new_ts) / 60.0
+            if static_age_minutes > 120.0:
+                await send_telegram_message(
+                    chat_id, 
+                    f"⚠️ ตรวจพบภาพนิ่ง (Static) ล้าหลังเกิน 2 ชั่วโมง ({static_age_minutes:.0f} นาที) ทำการล้าง Cache เพื่อบังคับดึง Loop GIF ใหม่ครับ"
+                )
+                _GLOBAL_TMD_CACHE.pop(station, None)
+                async with get_repo_context() as repo:
+                    await repo.set_latest_radar_cache(station, [])
+                return
+                
             if new_ts <= frame_timestamps[-1]:
                 await send_telegram_message(chat_id, f"⚠️ ภาพล่าสุดในเว็บ ({datetime.fromtimestamp(new_ts).strftime('%H:%M')}) ยังไม่ใหม่กว่าที่เรามีอยู่ ({datetime.fromtimestamp(frame_timestamps[-1]).strftime('%H:%M')})")
                 return
