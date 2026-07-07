@@ -549,7 +549,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #5 - Integrate Notification Services for Line OA
 - **GitHub:** [#5](https://gitlab.com/oatricedev/FonMaYang/-/issues/5)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.49.0)
 
 ### Issue #4 - Implement Background Task Scheduler for automated polling
 - **GitHub:** [#4](https://gitlab.com/oatricedev/FonMaYang/-/issues/4)

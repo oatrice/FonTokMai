@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.49.0] - 2026-07-07
+
+### Added
+- Integrated LINE Official Account (OA) notification services using `line-bot-sdk-python` v3.
+- Created LINE Webhook router supporting location message sharing (for opting in to proactive rain alerts) and automatic weather forecasts.
+- Implemented text command support on LINE OA (`/rain`, `/rain_pro`, `/check`, `/mylocation`, `/devmock`) to match existing Telegram bot command behaviors.
+- Implemented local static media hosting (serving media via `WORKER_BASE_URL` / ngrok) during development to bypass cloud storage latency and permission constraints.
+
+### Changed
+- Refactored database and repository schemas (SQLite & Firestore) to convert `chat_id` columns from Integer/BigInteger to String, allowing compatibility with LINE's string-based user IDs.
+- Updated existing test suites to handle string-based `chat_id` and updated developer command tests to patch environment settings during verification.
+
 ## [0.48.0] - 2026-07-07
 
 ### Added

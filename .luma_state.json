@@ -18,21 +18,51 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
-        "luma/prompts/prompt_20260707_102116_9d8dc3a5.md",
+        "VERSION",
+        "backend/.env.example",
+        "backend/app/main.py",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/line_webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/notification.py",
+        "backend/deploy/deploy_cloudrun.sh",
+        "backend/requirements.txt",
+        "backend/tests/test_db.py",
+        "backend/tests/test_developer_commands.py",
+        "backend/tests/test_firestore.py",
+        "backend/tests/test_line_integration.py",
+        "backend/tests/test_output.png",
+        "backend/tests/tracking_test.png",
+        "luma/prompts/prompt_20260707_114206_b665992f.md",
+        "luma/prompts/prompt_20260707_114208_490773bf.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/.env.example",
+        "backend/app/main.py",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/line_webhook.py",
+        "backend/app/scheduler_tasks.py",
+        "backend/app/services/notification.py",
+        "backend/deploy/deploy_cloudrun.sh",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -108,5 +138,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-07T17:31:15.468444"
+  "last_updated": "2026-07-07T18:42:25.487357"
 }
