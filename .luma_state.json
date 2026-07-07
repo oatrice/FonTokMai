@@ -1,86 +1,66 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 135,
-      "title": "Feature: Implement Emergency Admin Bypass Password for restricted bot commands in Production",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/135",
+      "number": 122,
+      "title": "bug: Triple alert spam — user with multiple locations receives duplicate alerts per cycle",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/122",
       "body": null,
-      "project_item_id": "GLAB_135",
+      "project_item_id": "GLAB_122",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 68,
-      "title": "Feature: Export metrics via Telegram command (/metrics)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/68",
+      "number": 123,
+      "title": "bug: Xweather 429 circuit breaker triggered every devmock/scheduler cycle with multiple locations",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/123",
       "body": null,
-      "project_item_id": "GLAB_68",
+      "project_item_id": "GLAB_123",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 81,
-      "title": "Feature: Adjust GCP Budget via Telegram command (/setbudget)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/81",
+      "number": 132,
+      "title": "Fix notification formatting duplication in scheduler tasks",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/132",
       "body": null,
-      "project_item_id": "GLAB_81",
+      "project_item_id": "GLAB_132",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 140,
+      "title": "UX: Display user-friendly API error messages instead of raw HTTP exceptions in /rain_pro",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/140",
+      "body": null,
+      "project_item_id": "GLAB_140",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/135-feature-implement-emergency-ad",
-  "started_at": "2026-07-07T12:03:39.665526",
+  "active_branch": "feat/122-123-132-140-bug-triple-alert-spam-user-wit",
+  "started_at": "2026-07-07T16:34:31.312143",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "backend/.env.example",
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/billing_service.py",
-        "backend/app/services/ocr_service.py",
-        "backend/app/services/tmd_radar_config.py",
-        "backend/app/services/weather_manager.py",
-        "backend/requirements.txt",
-        "backend/tests/test_admin_bypass.py",
-        "backend/tests/test_developer_commands.py",
-        "backend/tests/test_devmock.py",
-        "backend/tests/test_tmd_radar_e2e.py",
+        "VERSION"
+      ],
+      "changed_files": [
+        "backend/scripts/setup_iam_roles.sh",
+        "backend/tests/test_deploy_env_sync.py",
         "docs/ROADMAP.md",
-        "luma_metrics.json",
+        "luma/prompts/prompt_20260707_093426_48da8dab.md",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/.env.example",
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/billing_service.py",
-        "backend/app/services/ocr_service.py",
-        "backend/app/services/tmd_radar_config.py",
-        "backend/app/services/weather_manager.py",
-        "luma_metrics.json",
+        "backend/scripts/setup_iam_roles.sh",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -153,7 +133,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/51",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-07T12:14:04.978084"
+  "last_updated": "2026-07-07T16:34:38.803099"
 }

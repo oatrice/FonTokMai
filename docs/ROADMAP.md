@@ -27,6 +27,18 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #140 - UX: Display user-friendly API error messages instead of raw HTTP exceptions in /rain_pro
+- **GitHub:** [#140](https://gitlab.com/oatricedev/FonMaYang/-/issues/140)
+- **Status:** 🟢 **Ready**
+
+### Issue #139 - Feature: Rotate ADMIN_BYPASS_PASSWORD dynamically using TOTP (OTP)
+- **GitHub:** [#139](https://gitlab.com/oatricedev/FonMaYang/-/issues/139)
+- **Status:** 🟢 **Ready**
+
+### Issue #138 - Implement radar noise filtering and multi-station cross-referencing to prevent false rain alerts
+- **GitHub:** [#138](https://gitlab.com/oatricedev/FonMaYang/-/issues/138)
+- **Status:** 🟢 **Ready**
+
 ### Issue #137 - Feature: Integrate Multimodal Gen AI with 6-frame sequence for rain forecasting
 - **GitHub:** [#137](https://gitlab.com/oatricedev/FonMaYang/-/issues/137)
 - **Status:** 🟢 **Ready**
