@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import asyncio
 from typing import Dict, Any, Optional
 from google.cloud import tasks_v2
 
@@ -15,14 +16,26 @@ class CloudTasksService:
         # The absolute URL where the worker endpoints are hosted
         self.base_url = os.getenv("WORKER_BASE_URL")
         
-        try:
-            self.client = tasks_v2.CloudTasksClient()
-            self.parent = self.client.queue_path(self.project_id, self.location, self.queue_name)
-        except Exception as e:
-            logger.warning(f"Could not initialize Cloud Tasks client: {e}")
-            self.client = None
+        self._client = None
+        self._parent = None
 
-    def enqueue_task(self, endpoint_path: str, payload: Dict[str, Any], in_seconds: int = 0) -> Optional[str]:
+    @property
+    def client(self):
+        if self._client is None:
+            try:
+                self._client = tasks_v2.CloudTasksClient()
+            except Exception as e:
+                logger.warning(f"Could not initialize Cloud Tasks client: {e}")
+                self._client = None
+        return self._client
+
+    @property
+    def parent(self):
+        if self._parent is None and self.client is not None:
+            self._parent = self.client.queue_path(self.project_id, self.location, self.queue_name)
+        return self._parent
+
+    async def enqueue_task(self, endpoint_path: str, payload: Dict[str, Any], in_seconds: int = 0) -> Optional[str]:
         """
         Enqueues an HTTP POST task to the worker router.
         """
@@ -55,7 +68,11 @@ class CloudTasksService:
             task["schedule_time"] = timestamp
 
         try:
-            response = self.client.create_task(request={"parent": self.parent, "task": task})
+            response = await asyncio.to_thread(
+                self.client.create_task,
+                request={"parent": self.parent, "task": task},
+                timeout=5.0
+            )
             logger.info(f"Created task {response.name} for {url}")
             return response.name
         except Exception as e:

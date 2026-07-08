@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.50.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
+**v0.51.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
 ใช้ภาพเรดาร์ TMD + Optical Flow เพื่อคาดการณ์ฝนล่วงหน้า 15–90 นาที
 
 ---
@@ -98,6 +98,7 @@ WeatherManager.predict_rain()
 | `backend/scripts/setup_iam_roles.sh` | Configure IAM roles for Cloud Run Service Account |
 | `backend/scripts/setup_schedulers.sh` | Apply Cloud Scheduler jobs from config |
 | `backend/scripts/sync_schedulers.py` | Sync scheduler config from GCP |
+| `backend/scripts/migrate_issue145.py` | Migrate user location for Nong Khai House and deprecate stale home coordinates |
 
 ---
 
@@ -114,6 +115,8 @@ Key test files:
 - `tests/test_e2e_mock_scenario.py` — Parametric mock scenario (33 tests)
 - `tests/test_multiframe_analysis.py` — Multi-frame visualization (16 tests)
 - `tests/test_line_integration.py` — LINE integration, commands, and webhook handling
+- `tests/test_grpc_fork_config.py` — gRPC fork configuration and lazy tasks client tests
+- `tests/test_async_enqueue_task.py` — Async tasks enqueue verification tests
 
 ---
 
@@ -121,4 +124,4 @@ Key test files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.50.0** — Health endpoint HEAD request support, radar GIF validation, and LINE Rich Menu requirement analysis (Disabled Xweather by default due to trial expiry)
+Current: **v0.51.0** — Lazy initialization and async Cloud Tasks enqueuing with timeout to prevent deadlocks; updated Firestore queries to use FieldFilter keyword arguments; added coordinate migration script for Nong Khai House.

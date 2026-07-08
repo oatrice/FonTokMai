@@ -23,7 +23,7 @@ async def trigger_rain_check(background_tasks: BackgroundTasks, x_cron_secret: s
         raise HTTPException(status_code=401, detail="Unauthorized")
         
     tasks_svc = CloudTasksService()
-    task_name = tasks_svc.enqueue_task("worker/check-rain", {})
+    task_name = await tasks_svc.enqueue_task("worker/check-rain", {})
     if not task_name:
         from app.scheduler_tasks import check_rain_and_alert
         background_tasks.add_task(check_rain_and_alert)
@@ -36,7 +36,7 @@ async def trigger_disasters_frequent(background_tasks: BackgroundTasks, x_cron_s
         raise HTTPException(status_code=401, detail="Unauthorized")
         
     tasks_svc = CloudTasksService()
-    task_name = tasks_svc.enqueue_task("worker/check-disasters-frequent", {})
+    task_name = await tasks_svc.enqueue_task("worker/check-disasters-frequent", {})
     if not task_name:
         from app.scheduler_tasks import check_disasters_frequent_routine
         background_tasks.add_task(check_disasters_frequent_routine)
@@ -49,7 +49,7 @@ async def trigger_disasters_infrequent(background_tasks: BackgroundTasks, x_cron
         raise HTTPException(status_code=401, detail="Unauthorized")
         
     tasks_svc = CloudTasksService()
-    task_name = tasks_svc.enqueue_task("worker/check-disasters-infrequent", {})
+    task_name = await tasks_svc.enqueue_task("worker/check-disasters-infrequent", {})
     if not task_name:
         from app.scheduler_tasks import check_disasters_infrequent_routine
         background_tasks.add_task(check_disasters_infrequent_routine)
@@ -62,7 +62,7 @@ async def trigger_fetch_tmd_radar(background_tasks: BackgroundTasks, x_cron_secr
         raise HTTPException(status_code=401, detail="Unauthorized")
         
     tasks_svc = CloudTasksService()
-    task_name = tasks_svc.enqueue_task("worker/fetch-tmd-radar", {})
+    task_name = await tasks_svc.enqueue_task("worker/fetch-tmd-radar", {})
     if not task_name:
         from app.scheduler_tasks import fetch_tmd_radar_routine
         background_tasks.add_task(fetch_tmd_radar_routine)
@@ -85,7 +85,7 @@ async def trigger_mock_disaster(payload: MockDisasterPayload, background_tasks: 
         raise HTTPException(status_code=401, detail="Unauthorized")
         
     tasks_svc = CloudTasksService()
-    task_name = tasks_svc.enqueue_task("worker/trigger-mock-disaster", payload.model_dump())
+    task_name = await tasks_svc.enqueue_task("worker/trigger-mock-disaster", payload.model_dump())
     if not task_name:
         from app.scheduler_tasks import trigger_mock_disaster
         background_tasks.add_task(trigger_mock_disaster, payload.model_dump())

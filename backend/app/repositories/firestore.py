@@ -30,16 +30,17 @@ class FirestoreLocationRepository(LocationRepository):
         return None
 
     async def get_user_locations(self, chat_id: Union[str, int]) -> List[UserLocation]:
+        from google.cloud.firestore_v1.base_query import FieldFilter
         chat_id_str = str(chat_id)
         locations = []
-        async for doc in self.collection.where("chat_id", "==", chat_id_str).stream():
+        async for doc in self.collection.where(filter=FieldFilter("chat_id", "==", chat_id_str)).stream():
             data = doc.to_dict()
             locations.append(self._dict_to_model(data))
             
         if not locations:
             try:
                 chat_id_int = int(chat_id)
-                async for doc in self.collection.where("chat_id", "==", chat_id_int).stream():
+                async for doc in self.collection.where(filter=FieldFilter("chat_id", "==", chat_id_int)).stream():
                     data = doc.to_dict()
                     locations.append(self._dict_to_model(data))
             except ValueError:
@@ -374,9 +375,10 @@ class FirestoreLocationRepository(LocationRepository):
         from datetime import timedelta
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
         
-        query = self.db.collection('cron_metrics').where("run_at", ">=", cutoff_date)
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        query = self.db.collection('cron_metrics').where(filter=FieldFilter("run_at", ">=", cutoff_date))
         if routine_name:
-            query = query.where("routine_name", "==", routine_name)
+            query = query.where(filter=FieldFilter("routine_name", "==", routine_name))
             
         # Note: Firestore might require an index for order_by with multiple fields/where clauses.
         # To avoid index errors during deployment, we'll sort in python since volume isn't huge.

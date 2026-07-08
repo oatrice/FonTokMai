@@ -77,7 +77,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #145 - 🛠️ Weather Analysis & Location Update: Register Nong Khai House and Deprecate Stale Coordinates
 - **GitHub:** [#145](https://gitlab.com/oatricedev/FonMaYang/-/issues/145)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.51.0)
 
 ### Issue #144 - Infrastructure: Migrate system architecture from GCP to AWS
 - **GitHub:** [#144](https://gitlab.com/oatricedev/FonMaYang/-/issues/144)
@@ -125,7 +125,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #133 - Fix Cloud Tasks timeout (504 Deadline Exceeded) caused by unsafe gRPC fork
 - **GitHub:** [#133](https://gitlab.com/oatricedev/FonMaYang/-/issues/133)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.51.0)
 
 ### Issue #132 - Fix notification formatting duplication in scheduler tasks
 - **GitHub:** [#132](https://gitlab.com/oatricedev/FonMaYang/-/issues/132)
@@ -153,11 +153,11 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #125 - chore: gRPC fork warnings polluting logs — FD from fork parent still in poll list
 - **GitHub:** [#125](https://gitlab.com/oatricedev/FonMaYang/-/issues/125)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.51.0)
 
 ### Issue #124 - bug: Cloud Tasks 504 Deadline Exceeded causes silent failure — devmock/rain command dropped silently
 - **GitHub:** [#124](https://gitlab.com/oatricedev/FonMaYang/-/issues/124)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.51.0)
 
 ### Issue #123 - bug: Xweather 429 circuit breaker triggered every devmock/scheduler cycle with multiple locations
 - **GitHub:** [#123](https://gitlab.com/oatricedev/FonMaYang/-/issues/123)

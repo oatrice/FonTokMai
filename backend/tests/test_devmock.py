@@ -16,7 +16,7 @@ from fastapi import Request, BackgroundTasks
 def mock_cloud_tasks():
     with patch("app.services.cloud_tasks.CloudTasksService") as mock_cls:
         mock_instance = MagicMock()
-        mock_instance.enqueue_task.return_value = None
+        mock_instance.enqueue_task = AsyncMock(return_value=None)
         mock_cls.return_value = mock_instance
         yield mock_instance
 
