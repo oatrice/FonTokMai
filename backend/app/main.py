@@ -1,3 +1,5 @@
+import os
+os.environ["GRPC_ENABLE_FORK_SUPPORT"] = "1"
 from dotenv import load_dotenv
 load_dotenv()
 import logging

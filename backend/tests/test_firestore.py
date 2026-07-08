@@ -199,7 +199,14 @@ async def test_get_user_locations(firestore_repo):
     assert len(locs) == 2
     assert locs[0].name == "Home"
     assert locs[1].name == "Work"
-    firestore_repo.mock_collection.where.assert_called_once_with("chat_id", "==", str(chat_id))
+    from google.cloud.firestore_v1.base_query import FieldFilter
+    call_args = firestore_repo.mock_collection.where.call_args
+    assert call_args is not None
+    filter_obj = call_args.kwargs.get("filter")
+    assert filter_obj is not None
+    assert filter_obj.field_path == "chat_id"
+    assert filter_obj.op_string == "=="
+    assert filter_obj.value == str(chat_id)
 
 @pytest.mark.asyncio
 async def test_get_user_locations_handles_integer_chat_id(firestore_repo):
@@ -208,7 +215,13 @@ async def test_get_user_locations_handles_integer_chat_id(firestore_repo):
     mock_query_int = MagicMock()
     
     # Mocking where to return query matching either string or int
-    def mock_where(field, op, value):
+    def mock_where(*args, **kwargs):
+        filter_obj = kwargs.get("filter")
+        if filter_obj:
+            value = filter_obj.value
+        else:
+            value = args[2] if len(args) > 2 else None
+            
         if isinstance(value, str):
             return mock_query_str
         elif isinstance(value, int):

@@ -15,12 +15,24 @@ class CloudTasksService:
         # The absolute URL where the worker endpoints are hosted
         self.base_url = os.getenv("WORKER_BASE_URL")
         
-        try:
-            self.client = tasks_v2.CloudTasksClient()
-            self.parent = self.client.queue_path(self.project_id, self.location, self.queue_name)
-        except Exception as e:
-            logger.warning(f"Could not initialize Cloud Tasks client: {e}")
-            self.client = None
+        self._client = None
+        self._parent = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            try:
+                self._client = tasks_v2.CloudTasksClient()
+            except Exception as e:
+                logger.warning(f"Could not initialize Cloud Tasks client: {e}")
+                self._client = None
+        return self._client
+
+    @property
+    def parent(self):
+        if self._parent is None and self.client is not None:
+            self._parent = self.client.queue_path(self.project_id, self.location, self.queue_name)
+        return self._parent
 
     def enqueue_task(self, endpoint_path: str, payload: Dict[str, Any], in_seconds: int = 0) -> Optional[str]:
         """
