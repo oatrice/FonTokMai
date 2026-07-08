@@ -1455,6 +1455,21 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
 
 @router.post("/webhook")
 async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
+    try:
+        return await _telegram_webhook_impl(request, background_tasks)
+    except Exception as e:
+        logger.exception(f"Error in telegram_webhook: {e}")
+        try:
+            payload = await request.json()
+            chat_id = payload.get("message", {}).get("chat", {}).get("id")
+        except Exception:
+            chat_id = None
+        if chat_id:
+            from app.services.telegram import send_telegram_message
+            await send_telegram_message(chat_id, "⚠️ ระบบยุ่งชั่วคราว กรุณาลองใหม่อีกครั้ง")
+        return {"status": "error", "detail": str(e)}
+
+async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundTasks):
     payload = await request.json()
 
     if "callback_query" in payload:
@@ -1489,7 +1504,7 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
                     "chat_id": chat_id, "lat": lat, "lng": lng,
                     "message_id_to_edit": loading_msg_id
                 }
-                if not tasks_svc.enqueue_task("worker/process-telegram-location", payload):
+                if not await tasks_svc.enqueue_task("worker/process-telegram-location", payload):
                     # ส่ง message_id ไปให้ background task เพื่อ edit ต่อเมื่อเสร็จ
                     background_tasks.add_task(
                         process_telegram_location, chat_id, lat, lng,
@@ -1505,12 +1520,12 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
         tasks_svc = CloudTasksService()
 
         if text.startswith("/mylocation") and chat_id:
-            if not tasks_svc.enqueue_task("worker/handle-mylocation", {"chat_id": chat_id}):
+            if not await tasks_svc.enqueue_task("worker/handle-mylocation", {"chat_id": chat_id}):
                 background_tasks.add_task(handle_mylocation_command, chat_id)
             return {"status": "ok"}
 
         if text.startswith("/radar") and chat_id:
-            if not tasks_svc.enqueue_task("worker/handle-radar", {"chat_id": chat_id}):
+            if not await tasks_svc.enqueue_task("worker/handle-radar", {"chat_id": chat_id}):
                 background_tasks.add_task(handle_radar_command, chat_id)
             return {"status": "ok"}
             
@@ -1560,17 +1575,17 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
             return {"status": "ok"}
 
         if text.startswith("/rain_pro") and chat_id:
-            if not tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text, "show_advanced": True}):
+            if not await tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text, "show_advanced": True}):
                 background_tasks.add_task(handle_rain_command, chat_id, text, show_advanced=True)
             return {"status": "ok"}
 
         if text.startswith("/rain") and chat_id:
-            if not tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text}):
+            if not await tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text}):
                 background_tasks.add_task(handle_rain_command, chat_id, text)
             return {"status": "ok"}
 
         if text.startswith("/devmock") and chat_id:
-            if not tasks_svc.enqueue_task("worker/handle-devmock", {"chat_id": chat_id, "command": text.strip()}):
+            if not await tasks_svc.enqueue_task("worker/handle-devmock", {"chat_id": chat_id, "command": text.strip()}):
                 background_tasks.add_task(handle_devmock_command, chat_id, text.strip())
             return {"status": "ok"}
 
@@ -1581,7 +1596,7 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
         # /check — shorthand alias for /rain tmd-radar (for manual testing)
         if text.strip() == "/check" and chat_id:
             logger.info(f"[WEBHOOK] /check received from chat_id={chat_id}, routing to handle_rain_command with 'tmd-radar'")
-            if not tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": "/rain tmd-radar"}):
+            if not await tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": "/rain tmd-radar"}):
                 background_tasks.add_task(handle_rain_command, chat_id, "/rain tmd-radar")
             return {"status": "ok"}
 

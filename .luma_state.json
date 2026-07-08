@@ -2,14 +2,122 @@
   "version": "1.0",
   "project_key": "18",
   "phase": "idle",
-  "active_issues": [],
+  "active_issues": [
+    {
+      "number": 124,
+      "title": "bug: Cloud Tasks 504 Deadline Exceeded causes silent failure — devmock/rain command dropped silently",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/124",
+      "body": null,
+      "project_item_id": "GLAB_124",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    }
+  ],
   "active_branch": null,
   "started_at": null,
-  "checklist": {},
-  "context": {},
+  "checklist": {
+    "step_planning": true
+  },
+  "context": {
+    "pending_doc_updates": {
+      "pending": [
+        "CHANGELOG.md",
+        "README.md",
+        "VERSION"
+      ],
+      "changed_files": [
+        "backend/.env.example",
+        "backend/app/main.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/services/cloud_tasks.py",
+        "backend/deploy/deploy_cloudrun.sh",
+        "backend/scripts/migrate_issue145.py",
+        "backend/tests/test_firestore.py",
+        "backend/tests/test_grpc_fork_config.py",
+        "luma_metrics.json",
+        "luma_state.json"
+      ],
+      "meaningful_files": [
+        "backend/.env.example",
+        "backend/app/main.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/services/cloud_tasks.py",
+        "backend/deploy/deploy_cloudrun.sh",
+        "backend/scripts/migrate_issue145.py",
+        "luma_metrics.json",
+        "luma_state.json"
+      ],
+      "version_file": "VERSION",
+      "has_meaningful_changes": true
+    },
+    "target_planning_repos": [
+      {
+        "name": "FonMaYang",
+        "path": "/Users/oatrice/Software Project/FonMaYang",
+        "repo": "oatricedev/FonMaYang",
+        "slug": "fonmayang",
+        "kanban_number": 1,
+        "kanban_id": "",
+        "platform": "gitlab",
+        "status_workflow": {
+          "selectable_statuses": [
+            "Ready",
+            "In Progress",
+            "Todo"
+          ],
+          "selection_order": [
+            "In Progress",
+            "Ready",
+            "Todo"
+          ],
+          "active_statuses": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review"
+          ],
+          "active_sort_order": [
+            "In Progress",
+            "Ready",
+            "Todo",
+            "In Review",
+            "Backlog"
+          ],
+          "board_order": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review",
+            "Done",
+            "Closed"
+          ],
+          "done_statuses": [
+            "Done",
+            "Closed"
+          ],
+          "status_icons": {
+            "Backlog": "📥 ",
+            "Ready": "✅ ",
+            "Todo": "📝 ",
+            "In Progress": "🔥 ",
+            "In Review": "👀 ",
+            "Done": "✅ ",
+            "Closed": "✅ "
+          },
+          "action_status_map": {
+            "select_issue": "In Progress",
+            "create_pr": "In Review",
+            "pr_merged": "Done"
+          }
+        }
+      }
+    ]
+  },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-08T17:33:08.401987"
+  "last_updated": "2026-07-08T19:12:49.372971"
 }

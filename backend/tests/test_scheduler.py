@@ -386,7 +386,7 @@ def test_trigger_rain_check_endpoint_success():
         
     secret = "test_cron_secret_scheduler"
     with patch("app.routers.scheduler.CRON_SECRET", secret):
-        with patch("app.routers.scheduler.CloudTasksService.enqueue_task", return_value="projects/my-project/locations/asia/queues/my-queue/tasks/12345") as mock_enqueue:
+        with patch("app.routers.scheduler.CloudTasksService.enqueue_task", new_callable=AsyncMock, return_value="projects/my-project/locations/asia/queues/my-queue/tasks/12345") as mock_enqueue:
             with TestClient(app) as test_client:
                 response = test_client.post("/api/v1/cron/check-rain", headers={"X-Cron-Secret": secret})
         

@@ -34,10 +34,11 @@ class CloudTasksService:
             self._parent = self.client.queue_path(self.project_id, self.location, self.queue_name)
         return self._parent
 
-    def enqueue_task(self, endpoint_path: str, payload: Dict[str, Any], in_seconds: int = 0) -> Optional[str]:
+    async def enqueue_task(self, endpoint_path: str, payload: Dict[str, Any], in_seconds: int = 0) -> Optional[str]:
         """
         Enqueues an HTTP POST task to the worker router.
         """
+        import asyncio
         if not self.client or not self.base_url:
             logger.warning(f"Cloud Tasks client or WORKER_BASE_URL not configured. Cannot enqueue to {endpoint_path}.")
             return None
@@ -67,7 +68,11 @@ class CloudTasksService:
             task["schedule_time"] = timestamp
 
         try:
-            response = self.client.create_task(request={"parent": self.parent, "task": task})
+            response = await asyncio.to_thread(
+                self.client.create_task,
+                request={"parent": self.parent, "task": task},
+                timeout=5.0
+            )
             logger.info(f"Created task {response.name} for {url}")
             return response.name
         except Exception as e:
