@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.0] - 2026-07-08
+
+### Added
+- Added migration script `migrate_issue145.py` to register coordinates for `"Nong Khai House"` (`17.874829834, 102.740330372`) and clean up stale `"home"` coordinates.
+- Added tests `test_async_enqueue_task.py` and `test_grpc_fork_config.py` to verify gRPC fork configurations and async tasks enqueuing.
+
+### Changed
+- Converted `CloudTasksService.enqueue_task` to be an asynchronous method (`async def`) utilizing `asyncio.to_thread` with a 5.0-second timeout to resolve Cloud Tasks 504 Deadline Exceeded timeouts.
+- Implemented lazy client initialization in `CloudTasksService` to prevent gRPC connections from initiating before Uvicorn process forks, avoiding startup deadlocks.
+- Enabled `GRPC_ENABLE_FORK_SUPPORT=1` in `app/main.py`, `.env.example`, and `deploy_cloudrun.sh` to ensure safe gRPC fork behaviors.
+- Upgraded deprecated Cloud Firestore positional queries in `firestore.py` and unit tests to keyword-based `FieldFilter` query formats.
+- Wrapped the Telegram webhook handler in `webhook.py` inside a top-level error handling block to provide user-facing alerts (`⚠️ ระบบยุ่งชั่วคราว กรุณาลองใหม่อีกครั้ง`) on failed task enqueues.
+
 ## [0.50.0] - 2026-07-08
 
 ### Added
