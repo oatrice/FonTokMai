@@ -101,6 +101,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def root():
     return RedirectResponse(url="/docs")
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
     return {"status": "ok"}
