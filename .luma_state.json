@@ -16,7 +16,9 @@
   "active_branch": null,
   "started_at": null,
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -119,5 +121,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-08T19:12:49.372971"
+  "last_updated": "2026-07-08T19:17:01.739615"
 }

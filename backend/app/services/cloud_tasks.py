@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import asyncio
 from typing import Dict, Any, Optional
 from google.cloud import tasks_v2
 
@@ -38,7 +39,6 @@ class CloudTasksService:
         """
         Enqueues an HTTP POST task to the worker router.
         """
-        import asyncio
         if not self.client or not self.base_url:
             logger.warning(f"Cloud Tasks client or WORKER_BASE_URL not configured. Cannot enqueue to {endpoint_path}.")
             return None
