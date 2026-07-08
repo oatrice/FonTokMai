@@ -85,11 +85,11 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #143 - ตรวจสอบความสมบูรณ์ของลิงก์ภาพเคลื่อนไหว (Loop GIF) ของเรดาร์ที่สถานีขอนแก่น kkn120
 - **GitHub:** [#143](https://gitlab.com/oatricedev/FonMaYang/-/issues/143)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.50.0)
 
 ### Issue #142 - ปรับ Endpoint /health ใน FastAPI ให้รองรับการเรียกแบบ HEAD ด้วย
 - **GitHub:** [#142](https://gitlab.com/oatricedev/FonMaYang/-/issues/142)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.50.0)
 
 ### Issue #141 - Feature: Enhance LINE OA with Rich Menu, Flex Messages, and Quick Replies
 - **GitHub:** [#141](https://gitlab.com/oatricedev/FonMaYang/-/issues/141)
