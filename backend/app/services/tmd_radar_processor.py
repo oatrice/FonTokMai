@@ -2023,10 +2023,19 @@ class TMDRadarProcessor:
                             f"[{self.station_code}] Loop GIF URL returned HTTP {response.status_code}: {url}"
                         )
             except Exception as e:
-                print(f"Error fetching loop gif: {e}")
+                logger.error(f"[{self.station_code}] Error fetching loop gif: {e}")
 
                 
         if loop_bytes:
+            # Validate magic bytes: TMD server sometimes returns non-GIF content
+            # (HTML error pages, empty bodies) which causes Pillow/OpenCV to crash.
+            if not (loop_bytes[:6] in (b"GIF87a", b"GIF89a")):
+                logger.warning(
+                    f"[{self.station_code}] Loop GIF bytes are not a valid GIF image "
+                    f"(magic={loop_bytes[:6]!r}, size={len(loop_bytes)}). Skipping frame extraction."
+                )
+                return [], None, None
+
             try:
                 img = Image.open(io.BytesIO(loop_bytes))
                 frames = []
@@ -2055,11 +2064,11 @@ class TMDRadarProcessor:
                         if ts is not None:
                             dt = datetime.fromtimestamp(ts, timezone.utc)
                 except Exception as e:
-                    print(f"Error in OCR: {e}")
+                    logger.warning(f"[{self.station_code}] Error in OCR timestamp extraction: {e}")
 
                 return frames, dt, loop_bytes
             except Exception as e:
-                print(f"Error processing loop gif: {e}")
+                logger.error(f"[{self.station_code}] Error processing loop gif: {e}")
         return [], None, None
 
     async def fetch_loop_history_bytes(self) -> List[bytes]:

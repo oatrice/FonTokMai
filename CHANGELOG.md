@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.0] - 2026-07-08
+
+### Added
+- Added magic bytes validation (checking `GIF87a`/`GIF89a`) in `TMDRadarProcessor` to filter out invalid radar payloads and avoid OpenCV crashes.
+- Created local verification script `verify_gif_validation.py` to test radar GIF validation.
+- Documented LINE Rich Menu requirements and mock commands integration under `docs/requirement_analysis_line_rich_menu.md`.
+
+### Changed
+- Configured `/health` endpoint to support both `GET` and `HEAD` methods to resolve load balancer/Cloud Run checking issues (returning 405).
+- Disabled Xweather by default (`XWEATHER_ENABLED=false`) in `.env.example` as the free trial has expired.
+
 ## [0.49.0] - 2026-07-07
 
 ### Added

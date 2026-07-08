@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.49.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
+**v0.50.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
 ใช้ภาพเรดาร์ TMD + Optical Flow เพื่อคาดการณ์ฝนล่วงหน้า 15–90 นาที
 
 ---
@@ -75,7 +75,7 @@ Telegram / LINE Webhook
 WeatherManager.predict_rain()
     ├── TMDRadarProcessor  ← Optical Flow + Cloud Tracking
     ├── TomorrowService    ← Fallback 1
-    ├── XweatherService    ← Fallback 2
+    ├── XweatherService    ← Fallback 2 (disabled by default)
     ├── RainbowService     ← Fallback 3
     └── OpenMeteoService   ← Fallback 4 (wind data)
 ```
@@ -121,4 +121,4 @@ Key test files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.49.0** — LINE OA Integration, Bot Commands Consistency, and Local Media Hosting (Refactored database schema chat_id to String, added LINE Webhook command router, and local static server for development testing)
+Current: **v0.50.0** — Health endpoint HEAD request support, radar GIF validation, and LINE Rich Menu requirement analysis (Disabled Xweather by default due to trial expiry)

@@ -27,6 +27,74 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #157 - Real-time Event Broadcaster (SSE / WebSockets)
+- **GitHub:** [#157](https://gitlab.com/oatricedev/FonMaYang/-/issues/157)
+- **Status:** 🟢 **Ready**
+
+### Issue #156 - Implement "Emergency Overdrive & Waiting List" UI/Logic
+- **GitHub:** [#156](https://gitlab.com/oatricedev/FonMaYang/-/issues/156)
+- **Status:** 🟢 **Ready**
+
+### Issue #155 - Build "Two-Factor Financial Verification" API for Account Recovery
+- **GitHub:** [#155](https://gitlab.com/oatricedev/FonMaYang/-/issues/155)
+- **Status:** 🟢 **Ready**
+
+### Issue #154 - Implement "Zero-Knowledge" Transaction Logging
+- **GitHub:** [#154](https://gitlab.com/oatricedev/FonMaYang/-/issues/154)
+- **Status:** 🟢 **Ready**
+
+### Issue #153 - Implement Dynamic Feature Flag / Circuit Breaker
+- **GitHub:** [#153](https://gitlab.com/oatricedev/FonMaYang/-/issues/153)
+- **Status:** 🟢 **Ready**
+
+### Issue #152 - Database Schema Design (Firestore/Redis) for Jars & Leaderboard
+- **GitHub:** [#152](https://gitlab.com/oatricedev/FonMaYang/-/issues/152)
+- **Status:** 🟢 **Ready**
+
+### Issue #151 - Implement "Pseudonymous Auth" Logic
+- **GitHub:** [#151](https://gitlab.com/oatricedev/FonMaYang/-/issues/151)
+- **Status:** 🟢 **Ready**
+
+### Issue #150 - Setup Stripe Webhook Receiver & Idempotency
+- **GitHub:** [#150](https://gitlab.com/oatricedev/FonMaYang/-/issues/150)
+- **Status:** 🟢 **Ready**
+
+### Issue #149 - Implement "Skin/Theme Token System" (Dynamic Theme Switcher)
+- **GitHub:** [#149](https://gitlab.com/oatricedev/FonMaYang/-/issues/149)
+- **Status:** 🟢 **Ready**
+
+### Issue #148 - Develop "Pseudonymous Leaderboard & Badge System"
+- **GitHub:** [#148](https://gitlab.com/oatricedev/FonMaYang/-/issues/148)
+- **Status:** 🟢 **Ready**
+
+### Issue #147 - Implement "The Budget Jars" UI (Server Defense Grid)
+- **GitHub:** [#147](https://gitlab.com/oatricedev/FonMaYang/-/issues/147)
+- **Status:** 🟢 **Ready**
+
+### Issue #146 - Create "The Runway Countdown" Component
+- **GitHub:** [#146](https://gitlab.com/oatricedev/FonMaYang/-/issues/146)
+- **Status:** 🟢 **Ready**
+
+### Issue #145 - 🛠️ Weather Analysis & Location Update: Register Nong Khai House and Deprecate Stale Coordinates
+- **GitHub:** [#145](https://gitlab.com/oatricedev/FonMaYang/-/issues/145)
+- **Status:** 🟢 **Ready**
+
+### Issue #144 - Infrastructure: Migrate system architecture from GCP to AWS
+- **GitHub:** [#144](https://gitlab.com/oatricedev/FonMaYang/-/issues/144)
+- **Status:** 🟢 **Ready**
+
+### Issue #143 - ตรวจสอบความสมบูรณ์ของลิงก์ภาพเคลื่อนไหว (Loop GIF) ของเรดาร์ที่สถานีขอนแก่น kkn120
+- **GitHub:** [#143](https://gitlab.com/oatricedev/FonMaYang/-/issues/143)
+    - ✅ **Done** (0.50.0)
+
+### Issue #142 - ปรับ Endpoint /health ใน FastAPI ให้รองรับการเรียกแบบ HEAD ด้วย
+- **GitHub:** [#142](https://gitlab.com/oatricedev/FonMaYang/-/issues/142)
+    - ✅ **Done** (0.50.0)
+
+### Issue #141 - Feature: Enhance LINE OA with Rich Menu, Flex Messages, and Quick Replies
+- **GitHub:** [#141](https://gitlab.com/oatricedev/FonMaYang/-/issues/141)
+- **Status:** 🟢 **Ready**
+
 ### Issue #140 - UX: Display user-friendly API error messages instead of raw HTTP exceptions in /rain_pro
 - **GitHub:** [#140](https://gitlab.com/oatricedev/FonMaYang/-/issues/140)
     - ✅ **Done** (0.48.0)
