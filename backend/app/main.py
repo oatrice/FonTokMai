@@ -69,6 +69,12 @@ async def lifespan(app: FastAPI):
                 await conn.execute(text(f"ALTER TABLE user_locations ADD COLUMN {col_name} {col_type}"))
             except Exception:
                 pass
+                
+        # Dynamically add source column to radar_latest_cache if it does not exist
+        try:
+            await conn.execute(text("ALTER TABLE radar_latest_cache ADD COLUMN source VARCHAR DEFAULT 'api'"))
+        except Exception:
+            pass
         
     from app.services.disaster_manager import process_disaster_event
     from app.dependencies import get_repo_context

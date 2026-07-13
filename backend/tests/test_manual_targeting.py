@@ -1,6 +1,7 @@
 import pytest
 import pytest_asyncio
 import math
+import numpy as np
 from unittest.mock import MagicMock, AsyncMock, patch
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -160,8 +161,12 @@ async def test_webhook_lock_command_with_location_name(db_session):
     from app.routers import webhook
     
     with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
+         patch("app.services.weather_manager.WeatherManager") as MockWMClass, \
          patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock) as mock_send, \
          patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock) as mock_process:
+         
+        mock_wm = MockWMClass.return_value
+        mock_wm.load_persistent_cache_to_memory = AsyncMock(return_value=None)
          
         # 1. Lock 'work' to D2
         await webhook.handle_lock_command(chat_id, "/lock work D2")
@@ -176,7 +181,7 @@ async def test_webhook_lock_command_with_location_name(db_session):
         
         # Verify process_telegram_location was called with work's coordinates
         mock_process.assert_called_with(chat_id, 14.0, 101.0, location_name="work")
-        
+
         # 2. Lock D3 without location prefix -> should target LAST_ACTIVE_LOCATION if set
         webhook.LAST_ACTIVE_LOCATION[chat_id] = "work"
         mock_process.reset_mock()
@@ -213,3 +218,45 @@ async def test_webhook_lock_command_with_location_name(db_session):
         assert loc_home.tracking_mode == "manual"
         
         mock_process.assert_called_with(chat_id, 14.0, 101.0, location_name="work")
+
+
+@pytest.mark.asyncio
+async def test_webhook_grid_lock_scans_rendered_grid_cell_size(db_session):
+    repo = SQLiteLocationRepository(db_session)
+    chat_id = 246810
+
+    await repo.save_location(chat_id, 16.4, 102.8, "FOREVER", name="home")
+
+    mock_repo_context = MagicMock()
+    mock_repo_context.__aenter__.return_value = repo
+
+    frame = np.zeros((720, 720, 3), dtype=np.uint8)
+    # G5 on the rendered 8x8 overlay is x=540..629, y=360..449 for a 720px image.
+    # This red rain pixel is inside rendered G5, but outside the old hardcoded
+    # 800px G5 area of x=600..699, y=400..499.
+    frame[370, 550] = (255, 0, 0)
+    flow = np.zeros((720, 720, 2), dtype=np.float32)
+    flow[370, 550] = (1.0, 0.0)
+    cache_data = ([frame], datetime.now(timezone.utc), 0, flow, "static_cache", 15.0, [0])
+
+    from app.routers import webhook
+
+    with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
+         patch("app.services.weather_manager.WeatherManager") as MockWMClass, \
+         patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock) as mock_send, \
+         patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock):
+
+        mock_wm = MockWMClass.return_value
+        mock_wm.load_persistent_cache_to_memory = AsyncMock(return_value=cache_data)
+
+        await webhook.handle_lock_command(chat_id, "/lock home G5")
+
+        loc_home = await repo.get_location(chat_id, "home")
+        assert loc_home.tracking_mode == "manual"
+        assert loc_home.locked_target_id == "G5"
+        assert loc_home.locked_target_cx == 585
+        assert loc_home.locked_target_cy == 405
+
+        success_text = mock_send.await_args.args[1]
+        assert "ตั้งค่าล็อคเป้าแมนนวลสำเร็จ" in success_text
+        assert "ความแรงฝนสูงสุด: 50.0 dBZ" in success_text

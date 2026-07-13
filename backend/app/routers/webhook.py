@@ -704,6 +704,8 @@ async def handle_lock_command(chat_id: int, command: str):
     import re
     cx, cy = None, None
     grid_lbl = None
+    grid_col_idx = None
+    grid_row_idx = None
     
     try:
         async with get_repo_context() as repo:
@@ -756,16 +758,18 @@ async def handle_lock_command(chat_id: int, command: str):
                 
             lat, lng = loc.latitude, loc.longitude
             loc_name = loc.name
+            prev_cx = loc.locked_target_cx
+            prev_cy = loc.locked_target_cy
         
         grid_match = re.match(r"^([a-hA-H])[-_]?([1-8])$", target_str.strip())
         
         if grid_match:
             col_char = grid_match.group(1).upper()
             row_char = grid_match.group(2)
-            col_idx = ord(col_char) - ord('A')
-            row_idx = int(row_char) - 1
-            cx = int((col_idx + 0.5) * 100)
-            cy = int((row_idx + 0.5) * 100)
+            grid_col_idx = ord(col_char) - ord('A')
+            grid_row_idx = int(row_char) - 1
+            cx = int((grid_col_idx + 0.5) * 100)
+            cy = int((grid_row_idx + 0.5) * 100)
             grid_lbl = f"{col_char}{row_char}"
         else:
             parts = re.findall(r"[-+]?\d*\.\d+|\d+", target_str)
@@ -790,10 +794,111 @@ async def handle_lock_command(chat_id: int, command: str):
             else:
                 cx, cy = int(val1), int(val2)
                 
-        if cx is None or cy is None or not (0 <= cx < 800 and 0 <= cy < 800):
+        import math
+        from app.services.weather_manager import WeatherManager
+        from app.services.tmd_radar_processor import TMDRadarProcessor
+        wm = WeatherManager()
+        processor = TMDRadarProcessor("kkn120")
+        
+        cache_data = await wm.load_persistent_cache_to_memory("kkn120", processor)
+        
+        has_cloud = False
+        max_dbz = 0.0
+        peak_x, peak_y = cx, cy
+        vx, vy = 0.0, 0.0
+        frame_w = processor.config.static_crop_width
+        frame_h = processor.config.static_crop_height
+        
+        if cache_data:
+            frames, _, _, flow, _, _, _ = cache_data
+            latest_frame = frames[-1]
+            h, w = latest_frame.shape[:2]
+            frame_w, frame_h = w, h
+            
+            if grid_lbl:
+                cell_w = w / 8.0
+                cell_h = h / 8.0
+                x_min = max(0, int(grid_col_idx * cell_w))
+                x_max = min(w, int((grid_col_idx + 1) * cell_w))
+                y_min = max(0, int(grid_row_idx * cell_h))
+                y_max = min(h, int((grid_row_idx + 1) * cell_h))
+                cx = int((x_min + x_max) / 2)
+                cy = int((y_min + y_max) / 2)
+                peak_x, peak_y = cx, cy
+            else:
+                search_radius = 25
+                x_min = max(0, cx - search_radius)
+                x_max = min(w, cx + search_radius)
+                y_min = max(0, cy - search_radius)
+                y_max = min(h, cy + search_radius)
+            
+            for y_p in range(y_min, y_max):
+                for x_p in range(x_min, x_max):
+                    dbz = processor.get_dbz_at_pixel(latest_frame, x_p, y_p)
+                    if dbz >= 10.0:
+                        has_cloud = True
+                        if dbz > max_dbz:
+                            max_dbz = dbz
+                            peak_x, peak_y = x_p, y_p
+                            
+            if has_cloud:
+                vx = float(flow[peak_y, peak_x, 0])
+                vy = float(flow[peak_y, peak_x, 1])
+        elif grid_lbl:
+            cell_w = frame_w / 8.0
+            cell_h = frame_h / 8.0
+            cx = int((grid_col_idx + 0.5) * cell_w)
+            cy = int((grid_row_idx + 0.5) * cell_h)
+            peak_x, peak_y = cx, cy
+
+        if cx is None or cy is None or not (0 <= cx < frame_w and 0 <= cy < frame_h):
             await send_telegram_message(chat_id, "⚠️ พิกัดอยู่นอกขอบเขตของแผนที่เรดาร์")
             return
+
+        eta_text = ""
+        comparison_text = ""
+        wind_speed = 0.0
+        wind_dir = "ไม่ทราบ"
+        
+        if has_cloud:
+            user_px, user_py = processor.latlng_to_pixel(lat, lng)
+            dx = user_px - peak_x
+            dy = user_py - peak_y
+            dist = math.sqrt(dx*dx + dy*dy)
             
+            wind_speed = processor.get_wind_speed_kmh_from_vector(vx, vy)
+            wind_dir = processor.get_wind_direction_text_from_vector(vx, vy)
+            
+            if dist > 0:
+                v_close = (vx * dx + vy * dy) / dist
+            else:
+                v_close = 0
+                
+            if v_close > 0.05:
+                t_mins = int((dist / v_close) * 15)
+                if t_mins >= 60:
+                    hrs = t_mins // 60
+                    mins = t_mins % 60
+                    eta_text = f"⏱️ คาดว่าจะเคลื่อนเข้าหาคุณในอีกประมาณ: {hrs} ชม. {mins} นาที\n"
+                else:
+                    eta_text = f"⏱️ คาดว่าจะเคลื่อนเข้าหาคุณในอีกประมาณ: {t_mins} นาที\n"
+            else:
+                eta_text = f"💨 ทิศทางลมปัจจุบัน: {wind_speed:.1f} กม./ชม. (ทิศ {wind_dir}) — แนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ\n"
+                
+            if prev_cx is not None and prev_cy is not None:
+                prev_dist = math.sqrt((user_px - prev_cx)**2 + (user_py - prev_cy)**2)
+                lon_diff = processor.config.bbox.lng_max - processor.config.bbox.lng_min
+                width_km = lon_diff * 111.0
+                km_per_pixel = width_km / 800.0
+                
+                delta_km = (prev_dist - dist) * km_per_pixel
+                if delta_km > 0.1:
+                    comparison_text = f"📈 เมื่อเทียบกับรอบก่อนหน้า: กลุ่มฝนขยับเข้าใกล้คุณมากขึ้น {delta_km:.1f} กม. (เร็วขึ้น/กระชั้นชิดขึ้น)\n"
+                elif delta_km < -0.1:
+                    comparison_text = f"📉 เมื่อเทียบกับรอบก่อนหน้า: กลุ่มฝนขยับห่างออกไป {abs(delta_km):.1f} กม.\n"
+                else:
+                    comparison_text = f"📊 เมื่อเทียบกับรอบก่อนหน้า: อยู่ห่างที่ระยะใกล้เคียงเดิม\n"
+
         async with get_repo_context() as repo:
             await repo.update_tracking_mode(
                 chat_id=chat_id,
@@ -804,13 +909,25 @@ async def handle_lock_command(chat_id: int, command: str):
                 name=loc_name
             )
             
-        success_msg = f"🔒 ตั้งค่าล็อคเป้าแมนนวลสำเร็จ!\n"
-        if grid_lbl:
-            success_msg += f"ช่องตาราง: {grid_lbl} (Pixel: {cx}, {cy})\n"
+        if not has_cloud:
+            success_msg = f"⚠️ สังเกตการณ์: ไม่พบกลุ่มเมฆฝนในช่องตาราง {grid_lbl or target_str} (ความแรงฝน < 10 dBZ)\n"
+            success_msg += f"ตำแหน่งเป้าหมาย: {loc_name.capitalize()}\n"
+            success_msg += "ระบบได้บันทึกพิกัดเป้าเล็งไว้แล้ว (คุณสามารถเช็คภาพเรดาร์ล่าสุดเพื่อยืนยัน)"
         else:
-            success_msg += f"พิกัดเรดาร์: Pixel ({cx}, {cy})\n"
-        success_msg += f"ตำแหน่งเป้าหมาย: {loc_name.capitalize()}\n"
-        success_msg += "ระบบจะใช้เป้าหมายนี้ในการพยากรณ์รอบถัดไป"
+            success_msg = f"🔒 ตั้งค่าล็อคเป้าแมนนวลสำเร็จ!\n"
+            if grid_lbl:
+                success_msg += f"ช่องตาราง: {grid_lbl} (Pixel: {cx}, {cy})\n"
+            else:
+                success_msg += f"พิกัดเรดาร์: Pixel ({cx}, {cy})\n"
+            success_msg += f"ตำแหน่งเป้าหมาย: {loc_name.capitalize()}\n\n"
+            success_msg += f"🔍 ข้อมูลกลุ่มฝนในพื้นที่ล็อคเป้า:\n"
+            success_msg += f"  💧 ความแรงฝนสูงสุด: {max_dbz:.1f} dBZ\n"
+            success_msg += f"  🌬️ ลมเคลื่อนที่: {wind_speed:.1f} กม./ชม. (ทิศ {wind_dir})\n"
+            if eta_text:
+                success_msg += f"  {eta_text}"
+            if comparison_text:
+                success_msg += f"  {comparison_text}"
+            success_msg += "\nระบบจะใช้ข้อมูลนี้ในการพยากรณ์รอบถัดไป"
         
         await send_telegram_message(chat_id, success_msg)
         await process_telegram_location(chat_id, lat, lng, location_name=loc_name)
