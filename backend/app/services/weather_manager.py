@@ -29,6 +29,8 @@ _DEV_CONFIG: dict = {
     "flow_mode":      "average", # 'latest' or 'average'
     "hit_radius":     8,      # radius around user to check for rain hits
     "verbose":        False,  # Enable verbose debugging logs
+    "decay_enabled":  True,   # Whether to apply growth/decay rate to cloud extrapolation
+    "prediction_steps": 7,    # Number of steps to predict forward (each 15 mins)
 }
 
 
@@ -867,10 +869,16 @@ class WeatherManager:
                     fallback_vx = closest_c.get("vx", 0.0)
                     fallback_vy = closest_c.get("vy", 0.0)
                 
-                for steps in range(7):
+                for steps in range(_cfg.get("prediction_steps", 7)):
                     offset_min = steps * 15
+                    
+                    rate = 0.0
+                    if _cfg.get("decay_enabled", True) and clouds:
+                        closest_c = min(clouds, key=lambda c: c.get("dist", 9999))
+                        rate = closest_c.get("growth_rate", 0.0)
+                        
                     dbz, src_x, src_y = processor.extrapolate_rain_at_pixel(
-                        curr_frame, flow, px, py, steps=steps, radius=_cfg.get("hit_radius", 8),
+                        curr_frame, flow, px, py, steps=steps, rate=rate, radius=_cfg.get("hit_radius", 8),
                         fallback_vx=fallback_vx, fallback_vy=fallback_vy
                     )
                     

@@ -1,14 +1,14 @@
 # FonMaYang 🌧️
 
-**v0.53.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
-ใช้ภาพเรดาร์ TMD + Optical Flow เพื่อคาดการณ์ฝนล่วงหน้า 15–90 นาที
+**v0.54.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
+ใช้ภาพเรดาร์ TMD + Optical Flow เพื่อคาดการณ์ฝนล่วงหน้า 15–90+ นาที
 
 ---
 
 ## Features
 
 - **TMD Radar Processing** — ดาวน์โหลดและประมวลผลภาพเรดาร์ TMD (kkn120, kkn240, skn240) ด้วย Optical Flow
-- **Rain Prediction** — คาดการณ์เวลาฝนจะมาถึง (ETA) และความเข้ม (dBZ) ล่วงหน้าสูงสุด 90 นาที
+- **Rain Prediction** — คาดการณ์เวลาฝนจะมาถึง (ETA) และความเข้ม (dBZ) ล่วงหน้าสูงสุด 90+ นาที
 - **Multi-Provider Fallback** — รองรับ Tomorrow.io, Rainbow API, Xweather, Open-Meteo เป็น fallback
 - **Telegram Bot** — แจ้งเตือนผ่าน Telegram พร้อมภาพเรดาร์ tracking, timeline, และ multi-frame analysis
 - **LINE Bot** — แจ้งเตือนและรับส่งพิกัด/คำสั่งทาง LINE OA พร้อมส่งภาพเรดาร์ล่าสุด และแผนภูมิวิเคราะห์กลุ่มฝน
@@ -46,11 +46,12 @@
 | `/devmock clear` | จำลองท้องฟ้าแจ่มใส |
 | `/devmock error` | จำลอง API ล้มเหลวทั้งหมด |
 | `/devmock off` | ปิด mock mode |
+| `/devmock config` | ดูและปรับการตั้งค่าการวิเคราะห์ (รวมถึง decay_enabled และ prediction_steps) |
 | `/devmock scenario <params>` | **จำลองสถานการณ์ฝนแบบ Parametric** (ดูด้านล่าง) |
 
 #### `/devmock scenario` Parameters
 ```
-rain_in:N        ฝนจะมาใน N นาที
+rain_in:N        ฝนจะมา in N นาที
 rain_stopping:N  ฝนจะหยุดใน N นาที
 no_rain          ไม่มีฝน (ทดสอบลมอย่างเดียว)
 dbz:N            ความเข้มฝน dBZ (15–75, default 35)
@@ -122,6 +123,7 @@ Key test files:
 - `tests/test_line_integration.py` — LINE integration, commands, and webhook handling
 - `tests/test_grpc_fork_config.py` — gRPC fork configuration and lazy tasks client tests
 - `tests/test_async_enqueue_task.py` — Async tasks enqueue verification tests
+- `tests/test_decay_logic.py` — Cloud decay toggle and prediction steps verification tests
 
 ---
 
@@ -129,4 +131,4 @@ Key test files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.53.0** — รวมศูนย์ตรรกะการอัปเดตและดึงภาพเรดาร์เข้าสู่บริการ TMDRadarProcessor ปรับแต่งความถี่ Polling เป็นแบบจับเวลาจริงทุก 15 นาทีตามความสดใหม่ของ Cache เพื่อประหยัดทราฟฟิก และเพิ่มฟังก์ชัน Live Update ดึงข้อมูลเรดาร์ตัวล่าสุดทันทีสำหรับ Manual Check ที่ค้างเป็นเวลานาน ป้องกัน UnicodeDecodeError ใน API เปรียบเทียบข้อมูลพยากรณ์
+Current: **v0.54.0** — เพิ่มการตั้งค่าระดับนักพัฒนาสำหรับเปิด-ปิดการคำนวณอัตราการสลายตัวของเมฆฝน (decay_enabled) และปรับแต่งก้าวเวลาพยากรณ์ล่วงหน้าได้แบบยืดหยุ่น (prediction_steps) พร้อมรองรับการพิมพ์คำสั่ง /devmock config แบบเว้นวรรคและชุดทดสอบกลไกการสลายตัว
