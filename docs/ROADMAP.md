@@ -45,11 +45,11 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #169 - เพิ่มโหมดคิด/ไม่คิดอัตราการสลายตัว
 - **GitHub:** [#169](https://gitlab.com/oatricedev/FonMaYang/-/issues/169)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.54.0)
 
 ### Issue #168 - Investigate: การคำนวณระยะเวลาฝนตก/ฝนหยุดตก ในกรณีกลุ่มฝนขนาดใหญ่ และข้อจำกัดขอบเขตเวลา
 - **GitHub:** [#168](https://gitlab.com/oatricedev/FonMaYang/-/issues/168)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.54.0)
 
 ### Issue #167 - Investigate: ความสอดคล้องของเวลาเรดาร์ระหว่าง Production (15:30) และ Manual Dev (15:15)
 - **GitHub:** [#167](https://gitlab.com/oatricedev/FonMaYang/-/issues/167)

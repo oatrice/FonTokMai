@@ -27,7 +27,10 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
@@ -36,21 +39,19 @@
         "CHANGELOG.md",
         "README.md",
         "VERSION",
-        "backend/app/scheduler_tasks.py",
+        "backend/app/routers/webhook.py",
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
-        "backend/config/schedulers.json",
-        "backend/tests/test_tmd_polling_sync.py",
-        "docs/ROADMAP.md",
-        "luma/prompts/prompt_20260713_091105_546fab9a.md",
+        "backend/tests/test_decay_logic.py",
+        "luma/prompts/prompt_20260713_094613_4deafe29.md",
+        "luma/prompts/prompt_20260713_094615_c91b1cac.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/scheduler_tasks.py",
+        "backend/app/routers/webhook.py",
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
-        "backend/config/schedulers.json",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -126,5 +127,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-13T16:21:49.559110"
+  "last_updated": "2026-07-13T16:46:38.233882"
 }
