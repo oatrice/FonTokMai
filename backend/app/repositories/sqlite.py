@@ -428,3 +428,21 @@ class SQLiteLocationRepository(LocationRepository):
         if record.expires_at > now:
             return True
         return False
+
+    async def update_tracking_mode(
+        self,
+        chat_id: Union[str, int],
+        tracking_mode: str,
+        locked_target_id: Optional[str] = None,
+        locked_target_cx: Optional[int] = None,
+        locked_target_cy: Optional[int] = None,
+        name: str = "default"
+    ) -> None:
+        chat_id_str = str(chat_id)
+        loc = await self.get_location(chat_id_str, name)
+        if loc:
+            loc.tracking_mode = tracking_mode
+            loc.locked_target_id = locked_target_id
+            loc.locked_target_cx = locked_target_cx
+            loc.locked_target_cy = locked_target_cy
+            await self.session.commit()

@@ -8,7 +8,7 @@ import cv2
 import io
 import numpy as np
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from PIL import Image, ImageDraw, ImageFont
 from zoneinfo import ZoneInfo
 from .tomorrow import TomorrowService
@@ -268,6 +268,7 @@ class WeatherManager:
         mock_state: Optional[str] = None,
         force_endpoint: Optional[str] = None,
         location_name: Optional[str] = None,
+        chat_id: Optional[Union[str, int]] = None,
     ) -> dict:
         """
         ดึงข้อมูลพยากรณ์ฝนโดยผ่านระบบ Fallback อัตโนมัติ:
@@ -282,10 +283,10 @@ class WeatherManager:
             "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
             "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
             "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state, location_name=location_name),
-            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state, location_name=location_name),
-            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state, location_name=location_name),
-            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state, location_name=location_name)
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state, location_name=location_name, chat_id=chat_id),
+            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state, location_name=location_name, chat_id=chat_id),
+            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id),
+            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id)
         }
 
         # --- โหมดบังคับ endpoint (ไม่ผ่าน fallback) ---
@@ -527,7 +528,11 @@ class WeatherManager:
         )
         return _GLOBAL_TMD_CACHE[station_code]
 
-    async def _get_tmd_prediction(self, lat: float, lng: float, force_station: Optional[str] = None, mock_state: Optional[str] = None, location_name: Optional[str] = None) -> dict:
+    async def _get_tmd_prediction(
+        self, lat: float, lng: float, force_station: Optional[str] = None,
+        mock_state: Optional[str] = None, location_name: Optional[str] = None,
+        chat_id: Optional[Union[str, int]] = None
+    ) -> dict:
         """
         Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
         Uses dot-product approach vector filter to find approaching cloud clusters,
@@ -756,6 +761,47 @@ class WeatherManager:
                                 unique_clouds[label] = appr_c
                     clouds = list(unique_clouds.values())
 
+                tracking_mode = "auto"
+                locked_target_id = None
+                locked_target_cx = None
+                locked_target_cy = None
+                matched_target = None
+                
+                if chat_id:
+                    async with get_repo_context() as repo:
+                        loc_record = await repo.get_location(chat_id, location_name or "default")
+                        if loc_record:
+                            tracking_mode = getattr(loc_record, "tracking_mode", "auto")
+                            locked_target_id = getattr(loc_record, "locked_target_id", None)
+                            locked_target_cx = getattr(loc_record, "locked_target_cx", None)
+                            locked_target_cy = getattr(loc_record, "locked_target_cy", None)
+                            
+                if tracking_mode == "manual" and locked_target_cx is not None and locked_target_cy is not None:
+                    min_dist = 9999
+                    for cluster in all_rain_clusters:
+                        dist = math.hypot(cluster["cx"] - locked_target_cx, cluster["cy"] - locked_target_cy)
+                        if dist < 120 and dist < min_dist:
+                            min_dist = dist
+                            matched_target = cluster
+                            
+                    if matched_target:
+                        new_cx = matched_target["cx"]
+                        new_cy = matched_target["cy"]
+                        new_label = matched_target.get("label", "A")
+                        
+                        async with get_repo_context() as repo:
+                            await repo.update_tracking_mode(
+                                chat_id=chat_id,
+                                tracking_mode="manual",
+                                locked_target_id=new_label,
+                                locked_target_cx=new_cx,
+                                locked_target_cy=new_cy,
+                                name=location_name or "default"
+                            )
+                        locked_target_id = new_label
+                        locked_target_cx = new_cx
+                        locked_target_cy = new_cy
+
                 # ── Parametric scenario mock (JSON mock_state) ────────────────────
                 if mock_state and mock_state.startswith("{"):
                     try:
@@ -864,7 +910,13 @@ class WeatherManager:
                 current_dbz = processor.get_dbz_at_pixel(curr_frame, px, py)
                 
                 fallback_vx, fallback_vy = 0.0, 0.0
-                if clouds:
+                manual_rate = None
+                
+                if tracking_mode == "manual" and matched_target:
+                    fallback_vx = matched_target.get("vx", 0.0)
+                    fallback_vy = matched_target.get("vy", 0.0)
+                    manual_rate = matched_target.get("growth_rate", 0.0)
+                elif clouds:
                     closest_c = min(clouds, key=lambda c: c.get("dist", 9999))
                     fallback_vx = closest_c.get("vx", 0.0)
                     fallback_vy = closest_c.get("vy", 0.0)
@@ -873,9 +925,12 @@ class WeatherManager:
                     offset_min = steps * 15
                     
                     rate = 0.0
-                    if _cfg.get("decay_enabled", True) and clouds:
-                        closest_c = min(clouds, key=lambda c: c.get("dist", 9999))
-                        rate = closest_c.get("growth_rate", 0.0)
+                    if _cfg.get("decay_enabled", True):
+                        if tracking_mode == "manual" and matched_target:
+                            rate = manual_rate if manual_rate is not None else 0.0
+                        elif clouds:
+                            closest_c = min(clouds, key=lambda c: c.get("dist", 9999))
+                            rate = closest_c.get("growth_rate", 0.0)
                         
                     dbz, src_x, src_y = processor.extrapolate_rain_at_pixel(
                         curr_frame, flow, px, py, steps=steps, rate=rate, radius=_cfg.get("hit_radius", 8),
@@ -1009,7 +1064,8 @@ class WeatherManager:
                     tracking_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
-                        all_rain_clusters, predictions, True, True, time_offset_min
+                        all_rain_clusters, predictions, True, True, time_offset_min,
+                        locked_target_id
                     )
                     
                     # Create adjusted predictions for the timeline so it displays actual ETA from NOW
@@ -1041,8 +1097,11 @@ class WeatherManager:
                     "endpoint":          f"tmd-radar ({station_code})",
                     "growth_rate_pct":   percent_change,
                     "approaching_clouds": clouds,
+                    "all_rain_clusters":  all_rain_clusters,
                     "rain_summary":      summary_line,
                     "is_outdated":       time_offset_min > 45,
+                    "tracking_mode":     tracking_mode,
+                    "locked_target_id":   locked_target_id,
                     "radar_gif_bytes":   None,
                     "radar_hq_gif_bytes": None,
                     "radar_static_bytes": static_bytes,

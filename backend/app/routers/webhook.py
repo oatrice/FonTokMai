@@ -178,6 +178,7 @@ async def process_telegram_location(
             mock_state=mock_state,
             force_endpoint=force_endpoint,
             location_name=location_name,
+            chat_id=chat_id,
         )
 
         text, actual_endpoint, eta_minutes = _build_forecast_text(result)
@@ -245,6 +246,40 @@ async def process_telegram_location(
 
         # ปุ่มเปรียบเทียบข้อมูล (Issue #53)
         keyboard.append([{"text": "📊 เปรียบเทียบข้อมูล 4 API", "callback_data": f"compare_api_{r_lat}_{r_lng}"}])
+
+        # ปุ่มควบคุมเป้าเรดาร์แบบแมนนวล (Manual Cloud Targeting)
+        if "tmd-radar" in actual_endpoint:
+            t_mode = result.get("tracking_mode", "auto")
+            if t_mode == "manual":
+                locked_lbl = result.get("locked_target_id", "")
+                keyboard.append([{"text": f"🔓 ปลดล็อค {locked_lbl} (Auto-track)", "callback_data": f"unlock_target_{r_lat}_{r_lng}"}])
+            else:
+                approaching_clouds = result.get("approaching_clouds", [])
+                all_rain_clusters = result.get("all_rain_clusters", [])
+                
+                lock_buttons = []
+                added_labels = set()
+                
+                for c in approaching_clouds:
+                    lbl = c.get("label")
+                    if lbl and lbl != "?" and lbl not in added_labels:
+                        lock_buttons.append({"text": f"🔒 ล็อคเป้า {lbl}", "callback_data": f"lock_target_{r_lat}_{r_lng}_{lbl}"})
+                        added_labels.add(lbl)
+                        
+                # Filter ambient clouds (not in approaching_clouds) and sort by distance, taking top 8
+                ambient_clouds = [c for c in all_rain_clusters if c.get("label") not in added_labels]
+                ambient_clouds.sort(key=lambda c: c.get("dist", 9999))
+                
+                for c in ambient_clouds[:8]:
+                    lbl = c.get("label")
+                    if lbl and lbl != "?" and lbl not in added_labels:
+                        lock_buttons.append({"text": f"🔒 ล็อคเป้า {lbl}", "callback_data": f"lock_target_{r_lat}_{r_lng}_{lbl}"})
+                        added_labels.add(lbl)
+                        
+                if lock_buttons:
+                    # Chunk buttons into rows of 2
+                    for i in range(0, len(lock_buttons), 2):
+                        keyboard.append(lock_buttons[i:i+2])
 
         # ปุ่มสลับ Endpoint
         if actual_endpoint in ("rainbow-local", "local", "tmd-radar", "tmd-radar (kkn120)", "tmd-radar (kkn240)", "tmd-radar (skn240)"):
@@ -408,7 +443,7 @@ async def handle_callback_query(callback_query: dict):
 
                     # ดึงข้อมูลผ่าน WeatherManager (รองรับ fallback chain)
                     weather_manager = WeatherManager()
-                    result = await weather_manager.predict_rain(lat, lng)
+                    result = await weather_manager.predict_rain(lat, lng, chat_id=chat_id)
 
                     logger.info(f"Raw API Data for {lat}, {lng}: {json.dumps(result)}")
 
@@ -420,6 +455,76 @@ async def handle_callback_query(callback_query: dict):
                     answer_text = "เกิดข้อผิดพลาดในการดึงข้อมูลดิบ"
             else:
                 answer_text = "รูปแบบข้อมูลดิบไม่ถูกต้อง"
+
+    # Handle Manual target lock callbacks
+    if data.startswith("lock_target_"):
+        parts = data.split("_")
+        if len(parts) >= 5:
+            try:
+                lat = float(parts[2])
+                lng = float(parts[3])
+                label = parts[4]
+                
+                answer_text = f"กำลังล็อคเป้ากลุ่มฝน [{label}]..."
+                
+                weather_manager = WeatherManager()
+                res = await weather_manager.predict_rain(lat, lng, chat_id=chat_id)
+                clouds = res.get("approaching_clouds", [])
+                all_clusters = res.get("all_rain_clusters", [])
+                
+                target_c = None
+                for c in clouds:
+                    if c.get("label") == label:
+                        target_c = c
+                        break
+                if not target_c:
+                    for c in all_clusters:
+                        if c.get("label") == label:
+                            target_c = c
+                            break
+                
+                if target_c:
+                    cx = target_c["cx"]
+                    cy = target_c["cy"]
+                    async with get_repo_context() as repo:
+                        await repo.update_tracking_mode(
+                            chat_id=chat_id,
+                            tracking_mode="manual",
+                            locked_target_id=label,
+                            locked_target_cx=cx,
+                            locked_target_cy=cy,
+                        )
+                    await process_telegram_location(
+                        chat_id, lat, lng,
+                        message_id_to_edit=message_id,
+                    )
+                else:
+                    answer_text = f"ไม่พบกลุ่มฝน [{label}] หรือเมฆสลายตัวไปแล้ว"
+            except Exception as e:
+                logger.error(f"Error handling lock target callback: {e}")
+                answer_text = "เกิดข้อผิดพลาดในการล็อคเป้า"
+
+    elif data.startswith("unlock_target_"):
+        parts = data.split("_")
+        if len(parts) >= 4:
+            try:
+                lat = float(parts[2])
+                lng = float(parts[3])
+                
+                answer_text = "กำลังปลดล็อคกลุ่มฝน..."
+                
+                async with get_repo_context() as repo:
+                    await repo.update_tracking_mode(
+                        chat_id=chat_id,
+                        tracking_mode="auto",
+                    )
+                await process_telegram_location(
+                    chat_id, lat, lng,
+                    message_id_to_edit=message_id,
+                )
+            except Exception as e:
+                logger.error(f"Error handling unlock target callback: {e}")
+                answer_text = "เกิดข้อผิดพลาดในการปลดล็อคเป้า"
 
     # Handle Endpoint Switch (พร้อม Loading State)
     if data.startswith("switch_radar_") or data.startswith("switch_global_"):
@@ -589,6 +694,87 @@ async def handle_callback_query(callback_query: dict):
                 "message_id": message_id,
                 "reply_markup": {"inline_keyboard": []}
             })
+
+
+async def handle_lock_command(chat_id: int, command: str):
+    import re
+    parts = re.findall(r"[-+]?\d*\.\d+|\d+", command)
+    if len(parts) < 2:
+        await send_telegram_message(
+            chat_id, 
+            "⚠️ รูปแบบคำสั่งไม่ถูกต้อง\n"
+            "กรุณาใช้: `/lock <lat> <lng>` หรือ `/lock <x> <y>`\n"
+            "ตัวอย่าง: `/lock 13.75 100.5` หรือ `/lock 450 350`"
+        )
+        return
+        
+    try:
+        val1 = float(parts[0])
+        val2 = float(parts[1])
+        
+        is_latlng = (5.0 <= val1 <= 25.0) and (95.0 <= val2 <= 107.0)
+        
+        cx, cy = None, None
+        lat, lng = None, None
+        
+        async with get_repo_context() as repo:
+            loc = await repo.get_location(chat_id, "default")
+            if not loc:
+                await send_telegram_message(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ กรุณาส่งพิกัดก่อนใช้งานคำสั่งนี้")
+                return
+            lat, lng = loc.latitude, loc.longitude
+            
+        if is_latlng:
+            target_lat, target_lng = val1, val2
+            from app.services.tmd_radar_processor import TMDRadarProcessor
+            processor = TMDRadarProcessor("kkn120")
+            cx, cy = processor.latlng_to_pixel(target_lat, target_lng)
+        else:
+            cx, cy = int(val1), int(val2)
+            
+        if cx is None or cy is None or not (0 <= cx < 800 and 0 <= cy < 800):
+            await send_telegram_message(chat_id, "⚠️ พิกัดอยู่นอกขอบเขตของแผนที่เรดาร์")
+            return
+            
+        async with get_repo_context() as repo:
+            await repo.update_tracking_mode(
+                chat_id=chat_id,
+                tracking_mode="manual",
+                locked_target_id="MANUAL",
+                locked_target_cx=cx,
+                locked_target_cy=cy,
+            )
+            
+        await send_telegram_message(
+            chat_id,
+            f"🔒 ตั้งค่าล็อคเป้าแมนนวลสำเร็จ!\n"
+            f"พิกัดเรดาร์: Pixel ({cx}, {cy})\n"
+            f"ระบบจะใช้เป้าหมายนี้ในการพยากรณ์รอบถัดไป"
+        )
+        await process_telegram_location(chat_id, lat, lng)
+    except Exception as e:
+        logger.error(f"Error handling lock command: {e}")
+        await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
+
+
+async def handle_unlock_command(chat_id: int):
+    try:
+        async with get_repo_context() as repo:
+            loc = await repo.get_location(chat_id, "default")
+            if not loc:
+                await send_telegram_message(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ")
+                return
+            await repo.update_tracking_mode(
+                chat_id=chat_id,
+                tracking_mode="auto",
+            )
+            lat, lng = loc.latitude, loc.longitude
+            
+        await send_telegram_message(chat_id, "🔓 ปลดล็อคกลุ่มฝน (Auto-track) เรียบร้อยแล้ว")
+        await process_telegram_location(chat_id, lat, lng)
+    except Exception as e:
+        logger.error(f"Error handling unlock command: {e}")
+        await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
 
 
 async def handle_mylocation_command(chat_id: int):
@@ -1559,6 +1745,14 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
                     log_audit_event("bypass_login_failed", chat_id, username, {})
                     await send_telegram_message(chat_id, "❌ รหัสผ่านไม่ถูกต้อง")
             background_tasks.add_task(_do_login)
+            return {"status": "ok"}
+
+        if text.startswith("/lock ") and chat_id:
+            background_tasks.add_task(handle_lock_command, chat_id, text)
+            return {"status": "ok"}
+            
+        if text.startswith("/unlock") and chat_id:
+            background_tasks.add_task(handle_unlock_command, chat_id)
             return {"status": "ok"}
 
         if text.startswith(("/rain", "/check", "/devmock", "/tmd_fallback", "/metrics", "/setbudget")) and chat_id:

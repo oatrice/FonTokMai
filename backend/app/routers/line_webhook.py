@@ -72,7 +72,7 @@ async def process_line_location(user_id: str, lat: float, lng: float, title: str
         # Trigger immediate prediction
         weather_manager = WeatherManager()
         mock_state = await repo.get_mock_state(user_id)
-        result = await weather_manager.predict_rain(lat, lng, mock_state=mock_state, location_name=title)
+        result = await weather_manager.predict_rain(lat, lng, mock_state=mock_state, location_name=title, chat_id=user_id)
         
         # Format response text
         text, actual_endpoint, eta = _build_forecast_text(result)
@@ -218,7 +218,8 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
             loc.latitude, loc.longitude,
             mock_state=mock_state,
             force_endpoint=force_provider,
-            location_name=loc_display
+            location_name=loc_display,
+            chat_id=user_id
         )
         
         text, actual_endpoint, eta_minutes = _build_forecast_text(result)

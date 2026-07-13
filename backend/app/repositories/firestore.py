@@ -65,6 +65,14 @@ class FirestoreLocationRepository(LocationRepository):
             expires_at = datetime.now(timezone.utc) + timedelta(days=60)
             
         chat_id_str = str(chat_id)
+        
+        # Get existing location to preserve tracking status if updating
+        existing = await self.get_location(chat_id_str, name)
+        t_mode = existing.tracking_mode if existing else "auto"
+        t_id = existing.locked_target_id if existing else None
+        t_cx = existing.locked_target_cx if existing else None
+        t_cy = existing.locked_target_cy if existing else None
+
         data = {
             "chat_id": chat_id_str,
             "name": name,
@@ -72,7 +80,11 @@ class FirestoreLocationRepository(LocationRepository):
             "longitude": lng,
             "retention_type": retention_type,
             "expires_at": expires_at,
-            "platform": platform
+            "platform": platform,
+            "tracking_mode": t_mode,
+            "locked_target_id": t_id,
+            "locked_target_cx": t_cx,
+            "locked_target_cy": t_cy,
         }
         
         doc_ref = self.collection.document(f"{chat_id_str}_{name}")
@@ -130,6 +142,8 @@ class FirestoreLocationRepository(LocationRepository):
             val = data.get(field)
             if val and getattr(val, "tzinfo", None):
                 data[field] = val.astimezone(timezone.utc).replace(tzinfo=None)
+        if "tracking_mode" not in data:
+            data["tracking_mode"] = "auto"
         return UserLocation(**data)
 
     async def get_mock_state(self, chat_id: Union[str, int]) -> Optional[str]:
@@ -439,3 +453,24 @@ class FirestoreLocationRepository(LocationRepository):
             expires_at = expires_at.replace(tzinfo=timezone.utc)
             
         return expires_at > datetime.now(timezone.utc)
+
+    async def update_tracking_mode(
+        self,
+        chat_id: Union[str, int],
+        tracking_mode: str,
+        locked_target_id: Optional[str] = None,
+        locked_target_cx: Optional[int] = None,
+        locked_target_cy: Optional[int] = None,
+        name: str = "default"
+    ) -> None:
+        chat_id_str = str(chat_id)
+        doc_ref = self.collection.document(f"{chat_id_str}_{name}")
+        doc = await doc_ref.get()
+        if doc.exists:
+            update_data = {
+                "tracking_mode": tracking_mode,
+                "locked_target_id": locked_target_id,
+                "locked_target_cx": locked_target_cx,
+                "locked_target_cy": locked_target_cy
+            }
+            await doc_ref.update(update_data)

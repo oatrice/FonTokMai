@@ -1155,7 +1155,8 @@ class TMDRadarProcessor:
         predictions: list = None,
         show_clouds: bool = True,
         show_trajectory: bool = True,
-        time_offset_min: float = 0.0
+        time_offset_min: float = 0.0,
+        locked_target_id: Optional[str] = None
     ) -> Optional[bytes]:
         import math
         display_clouds = clouds or []
@@ -1290,6 +1291,11 @@ class TMDRadarProcessor:
                     obs_r = int(14 * scale)
                     obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
                 
+                is_locked = (locked_target_id is not None and c_orig.get("label") == locked_target_id)
+                if is_locked:
+                    cv2.circle(img, (cx, cy), int(22 * scale), (0, 0, 255), int(2 * scale))
+                    cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(30 * scale), int(2 * scale))
+
                 vx_s = int(vx * scale * 3.0)
                 vy_s = int(vy * scale * 3.0)
                 arrow_sx, arrow_sy = cx, cy
@@ -1302,15 +1308,18 @@ class TMDRadarProcessor:
                 else:
                     cv2.arrowedLine(img, (arrow_sx, arrow_sy), (arrow_sx + vx_s, arrow_sy + vy_s), (255, 255, 0), int(1.5 * scale), tipLength=0.3)
                     
+                lbl = c_orig.get("label", "")
+                if is_locked:
+                    lbl = f"LOCKED[{lbl}]"
                 eta = max(1.0, float(c_orig.get("eta_min", 0)) - time_offset_min)
                 if eta <= 0:
-                    txt = f"{c_orig.get('label', '')} (Now)"
+                    txt = f"{lbl} (Now)"
                 else:
                     abs_eta = int(abs(eta))
                     time_str = f"{abs_eta}m" if abs_eta < 60 else f"{abs_eta//60}h{abs_eta%60}m"
-                    txt = f"{c_orig.get('label', '')}: ~{time_str}"
+                    txt = f"{lbl}: ~{time_str}"
                     
-                tw, th = int(55 * scale), int(15 * scale)
+                tw, th = int(65 * scale) if is_locked else int(55 * scale), int(15 * scale)
                 tx = arrow_sx - int(tw / 2)
                 if hull_rect:
                     ty = hull_rect[1] - int(10 * scale) - th
@@ -1329,8 +1338,8 @@ class TMDRadarProcessor:
                     'anchor_x': arrow_sx,
                     'anchor_y': arrow_sy,
                     'scale': 0.45 * scale,
-                    'fg': (255, 255, 255),
-                    'bg': (0, 0, 0)
+                    'fg': (0, 0, 255) if is_locked else (255, 255, 255),
+                    'bg': (255, 255, 255) if is_locked else (0, 0, 0)
                 })
 
             ambient_clouds.sort(key=lambda c: c.get("dist", 9999))
@@ -1354,14 +1363,22 @@ class TMDRadarProcessor:
                 obs_r = int(10 * scale)
                 obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
                 
+                is_locked = (locked_target_id is not None and c_orig.get("label") == locked_target_id)
+                if is_locked:
+                    cv2.circle(img, (cx, cy), int(20 * scale), (0, 0, 255), int(2 * scale))
+                    cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(25 * scale), int(2 * scale))
+
                 vx_s = int(vx * scale * 2.5)
                 vy_s = int(vy * scale * 2.5)
                 v_mag = math.hypot(vx_s, vy_s)
                 if v_mag > 2:
                     cv2.arrowedLine(img, (cx, cy), (cx + vx_s, cy + vy_s), (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
                     
-                txt = f"{c_orig.get('label', '')}: {int(dbz)}"
-                tw, th = int(45 * scale), int(12 * scale)
+                lbl = c_orig.get("label", "")
+                if is_locked:
+                    lbl = f"LOCKED[{lbl}]"
+                txt = f"{lbl}: {int(dbz)}"
+                tw, th = int(55 * scale) if is_locked else int(45 * scale), int(12 * scale)
                 tx = cx - int(tw / 2)
                 ty = cy - int(16 * scale) - th
                 
@@ -1377,8 +1394,8 @@ class TMDRadarProcessor:
                     'anchor_x': cx,
                     'anchor_y': cy,
                     'scale': 0.4 * scale,
-                    'fg': (200, 200, 200),
-                    'bg': (0, 0, 0)
+                    'fg': (0, 0, 255) if is_locked else (200, 200, 200),
+                    'bg': (255, 255, 255) if is_locked else (0, 0, 0)
                 })
 
         hit_r = int(_DEV_CONFIG.get("hit_radius", 8) * scale)
