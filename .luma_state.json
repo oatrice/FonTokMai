@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 167,
@@ -25,7 +25,12 @@
   "active_branch": "feat/167-171-investigate-production-15-30-m",
   "started_at": "2026-07-13T11:46:41.644538",
   "checklist": {
-    "step_planning": true
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
@@ -34,30 +39,21 @@
         "CHANGELOG.md",
         "README.md",
         "VERSION",
-        "backend/.env.example",
-        "backend/app/routers/budget_webhook.py",
-        "backend/app/routers/line_webhook.py",
         "backend/app/scheduler_tasks.py",
-        "backend/app/services/notification.py",
-        "backend/deploy/deploy_cloudrun.sh",
-        "backend/tests/test_budget_webhook.py",
-        "backend/tests/test_line_integration.py",
-        "backend/tests/test_scheduler.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/app/services/weather_manager.py",
+        "backend/config/schedulers.json",
+        "backend/tests/test_tmd_polling_sync.py",
         "docs/ROADMAP.md",
-        "github/workflows/cleanup.yml",
-        "luma/prompts/prompt_20260713_044640_df761eca.md",
-        "luma_metrics.json",
+        "luma/prompts/prompt_20260713_090150_39377777.md",
+        "luma/prompts/prompt_20260713_090151_4de58f34.md",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/.env.example",
-        "backend/app/routers/budget_webhook.py",
-        "backend/app/routers/line_webhook.py",
         "backend/app/scheduler_tasks.py",
-        "backend/app/services/notification.py",
-        "backend/deploy/deploy_cloudrun.sh",
-        "github/workflows/cleanup.yml",
-        "luma_metrics.json",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/app/services/weather_manager.py",
+        "backend/config/schedulers.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -132,5 +128,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-13T11:46:45.946247"
+  "last_updated": "2026-07-13T16:02:16.999015"
 }

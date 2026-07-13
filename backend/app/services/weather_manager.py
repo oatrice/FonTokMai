@@ -398,6 +398,17 @@ class WeatherManager:
         for k, v in results:
             if "predictions" in v:
                 v["predictions"] = v["predictions"][:15]
+            # Strip binary bytes from comparison result to prevent JSON encoding errors
+            for byte_field in [
+                "radar_static_bytes", 
+                "radar_tracking_bytes", 
+                "rain_timeline_bytes", 
+                "radar_multiframe_bytes", 
+                "radar_gif_bytes", 
+                "radar_hq_gif_bytes"
+            ]:
+                if byte_field in v:
+                    v[byte_field] = None
             final_results[k] = v
             
         return final_results

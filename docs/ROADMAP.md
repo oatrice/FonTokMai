@@ -37,7 +37,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #171 - ปรับความถี่และกลไกการเรียกข้อมูลเรดาร์ (Radar Fetching Optimizations & Recovery)
 - **GitHub:** [#171](https://gitlab.com/oatricedev/FonMaYang/-/issues/171)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.53.0)
 
 ### Issue #170 - แก้ไขปัญหาระบบแจ้งเตือนทาง LINE ทำงานไม่ปกติ (ขณะที่ Telegram ทำงานปกติ)
 - **GitHub:** [#170](https://gitlab.com/oatricedev/FonMaYang/-/issues/170)
@@ -53,7 +53,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #167 - Investigate: ความสอดคล้องของเวลาเรดาร์ระหว่าง Production (15:30) และ Manual Dev (15:15)
 - **GitHub:** [#167](https://gitlab.com/oatricedev/FonMaYang/-/issues/167)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.53.0)
 
 ### Issue #166 - แก้ไขบั๊กในระบบแจ้งเตือน Budget บน production Telegram
 - **GitHub:** [#166](https://gitlab.com/oatricedev/FonMaYang/-/issues/166)

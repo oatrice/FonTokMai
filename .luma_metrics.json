@@ -3396,9 +3396,9 @@
       "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/171",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
-      "issue_status": "🟡 In Progress",
+      "issue_status": "✅ Complete",
       "estimate_points": 2,
-      "post_story_point": null,
+      "post_story_point": 5.0,
       "estimated_mandays": 1.0,
       "start_datetime": null,
       "actual_mandays": 0.0,
@@ -3409,7 +3409,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-07-13T02:35:21.64Z",
-      "updated_at": "2026-07-13T10:29:08.435710"
+      "updated_at": "2026-07-13T16:02:15.384206"
     },
     "oatricedev/FonMaYang#170": {
       "issue_key": "oatricedev/FonMaYang#170",
@@ -3484,9 +3484,9 @@
       "issue_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/167",
       "repository": "oatricedev/FonMaYang",
       "project_name": "FonMaYang",
-      "issue_status": "🟡 In Progress",
+      "issue_status": "✅ Complete",
       "estimate_points": 2,
-      "post_story_point": null,
+      "post_story_point": 2.0,
       "estimated_mandays": 1.0,
       "start_datetime": null,
       "actual_mandays": 0.0,
@@ -3497,7 +3497,7 @@
       "gh_closed_at": null,
       "gh_mandays": null,
       "created_at": "2026-07-13T02:33:52.327Z",
-      "updated_at": "2026-07-13T10:29:11.145227"
+      "updated_at": "2026-07-13T16:02:15.174735"
     },
     "oatricedev/FonMaYang#166": {
       "issue_key": "oatricedev/FonMaYang#166",

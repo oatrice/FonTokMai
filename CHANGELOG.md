@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.0] - 2026-07-13
+
+### Added
+- เพิ่มชุดทดสอบการทำงานระบบดึงข้อมูลเรดาร์ Polling & Sync (`test_tmd_polling_sync.py`) เพื่อทดสอบความถูกต้องของการใส่ cache-busting parameter และการทำ live update เมื่อข้อมูล cache ขาดช่วง (stale)
+
+### Changed
+- ปรับปรุงและจัดโครงสร้างสถาปัตยกรรมระบบดึงข้อมูลเรดาร์ใหม่ โดยย้ายและรวมศูนย์ตรรกะการดึง/บันทึก/ตรวจสอบข้อมูลเรดาร์ (TMD Radar Cache) ไปไว้ใน `TMDRadarProcessor.update_radar_cache` เพื่อความเรียบร้อยและไม่ซ้ำซ้อนของโค้ด
+- ปรับปรุงการตรวจสอบความสดใหม่ของ Cache ภาพเรดาร์ (Stale checking) ใน `WeatherManager` ให้ทำการดึงภาพเรดาร์ล่าสุดจากเซิร์ฟเวอร์ TMD แบบสดทันทีเมื่อตรวจพบว่า Cache เก่าเกิน 20 นาที ซึ่งช่วยแก้ไขปัญหารอบ Manual Check ดึงข้อมูลล่าช้ากว่ารอบแจ้งเตือนอัตโนมัติบน Production (Issue #167)
+- ปรับความถี่และรอบเวลาการทำงานของระบบดึงข้อมูลภาพเรดาร์ (Polling Schedule) ใน `schedulers.json` ให้เปลี่ยนมาเป็นทุกๆ 15 นาที (นาทีที่ 10, 25, 40, 55 ของชั่วโมง) เพื่อประหยัดการทำ HTTP Request และสัมพันธ์กับช่วงการโพสต์ภาพจริงของเซิร์ฟเวอร์กรมอุตุนิยมวิทยา (Issue #171)
+- เพิ่ม Cache-Busting Parameter (`?t=<timestamp>`) ในการเรียกข้อมูลจาก TMD เพื่อป้องกันการได้รับข้อมูลเก่าค้างจากพร็อกซีหรือ CDN
+- ปรับแต่งข้อมูลดิบที่เป็น raw bytes (เช่น รูปภาพเรดาร์) ในผลลัพธ์ของ `compare_all_apis` ให้ถูกล้างออก (เซ็ตเป็น `None`) เพื่อป้องกันความล้มเหลว `UnicodeDecodeError` ในช่วงการทำ JSON Serialization ของ FastAPI Endpoint `/compare`
+
 ## [0.52.0] - 2026-07-13
 
 ### Added
