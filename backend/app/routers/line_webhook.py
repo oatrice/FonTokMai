@@ -9,6 +9,7 @@ from linebot.v3.messaging import (
     MessagingApi,
     ReplyMessageRequest,
     TextMessage,
+    ImageMessage,
 )
 from linebot.v3.webhooks import MessageEvent, LocationMessageContent, TextMessageContent
 
@@ -26,6 +27,33 @@ LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "mock_token")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET", "mock_secret")
 
 parser = WebhookParser(LINE_CHANNEL_SECRET)
+
+def reply_to_line(reply_token: str, messages: list) -> bool:
+    """Sends a reply to LINE containing up to 5 message objects."""
+    if not messages:
+        return True
+    # Truncate messages to max 5 (LINE API limit)
+    messages = messages[:5]
+    
+    # Check for mock
+    if reply_token.startswith("mock") or LINE_CHANNEL_ACCESS_TOKEN == "mock_token":
+        logger.info(f"[MOCK LINE REPLY] Token: {reply_token}")
+        for idx, msg in enumerate(messages, 1):
+            if hasattr(msg, "text"):
+                logger.info(f"  Msg {idx} (Text):\n{msg.text}")
+            elif hasattr(msg, "original_content_url"):
+                logger.info(f"  Msg {idx} (Image URL): {msg.original_content_url}")
+        return True
+        
+    config = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
+    with ApiClient(config) as api_client:
+        line_bot_api = MessagingApi(api_client)
+        reply_message_request = ReplyMessageRequest(
+            replyToken=reply_token,
+            messages=messages
+        )
+        line_bot_api.reply_message(reply_message_request)
+    return True
 
 async def process_line_location(user_id: str, lat: float, lng: float, title: str, reply_token: str):
     from app.routers.webhook import _build_forecast_text
@@ -83,18 +111,18 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
     # 1. Handle /devmock command
     if cmd_name == "/devmock":
         if len(parts) < 2:
-            await notifier.send_text_message(user_id, "ℹ️ รูปแบบการใช้งาน: /devmock [rain|clear|off]")
+            reply_to_line(reply_token, [TextMessage(text="ℹ️ รูปแบบการใช้งาน: /devmock [rain|clear|off]")])
             return
         state = parts[1].lower()
         if state == "off":
             state = None
         elif state not in ("rain", "clear"):
-            await notifier.send_text_message(user_id, "❌ สถานะไม่ถูกต้อง กรุณาเลือก: rain, clear, off")
+            reply_to_line(reply_token, [TextMessage(text="❌ สถานะไม่ถูกต้อง กรุณาเลือก: rain, clear, off")])
             return
             
         async with get_repo_context() as repo:
             await repo.set_mock_state(user_id, state)
-        await notifier.send_text_message(user_id, f"✅ ตั้งค่าสถานะจำลอง (mock state) เป็น '{state or 'off'}' เรียบร้อยแล้ว")
+        reply_to_line(reply_token, [TextMessage(text=f"✅ ตั้งค่าสถานะจำลอง (mock state) เป็น '{state or 'off'}' เรียบร้อยแล้ว")])
         return
 
     # 2. Handle /mylocation command
@@ -102,18 +130,18 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
         async with get_repo_context() as repo:
             locs = await repo.get_user_locations(user_id)
         if not locs:
-            await notifier.send_text_message(user_id, "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")
+            reply_to_line(reply_token, [TextMessage(text="⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")])
             return
         
         lines = ["📍 พิกัดของคุณที่บันทึกไว้:"]
         for idx, loc in enumerate(locs, 1):
             name = loc.name or "default"
             lines.append(f"{idx}. {name} ({loc.latitude}, {loc.longitude}) [{loc.retention_type}]")
-        await notifier.send_text_message(user_id, "\n".join(lines))
+        reply_to_line(reply_token, [TextMessage(text="\n".join(lines))])
         return
 
-    # 3. Handle /rain, /rain_pro, /check commands
-    if cmd_name in ("/rain", "/rain_pro", "/check"):
+    # 3. Handle /rain, /rain_pro, /check, /radar, /tracking, /timeline, /nowcast commands
+    if cmd_name in ("/rain", "/rain_pro", "/check", "/radar", "/tracking", "/timeline", "/nowcast"):
         import re
         coords_match = re.search(r'([+-]?\d+\.\d+)[,\s]+([+-]?\d+\.\d+)', command)
         custom_lat = None
@@ -163,7 +191,7 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
             async with get_repo_context() as repo:
                 locs = await repo.get_user_locations(user_id)
             if not locs:
-                await notifier.send_text_message(user_id, "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")
+                reply_to_line(reply_token, [TextMessage(text="⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")])
                 return
                 
             if target_location_name:
@@ -173,14 +201,14 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
                         break
                 if not loc:
                     available_locs = ", ".join([l.name for l in locs if l.name])
-                    await notifier.send_text_message(user_id, f"⚠️ ไม่พบพิกัดชื่อ '{target_location_name}'\nพิกัดที่มี: {available_locs or 'default'}")
+                    reply_to_line(reply_token, [TextMessage(text=f"⚠️ ไม่พบพิกัดชื่อ '{target_location_name}'\nพิกัดที่มี: {available_locs or 'default'}")])
                     return
             else:
                 loc = locs[0]
                 
         loc_display = loc.name.capitalize() if loc.name else "ระบบอัตโนมัติ"
         
-        await notifier.send_text_message(user_id, f"⏳ กำลังตรวจสอบสภาพอากาศที่ '{loc_display}'...")
+        # Note: We skip the intermediate "⏳ กำลังตรวจสอบ..." message because replyToken can only be consumed once.
         
         async with get_repo_context() as repo:
             mock_state = await repo.get_mock_state(user_id)
@@ -201,10 +229,10 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
             text = "⚠️ ยังไม่มีข้อมูลล่าสุดจากกรมอุตุฯ (TMD Radar)\nแนะนำให้เปลี่ยนไปใช้ API อื่น (เช่น Tomorrow.io หรือ Open-Meteo) แทนชั่วคราวครับ\n"
             
         if actual_endpoint == "error":
-            await notifier.send_text_message(user_id, "⚠️ ขออภัย ไม่สามารถเชื่อมต่อกับระบบพยากรณ์ฝนได้ในขณะนี้\nกรุณาลองใหม่อีกครั้งในภายหลัง")
+            reply_to_line(reply_token, [TextMessage(text="⚠️ ขออภัย ไม่สามารถเชื่อมต่อกับระบบพยากรณ์ฝนได้ในขณะนี้\nกรุณาลองใหม่อีกครั้งในภายหลัง")])
             return
             
-        await notifier.send_text_message(user_id, text)
+        reply_messages = [TextMessage(text=text)]
         
         static_bytes = result.get("radar_static_bytes")
         tracking_bytes = result.get("radar_tracking_bytes")
@@ -214,25 +242,41 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
         
         show_advanced = (cmd_name == "/rain_pro")
         
-        import asyncio
-        tasks = []
+        # Helper to upload media asynchronously and append ImageMessages
+        async def _upload_and_add_msg(data, ext, mime):
+            import asyncio
+            url = await asyncio.to_thread(notifier._upload_media, data, mime, ext)
+            if url:
+                reply_messages.append(ImageMessage(original_content_url=url, preview_image_url=url))
+        
         if show_advanced:
             if static_bytes:
-                tasks.append(notifier.send_photo(user_id, static_bytes, f"radar_latest_{loc.name}.png"))
+                await _upload_and_add_msg(static_bytes, f"_{loc.name or 'default'}.png", "image/png")
             if tracking_bytes:
-                tasks.append(notifier.send_photo(user_id, tracking_bytes, f"radar_tracking_{loc.name}.png"))
+                await _upload_and_add_msg(tracking_bytes, f"_{loc.name or 'default'}.png", "image/png")
             if timeline_bytes:
-                tasks.append(notifier.send_photo(user_id, timeline_bytes, f"rain_timeline_{loc.name}.png"))
+                await _upload_and_add_msg(timeline_bytes, f"_{loc.name or 'default'}.png", "image/png")
             if multiframe_bytes:
-                tasks.append(notifier.send_document(user_id, multiframe_bytes, f"radar_multiframe_{loc.name}.gif"))
-        else:
+                # Send GIF as ImageMessage for LINE
+                await _upload_and_add_msg(multiframe_bytes, f"_{loc.name or 'default'}.gif", "image/gif")
+        elif cmd_name in ("/rain", "/check"):
             if tracking_bytes:
-                tasks.append(notifier.send_photo(user_id, tracking_bytes, f"radar_tracking_{loc.name}.png"))
+                await _upload_and_add_msg(tracking_bytes, f"_{loc.name or 'default'}.png", "image/png")
             if gif_bytes:
-                tasks.append(notifier.send_document(user_id, gif_bytes, f"radar_nowcast_{loc.name}.gif"))
+                await _upload_and_add_msg(gif_bytes, f"_{loc.name or 'default'}.gif", "image/gif")
+        elif cmd_name == "/radar":
+            if static_bytes:
+                await _upload_and_add_msg(static_bytes, f"_{loc.name or 'default'}.png", "image/png")
+        elif cmd_name == "/tracking":
+            if tracking_bytes:
+                await _upload_and_add_msg(tracking_bytes, f"_{loc.name or 'default'}.png", "image/png")
+        elif cmd_name == "/timeline":
+            if timeline_bytes:
+                await _upload_and_add_msg(timeline_bytes, f"_{loc.name or 'default'}.png", "image/png")
+        elif cmd_name == "/nowcast":
+            if gif_bytes:
+                await _upload_and_add_msg(gif_bytes, f"_{loc.name or 'default'}.gif", "image/gif")
                 
-        if tasks:
-            await asyncio.gather(*tasks)
         if show_advanced:
             advanced_data = result.get("advanced_alerts", {})
             advisories = advanced_data.get("advisories", [])
@@ -246,11 +290,13 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
             if has_advisory or has_lightning or has_stormcell:
                 from app.routers.webhook import _build_advanced_text
                 adv_text = _build_advanced_text(advisories, lightning, stormcells)
-                await notifier.send_text_message(user_id, adv_text)
+                reply_messages.append(TextMessage(text=adv_text))
+                
+        reply_to_line(reply_token, reply_messages)
         return
 
     # 4. Unknown Command
-    await notifier.send_text_message(user_id, f"❓ ไม่รู้จักคำสั่ง '{cmd_name}'")
+    reply_to_line(reply_token, [TextMessage(text=f"❓ ไม่รู้จักคำสั่ง '{cmd_name}'")])
 
 async def handle_line_events(events, background_tasks: BackgroundTasks):
     for event in events:

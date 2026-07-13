@@ -253,6 +253,7 @@ async def _send_combined_alerts(chat_id, eval_results, repo, now):
         logger.error(f"Failed to send combined text alert for chat_id {chat_id} on {platform}: {e}")
         return 0, errors + 1
 
+    # Only send media files (radar photos, timelines, gifs) on Telegram to save LINE push quota
     for r in valid_results:
         if r["type"] == "rain":
             loc = r["loc"]
@@ -263,22 +264,17 @@ async def _send_combined_alerts(chat_id, eval_results, repo, now):
             tracking_bytes = result.get("radar_tracking_bytes")
             timeline_bytes = result.get("rain_timeline_bytes")
             
-            try:
-                if platform == "telegram":
+            if platform == "telegram":
+                try:
                     chat_id_val = int(chat_id)
                     if static_bytes: await send_telegram_photo(chat_id_val, static_bytes, f"radar_latest_{loc.name}.png")
                     if timeline_bytes: await send_telegram_photo(chat_id_val, timeline_bytes, f"rain_timeline_{loc.name}.png")
                     if tracking_bytes: await send_telegram_photo(chat_id_val, tracking_bytes, f"radar_tracking_{loc.name}.png")
                     if gif_bytes: await send_telegram_document(chat_id_val, gif_bytes, f"radar_nowcast_{loc.name}.gif")
-                else:
-                    if static_bytes: await notifier.send_photo(str(chat_id), static_bytes, f"radar_latest_{loc.name}.png")
-                    if timeline_bytes: await notifier.send_photo(str(chat_id), timeline_bytes, f"rain_timeline_{loc.name}.png")
-                    if tracking_bytes: await notifier.send_photo(str(chat_id), tracking_bytes, f"radar_tracking_{loc.name}.png")
-                    if gif_bytes: await notifier.send_document(str(chat_id), gif_bytes, f"radar_nowcast_{loc.name}.gif")
-            except Exception as e:
-                logger.error(f"Failed to send images for {loc.name} of chat_id {chat_id} on {platform}: {e}")
-                errors += 1
-
+                except Exception as e:
+                    logger.error(f"Failed to send images for {loc.name} of chat_id {chat_id} on {platform}: {e}")
+                    errors += 1
+            
             try:
                 await repo.update_last_alerted(loc, now, max_rain=r["max_rain"])
             except Exception as e:
@@ -292,47 +288,46 @@ async def _send_combined_alerts(chat_id, eval_results, repo, now):
                 logger.error(f"Failed to update db for all-clear: {e}")
                 errors += 1
 
-    for r in valid_results:
-        if r["type"] == "rain" and r.get("advanced_data"):
-            loc = r["loc"]
-            advanced_data = r["advanced_data"]
-            has_advisory = len(advanced_data.get("advisories", [])) > 0
-            has_lightning = advanced_data.get("lightning") is not None
-            has_stormcell = advanced_data.get("stormcell") is not None
-            
-            if has_advisory or has_lightning or has_stormcell:
-                loc_name_str = f"สำหรับพิกัด '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else ""
-                adv_text = f"🚨 *ข้อมูลเตือนภัยขั้นสูงรอบตัวคุณ {loc_name_str}*\n\n"
-                if has_advisory:
-                    for adv in advanced_data["advisories"]: adv_text += f"⚠️ ประกาศเตือนภัย: {adv.get('name', '')}\n"
-                    adv_text += "\n"
-                if has_lightning:
-                    lightning = advanced_data["lightning"]
-                    adv_text += f"⚡ ฟ้าผ่าระยะใกล้สุด: {lightning.get('distance_km', 0):.1f} กม.\n\n"
-                if has_stormcell:
-                    stormcell = advanced_data["stormcell"]
-                    if stormcell.get('distance_km') is None:
-                        adv_text += f"🌪️ แนวโน้มกลุ่มฝน/ลม (Contingency):\n"
-                        adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
-                        adv_text += f"   - ความเร็วลม: {stormcell.get('speed_kmh', 0):.1f} km/h\n\n"
-                        adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Open-Meteo (Fallback)"
-                    else:
-                        adv_text += f"🌪️ ตรวจพบกลุ่มพายุ: ระยะห่าง {stormcell.get('distance_km', 0):.1f} กม.\n"
-                        adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
-                        adv_text += f"   - ความเร็ว: {stormcell.get('speed_kmh', 0):.1f} km/h\n"
-                        adv_text += f"   - ความรุนแรงสูงสุด (dBZ): {stormcell.get('max_dbz', 0)}\n\n"
-                        adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
-                elif has_advisory or has_lightning:
-                    adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
+    # Only send advanced alerts (lightning, storm cells) on Telegram to save LINE push quota
+    if platform == "telegram":
+        for r in valid_results:
+            if r["type"] == "rain" and r.get("advanced_data"):
+                loc = r["loc"]
+                advanced_data = r["advanced_data"]
+                has_advisory = len(advanced_data.get("advisories", [])) > 0
+                has_lightning = advanced_data.get("lightning") is not None
+                has_stormcell = advanced_data.get("stormcell") is not None
                 
-                try:
-                    if platform == "telegram":
+                if has_advisory or has_lightning or has_stormcell:
+                    loc_name_str = f"สำหรับพิกัด '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else ""
+                    adv_text = f"🚨 *ข้อมูลเตือนภัยขั้นสูงรอบตัวคุณ {loc_name_str}*\n\n"
+                    if has_advisory:
+                        for adv in advanced_data["advisories"]: adv_text += f"⚠️ ประกาศเตือนภัย: {adv.get('name', '')}\n"
+                        adv_text += "\n"
+                    if has_lightning:
+                        lightning = advanced_data["lightning"]
+                        adv_text += f"⚡ ฟ้าผ่าระยะใกล้สุด: {lightning.get('distance_km', 0):.1f} กม.\n\n"
+                    if has_stormcell:
+                        stormcell = advanced_data["stormcell"]
+                        if stormcell.get('distance_km') is None:
+                            adv_text += f"🌪️ แนวโน้มกลุ่มฝน/ลม (Contingency):\n"
+                            adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
+                            adv_text += f"   - ความเร็วลม: {stormcell.get('speed_kmh', 0):.1f} km/h\n\n"
+                            adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Open-Meteo (Fallback)"
+                        else:
+                            adv_text += f"🌪️ ตรวจพบกลุ่มพายุ: ระยะห่าง {stormcell.get('distance_km', 0):.1f} กม.\n"
+                            adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
+                            adv_text += f"   - ความเร็ว: {stormcell.get('speed_kmh', 0):.1f} km/h\n"
+                            adv_text += f"   - ความรุนแรงสูงสุด (dBZ): {stormcell.get('max_dbz', 0)}\n\n"
+                            adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
+                    elif has_advisory or has_lightning:
+                        adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
+                    
+                    try:
                         await send_telegram_message(int(chat_id), adv_text)
-                    else:
-                        await notifier.send_text_message(str(chat_id), adv_text)
-                except Exception as e:
-                    logger.error(f"Failed to send advanced alert for {loc.name} on {platform}: {e}")
-                    errors += 1
+                    except Exception as e:
+                        logger.error(f"Failed to send advanced alert for {loc.name} on {platform}: {e}")
+                        errors += 1
 
     return alerts_sent, errors
 

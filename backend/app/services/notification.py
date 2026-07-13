@@ -67,10 +67,21 @@ class TelegramNotificationService(NotificationService):
 
 
 class LineNotificationService(NotificationService):
+    @property
+    def access_token(self) -> str:
+        return os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "mock_token")
+
+    @property
+    def channel_secret(self) -> str:
+        return os.getenv("LINE_CHANNEL_SECRET", "mock_secret")
+
+    @property
+    def config(self) -> Configuration:
+        return Configuration(access_token=self.access_token)
+
     def __init__(self):
-        self.access_token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "mock_token")
-        self.channel_secret = os.getenv("LINE_CHANNEL_SECRET", "mock_secret")
-        self.config = Configuration(access_token=self.access_token)
+        pass
+
 
     def _upload_media(self, media_bytes: bytes, content_type: str, file_ext: str) -> Optional[str]:
         """Uploads media bytes to GCS (public) or hosts locally as fallback, returning a public URL."""

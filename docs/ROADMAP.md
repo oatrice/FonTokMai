@@ -27,6 +27,58 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #171 - ปรับความถี่และกลไกการเรียกข้อมูลเรดาร์ (Radar Fetching Optimizations & Recovery)
+- **GitHub:** [#171](https://gitlab.com/oatricedev/FonMaYang/-/issues/171)
+- **Status:** 🟢 **Ready**
+
+### Issue #170 - แก้ไขปัญหาระบบแจ้งเตือนทาง LINE ทำงานไม่ปกติ (ขณะที่ Telegram ทำงานปกติ)
+- **GitHub:** [#170](https://gitlab.com/oatricedev/FonMaYang/-/issues/170)
+- **Status:** 🟢 **Ready**
+
+### Issue #169 - เพิ่มโหมดคิด/ไม่คิดอัตราการสลายตัว
+- **GitHub:** [#169](https://gitlab.com/oatricedev/FonMaYang/-/issues/169)
+- **Status:** 🟢 **Ready**
+
+### Issue #168 - Investigate: การคำนวณระยะเวลาฝนตก/ฝนหยุดตก ในกรณีกลุ่มฝนขนาดใหญ่ และข้อจำกัดขอบเขตเวลา
+- **GitHub:** [#168](https://gitlab.com/oatricedev/FonMaYang/-/issues/168)
+- **Status:** 🟢 **Ready**
+
+### Issue #167 - Investigate: ความสอดคล้องของเวลาเรดาร์ระหว่าง Production (15:30) และ Manual Dev (15:15)
+- **GitHub:** [#167](https://gitlab.com/oatricedev/FonMaYang/-/issues/167)
+- **Status:** 🟢 **Ready**
+
+### Issue #166 - แก้ไขบั๊กในระบบแจ้งเตือน Budget บน production Telegram
+- **GitHub:** [#166](https://gitlab.com/oatricedev/FonMaYang/-/issues/166)
+- **Status:** 🟢 **Ready**
+
+### Issue #165 - ทำระบบ bind command แบบที่ bind กับ ZCode
+- **GitHub:** [#165](https://gitlab.com/oatricedev/FonMaYang/-/issues/165)
+- **Status:** 🟢 **Ready**
+
+### Issue #164 - เพิ่มระบบล็อคเป้าก้อนเมฆแบบ manual
+- **GitHub:** [#164](https://gitlab.com/oatricedev/FonMaYang/-/issues/164)
+- **Status:** 🟢 **Ready**
+
+### Issue #163 - Investigate inconsistent wind direction between tmd-radar and Open-Meteo contingency
+- **GitHub:** [#163](https://gitlab.com/oatricedev/FonMaYang/-/issues/163)
+- **Status:** 🟢 **Ready**
+
+### Issue #161 - ศึกษาความพร้อมของข้อมูลเรดาร์เพื่อขยายบริการไปยังต่างประเทศ
+- **GitHub:** [#161](https://gitlab.com/oatricedev/FonMaYang/-/issues/161)
+- **Status:** 🟢 **Ready**
+
+### Issue #160 - Implement Edge CDN for Static Assets and Caching
+- **GitHub:** [#160](https://gitlab.com/oatricedev/FonMaYang/-/issues/160)
+- **Status:** 🟢 **Ready**
+
+### Issue #159 - Implement message delivery and read status logging
+- **GitHub:** [#159](https://gitlab.com/oatricedev/FonMaYang/-/issues/159)
+- **Status:** 🟢 **Ready**
+
+### Issue #158 - สร้างระบบ Export Log ระบุช่วงเวลาที่มีปัญหาผ่าน Telegram Akasa Chat
+- **GitHub:** [#158](https://gitlab.com/oatricedev/FonMaYang/-/issues/158)
+- **Status:** 🟢 **Ready**
+
 ### Issue #157 - Real-time Event Broadcaster (SSE / WebSockets)
 - **GitHub:** [#157](https://gitlab.com/oatricedev/FonMaYang/-/issues/157)
 - **Status:** 🟢 **Ready**

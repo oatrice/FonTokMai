@@ -17,6 +17,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
+from app.dependencies import get_repo_context
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
@@ -157,18 +159,21 @@ def _revoke_public_access() -> str:
 
 async def _send_telegram_alert(message: str) -> None:
     """ส่งข้อความแจ้งเตือนผ่าน Telegram"""
-    if not TELEGRAM_BOT_TOKEN or not DEVELOPER_CHAT_IDS:
+    token = os.getenv("DEV_TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_ids_str = os.getenv("DEVELOPER_CHAT_IDS")
+    
+    if not token or not chat_ids_str:
         logger.warning("[BudgetAlert] Telegram not configured, skipping notification.")
         return
 
     import httpx
 
-    chat_ids = [cid.strip() for cid in DEVELOPER_CHAT_IDS.split(",") if cid.strip()]
+    chat_ids = [cid.strip() for cid in chat_ids_str.split(",") if cid.strip()]
     async with httpx.AsyncClient() as client:
         for chat_id in chat_ids:
             try:
                 await client.post(
-                    f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                    f"https://api.telegram.org/bot{token}/sendMessage",
                     json={
                         "chat_id": chat_id,
                         "text": message,
@@ -232,18 +237,43 @@ async def handle_budget_alert(payload: PubSubPushPayload, request: Request):
         f"threshold={alert_threshold:.0%}"
     )
 
+    ratio = cost_amount / budget_amount if budget_amount > 0 else 0.0
+
+    # Reset warning flag if cost falls below 80%
+    if ratio < 0.80:
+        async with get_repo_context() as repo:
+            settings = await repo.get_system_settings()
+            if not settings:
+                settings = {}
+            if settings.get("budget_alert_80_sent"):
+                settings["budget_alert_80_sent"] = False
+                await repo.set_system_settings(settings)
+                logger.info("[BudgetAlert] Reset budget_alert_80_sent flag because ratio is below 80%.")
+
     # ─── Warning Alert (80%) ───
-    if 0.79 < alert_threshold < 1.0:
-        warning_msg = (
-            f"⚠️ <b>Budget Warning — FonMaYang</b>\n\n"
-            f"📊 ค่าใช้จ่ายถึง <b>{alert_threshold:.0%}</b> ของ budget แล้ว\n"
-            f"💰 ค่าใช้จ่ายปัจจุบัน: <code>{cost_amount:.2f} {currency}</code>\n"
-            f"🎯 Budget limit: <code>{budget_amount:.2f} {currency}</code>\n"
-            f"🔔 ถ้าถึง 100% ระบบจะ scale down Cloud Run อัตโนมัติ"
-        )
-        await _send_telegram_alert(warning_msg)
-        logger.info("[BudgetAlert] ⚠️ 80% warning alert sent.")
-        return {"status": "warning_sent", "threshold": alert_threshold}
+    is_warning_threshold = (0.79 < alert_threshold < 1.0) or (0.80 <= ratio < 1.0)
+    if is_warning_threshold:
+        async with get_repo_context() as repo:
+            settings = await repo.get_system_settings()
+            if not settings:
+                settings = {}
+            
+            if not settings.get("budget_alert_80_sent"):
+                warning_msg = (
+                    f"⚠️ <b>Budget Warning — FonMaYang</b>\n\n"
+                    f"📊 ค่าใช้จ่ายถึง <b>{max(alert_threshold, ratio):.0%}</b> ของ budget แล้ว\n"
+                    f"💰 ค่าใช้จ่ายปัจจุบัน: <code>{cost_amount:.2f} {currency}</code>\n"
+                    f"🎯 Budget limit: <code>{budget_amount:.2f} {currency}</code>\n"
+                    f"🔔 ถ้าถึง 100% ระบบจะ scale down Cloud Run อัตโนมัติ"
+                )
+                await _send_telegram_alert(warning_msg)
+                settings["budget_alert_80_sent"] = True
+                await repo.set_system_settings(settings)
+                logger.info("[BudgetAlert] ⚠️ 80% warning alert sent.")
+                return {"status": "warning_sent", "threshold": alert_threshold}
+            else:
+                logger.info("[BudgetAlert] 80% warning already sent, muting duplicate.")
+                return {"status": "warning_already_sent", "threshold": alert_threshold}
 
     # ─── Shutdown Trigger (100%) ───
     if _is_budget_exceeded(budget_data):
