@@ -9,7 +9,7 @@
   },
   {
     "job_name": "fonmayang-fetch-radar",
-    "schedule": "*/5 * * * *",
+    "schedule": "10,25,40,55 * * * *",
     "endpoint_path": "fetch-tmd-radar",
     "time_zone": "Asia/Bangkok",
     "description": "\u26a0\ufe0f DO NOT EDIT - Managed by CI/CD setup_schedulers.sh"

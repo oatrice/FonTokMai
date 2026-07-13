@@ -550,8 +550,18 @@ class WeatherManager:
                 
                 async with lock:
                     cached_data = _GLOBAL_TMD_CACHE.get(station_code)
-
+                    
+                    is_fresh = False
                     if cached_data and (time.time() - cached_data[2]) < 600:
+                        frame_timestamps = list(cached_data[6]) if len(cached_data) > 6 else []
+                        if frame_timestamps:
+                            age = int(time.time() - frame_timestamps[-1])
+                            if age < 1200:
+                                is_fresh = True
+                        else:
+                            is_fresh = True
+
+                    if is_fresh:
                         frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
                         frame_source = cached_data[4] if len(cached_data) > 4 else "static_cache"
                         data_gap_minutes = cached_data[5] if len(cached_data) > 5 else 15.0
@@ -563,6 +573,23 @@ class WeatherManager:
                         )
                     else:
                         cached_data = await self.load_persistent_cache_to_memory(station_code, processor)
+                        
+                        persistent_stale = True
+                        if cached_data:
+                            frame_timestamps = list(cached_data[6]) if len(cached_data) > 6 else []
+                            if frame_timestamps:
+                                age = int(time.time() - frame_timestamps[-1])
+                                if age < 1200:
+                                    persistent_stale = False
+                                    
+                        if persistent_stale:
+                            logger.info(f"[{station_code}] Persistent cache is stale or missing. Triggering live radar cache update...")
+                            try:
+                                await processor.update_radar_cache(force=True)
+                            except Exception as _e:
+                                logger.error(f"[{station_code}] Live cache update failed: {_e}")
+                            cached_data = await self.load_persistent_cache_to_memory(station_code, processor)
+                            
                         if cached_data:
                             frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
                             frame_source = cached_data[4]

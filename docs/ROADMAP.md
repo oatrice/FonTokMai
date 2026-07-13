@@ -27,6 +27,14 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #173 - สร้างปุ่มเลือกส่งข้อมูลเพิ่มเติมผ่าน LINE Rich Menu เพื่อความสะดวก
+- **GitHub:** [#173](https://gitlab.com/oatricedev/FonMaYang/-/issues/173)
+- **Status:** 🟢 **Ready**
+
+### Issue #172 - เพิ่มระบบเก็บสถิติการส่งข้อความ LINE OA เพื่อควบคุมโควต้าลิมิต (300 ข้อความ/เดือน)
+- **GitHub:** [#172](https://gitlab.com/oatricedev/FonMaYang/-/issues/172)
+- **Status:** 🟢 **Ready**
+
 ### Issue #171 - ปรับความถี่และกลไกการเรียกข้อมูลเรดาร์ (Radar Fetching Optimizations & Recovery)
 - **GitHub:** [#171](https://gitlab.com/oatricedev/FonMaYang/-/issues/171)
 - **Status:** 🟢 **Ready**

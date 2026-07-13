@@ -1945,8 +1945,9 @@ class TMDRadarProcessor:
 
     async def fetch_station_timestamp_utc(self) -> Optional[datetime]:
         """Fetch the authoritative latest-frame timestamp from the TMD station PHP page."""
+        import time
         prefix = self.station_code[:3]
-        php_url = f"https://weather.tmd.go.th/{prefix}.php"
+        php_url = f"https://weather.tmd.go.th/{prefix}.php?t={int(time.time())}"
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(php_url)
@@ -1958,8 +1959,8 @@ class TMDRadarProcessor:
 
     async def fetch_latest_image_bytes(self) -> Optional[bytes]:
         """Fetches the latest static radar image (Polling method)."""
-        
-        url = self.config.static_image_url
+        import time
+        url = f"{self.config.static_image_url}?t={int(time.time())}"
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(url)
@@ -1984,7 +1985,7 @@ class TMDRadarProcessor:
 
     async def fetch_loop_gif_and_extract_frames(self) -> Tuple[List[np.ndarray], Optional['datetime'], Optional[bytes]]:
         """Fetches the Loop.gif and extracts frames, the Last-Modified datetime, and raw GIF bytes."""
-        
+        import time
         loop_bytes = None
         dt = None
                 
@@ -1994,10 +1995,11 @@ class TMDRadarProcessor:
             url = self.config.loop_gif_url
             if not url:
                 logger.warning(
-                    f"[{self.station_code}] No loop_gif_url configured "
-                    f"(station has no loop GIF from TMD). Returning empty frames."
+                     f"[{self.station_code}] No loop_gif_url configured "
+                     f"(station has no loop GIF from TMD). Returning empty frames."
                 )
                 return [], None, None
+            url = f"{url}?t={int(time.time())}"
             try:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.get(url)
@@ -2006,7 +2008,7 @@ class TMDRadarProcessor:
                         last_modified = response.headers.get("last-modified")
                         
                         try:
-                            php_url = f"https://weather.tmd.go.th/{self.station_code[:3]}.php"
+                            php_url = f"https://weather.tmd.go.th/{self.station_code[:3]}.php?t={int(time.time())}"
                             php_resp = await client.get(php_url)
                             if php_resp.status_code == 200:
                                 dt = self.parse_html_timestamp(php_resp.text)
@@ -2128,3 +2130,172 @@ class TMDRadarProcessor:
             return deleted_count
             
         return await asyncio.to_thread(_delete_sync)
+
+    async def update_radar_cache(self, force: bool = False) -> dict:
+        """
+        Fetch from TMD and update cache if new image is available or if cache is stale.
+        This encapsulates the fetching, OCR, cache validation, loop GIF fallback, and database persistence.
+        """
+        import os
+        import time
+        import cv2
+        import numpy as np
+        from datetime import datetime, timezone
+        from app.dependencies import get_repo_context
+        from app.services.ocr_service import OCRService
+
+        station = self.station_code
+        result = {"station": station, "updated": False, "error": None}
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+
+        # 1. Check cache first (for smart polling skip)
+        async with get_repo_context() as repo:
+            cache = await repo.get_latest_radar_cache(station)
+            
+        frames = cache.get("frames", []) if cache else []
+        latest_ts = frames[0]["timestamp"] if frames else 0
+        last_gif_fallback_time = cache.get("last_gif_fallback_time", 0.0) if cache else 0.0
+
+        # Sanity-check: if latest_ts is in the future (e.g. corrupted wall-clock fallback),
+        # reset to 0 so a fresh valid OCR timestamp can replace it.
+        if latest_ts > now_ts + 300:
+            logger.warning(
+                f"[{station}] ⚠️ Firestore latest_ts={latest_ts} is in the future "
+                f"(now={now_ts}, delta={latest_ts - now_ts}s) — resetting to 0 to unblock cache"
+            )
+            latest_ts = 0
+
+        # Skip fetch if cache is fresh, has enough frames, and force is False
+        if not force and len(frames) >= 2 and (now_ts - latest_ts) < 1200:
+            logger.debug(f"[{station}] Cache is fresh (latest_ts={latest_ts}, age={now_ts - latest_ts}s). Skipping update.")
+            result["reason"] = "fresh"
+            return result
+
+        # 2. Fetch static image bytes
+        static_bytes = await self.fetch_latest_image_bytes()
+        
+        ocr_svc = OCRService()
+        ts = None
+        frame = None
+        np_arr = None
+
+        if static_bytes:
+            np_arr = np.frombuffer(static_bytes, np.uint8)
+            frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            logger.info(f"[{station}] ✅ Static fetch OK — {len(static_bytes):,} bytes, shape={frame.shape[:2]}")
+            ts = await ocr_svc.get_frame_timestamp(frame, fallback_ts=now_ts)
+            ocr_ok = ts is not None and ts != now_ts
+            if not ocr_ok:
+                logger.warning(f"[{station}] ⚠️ OCR failed — frame will NOT be saved to avoid corrupting sliding window")
+                ts = None
+        else:
+            logger.warning(f"[{station}] ❌ Static fetch FAILED — will attempt GIF fallback if enabled")
+
+        needs_fallback = False
+        fallback_reason = ""
+
+        # Check fallback settings
+        async with get_repo_context() as repo:
+            sys_settings = await repo.get_system_settings()
+        enable_fallback_db = sys_settings.get("enable_gif_fallback", True)
+        enable_fallback_env = os.environ.get("ENABLE_TMD_GIF_FALLBACK", "true").lower() == "true"
+        enable_fallback = enable_fallback_db and enable_fallback_env
+
+        if enable_fallback:
+            if frames:
+                gap_to_now = (now_ts - latest_ts) / 60.0
+                is_static_outdated = False
+                if ts:
+                    static_age_minutes = (now_ts - ts) / 60.0
+                    if static_age_minutes > 120.0:
+                        is_static_outdated = True
+                        
+                if gap_to_now > 60.0 and (now_ts - last_gif_fallback_time) > 1800.0:
+                    needs_fallback = True
+                    fallback_reason = f"Static dead for {gap_to_now:.1f}m"
+                elif is_static_outdated and (now_ts - last_gif_fallback_time) > 1800.0:
+                    needs_fallback = True
+                    fallback_reason = f"Static image is outdated by {static_age_minutes:.1f}m"
+                elif ts and (ts - latest_ts) > 1800.0:
+                    needs_fallback = True
+                    fallback_reason = f"Large time gap detected ({int((ts - latest_ts)/60)}m) between {latest_ts} and {ts}"
+            else:
+                if (now_ts - last_gif_fallback_time) > 1800.0:
+                    needs_fallback = True
+                    fallback_reason = "Cache is empty"
+
+        if enable_fallback and not needs_fallback and len(frames) < 2:
+            if (now_ts - last_gif_fallback_time) > 1800.0:
+                needs_fallback = True
+                fallback_reason = f"Cache has <2 frames ({len(frames)})"
+
+        # If not outdated/dead and unchanged, return early
+        if not needs_fallback and ((ts and ts <= latest_ts) or not static_bytes):
+            logger.debug(f"[{station}] Image unchanged or unavailable (ts {ts}). Skipping.")
+            result["reason"] = "unchanged"
+            return result
+
+        new_url = None
+        if ts and ts > latest_ts:
+            logger.info(f"[{station}] 🆕 New frame detected (ts={ts} > latest={latest_ts}) — saving to GCS")
+            new_url = await self.save_polled_frame(static_bytes)
+            frames.insert(0, {"url": new_url, "timestamp": ts})
+            frames = sorted(frames, key=lambda f: f["timestamp"])
+            frames.reverse() # newest first
+
+        if needs_fallback:
+            logger.warning(f"[{station}] GIF fallback triggered: {fallback_reason}")
+            last_gif_fallback_time = now_ts
+            fallback_frames_data, fallback_dt, loop_bytes = await self.fetch_loop_gif_and_extract_frames()
+            if fallback_frames_data and len(fallback_frames_data) >= 2:
+                logger.info(f"[{station}] 🌀 GIF fallback: fetched {len(fallback_frames_data)} frames")
+                recent_fallback = fallback_frames_data[-6:]
+                recent_fallback.reverse()
+
+                new_frames_list = []
+                base_ts = ts if ts else now_ts
+                for i, f_img in enumerate(recent_fallback):
+                    f_ts = await ocr_svc.get_frame_timestamp(f_img, fallback_ts=base_ts - i * 900)
+                    if f_img.shape[0] != 800 or f_img.shape[1] != 800:
+                        f_img = cv2.resize(f_img, (800, 800), interpolation=cv2.INTER_NEAREST)
+                    is_success, buffer = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
+                    if is_success:
+                        f_url = await self.save_polled_frame(buffer.tobytes())
+                        new_frames_list.append({"url": f_url, "timestamp": f_ts})
+
+                if new_frames_list:
+                    gif_newest_ts = new_frames_list[0]["timestamp"]
+                    current_newest_ts = frames[0]["timestamp"] if frames else 0
+                    is_bootstrap = fallback_reason.startswith("Cache has <2") or fallback_reason == "Cache is empty"
+
+                    if is_bootstrap:
+                        if ts and ts > gif_newest_ts:
+                            new_frames_list.insert(0, {"url": new_url, "timestamp": ts})
+                        frames = new_frames_list
+                    elif gif_newest_ts > current_newest_ts + 300:
+                        logger.info(f"[{station}] GIF data is newer. Adopting GIF frames.")
+                        if ts and ts > gif_newest_ts:
+                            new_frames_list.insert(0, {"url": new_url, "timestamp": ts})
+                        frames = new_frames_list
+                    else:
+                        logger.warning(f"[{station}] GIF data is NOT newer. Discarding GIF.")
+
+        frames = frames[:6]
+        
+        async with get_repo_context() as repo:
+            await repo.set_latest_radar_cache(
+                station_code=station,
+                frames=frames,
+                last_gif_fallback_time=last_gif_fallback_time
+            )
+        logger.info(f"Updated cache for {station} with {len(frames)} frames, latest ts {ts}")
+
+        # Cleanup old frames
+        deleted = await self.cleanup_old_frames(max_age_hours=3)
+        if deleted > 0:
+            logger.info(f"Cleaned up {deleted} old frames for {station}")
+
+        result["updated"] = True
+        return result
+

@@ -1,36 +1,31 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 166,
-      "title": "แก้ไขบั๊กในระบบแจ้งเตือน Budget บน production Telegram",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/166",
+      "number": 167,
+      "title": "Investigate: ความสอดคล้องของเวลาเรดาร์ระหว่าง Production (15:30) และ Manual Dev (15:15)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/167",
       "body": null,
-      "project_item_id": "GLAB_166",
+      "project_item_id": "GLAB_167",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 170,
-      "title": "แก้ไขปัญหาระบบแจ้งเตือนทาง LINE ทำงานไม่ปกติ (ขณะที่ Telegram ทำงานปกติ)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/170",
+      "number": 171,
+      "title": "ปรับความถี่และกลไกการเรียกข้อมูลเรดาร์ (Radar Fetching Optimizations & Recovery)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/171",
       "body": null,
-      "project_item_id": "GLAB_170",
+      "project_item_id": "GLAB_171",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/166-170-budget-production-telegram",
-  "started_at": "2026-07-13T09:39:28.186553",
+  "active_branch": "feat/167-171-investigate-production-15-30-m",
+  "started_at": "2026-07-13T11:46:41.644538",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
@@ -50,8 +45,7 @@
         "backend/tests/test_scheduler.py",
         "docs/ROADMAP.md",
         "github/workflows/cleanup.yml",
-        "luma/prompts/prompt_20260713_043415_872c64b8.md",
-        "luma/prompts/prompt_20260713_043417_88f43123.md",
+        "luma/prompts/prompt_20260713_044640_df761eca.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -138,5 +132,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-13T11:34:23.167085"
+  "last_updated": "2026-07-13T11:46:45.946247"
 }
