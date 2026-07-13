@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.51.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
+**v0.52.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
 ใช้ภาพเรดาร์ TMD + Optical Flow เพื่อคาดการณ์ฝนล่วงหน้า 15–90 นาที
 
 ---
@@ -28,6 +28,10 @@
 | `/rain` | ดูสภาพอากาศตำแหน่งล่าสุด |
 | `/rain tmd-radar` | บังคับใช้ TMD Radar endpoint |
 | `/rain <location_name>` | ดูสภาพอากาศตำแหน่งที่บันทึกไว้ |
+| `/radar` | ดูภาพเรดาร์ล่าสุด (Static Radar) สำหรับพิกัดล่าสุด |
+| `/tracking` | ดูภาพวิเคราะห์ทิศทางกลุ่มฝน (Tracking Radar) สำหรับพิกัดล่าสุด |
+| `/timeline` | ดูภาพกราฟไทม์ไลน์ระยะเวลาฝน (Timeline Graph) สำหรับพิกัดล่าสุด |
+| `/nowcast` | ดูภาพเคลื่อนไหวพยากรณ์ฝน (GIF Nowcast) สำหรับพิกัดล่าสุด |
 
 ### Developer Commands (DEVELOPER_CHAT_IDS only)
 | Command | Description |
@@ -70,6 +74,7 @@ clusters:N       จำนวนก้อนเมฆ 1–5 (default 1)
 
 ```
 Telegram / LINE Webhook
+    │
     │
     ▼
 WeatherManager.predict_rain()
@@ -124,4 +129,4 @@ Key test files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.51.0** — Lazy initialization and async Cloud Tasks enqueuing with timeout to prevent deadlocks; updated Firestore queries to use FieldFilter keyword arguments; added coordinate migration script for Nong Khai House.
+Current: **v0.52.0** — ปรับปรุงระบบแจ้งเตือนงบประมาณให้รองรับการเช็กแบบประหยัดสเตทส่งเตือนภัยผ่าน Dev Bot และใช้การสลับ Token ใน .env; อัปเดต LINE Bot การดึงค่า Config แบบไดนามิกและย้ายคำสั่งคุยตอบกลับมาผ่าน Free Reply API; เพิ่มตัวคำสั่งขอภาพด่วนเป็นชิ้นเพื่อประหยัดข้อมูลโควต้า (/radar, /tracking, /timeline, /nowcast).

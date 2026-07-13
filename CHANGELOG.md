@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.0] - 2026-07-13
+
+### Added
+- เพิ่มคำสั่งแชทใหม่สำหรับ LINE OA: `/radar`, `/tracking`, `/timeline`, และ `/nowcast` เพื่อให้ผู้ใช้สามารถขอดึงเฉพาะชิ้นส่วนภาพพยากรณ์และเรดาร์ที่ต้องการได้ทีละส่วน
+- เพิ่มข้อความแนะนำท้ายการเตือนฝนเชิงรุกบน LINE แนะนำให้ผู้ใช้แชทเพื่อขอข้อมูลรูปภาพเพิ่มเติมผ่านระบบตอบกลับที่เป็นโควต้าฟรี
+- เพิ่มตัวแปรสิ่งแวดล้อม `DEV_TELEGRAM_BOT_TOKEN` ใน `.env.example` และ `deploy_cloudrun.sh` เพื่อรองรับการสลับส่งแจ้งเตือนเตือนภัยงบประมาณเข้าห้องแชทของบอททดสอบ (Dev Bot) แทนบอทจริง
+
+### Changed
+- ปรับเปลี่ยนสถาปัตยกรรมการตอบกลับคำสั่งแชทบน LINE OA (เช่น `/rain`, `/mylocation`, `/devmock`) จากเดิมที่ยิงผ่าน Push API มาเป็นส่งกล่องข้อความควบรวมผ่าน **Reply API** ซึ่งช่วยประหยัดโควต้าส่งข้อความ (ฟรี 100%)
+- ปรับแต่งระบบแจ้งเตือนฝนตกเชิงรุก (Proactive Alert) ฝั่ง LINE ให้ตัดการส่งภาพเรดาร์ รูปภาพไทม์ไลน์ และคำเตือนขั้นสูงออกจากการส่งเชิงรุก เพื่อเซฟปริมาณการใช้ Push Message
+- ปรับการเชื่อมต่อ LINE Bot Credentials (Token/Secret) ใน `LineNotificationService` ให้ดึงค่าแบบไดนามิก (Dynamic Property) ทุกครั้งที่มีการใช้งาน ป้องกันการแคชค่า Mock เดิมตอนเริ่มต้นระบบ
+- ปรับปรุงการเตือนภัยงบประมาณ (Budget Alert) ใน `budget_webhook.py` ให้ทำงานในลักษณะ Stateful โดยเช็กผ่านแฟล็ก `budget_alert_80_sent` เพื่อตัดสถิติการส่งแจ้งเตือนเตือนภัยงบประมาณซ้ำซ้อน และเคลียร์สถานะเมื่อค่าใช้จ่ายลดต่ำกว่า 80%
+
 ## [0.51.0] - 2026-07-08
 
 ### Added
