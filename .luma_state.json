@@ -4,33 +4,30 @@
   "phase": "reviewing",
   "active_issues": [
     {
-      "number": 167,
-      "title": "Investigate: ความสอดคล้องของเวลาเรดาร์ระหว่าง Production (15:30) และ Manual Dev (15:15)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/167",
+      "number": 168,
+      "title": "Investigate: การคำนวณระยะเวลาฝนตก/ฝนหยุดตก ในกรณีกลุ่มฝนขนาดใหญ่ และข้อจำกัดขอบเขตเวลา",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/168",
       "body": null,
-      "project_item_id": "GLAB_167",
+      "project_item_id": "GLAB_168",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     },
     {
-      "number": 171,
-      "title": "ปรับความถี่และกลไกการเรียกข้อมูลเรดาร์ (Radar Fetching Optimizations & Recovery)",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/171",
+      "number": 169,
+      "title": "เพิ่มโหมดคิด/ไม่คิดอัตราการสลายตัว",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/169",
       "body": null,
-      "project_item_id": "GLAB_171",
+      "project_item_id": "GLAB_169",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/167-171-investigate-production-15-30-m",
-  "started_at": "2026-07-13T11:46:41.644538",
+  "active_branch": "feat/168-169-investigate",
+  "started_at": "2026-07-13T16:11:06.548644",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
@@ -45,8 +42,8 @@
         "backend/config/schedulers.json",
         "backend/tests/test_tmd_polling_sync.py",
         "docs/ROADMAP.md",
-        "luma/prompts/prompt_20260713_090150_39377777.md",
-        "luma/prompts/prompt_20260713_090151_4de58f34.md",
+        "luma/prompts/prompt_20260713_091105_546fab9a.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
@@ -54,6 +51,7 @@
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
         "backend/config/schedulers.json",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -128,5 +126,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-13T16:02:16.999015"
+  "last_updated": "2026-07-13T16:21:49.559110"
 }

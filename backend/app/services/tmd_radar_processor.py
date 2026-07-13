@@ -791,7 +791,12 @@ class TMDRadarProcessor:
             
             # Predict future intensity only if incoming, otherwise use current
             eta_steps = max(0.0, eta_min / 15.0)
-            predicted_dbz = max(0.0, min(75.0, dbz_now * ((1 + growth_rate) ** eta_steps)))
+            
+            from app.services.weather_manager import _DEV_CONFIG
+            if _DEV_CONFIG.get("decay_enabled", True):
+                predicted_dbz = max(0.0, min(75.0, dbz_now * ((1 + growth_rate) ** eta_steps)))
+            else:
+                predicted_dbz = dbz_now
 
             clusters.append({
                 "cx": cx, "cy": cy,

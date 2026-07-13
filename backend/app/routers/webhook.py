@@ -1143,6 +1143,8 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "")
                     "<code>/devmock config min_dbz:5</code>\n"
                     "<code>/devmock config dot_threshold:0.3</code>\n"
                     "<code>/devmock config flow_mode:average</code>\n"
+                    "<code>/devmock config decay_enabled:false</code>\n"
+                    "<code>/devmock config prediction_steps:10</code>\n"
                     "<code>/devmock config reset</code> — คืนค่า default"
                 )
                 await send_telegram_message(chat_id, "\n".join(lines_cfg), parse_mode="HTML")
@@ -1153,13 +1155,18 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "")
                 _DEV_CONFIG["search_radius"] = 80
                 _DEV_CONFIG["min_dbz"]       = 10.0
                 _DEV_CONFIG["dot_threshold"] = 0.5
+                _DEV_CONFIG["flow_mode"]     = "average"
+                _DEV_CONFIG["hit_radius"]    = 8
+                _DEV_CONFIG["verbose"]       = False
+                _DEV_CONFIG["decay_enabled"] = True
+                _DEV_CONFIG["prediction_steps"] = 7
                 await repo.set_global_dev_config(_DEV_CONFIG)
                 await send_telegram_message(chat_id, "🛠️ Dev Config รีเซ็ตเป็นค่า default แล้วครับ ✅")
                 return
 
             import re as _re
             changed = []
-            for pair in _re.findall(r'(\w+):([a-zA-Z0-9_.-]+)', args):
+            for pair in _re.findall(r'(\w+)\s*:\s*([a-zA-Z0-9_.-]+)', args):
                 key, raw_val = pair
                 if key not in _DEV_CONFIG:
                     continue
