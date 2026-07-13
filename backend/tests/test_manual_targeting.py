@@ -142,3 +142,74 @@ async def test_weather_manager_manual_targeting_override(db_session):
         assert updated_loc.locked_target_cy == 105
         # The label was updated to "A" (since the matched cluster at index 0 gets label "A")
         assert updated_loc.locked_target_id == "A"
+
+
+@pytest.mark.asyncio
+async def test_webhook_lock_command_with_location_name(db_session):
+    repo = SQLiteLocationRepository(db_session)
+    chat_id = 987654
+    
+    # Save home and work locations
+    await repo.save_location(chat_id, 13.0, 100.0, "FOREVER", name="home")
+    await repo.save_location(chat_id, 14.0, 101.0, "FOREVER", name="work")
+    
+    # Mock repo context in webhook
+    mock_repo_context = MagicMock()
+    mock_repo_context.__aenter__.return_value = repo
+    
+    from app.routers import webhook
+    
+    with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
+         patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock) as mock_send, \
+         patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock) as mock_process:
+         
+        # 1. Lock 'work' to D2
+        await webhook.handle_lock_command(chat_id, "/lock work D2")
+        
+        # Verify only 'work' is updated to manual
+        loc_work = await repo.get_location(chat_id, "work")
+        assert loc_work.tracking_mode == "manual"
+        assert loc_work.locked_target_id == "D2"
+        
+        loc_home = await repo.get_location(chat_id, "home")
+        assert loc_home.tracking_mode == "auto"
+        
+        # Verify process_telegram_location was called with work's coordinates
+        mock_process.assert_called_with(chat_id, 14.0, 101.0, location_name="work")
+        
+        # 2. Lock D3 without location prefix -> should target LAST_ACTIVE_LOCATION if set
+        webhook.LAST_ACTIVE_LOCATION[chat_id] = "work"
+        mock_process.reset_mock()
+        await webhook.handle_lock_command(chat_id, "/lock D3")
+        
+        loc_work = await repo.get_location(chat_id, "work")
+        assert loc_work.tracking_mode == "manual"
+        assert loc_work.locked_target_id == "D3"
+        
+        mock_process.assert_called_with(chat_id, 14.0, 101.0, location_name="work")
+        
+        # 3. If LAST_ACTIVE_LOCATION is not set, fallback to prioritizing "home"
+        webhook.LAST_ACTIVE_LOCATION.pop(chat_id, None)
+        # Reset home tracking mode back to auto for testing fallback
+        await repo.update_tracking_mode(chat_id=chat_id, tracking_mode="auto", name="home")
+        
+        mock_process.reset_mock()
+        await webhook.handle_lock_command(chat_id, "/lock D4")
+        
+        loc_home = await repo.get_location(chat_id, "home")
+        assert loc_home.tracking_mode == "manual"
+        assert loc_home.locked_target_id == "D4"
+        
+        mock_process.assert_called_with(chat_id, 13.0, 100.0, location_name="home")
+        
+        # 4. Unlock 'work' specifically
+        mock_process.reset_mock()
+        await webhook.handle_unlock_command(chat_id, "/unlock work")
+        
+        loc_work = await repo.get_location(chat_id, "work")
+        assert loc_work.tracking_mode == "auto"
+        
+        loc_home = await repo.get_location(chat_id, "home")
+        assert loc_home.tracking_mode == "manual"
+        
+        mock_process.assert_called_with(chat_id, 14.0, 101.0, location_name="work")

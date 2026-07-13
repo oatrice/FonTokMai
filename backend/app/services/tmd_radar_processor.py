@@ -1342,8 +1342,21 @@ class TMDRadarProcessor:
                     'bg': (255, 255, 255) if is_locked else (0, 0, 0)
                 })
 
+            # Sort and build list of ambient clouds to render, prioritizing the locked target
             ambient_clouds.sort(key=lambda c: c.get("dist", 9999))
-            for c_orig in ambient_clouds[:8]:
+            rendered_ambient = []
+            if locked_target_id:
+                for c in ambient_clouds:
+                    if c.get("label") == locked_target_id:
+                        rendered_ambient.append(c)
+                        break
+            for c in ambient_clouds:
+                if len(rendered_ambient) >= 8:
+                    break
+                if c not in rendered_ambient:
+                    rendered_ambient.append(c)
+                    
+            for c_orig in rendered_ambient:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
                 if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
                     continue
@@ -1408,6 +1421,36 @@ class TMDRadarProcessor:
             
         cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
         cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(10 * scale), int(3 * scale))
+
+        # Draw subtle 8x8 grid overlay for manual coordinate locking
+        gh, gw = img.shape[0], img.shape[1]
+        cell_w, cell_h = gw / 8, gh / 8
+        grid_color = (80, 80, 80)
+        grid_thickness = max(1, int(0.5 * scale))
+        
+        for c_idx in range(1, 8):
+            x = int(c_idx * cell_w)
+            cv2.line(img, (x, 0), (x, gh), grid_color, grid_thickness)
+            
+        for r_idx in range(1, 8):
+            y = int(r_idx * cell_h)
+            cv2.line(img, (0, y), (gw, y), grid_color, grid_thickness)
+            
+        font_scale = 0.4 * scale
+        text_color = (200, 200, 200)
+        bg_color = (0, 0, 0)
+        
+        for c_idx in range(8):
+            label_x = chr(ord('A') + c_idx)
+            tx = int((c_idx + 0.5) * cell_w - 6 * scale)
+            cv2.putText(img, label_x, (tx, int(15 * scale)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, bg_color, max(1, int(font_scale * 4)))
+            cv2.putText(img, label_x, (tx, int(15 * scale)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, max(1, int(font_scale * 1.5)))
+            
+        for r_idx in range(8):
+            label_y = str(r_idx + 1)
+            ty = int((r_idx + 0.5) * cell_h + 5 * scale)
+            cv2.putText(img, label_y, (int(5 * scale), ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, bg_color, max(1, int(font_scale * 4)))
+            cv2.putText(img, label_y, (int(5 * scale), ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, max(1, int(font_scale * 1.5)))
 
         TMDRadarProcessor._resolve_label_collisions(labels, obstacles, img.shape[1], img.shape[0])
 

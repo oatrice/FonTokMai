@@ -18,6 +18,8 @@ import json
 
 logger = logging.getLogger(__name__)
 
+LAST_ACTIVE_LOCATION: dict[int, str] = {}
+
 router = APIRouter(
     prefix="/api/v1/telegram",
     tags=["webhook"]
@@ -169,6 +171,8 @@ async def process_telegram_location(
       location_name: ชื่อของสถานที่ที่จะแสดงในข้อความผลลัพธ์
     """
     try:
+        if location_name:
+            LAST_ACTIVE_LOCATION[chat_id] = location_name.lower()
         async with get_repo_context() as repo:
             mock_state = await repo.get_mock_state(chat_id)
 
@@ -698,40 +702,94 @@ async def handle_callback_query(callback_query: dict):
 
 async def handle_lock_command(chat_id: int, command: str):
     import re
-    parts = re.findall(r"[-+]?\d*\.\d+|\d+", command)
-    if len(parts) < 2:
-        await send_telegram_message(
-            chat_id, 
-            "⚠️ รูปแบบคำสั่งไม่ถูกต้อง\n"
-            "กรุณาใช้: `/lock <lat> <lng>` หรือ `/lock <x> <y>`\n"
-            "ตัวอย่าง: `/lock 13.75 100.5` หรือ `/lock 450 350`"
-        )
-        return
-        
+    cx, cy = None, None
+    grid_lbl = None
+    
     try:
-        val1 = float(parts[0])
-        val2 = float(parts[1])
-        
-        is_latlng = (5.0 <= val1 <= 25.0) and (95.0 <= val2 <= 107.0)
-        
-        cx, cy = None, None
-        lat, lng = None, None
-        
         async with get_repo_context() as repo:
-            loc = await repo.get_location(chat_id, "default")
-            if not loc:
+            locs = await repo.get_user_locations(chat_id)
+            if not locs:
                 await send_telegram_message(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ กรุณาส่งพิกัดก่อนใช้งานคำสั่งนี้")
                 return
+            
+            raw_args = command.removeprefix("/lock").strip()
+            args = raw_args.split()
+            if not args:
+                await send_telegram_message(
+                    chat_id, 
+                    "⚠️ รูปแบบคำสั่งไม่ถูกต้อง\n"
+                    "กรุณาใช้:\n"
+                    "- ล็อคช่องตาราง: `/lock [ชื่อพิกัด] D2` หรือ `/lock D2`\n"
+                    "- ล็อคพิกัดจริง: `/lock [ชื่อพิกัด] 13.75 100.5` หรือ `/lock 13.75 100.5`"
+                )
+                return
+                
+            first_arg = args[0].lower()
+            matched_loc = None
+            for l in locs:
+                if l.name.lower() == first_arg:
+                    matched_loc = l
+                    break
+                    
+            if matched_loc:
+                loc = matched_loc
+                target_str = " ".join(args[1:])
+            else:
+                loc = None
+                active_loc_name = LAST_ACTIVE_LOCATION.get(chat_id)
+                if active_loc_name:
+                    for l in locs:
+                        if l.name.lower() == active_loc_name.lower():
+                            loc = l
+                            break
+                if not loc:
+                    for name_to_find in ["home", "default", "work"]:
+                        for l in locs:
+                            if l.name.lower() == name_to_find:
+                                loc = l
+                                break
+                        if loc:
+                            break
+                if not loc:
+                    loc = locs[0]
+                target_str = raw_args
+                
             lat, lng = loc.latitude, loc.longitude
-            
-        if is_latlng:
-            target_lat, target_lng = val1, val2
-            from app.services.tmd_radar_processor import TMDRadarProcessor
-            processor = TMDRadarProcessor("kkn120")
-            cx, cy = processor.latlng_to_pixel(target_lat, target_lng)
+            loc_name = loc.name
+        
+        grid_match = re.match(r"^([a-hA-H])[-_]?([1-8])$", target_str.strip())
+        
+        if grid_match:
+            col_char = grid_match.group(1).upper()
+            row_char = grid_match.group(2)
+            col_idx = ord(col_char) - ord('A')
+            row_idx = int(row_char) - 1
+            cx = int((col_idx + 0.5) * 100)
+            cy = int((row_idx + 0.5) * 100)
+            grid_lbl = f"{col_char}{row_char}"
         else:
-            cx, cy = int(val1), int(val2)
+            parts = re.findall(r"[-+]?\d*\.\d+|\d+", target_str)
+            if len(parts) < 2:
+                await send_telegram_message(
+                    chat_id, 
+                    "⚠️ รูปแบบตัวชี้เป้าไม่ถูกต้อง\n"
+                    "กรุณาใช้:\n"
+                    "- ล็อคช่องตาราง: `/lock [ชื่อพิกัด] D4`\n"
+                    "- ล็อคพิกัดจริง: `/lock [ชื่อพิกัด] 13.75 100.5`"
+                )
+                return
             
+            val1 = float(parts[0])
+            val2 = float(parts[1])
+            is_latlng = (5.0 <= val1 <= 25.0) and (95.0 <= val2 <= 107.0)
+            
+            if is_latlng:
+                from app.services.tmd_radar_processor import TMDRadarProcessor
+                processor = TMDRadarProcessor("kkn120")
+                cx, cy = processor.latlng_to_pixel(val1, val2)
+            else:
+                cx, cy = int(val1), int(val2)
+                
         if cx is None or cy is None or not (0 <= cx < 800 and 0 <= cy < 800):
             await send_telegram_message(chat_id, "⚠️ พิกัดอยู่นอกขอบเขตของแผนที่เรดาร์")
             return
@@ -740,38 +798,71 @@ async def handle_lock_command(chat_id: int, command: str):
             await repo.update_tracking_mode(
                 chat_id=chat_id,
                 tracking_mode="manual",
-                locked_target_id="MANUAL",
+                locked_target_id=grid_lbl or "MANUAL",
                 locked_target_cx=cx,
                 locked_target_cy=cy,
+                name=loc_name
             )
             
-        await send_telegram_message(
-            chat_id,
-            f"🔒 ตั้งค่าล็อคเป้าแมนนวลสำเร็จ!\n"
-            f"พิกัดเรดาร์: Pixel ({cx}, {cy})\n"
-            f"ระบบจะใช้เป้าหมายนี้ในการพยากรณ์รอบถัดไป"
-        )
-        await process_telegram_location(chat_id, lat, lng)
+        success_msg = f"🔒 ตั้งค่าล็อคเป้าแมนนวลสำเร็จ!\n"
+        if grid_lbl:
+            success_msg += f"ช่องตาราง: {grid_lbl} (Pixel: {cx}, {cy})\n"
+        else:
+            success_msg += f"พิกัดเรดาร์: Pixel ({cx}, {cy})\n"
+        success_msg += f"ตำแหน่งเป้าหมาย: {loc_name.capitalize()}\n"
+        success_msg += "ระบบจะใช้เป้าหมายนี้ในการพยากรณ์รอบถัดไป"
+        
+        await send_telegram_message(chat_id, success_msg)
+        await process_telegram_location(chat_id, lat, lng, location_name=loc_name)
     except Exception as e:
         logger.error(f"Error handling lock command: {e}")
         await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
 
 
-async def handle_unlock_command(chat_id: int):
+async def handle_unlock_command(chat_id: int, command: str):
     try:
         async with get_repo_context() as repo:
-            loc = await repo.get_location(chat_id, "default")
-            if not loc:
+            locs = await repo.get_user_locations(chat_id)
+            if not locs:
                 await send_telegram_message(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ")
                 return
+                
+            arg = command.removeprefix("/unlock").strip().lower()
+            loc = None
+            if arg:
+                for l in locs:
+                    if l.name.lower() == arg:
+                        loc = l
+                        break
+                        
+            if not loc:
+                active_loc_name = LAST_ACTIVE_LOCATION.get(chat_id)
+                if active_loc_name:
+                    for l in locs:
+                        if l.name.lower() == active_loc_name.lower():
+                            loc = l
+                            break
+                if not loc:
+                    for name_to_find in ["home", "default", "work"]:
+                        for l in locs:
+                            if l.name.lower() == name_to_find:
+                                loc = l
+                                break
+                        if loc:
+                            break
+                if not loc:
+                    loc = locs[0]
+                    
             await repo.update_tracking_mode(
                 chat_id=chat_id,
                 tracking_mode="auto",
+                name=loc.name
             )
             lat, lng = loc.latitude, loc.longitude
+            loc_name = loc.name
             
-        await send_telegram_message(chat_id, "🔓 ปลดล็อคกลุ่มฝน (Auto-track) เรียบร้อยแล้ว")
-        await process_telegram_location(chat_id, lat, lng)
+        await send_telegram_message(chat_id, f"🔓 ปลดล็อคกลุ่มฝน (Auto-track) ของ {loc_name.capitalize()} เรียบร้อยแล้ว")
+        await process_telegram_location(chat_id, lat, lng, location_name=loc_name)
     except Exception as e:
         logger.error(f"Error handling unlock command: {e}")
         await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
@@ -1752,7 +1843,7 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
             return {"status": "ok"}
             
         if text.startswith("/unlock") and chat_id:
-            background_tasks.add_task(handle_unlock_command, chat_id)
+            background_tasks.add_task(handle_unlock_command, chat_id, text)
             return {"status": "ok"}
 
         if text.startswith(("/rain", "/check", "/devmock", "/tmd_fallback", "/metrics", "/setbudget")) and chat_id:
