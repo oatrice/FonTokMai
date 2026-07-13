@@ -24,6 +24,8 @@ jobs:
           project_id: '${{ secrets.GCP_PROJECT_ID }}'
 
       - name: Run Cleanup Script
+        env:
+          GCP_PROJECT_ID: '${{ secrets.GCP_PROJECT_ID }}'
         run: |
           cd backend
           chmod +x scripts/cleanup_artifact_registry.sh
