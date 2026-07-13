@@ -243,9 +243,6 @@ async def _send_combined_alerts(chat_id, eval_results, repo, now):
     combined_text = "\n" + "─" * 20 + "\n\n"
     combined_text = combined_text.join(combined_text_parts)
 
-    if platform == "line":
-        combined_text += "\n\n💬 หากต้องการข้อมูลเพิ่มเติมหรือภาพเรดาร์ล่าสุด สามารถพิมพ์ข้อความสอบถามทางแชทเพื่อประหยัดโควต้าได้ครับ (ระบบตอบรับผ่านแชทจะไม่หักโควต้าส่งข้อความ)"
-
     try:
         if platform == "telegram":
             await send_telegram_message(int(chat_id), combined_text, reply_markup=reply_markup)

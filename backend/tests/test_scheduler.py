@@ -472,12 +472,11 @@ async def test_check_rain_and_alert_line_platform(
     # Assertions
     mock_repo.get_active_locations.assert_called_once()
     
-    # 1. Text message sent with the promo suffix
+    # 1. Text message sent
     mock_notifier.send_text_message.assert_called_once()
     call_args, call_kwargs = mock_notifier.send_text_message.call_args
     assert call_args[0] == "U9616f157bd255d700d8b6b90cafe66e3"
     assert "ฝนกำลังเคลื่อนมาทางพิกัด" in call_args[1]
-    assert "หากต้องการข้อมูลเพิ่มเติมหรือภาพเรดาร์ล่าสุด" in call_args[1]
     
     # 2. Photos/documents/advanced text were NOT called
     mock_notifier.send_photo.assert_not_called()
