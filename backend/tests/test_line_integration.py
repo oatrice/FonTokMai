@@ -233,5 +233,162 @@ async def test_line_webhook_text_commands():
                 "rain"
             )
 
+@pytest.mark.asyncio
+async def test_line_webhook_text_commands_uses_reply_api():
+    """Verify that text commands reply to the user using the Reply API instead of Push API."""
+    from app.routers.line_webhook import line_webhook
+    from contextlib import asynccontextmanager
+    from fastapi import BackgroundTasks
+    import json
+    import asyncio
+
+    payload = {
+        "events": [
+          {
+            "type": "message",
+            "replyToken": "realReplyToken123",
+            "source": {
+              "type": "user",
+              "userId": "U1234567890abcdef1234567890abcdef"
+            },
+            "message": {
+              "id": "12345678",
+              "type": "text",
+              "text": "/mylocation",
+              "quoteToken": "mockQuoteToken123"
+            },
+            "timestamp": 1625616000000,
+            "mode": "active",
+            "webhookEventId": "01FZ5286598QCHAX97525A1A8A",
+            "deliveryContext": {
+              "isRedelivery": False
+            }
+          }
+        ]
+    }
+
+    req = AsyncMock()
+    req.json.return_value = payload
+    req.body.return_value = json.dumps(payload).encode("utf-8")
+    req.url.hostname = "localhost"
+    
+    bg_tasks = BackgroundTasks()
+
+    with patch("app.routers.line_webhook.reply_to_line") as mock_reply_to_line:
+        with patch("app.routers.line_webhook.get_repo_context") as mock_get_repo_context:
+            mock_repo = AsyncMock()
+            mock_repo.get_user_locations.return_value = []
+            
+            @asynccontextmanager
+            async def mock_context():
+                yield mock_repo
+            mock_get_repo_context.side_effect = mock_context
+            
+            await line_webhook(req, bg_tasks, "MOCK_SIGNATURE")
+            
+            # Execute background tasks
+            while bg_tasks.tasks:
+                t = bg_tasks.tasks.pop(0)
+                if asyncio.iscoroutinefunction(t.func):
+                    await t.func(*t.args, **t.kwargs)
+                else:
+                    t.func(*t.args, **t.kwargs)
+            
+            mock_reply_to_line.assert_called_once()
+            args, _ = mock_reply_to_line.call_args
+            assert args[0] == "realReplyToken123"
+            assert len(args[1]) == 1
+            assert args[1][0].text == "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ"
+
+
+@pytest.mark.asyncio
+async def test_line_webhook_individual_media_commands():
+    """Verify that specific media commands (/radar, /tracking, /timeline, /nowcast) fetch correct media and reply."""
+    from app.routers.line_webhook import line_webhook
+    from contextlib import asynccontextmanager
+    from fastapi import BackgroundTasks
+    import json
+    import asyncio
+
+    # Test for /radar command
+    payload = {
+        "events": [
+          {
+            "type": "message",
+            "replyToken": "radarReplyToken",
+            "source": {
+              "type": "user",
+              "userId": "U1234567890abcdef1234567890abcdef"
+            },
+            "message": {
+              "id": "12345678",
+              "type": "text",
+              "text": "/radar",
+              "quoteToken": "mockQuoteToken123"
+            },
+            "timestamp": 1625616000000,
+            "mode": "active",
+            "webhookEventId": "01FZ5286598QCHAX97525A1A8A",
+            "deliveryContext": {
+              "isRedelivery": False
+            }
+          }
+        ]
+    }
+
+    req = AsyncMock()
+    req.json.return_value = payload
+    req.body.return_value = json.dumps(payload).encode("utf-8")
+    req.url.hostname = "localhost"
+    
+    bg_tasks = BackgroundTasks()
+
+    with patch("app.routers.line_webhook.reply_to_line") as mock_reply_to_line:
+        with patch("app.routers.line_webhook.get_repo_context") as mock_get_repo_context:
+            with patch("app.services.notification.get_notification_service") as mock_get_notifier:
+                mock_notifier = MagicMock()
+                mock_notifier._upload_media.return_value = "https://fake-url.com/radar.png"
+                mock_get_notifier.return_value = mock_notifier
+                
+                mock_repo = AsyncMock()
+                from app.models import UserLocation
+                mock_repo.get_user_locations.return_value = [
+                    UserLocation(chat_id="U1234567890abcdef", name="home", latitude=13.0, longitude=100.0)
+                ]
+                
+                @asynccontextmanager
+                async def mock_context():
+                    yield mock_repo
+                mock_get_repo_context.side_effect = mock_context
+                
+                with patch("app.services.weather_manager.WeatherManager.predict_rain") as mock_predict_rain:
+                    mock_predict_rain.return_value = {
+                        "predictions": [],
+                        "max_rain": 0.0,
+                        "intensity": "ไม่มี",
+                        "duration_minutes": 0,
+                        "endpoint": "tomorrow",
+                        "radar_static_bytes": b"radar_bytes",
+                        "radar_tracking_bytes": b"tracking_bytes"
+                    }
+                    
+                    await line_webhook(req, bg_tasks, "MOCK_SIGNATURE")
+                    
+                    while bg_tasks.tasks:
+                        t = bg_tasks.tasks.pop(0)
+                        if asyncio.iscoroutinefunction(t.func):
+                            await t.func(*t.args, **t.kwargs)
+                        else:
+                            t.func(*t.args, **t.kwargs)
+                    
+                    mock_reply_to_line.assert_called_once()
+                    args, _ = mock_reply_to_line.call_args
+                    assert args[0] == "radarReplyToken"
+                    assert len(args[1]) == 2
+                    assert args[1][0].text is not None
+                    assert args[1][1].original_content_url == "https://fake-url.com/radar.png"
+
+
+
 
 

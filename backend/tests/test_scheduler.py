@@ -411,3 +411,78 @@ def test_trigger_rain_check_endpoint_missing_header():
         response = test_client.post("/api/v1/cron/check-rain")
     
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@patch("app.scheduler_tasks.WeatherManager")
+@patch("app.scheduler_tasks.get_repo_context")
+@patch("app.scheduler_tasks.fetch_tmd_radar_routine", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.MetricsService")
+@patch("app.scheduler_tasks.get_notification_service")
+async def test_check_rain_and_alert_line_platform(
+    mock_get_notifier,
+    mock_metrics,
+    mock_tmd_radar,
+    mock_get_repo_context,
+    mock_weather_mgr_cls,
+):
+    mock_repo = AsyncMock()
+    mock_metrics.return_value = AsyncMock()
+    
+    mock_notifier = AsyncMock()
+    mock_get_notifier.return_value = mock_notifier
+    
+    @asynccontextmanager
+    async def mock_context():
+        yield mock_repo
+    mock_get_repo_context.side_effect = mock_context
+    
+    loc1 = UserLocation(
+        chat_id="U9616f157bd255d700d8b6b90cafe66e3",
+        name="home",
+        latitude=13.0,
+        longitude=100.0,
+        last_alerted_at=None,
+        platform="line"
+    )
+    mock_repo.get_active_locations.return_value = [loc1]
+    mock_repo.get_mock_state.return_value = None
+
+    # Mock WeatherManager
+    mock_wm_instance = mock_weather_mgr_cls.return_value
+    base_time = datetime.now(timezone.utc)
+    rain_time = base_time + timedelta(minutes=30)
+    mock_wm_instance.predict_rain = AsyncMock(return_value={
+        "predictions": [
+            {"time": base_time.isoformat(), "rain": 0},
+            {"time": rain_time.isoformat(), "rain": 1.5}
+        ],
+        "max_rain": 1.5,
+        "intensity": "ปานกลาง",
+        "duration_minutes": 60,
+        "endpoint": "tomorrow",
+        "radar_static_bytes": b"fake_static",
+        "advanced_alerts": {"advisories": [{"name": "Storm Advisory"}]}
+    })
+    mock_wm_instance.get_advanced_alerts = AsyncMock(return_value={})
+
+    # Execute
+    await check_rain_and_alert()
+
+    # Assertions
+    mock_repo.get_active_locations.assert_called_once()
+    
+    # 1. Text message sent with the promo suffix
+    mock_notifier.send_text_message.assert_called_once()
+    call_args, call_kwargs = mock_notifier.send_text_message.call_args
+    assert call_args[0] == "U9616f157bd255d700d8b6b90cafe66e3"
+    assert "ฝนกำลังเคลื่อนมาทางพิกัด" in call_args[1]
+    assert "หากต้องการข้อมูลเพิ่มเติมหรือภาพเรดาร์ล่าสุด" in call_args[1]
+    
+    # 2. Photos/documents/advanced text were NOT called
+    mock_notifier.send_photo.assert_not_called()
+    mock_notifier.send_document.assert_not_called()
+    
+    # 3. DB was updated
+    mock_repo.update_last_alerted.assert_called_once()
+
