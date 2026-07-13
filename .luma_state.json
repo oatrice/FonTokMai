@@ -1,20 +1,29 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "idle",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 124,
-      "title": "bug: Cloud Tasks 504 Deadline Exceeded causes silent failure — devmock/rain command dropped silently",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/124",
+      "number": 166,
+      "title": "แก้ไขบั๊กในระบบแจ้งเตือน Budget บน production Telegram",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/166",
       "body": null,
-      "project_item_id": "GLAB_124",
+      "project_item_id": "GLAB_166",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 170,
+      "title": "แก้ไขปัญหาระบบแจ้งเตือนทาง LINE ทำงานไม่ปกติ (ขณะที่ Telegram ทำงานปกติ)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/170",
+      "body": null,
+      "project_item_id": "GLAB_170",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": null,
-  "started_at": null,
+  "active_branch": "feat/166-170-budget-production-telegram",
+  "started_at": "2026-07-13T09:39:28.186553",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
@@ -25,41 +34,19 @@
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "backend/.env.example",
-        "backend/app/main.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/routers/scheduler.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/services/cloud_tasks.py",
-        "backend/deploy/deploy_cloudrun.sh",
-        "backend/scripts/migrate_issue145.py",
-        "backend/tests/test_async_enqueue_task.py",
-        "backend/tests/test_developer_commands.py",
-        "backend/tests/test_devmock.py",
-        "backend/tests/test_firestore.py",
-        "backend/tests/test_grpc_fork_config.py",
-        "backend/tests/test_scheduler.py",
-        "backend/tests/test_webhook.py",
-        "luma/prompts/prompt_20260708_124223_cdb1cf50.md",
-        "luma/prompts/prompt_20260708_124225_6322e6ad.md",
-        "luma_metrics.json",
+        "VERSION"
+      ],
+      "changed_files": [
+        "docs/ROADMAP.md",
+        "github/workflows/cleanup.yml",
+        "luma/prompts/prompt_20260713_023926_1c1830bd.md",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/.env.example",
-        "backend/app/main.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/routers/scheduler.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/services/cloud_tasks.py",
-        "backend/deploy/deploy_cloudrun.sh",
-        "backend/scripts/migrate_issue145.py",
-        "luma_metrics.json",
+        "github/workflows/cleanup.yml",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -134,5 +121,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-08T19:44:03.841090"
+  "last_updated": "2026-07-13T09:39:33.689710"
 }

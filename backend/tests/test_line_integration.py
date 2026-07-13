@@ -1,3 +1,5 @@
+import os
+os.environ["STORAGE_BACKEND"] = "sqlite"
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi import FastAPI
@@ -54,6 +56,24 @@ async def test_notification_service_factory_and_interfaces():
     assert hasattr(line_service, "send_text_message")
     assert hasattr(line_service, "send_photo")
     assert hasattr(line_service, "send_document")
+
+def test_line_notification_dynamic_config():
+    """Verify that LineNotificationService access token and configuration are resolved dynamically."""
+    import os
+    line_service = get_notification_service("line")
+    
+    original_token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+    try:
+        # Change token dynamically
+        os.environ["LINE_CHANNEL_ACCESS_TOKEN"] = "new_dynamic_token_123"
+        assert line_service.access_token == "new_dynamic_token_123"
+        assert line_service.config.access_token == "new_dynamic_token_123"
+    finally:
+        if original_token is not None:
+            os.environ["LINE_CHANNEL_ACCESS_TOKEN"] = original_token
+        else:
+            del os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
+
 
 def test_line_webhook_router_verification_and_event_handling():
     """Test Line webhook endpoint signature verification and request processing."""
