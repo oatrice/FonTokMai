@@ -815,7 +815,7 @@ class TMDRadarProcessor:
         return clusters
 
     @staticmethod
-    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None, locked_target_id: str = None, all_rain_clusters: list = None, v_close_kmh: float = None, v_actual_kmh: float = None) -> str:
+    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None, locked_target_id: str = None, all_rain_clusters: list = None, v_close_kmh: float = None, v_actual_kmh: float = None, v_avg_kmh: float = None) -> str:
         """
         Generates a smart, non-redundant rain summary line for Telegram based on the pixel's time-series predictions.
         """
@@ -917,17 +917,35 @@ class TMDRadarProcessor:
                             locked_cloud = c
                             break
                 if locked_cloud:
+                    is_approaching = locked_cloud.get("approaching", False)
+                    eta_val = locked_cloud.get("eta_min")
+                    
                     speed_text = ""
                     if v_actual_kmh is not None and v_close_kmh is not None:
+                        avg_str = f"\n- ความเร็วลมเฉลี่ยกลุ่มเมฆ: {v_avg_kmh:.1f} กม./ชม." if v_avg_kmh is not None else ""
                         speed_text = (
-                            f"\n- ความเร็วเส้นสีน้ำเงิน: {v_actual_kmh:.1f} กม./ชม."
-                            f"\n- ความเร็วเส้นสีน้ำเงินที่โปรเจกต์บนเส้นสีเขียว: {v_close_kmh:.1f} กม./ชม."
+                            f"{avg_str}"
+                            f"\n- ความเร็วลมสูงสุด: {v_actual_kmh:.1f} กม./ชม."
+                            f"\n- ความเร็วลมสูงสุดที่โปรเจกต์บนเส้นสีเขียว: {v_close_kmh:.1f} กม./ชม."
                         )
-                    text += f" (เนื่องจาก{target_desc} มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ:{speed_text})"
+                        
+                    if is_approaching and eta_val is not None and eta_val < 9999.0:
+                        eta_val_adjusted = max(1.0, float(eta_val) - time_offset_min)
+                        eta_h = int(eta_val_adjusted // 60)
+                        eta_m = int(eta_val_adjusted % 60)
+                        time_str = f"~{eta_h} ชม. {eta_m} นาที" if eta_h > 0 else f"~{eta_m} นาที"
+                        if eta_h > 0 and eta_m == 0:
+                            time_str = f"~{eta_h} ชม."
+                        clock_time_str = fmt_clock_time(float(eta_val))
+                        text += f" (เนื่องจาก{target_desc} เคลื่อนที่เข้าหาตำแหน่งคุณ (ตามเส้นสีเขียว คาดว่าจะถึงในอีก {time_str} (เวลาประมาณ {clock_time_str})) ซึ่งอยู่นอกช่วงเวลาพยากรณ์หลัก:{speed_text})"
+                    else:
+                        text += f" (เนื่องจาก{target_desc} มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ:{speed_text})"
                 else:
                     text += f" (เนื่องจาก{target_desc} ไม่มีกลุ่มฝนในตำแหน่งล็อกหรือสลายตัวไปแล้ว)"
             if approaching_clouds:
                 far_clouds = [c for c in approaching_clouds if c.get("eta_min", 0) > max_time]
+                if locked_target_id:
+                    far_clouds = [c for c in far_clouds if c.get("label") == locked_target_id]
                 if far_clouds:
                     soonest = min(far_clouds, key=lambda c: c.get("eta_min", 999))
                     eta_val = max(1.0, float(soonest["eta_min"]) - time_offset_min)

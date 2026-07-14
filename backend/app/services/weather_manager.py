@@ -255,6 +255,8 @@ _GLOBAL_TMD_LOCKS = {
 }
 
 class WeatherManager:
+    LAST_USED_STATION: dict[int, str] = {}
+
     def __init__(self):
         self.xweather_svc = XweatherService()
         self.tomorrow_svc = TomorrowService()
@@ -699,6 +701,13 @@ class WeatherManager:
                 use_loop_mapping = frame_source == "loop_gif"
                 user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=use_loop_mapping)
                 px, py = user_px, user_py
+
+                if chat_id:
+                    try:
+                        WeatherManager.LAST_USED_STATION[int(chat_id)] = station_code
+                    except Exception:
+                        pass
+
                 import logging
                 logging.info(f"DEBUG_LOCATION: lat={lat}, lng={lng} -> user_px={user_px}, user_py={user_py} (station: {station_code}, is_loop={use_loop_mapping})")
                 if user_px is None or user_py is None:
@@ -1036,22 +1045,27 @@ class WeatherManager:
                 current_dbz = predictions[0]["dbz"]
                 intensity   = predictions[0]["intensity"]
                 v_close_kmh = None
+                v_actual_kmh = None
+                v_avg_kmh = None
                 if tracking_mode == "manual" and matched_target:
                     cx, cy = matched_target["cx"], matched_target["cy"]
                     dx = px - cx
                     dy = py - cy
                     dist = math.hypot(dx, dy)
+                    
+                    peak_vx = float(flow[cy, cx, 0]) if (0 <= cx < flow.shape[1] and 0 <= cy < flow.shape[0]) else fallback_vx
+                    peak_vy = float(flow[cy, cx, 1]) if (0 <= cx < flow.shape[1] and 0 <= cy < flow.shape[0]) else fallback_vy
+                    
                     if dist > 0:
-                        v_close = (fallback_vx * dx + fallback_vy * dy) / dist
+                        v_close = (peak_vx * dx + peak_vy * dy) / dist
                     else:
                         v_close = 0.0
                     lon_diff = processor.config.bbox.lng_max - processor.config.bbox.lng_min
                     width_km = lon_diff * 111.0
                     km_per_pixel = width_km / 800.0
                     v_close_kmh = v_close * km_per_pixel * 4.0
-                    v_actual_kmh = processor.get_wind_speed_kmh_from_vector(fallback_vx, fallback_vy)
-                else:
-                    v_actual_kmh = None
+                    v_avg_kmh = processor.get_wind_speed_kmh_from_vector(fallback_vx, fallback_vy)
+                    v_actual_kmh = processor.get_wind_speed_kmh_from_vector(peak_vx, peak_vy)
 
                 summary_line = processor.render_rain_summary(
                     predictions=predictions,
@@ -1061,7 +1075,8 @@ class WeatherManager:
                     locked_target_id=locked_target_id if tracking_mode == "manual" else None,
                     all_rain_clusters=all_rain_clusters,
                     v_close_kmh=v_close_kmh,
-                    v_actual_kmh=v_actual_kmh
+                    v_actual_kmh=v_actual_kmh,
+                    v_avg_kmh=v_avg_kmh
                 )
                 # Sync cluster ETA with accurate pixel-level predictions
                 if clouds:

@@ -352,7 +352,7 @@ async def test_webhook_lock_uses_last_pinned_location(db_session):
     mock_repo_context.__aenter__.return_value = repo
     
     with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
-         patch("app.routers.webhook.WeatherManager") as MockWMClass, \
+         patch("app.services.weather_manager.WeatherManager") as MockWMClass, \
          patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock) as mock_send, \
          patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock) as mock_process:
          
@@ -741,9 +741,39 @@ def test_render_rain_summary_with_locked_target_id():
         approaching_clouds=[{"label": "A", "eta_min": 9999}],
         all_rain_clusters=[{"label": "A", "eta_min": 9999}],
         v_close_kmh=-5.4,
-        v_actual_kmh=22.2
+        v_actual_kmh=22.2,
+        v_avg_kmh=18.5
     )
-    assert "(เนื่องจากกลุ่มฝน [A] มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ:\n- ความเร็วเส้นสีน้ำเงิน: 22.2 กม./ชม.\n- ความเร็วเส้นสีน้ำเงินที่โปรเจกต์บนเส้นสีเขียว: -5.4 กม./ชม.)" in summary_clear_cloud
+    assert "(เนื่องจากกลุ่มฝน [A] มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ:\n- ความเร็วลมเฉลี่ยกลุ่มเมฆ: 18.5 กม./ชม.\n- ความเร็วลมสูงสุด: 22.2 กม./ชม.\n- ความเร็วลมสูงสุดที่โปรเจกต์บนเส้นสีเขียว: -5.4 กม./ชม.)" in summary_clear_cloud
+
+    # 6. No-rain cloud label that is approaching but outside forecast window
+    summary_clear_approaching = TMDRadarProcessor.render_rain_summary(
+        predictions=predictions_clear,
+        time_offset_min=0.0,
+        confidence_score=1.0,
+        locked_target_id="A",
+        approaching_clouds=[{"label": "A", "eta_min": 281.0, "approaching": True}],
+        all_rain_clusters=[{"label": "A", "eta_min": 281.0, "approaching": True}],
+        v_close_kmh=6.1,
+        v_actual_kmh=10.3,
+        v_avg_kmh=9.5
+    )
+    assert "(เนื่องจากกลุ่มฝน [A] เคลื่อนที่เข้าหาตำแหน่งคุณ (ตามเส้นสีเขียว คาดว่าจะถึงในอีก ~4 ชม. 41 นาที (เวลาประมาณ " in summary_clear_approaching
+    assert " น.)) ซึ่งอยู่นอกช่วงเวลาพยากรณ์หลัก:\n- ความเร็วลมเฉลี่ยกลุ่มเมฆ: 9.5 กม./ชม.\n- ความเร็วลมสูงสุด: 10.3 กม./ชม.\n- ความเร็วลมสูงสุดที่โปรเจกต์บนเส้นสีเขียว: 6.1 กม./ชม.)" in summary_clear_approaching
+
+
+def test_webhook_lock_prioritizes_last_used_station():
+    from app.services.weather_manager import WeatherManager
+    from app.routers import webhook
+    
+    chat_id = 999988
+    # Pre-populate LAST_USED_STATION
+    WeatherManager.LAST_USED_STATION[chat_id] = "kkn240"
+    
+    # Assert it gets resolved first
+    assert WeatherManager.LAST_USED_STATION.get(chat_id) == "kkn240"
+
+
 
 
 

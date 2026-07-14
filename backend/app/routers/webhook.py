@@ -845,15 +845,40 @@ async def handle_lock_command(chat_id: int, command: str):
             conf = STATIONS[station_code]
             return math.hypot(lat - conf.center_lat, lng - conf.center_lng)
 
+        wm = WeatherManager()
         processor = None
         station_code = None
-        for candidate in sorted(["kkn120", "kkn240", "skn240"], key=station_distance):
+        
+        last_used = WeatherManager.LAST_USED_STATION.get(int(chat_id))
+        candidates = ["kkn120", "kkn240", "skn240"]
+        if last_used and last_used in candidates:
+            candidates_to_check = [last_used] + [c for c in sorted(candidates, key=station_distance) if c != last_used]
+        else:
+            candidates_to_check = sorted(candidates, key=station_distance)
+
+        for candidate in candidates_to_check:
             candidate_processor = TMDRadarProcessor(candidate)
             user_px, user_py = candidate_processor.latlng_to_pixel(lat, lng, is_loop=False)
             if user_px is not None and user_py is not None:
-                processor = candidate_processor
-                station_code = candidate
-                break
+                # Load cache to verify if this station has at least 2 frames (meaning it is functional)
+                try:
+                    c_data = await wm.load_persistent_cache_to_memory(candidate, candidate_processor)
+                    if c_data and len(c_data[0]) >= 2:
+                        processor = candidate_processor
+                        station_code = candidate
+                        break
+                except Exception:
+                    pass
+
+        if processor is None or station_code is None:
+            # Fallback to the closest station that supports the user coordinate bounding box
+            for candidate in candidates_to_check:
+                candidate_processor = TMDRadarProcessor(candidate)
+                user_px, user_py = candidate_processor.latlng_to_pixel(lat, lng, is_loop=False)
+                if user_px is not None and user_py is not None:
+                    processor = candidate_processor
+                    station_code = candidate
+                    break
 
         if processor is None or station_code is None:
             await send_telegram_message(chat_id, "⚠️ พิกัดหลักอยู่นอกขอบเขตของแผนที่เรดาร์")
@@ -866,8 +891,6 @@ async def handle_lock_command(chat_id: int, command: str):
             if is_latlng:
                 cx, cy = processor.latlng_to_pixel(val1, val2, is_loop=False)
 
-        wm = WeatherManager()
-        
         cache_data = await wm.load_persistent_cache_to_memory(station_code, processor)
         
         has_cloud = False
@@ -982,8 +1005,15 @@ async def handle_lock_command(chat_id: int, command: str):
 
         eta_text = ""
         comparison_text = ""
+        avg_vx, avg_vy = vx, vy
+        if is_label_lock and 'target_c' in locals() and target_c:
+            avg_vx = target_c.get("vx", vx)
+            avg_vy = target_c.get("vy", vy)
+
         wind_speed = 0.0
         wind_dir = "ไม่ทราบ"
+        avg_wind_speed = 0.0
+        avg_wind_dir = "ไม่ทราบ"
         
         if has_cloud:
             user_px, user_py = processor.latlng_to_pixel(lat, lng)
@@ -993,6 +1023,8 @@ async def handle_lock_command(chat_id: int, command: str):
             
             wind_speed = processor.get_wind_speed_kmh_from_vector(vx, vy)
             wind_dir = processor.get_wind_direction_text_from_vector(vx, vy)
+            avg_wind_speed = processor.get_wind_speed_kmh_from_vector(avg_vx, avg_vy)
+            avg_wind_dir = processor.get_wind_direction_text_from_vector(avg_vx, avg_vy)
             
             if dist > 0:
                 v_close = (vx * dx + vy * dy) / dist
@@ -1049,7 +1081,8 @@ async def handle_lock_command(chat_id: int, command: str):
             success_msg += f"ตำแหน่งเป้าหมาย: {loc_name.capitalize()}\n\n"
             success_msg += f"🔍 ข้อมูลกลุ่มฝนในพื้นที่ล็อคเป้า:\n"
             success_msg += f"  💧 ความแรงฝนสูงสุด: {max_dbz:.1f} dBZ\n"
-            success_msg += f"  🌬️ ลมเคลื่อนที่: {wind_speed:.1f} กม./ชม. (ทิศ {wind_dir})\n"
+            success_msg += f"  🌬️ ความเร็วลมเฉลี่ยกลุ่มเมฆ: {avg_wind_speed:.1f} กม./ชม. (ทิศ {avg_wind_dir})\n"
+            success_msg += f"  💨 ความเร็วลมสูงสุด: {wind_speed:.1f} กม./ชม. (ทิศ {wind_dir})\n"
             if eta_text:
                 success_msg += f"  {eta_text}"
             if comparison_text:
