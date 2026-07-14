@@ -732,15 +732,19 @@ def test_render_rain_summary_with_locked_target_id():
     )
     assert "(เนื่องจากช่องตาราง [E3] ไม่มีกลุ่มฝนในตำแหน่งล็อกหรือสลายตัวไปแล้ว)" in summary_clear_grid
 
-    # 5. No-rain cloud label that is moving away (present in approaching_clouds)
+    # 5. No-rain cloud label that is moving away (present in approaching_clouds or all_rain_clusters)
     summary_clear_cloud = TMDRadarProcessor.render_rain_summary(
         predictions=predictions_clear,
         time_offset_min=0.0,
         confidence_score=1.0,
         locked_target_id="A",
-        approaching_clouds=[{"label": "A", "eta_min": 9999}]
+        approaching_clouds=[{"label": "A", "eta_min": 9999}],
+        all_rain_clusters=[{"label": "A", "eta_min": 9999}],
+        v_close_kmh=-5.4,
+        v_actual_kmh=22.2
     )
-    assert "(เนื่องจากกลุ่มฝน [A] มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ)" in summary_clear_cloud
+    assert "(เนื่องจากกลุ่มฝน [A] มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ:\n- ความเร็วเส้นสีน้ำเงิน: 22.2 กม./ชม.\n- ความเร็วเส้นสีน้ำเงินที่โปรเจกต์บนเส้นสีเขียว: -5.4 กม./ชม.)" in summary_clear_cloud
+
 
 
 

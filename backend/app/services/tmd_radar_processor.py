@@ -815,7 +815,7 @@ class TMDRadarProcessor:
         return clusters
 
     @staticmethod
-    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None, locked_target_id: str = None) -> str:
+    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None, locked_target_id: str = None, all_rain_clusters: list = None, v_close_kmh: float = None, v_actual_kmh: float = None) -> str:
         """
         Generates a smart, non-redundant rain summary line for Telegram based on the pixel's time-series predictions.
         """
@@ -909,13 +909,21 @@ class TMDRadarProcessor:
                     target_desc = "พิกัดแมนนวล"
                 
                 locked_cloud = None
-                if approaching_clouds:
-                    for c in approaching_clouds:
+                # Check all_rain_clusters (which contains all clouds) rather than just approaching_clouds (which only contains approaching ones)
+                search_list = all_rain_clusters if all_rain_clusters else approaching_clouds
+                if search_list:
+                    for c in search_list:
                         if c.get("label") == locked_target_id:
                             locked_cloud = c
                             break
                 if locked_cloud:
-                    text += f" (เนื่องจาก{target_desc} มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ)"
+                    speed_text = ""
+                    if v_actual_kmh is not None and v_close_kmh is not None:
+                        speed_text = (
+                            f"\n- ความเร็วเส้นสีน้ำเงิน: {v_actual_kmh:.1f} กม./ชม."
+                            f"\n- ความเร็วเส้นสีน้ำเงินที่โปรเจกต์บนเส้นสีเขียว: {v_close_kmh:.1f} กม./ชม."
+                        )
+                    text += f" (เนื่องจาก{target_desc} มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ:{speed_text})"
                 else:
                     text += f" (เนื่องจาก{target_desc} ไม่มีกลุ่มฝนในตำแหน่งล็อกหรือสลายตัวไปแล้ว)"
             if approaching_clouds:

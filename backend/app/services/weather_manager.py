@@ -1035,12 +1035,33 @@ class WeatherManager:
 
                 current_dbz = predictions[0]["dbz"]
                 intensity   = predictions[0]["intensity"]
+                v_close_kmh = None
+                if tracking_mode == "manual" and matched_target:
+                    cx, cy = matched_target["cx"], matched_target["cy"]
+                    dx = px - cx
+                    dy = py - cy
+                    dist = math.hypot(dx, dy)
+                    if dist > 0:
+                        v_close = (fallback_vx * dx + fallback_vy * dy) / dist
+                    else:
+                        v_close = 0.0
+                    lon_diff = processor.config.bbox.lng_max - processor.config.bbox.lng_min
+                    width_km = lon_diff * 111.0
+                    km_per_pixel = width_km / 800.0
+                    v_close_kmh = v_close * km_per_pixel * 4.0
+                    v_actual_kmh = processor.get_wind_speed_kmh_from_vector(fallback_vx, fallback_vy)
+                else:
+                    v_actual_kmh = None
+
                 summary_line = processor.render_rain_summary(
                     predictions=predictions,
                     time_offset_min=time_offset_min,
                     confidence_score=confidence_score,
                     approaching_clouds=clouds,
-                    locked_target_id=locked_target_id if tracking_mode == "manual" else None
+                    locked_target_id=locked_target_id if tracking_mode == "manual" else None,
+                    all_rain_clusters=all_rain_clusters,
+                    v_close_kmh=v_close_kmh,
+                    v_actual_kmh=v_actual_kmh
                 )
                 # Sync cluster ETA with accurate pixel-level predictions
                 if clouds:
