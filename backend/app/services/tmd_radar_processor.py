@@ -937,7 +937,13 @@ class TMDRadarProcessor:
                         if eta_h > 0 and eta_m == 0:
                             time_str = f"~{eta_h} ชม."
                         clock_time_str = fmt_clock_time(float(eta_val))
-                        text += f" (เนื่องจาก{target_desc} เคลื่อนที่เข้าหาตำแหน่งคุณ (ตามเส้นสีเขียว คาดว่าจะถึงในอีก {time_str} (เวลาประมาณ {clock_time_str})) ซึ่งอยู่นอกช่วงเวลาพยากรณ์หลัก:{speed_text})"
+                        
+                        if float(eta_val) > max_time:
+                            context_str = "ซึ่งอยู่นอกช่วงเวลาพยากรณ์หลัก"
+                        else:
+                            context_str = "แต่คาดว่าแนวฝนจะเบี่ยงทิศทาง/สลายตัว หรือเคลื่อนผ่านใกล้เคียงโดยไม่ตกตรงตำแหน่งคุณ"
+                            
+                        text += f" (เนื่องจาก{target_desc} เคลื่อนที่เข้าหาตำแหน่งคุณ (ตามเส้นสีเขียว คาดว่าจะถึงในอีก {time_str} (เวลาประมาณ {clock_time_str})) {context_str}:{speed_text})"
                     else:
                         text += f" (เนื่องจาก{target_desc} มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ:{speed_text})"
                 else:
