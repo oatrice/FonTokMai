@@ -778,8 +778,43 @@ class WeatherManager:
                             
                 if tracking_mode == "manual" and locked_target_cx is not None and locked_target_cy is not None:
                     min_dist = 9999
+                    
+                    is_grid_cell = False
+                    cell_center_x, cell_center_y = None, None
+                    if locked_target_id:
+                        import re
+                        m = re.match(r"^([a-hA-H])[-_]?([1-8])$", locked_target_id)
+                        if m:
+                            is_grid_cell = True
+                            col_char = m.group(1).upper()
+                            row_char = m.group(2)
+                            grid_col_idx = ord(col_char) - ord('A')
+                            grid_row_idx = int(row_char) - 1
+                            
+                            crop_r = 120
+                            crop_x1 = max(0, user_px - crop_r)
+                            crop_y1 = max(0, user_py - crop_r)
+                            frame_w = curr_frame.shape[1]
+                            frame_h = curr_frame.shape[0]
+                            crop_x2 = min(frame_w, user_px + crop_r)
+                            crop_y2 = min(frame_h, user_py + crop_r)
+                            cell_w = (crop_x2 - crop_x1) / 8.0
+                            cell_h = (crop_y2 - crop_y1) / 8.0
+                            cell_center_x = int(crop_x1 + (grid_col_idx + 0.5) * cell_w)
+                            cell_center_y = int(crop_y1 + (grid_row_idx + 0.5) * cell_h)
+                            
+                            cell_x_min = crop_x1 + grid_col_idx * cell_w - 5.0
+                            cell_x_max = crop_x1 + (grid_col_idx + 1) * cell_w + 5.0
+                            cell_y_min = crop_y1 + grid_row_idx * cell_h - 5.0
+                            cell_y_max = crop_y1 + (grid_row_idx + 1) * cell_h + 5.0
+
                     for cluster in all_rain_clusters:
                         dist = math.hypot(cluster["cx"] - locked_target_cx, cluster["cy"] - locked_target_cy)
+                        
+                        if is_grid_cell and math.hypot(locked_target_cx - cell_center_x, locked_target_cy - cell_center_y) < 6.0:
+                            if not (cell_x_min <= cluster["cx"] <= cell_x_max and cell_y_min <= cluster["cy"] <= cell_y_max):
+                                continue
+                                
                         if dist < 120 and dist < min_dist:
                             min_dist = dist
                             matched_target = cluster

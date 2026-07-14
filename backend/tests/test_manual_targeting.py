@@ -334,3 +334,270 @@ def test_renderer_locks_by_position_not_cluster_label():
         (arr[:, :, 2] > 200) & (arr[:, :, 0] < 50) & (arr[:, :, 1] < 50)
     )
     assert red_pixels > 0, "Expected a red crosshair/marker to be drawn for the locked cloud"
+
+
+@pytest.mark.asyncio
+async def test_webhook_lock_uses_last_pinned_location(db_session):
+    repo = SQLiteLocationRepository(db_session)
+    chat_id = 112233
+    
+    # Save a home location first to make sure it falls back to LAST_PINNED_LOCATION instead of home.
+    await repo.save_location(chat_id, 13.75, 100.5, "FOREVER", name="home")
+    
+    # Set LAST_PINNED_LOCATION
+    from app.routers import webhook
+    webhook.LAST_PINNED_LOCATION[chat_id] = (15.6, 103.9)
+    
+    mock_repo_context = MagicMock()
+    mock_repo_context.__aenter__.return_value = repo
+    
+    with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
+         patch("app.routers.webhook.WeatherManager") as MockWMClass, \
+         patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock) as mock_send, \
+         patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock) as mock_process:
+         
+        mock_wm = MockWMClass.return_value
+        
+        import numpy as np
+        frame = np.zeros((800, 800, 3), dtype=np.uint8)
+        flow = np.zeros((800, 800, 2), dtype=np.float32)
+        from app.services.tmd_radar_processor import TMDRadarProcessor
+        processor = TMDRadarProcessor("kkn120")
+        user_px, user_py = processor.latlng_to_pixel(15.6, 103.9, is_loop=False)
+        crop_x1 = max(0, user_px - 120)
+        crop_y1 = max(0, user_py - 120)
+        crop_x2 = min(frame.shape[1], user_px + 120)
+        crop_y2 = min(frame.shape[0], user_py + 120)
+        cell_w = (crop_x2 - crop_x1) / 8.0
+        cell_h = (crop_y2 - crop_y1) / 8.0
+        rain_x = int(crop_x1 + 6 * cell_w + 8)
+        rain_y = int(crop_y1 + 4 * cell_h + 8)
+        frame[rain_y, rain_x] = (255, 0, 0)
+        flow[rain_y, rain_x] = (1.0, 0.0)
+        cache_data = ([frame], datetime.now(timezone.utc), 0, flow, "static_cache", 15.0, [0])
+        mock_wm.load_persistent_cache_to_memory = AsyncMock(return_value=cache_data)
+        
+        # Execute lock command without location prefix (e.g. "/lock G5")
+        await webhook.handle_lock_command(chat_id, "/lock G5")
+        
+        # Check that it upserted default row to pinned coordinates
+        loc_default = await repo.get_location(chat_id, "default")
+        assert loc_default is not None
+        assert abs(loc_default.latitude - 15.6) < 1e-6
+        assert abs(loc_default.longitude - 103.9) < 1e-6
+        assert loc_default.tracking_mode == "manual"
+        assert loc_default.locked_target_id == "G5"
+        
+        # Verify it re-forecasts using default row's coords (15.6, 103.9)
+        mock_process.assert_called_with(chat_id, 15.6, 103.9, location_name="default")
+
+
+@pytest.mark.asyncio
+async def test_webhook_inline_lock_callback(db_session):
+    repo = SQLiteLocationRepository(db_session)
+    chat_id = 556677
+    
+    mock_repo_context = MagicMock()
+    mock_repo_context.__aenter__.return_value = repo
+    
+    from app.routers import webhook
+    
+    with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
+         patch("app.routers.webhook.WeatherManager") as MockWMClass, \
+         patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock) as mock_process:
+         
+        mock_wm = MockWMClass.return_value
+        mock_wm.predict_rain = AsyncMock(return_value={
+            "approaching_clouds": [
+                {"cx": 120, "cy": 130, "label": "A"}
+            ],
+            "all_rain_clusters": []
+        })
+        
+        callback_query = {
+            "id": "query_123",
+            "from": {"id": chat_id},
+            "data": "lock_target_15.0_103.0_A",
+            "message": {"message_id": 999}
+        }
+        
+        await webhook.handle_callback_query(callback_query)
+        
+        loc_default = await repo.get_location(chat_id, "default")
+        assert loc_default is not None
+        assert abs(loc_default.latitude - 15.0) < 1e-6
+        assert abs(loc_default.longitude - 103.0) < 1e-6
+        assert loc_default.tracking_mode == "manual"
+        assert loc_default.locked_target_id == "A"
+        assert loc_default.locked_target_cx == 120
+        assert loc_default.locked_target_cy == 130
+        
+        mock_process.assert_called_with(chat_id, 15.0, 103.0, message_id_to_edit=999, location_name="default")
+
+
+@pytest.mark.asyncio
+async def test_webhook_inline_lock_callback_with_existing_location(db_session):
+    repo = SQLiteLocationRepository(db_session)
+    chat_id = 556678
+    
+    await repo.save_location(chat_id, 16.4, 102.8, "FOREVER", name="work")
+    
+    mock_repo_context = MagicMock()
+    mock_repo_context.__aenter__.return_value = repo
+    
+    from app.routers import webhook
+    
+    with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
+         patch("app.routers.webhook.WeatherManager") as MockWMClass, \
+         patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock) as mock_process:
+         
+        mock_wm = MockWMClass.return_value
+        mock_wm.predict_rain = AsyncMock(return_value={
+            "approaching_clouds": [],
+            "all_rain_clusters": [
+                {"cx": 200, "cy": 250, "label": "B"}
+            ]
+        })
+        
+        callback_query = {
+            "id": "query_456",
+            "from": {"id": chat_id},
+            "data": "lock_target_16.4_102.8_B",
+            "message": {"message_id": 999}
+        }
+        
+        await webhook.handle_callback_query(callback_query)
+        
+        loc_work = await repo.get_location(chat_id, "work")
+        assert loc_work is not None
+        assert loc_work.tracking_mode == "manual"
+        assert loc_work.locked_target_id == "B"
+        assert loc_work.locked_target_cx == 200
+        assert loc_work.locked_target_cy == 250
+        
+        loc_default = await repo.get_location(chat_id, "default")
+        assert loc_default is None
+        
+        mock_process.assert_called_with(chat_id, 16.4, 102.8, message_id_to_edit=999, location_name="work")
+
+
+@pytest.mark.asyncio
+async def test_empty_grid_lock_does_not_snap_to_adjacent_cluster(db_session):
+    repo = SQLiteLocationRepository(db_session)
+    chat_id = "889900"
+    
+    # Save a default location
+    loc = await repo.save_location(chat_id, 16.4, 102.8, "FOREVER", name="default")
+    
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+    processor = TMDRadarProcessor("kkn120")
+    user_px, user_py = processor.latlng_to_pixel(16.4, 102.8, is_loop=False)
+    
+    crop_r = 120
+    crop_x1 = max(0, user_px - crop_r)
+    crop_y1 = max(0, user_py - crop_r)
+    crop_x2 = min(800, user_px + crop_r)
+    crop_y2 = min(800, user_py + crop_r)
+    cell_w = (crop_x2 - crop_x1) / 8.0
+    cell_h = (crop_y2 - crop_y1) / 8.0
+    
+    # Center of E4 (col_idx=4, row_idx=3)
+    e4_cx = int(crop_x1 + 4.5 * cell_w)
+    e4_cy = int(crop_y1 + 3.5 * cell_h)
+    
+    # Lock target to grid E4 with coordinates of E4 center (empty lock)
+    await repo.update_tracking_mode(
+        chat_id=chat_id,
+        tracking_mode="manual",
+        locked_target_id="E4",
+        locked_target_cx=e4_cx,
+        locked_target_cy=e4_cy,
+        name="default"
+    )
+    
+    wm = WeatherManager()
+    
+    import time
+    mock_frames = [np.zeros((800, 800, 3), dtype=np.uint8), np.zeros((800, 800, 3), dtype=np.uint8)]
+    mock_flow = np.zeros((800, 800, 2), dtype=np.float32)
+    wm.load_persistent_cache_to_memory = AsyncMock(return_value=(
+        mock_frames, datetime.now(timezone.utc), time.time(), mock_flow,
+        "static_cache", 15.0, [int(time.time()) - 900, int(time.time())]
+    ))
+    
+    # A cluster exists in D4 (col_idx=3, row_idx=3)
+    d4_cx = int(crop_x1 + 3.5 * cell_w)
+    d4_cy = int(crop_y1 + 3.5 * cell_h)
+    
+    mock_all_clusters = [
+        {"cx": d4_cx, "cy": d4_cy, "vx": 1.0, "vy": 1.0, "dbz_now": 30.0, "growth_rate": 0.1, "label": "A", "pixels": [(d4_cx, d4_cy)]}
+    ]
+    
+    mock_repo_context = MagicMock()
+    mock_repo_context.__aenter__.return_value = repo
+    
+    with patch("app.services.weather_manager.get_repo_context", return_value=mock_repo_context), \
+         patch("app.services.weather_manager.TMDRadarProcessor") as MockProcessorClass:
+         
+        mock_processor = MockProcessorClass.return_value
+        mock_processor.latlng_to_pixel.return_value = (user_px, user_py)
+        mock_processor.get_dbz_at_pixel.return_value = 0.0
+        mock_processor.find_approaching_clouds.return_value = []
+        mock_processor.get_all_rain_clusters.return_value = mock_all_clusters
+        mock_processor.extrapolate_rain_at_pixel.return_value = (0.0, user_px, user_py)
+        mock_processor.render_rain_summary.return_value = "Summary"
+        mock_processor.generate_radar_tracking_image.return_value = b"bytes"
+        
+        await wm._get_tmd_prediction(16.4, 102.8, force_station="kkn120", chat_id=chat_id)
+        
+        updated_loc = await repo.get_location(chat_id, "default")
+        assert updated_loc.locked_target_cx == e4_cx
+        assert updated_loc.locked_target_cy == e4_cy
+
+
+@pytest.mark.asyncio
+async def test_webhook_lock_command_with_cloud_label(db_session):
+    repo = SQLiteLocationRepository(db_session)
+    chat_id = 998877
+    
+    await repo.save_location(chat_id, 16.4, 102.8, "FOREVER", name="home")
+    
+    mock_repo_context = MagicMock()
+    mock_repo_context.__aenter__.return_value = repo
+    
+    from app.routers import webhook
+    
+    with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
+         patch("app.services.weather_manager.WeatherManager") as MockWMClass, \
+         patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock) as mock_send, \
+         patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock) as mock_process:
+         
+        mock_wm = MockWMClass.return_value
+        
+        import numpy as np
+        frame = np.zeros((800, 800, 3), dtype=np.uint8)
+        flow = np.zeros((800, 800, 2), dtype=np.float32)
+        flow[300, 350] = (2.5, -1.0)
+        cache_data = ([frame], datetime.now(timezone.utc), 0, flow, "static_cache", 15.0, [0])
+        mock_wm.load_persistent_cache_to_memory = AsyncMock(return_value=cache_data)
+        
+        mock_wm.predict_rain = AsyncMock(return_value={
+            "approaching_clouds": [
+                {"cx": 350, "cy": 300, "label": "A", "dbz_now": 35.0}
+            ],
+            "all_rain_clusters": []
+        })
+        
+        await webhook.handle_lock_command(chat_id, "/lock A")
+        
+        loc_home = await repo.get_location(chat_id, "home")
+        assert loc_home is not None
+        assert loc_home.tracking_mode == "manual"
+        assert loc_home.locked_target_id == "A"
+        assert loc_home.locked_target_cx == 350
+        assert loc_home.locked_target_cy == 300
+        
+        mock_process.assert_called_with(chat_id, 16.4, 102.8, location_name="home")
+
+
+

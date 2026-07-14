@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 
 LAST_ACTIVE_LOCATION: dict[int, str] = {}
 
+# Most recently pinned/sent Telegram location per chat (lat, lng).
+# Populated whenever the user sends a location via Telegram, and consumed by
+# /lock (and the inline lock button) when no saved-location name is supplied,
+# so that locking targets the spot the user just shared instead of "home".
+LAST_PINNED_LOCATION: dict[int, tuple[float, float]] = {}
+
 router = APIRouter(
     prefix="/api/v1/telegram",
     tags=["webhook"]
@@ -491,16 +497,34 @@ async def handle_callback_query(callback_query: dict):
                     cx = target_c["cx"]
                     cy = target_c["cy"]
                     async with get_repo_context() as repo:
+                        # Resolve which named location row corresponds to the
+                        # locked coordinate, so tracking persists against the
+                        # right place rather than blindly hitting "default".
+                        # If no saved row matches this coordinate, upsert the
+                        # "default" row to the locked coordinate.
+                        all_locs = await repo.get_user_locations(chat_id)
+                        chosen_name = "default"
+                        for l in all_locs:
+                            if (abs(l.latitude - lat) < 1e-6
+                                    and abs(l.longitude - lng) < 1e-6):
+                                chosen_name = l.name
+                                break
+                        else:
+                            await repo.save_location(
+                                chat_id, lat, lng, "FOREVER", name="default"
+                            )
                         await repo.update_tracking_mode(
                             chat_id=chat_id,
                             tracking_mode="manual",
                             locked_target_id=label,
                             locked_target_cx=cx,
                             locked_target_cy=cy,
+                            name=chosen_name,
                         )
                     await process_telegram_location(
                         chat_id, lat, lng,
                         message_id_to_edit=message_id,
+                        location_name=chosen_name,
                     )
                 else:
                     answer_text = f"ไม่พบกลุ่มฝน [{label}] หรือเมฆสลายตัวไปแล้ว"
@@ -744,6 +768,17 @@ async def handle_lock_command(chat_id: int, command: str):
                         if l.name.lower() == active_loc_name.lower():
                             loc = l
                             break
+                # Prefer the most recently pinned Telegram location when no
+                # saved-location name was named or matched. Upsert the pinned
+                # coordinate into the "default" row so tracking can persist and
+                # the re-forecast after locking uses the same coordinate.
+                if not loc:
+                    pinned = LAST_PINNED_LOCATION.get(chat_id)
+                    if pinned:
+                        pinned_lat, pinned_lng = pinned
+                        loc = await repo.save_location(
+                            chat_id, pinned_lat, pinned_lng, "FOREVER", name="default"
+                        )
                 if not loc:
                     for name_to_find in ["home", "default", "work"]:
                         for l in locs:
@@ -762,8 +797,13 @@ async def handle_lock_command(chat_id: int, command: str):
             prev_cy = loc.locked_target_cy
         
         grid_match = re.match(r"^([a-hA-H])[-_]?([1-8])$", target_str.strip())
+        cloud_label_match = re.match(r"^[a-zA-Z]{1,2}$", target_str.strip())
+        
+        is_grid_lock = False
+        is_label_lock = False
         
         if grid_match:
+            is_grid_lock = True
             col_char = grid_match.group(1).upper()
             row_char = grid_match.group(2)
             grid_col_idx = ord(col_char) - ord('A')
@@ -771,6 +811,9 @@ async def handle_lock_command(chat_id: int, command: str):
             cx = int((grid_col_idx + 0.5) * 100)
             cy = int((grid_row_idx + 0.5) * 100)
             grid_lbl = f"{col_char}{row_char}"
+        elif cloud_label_match:
+            is_label_lock = True
+            grid_lbl = target_str.strip().upper()
         else:
             parts = re.findall(r"[-+]?\d*\.\d+|\d+", target_str)
             if len(parts) < 2:
@@ -778,6 +821,7 @@ async def handle_lock_command(chat_id: int, command: str):
                     chat_id, 
                     "⚠️ รูปแบบตัวชี้เป้าไม่ถูกต้อง\n"
                     "กรุณาใช้:\n"
+                    "- ล็อคกลุ่มฝน: `/lock [ชื่อพิกัด] A` หรือ `/lock A`\n"
                     "- ล็อคช่องตาราง: `/lock [ชื่อพิกัด] D4`\n"
                     "- ล็อคพิกัดจริง: `/lock [ชื่อพิกัด] 13.75 100.5`"
                 )
@@ -839,7 +883,7 @@ async def handle_lock_command(chat_id: int, command: str):
             h, w = latest_frame.shape[:2]
             frame_w, frame_h = w, h
             
-            if grid_lbl:
+            if is_grid_lock:
                 user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=False)
                 crop_r = 120
                 crop_x1 = max(0, user_px - crop_r)
@@ -855,27 +899,71 @@ async def handle_lock_command(chat_id: int, command: str):
                 cx = int((x_min + x_max) / 2)
                 cy = int((y_min + y_max) / 2)
                 peak_x, peak_y = cx, cy
+                
+                for y_p in range(y_min, y_max):
+                    for x_p in range(x_min, x_max):
+                        dbz = processor.get_dbz_at_pixel(latest_frame, x_p, y_p)
+                        if dbz >= 10.0:
+                            has_cloud = True
+                            if dbz > max_dbz:
+                                max_dbz = dbz
+                                peak_x, peak_y = x_p, y_p
+                                
+                if has_cloud:
+                    cx, cy = peak_x, peak_y
+                    vx = float(flow[peak_y, peak_x, 0])
+                    vy = float(flow[peak_y, peak_x, 1])
+            elif is_label_lock:
+                res = await wm.predict_rain(lat, lng, chat_id=chat_id)
+                clouds = res.get("approaching_clouds", [])
+                all_clusters = res.get("all_rain_clusters", [])
+                
+                target_c = None
+                for c in clouds:
+                    if c.get("label", "").upper() == grid_lbl:
+                        target_c = c
+                        break
+                if not target_c:
+                    for c in all_clusters:
+                        if c.get("label", "").upper() == grid_lbl:
+                            target_c = c
+                            break
+                            
+                if target_c:
+                    cx = target_c["cx"]
+                    cy = target_c["cy"]
+                    has_cloud = True
+                    max_dbz = target_c.get("dbz_now", 0.0)
+                    peak_x, peak_y = cx, cy
+                    vx = float(flow[cy, cx, 0])
+                    vy = float(flow[cy, cx, 1])
+                else:
+                    await send_telegram_message(
+                        chat_id,
+                        f"⚠️ ไม่พบกลุ่มฝนป้ายกำกับ [{grid_lbl}] ในบริเวณรอบตัวคุณ หรือเมฆสลายตัวไปแล้ว"
+                    )
+                    return
             else:
                 search_radius = 25
                 x_min = max(0, cx - search_radius)
                 x_max = min(w, cx + search_radius)
                 y_min = max(0, cy - search_radius)
                 y_max = min(h, cy + search_radius)
-            
-            for y_p in range(y_min, y_max):
-                for x_p in range(x_min, x_max):
-                    dbz = processor.get_dbz_at_pixel(latest_frame, x_p, y_p)
-                    if dbz >= 10.0:
-                        has_cloud = True
-                        if dbz > max_dbz:
-                            max_dbz = dbz
-                            peak_x, peak_y = x_p, y_p
-                            
-            if has_cloud:
-                cx, cy = peak_x, peak_y
-                vx = float(flow[peak_y, peak_x, 0])
-                vy = float(flow[peak_y, peak_x, 1])
-        elif grid_lbl:
+                
+                for y_p in range(y_min, y_max):
+                    for x_p in range(x_min, x_max):
+                        dbz = processor.get_dbz_at_pixel(latest_frame, x_p, y_p)
+                        if dbz >= 10.0:
+                            has_cloud = True
+                            if dbz > max_dbz:
+                                max_dbz = dbz
+                                peak_x, peak_y = x_p, y_p
+                                
+                if has_cloud:
+                    cx, cy = peak_x, peak_y
+                    vx = float(flow[peak_y, peak_x, 0])
+                    vy = float(flow[peak_y, peak_x, 1])
+        elif is_grid_lock:
             user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=False)
             crop_r = 120
             crop_x1 = max(0, user_px - crop_r)
@@ -1931,6 +2019,11 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
             lng = location.get("longitude")
 
             if lat and lng:
+                # Remember this chat's most recently pinned coordinate so that
+                # a subsequent /lock (with no saved-location name) targets this
+                # spot instead of falling back to the saved "home" location.
+                LAST_PINNED_LOCATION[chat_id] = (float(lat), float(lng))
+
                 # ส่งข้อความตอบกลับทันทีเพื่อให้ผู้ใช้รู้ว่าบอทได้รับข้อมูลแล้ว
                 loading_msg_id = await send_telegram_message_return_id(
                     chat_id,
