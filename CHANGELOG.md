@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.55.0] - 2026-07-14
+
+### Added
+- เพิ่มระบบล็อคเป้าหมายกลุ่มเมฆฝนบนเรดาร์ด้วยตนเอง (Manual Target Tracking) พร้อมการระบุตำแหน่งอ้างอิงตามช่องตารางกริด (Grid-based coordinate)
+- เพิ่มสัญลักษณ์บอกตำแหน่งเป้าหมายที่ถูกล็อค (Target Lock Indicators & Crosshairs) บนภาพเรดาร์
+- เพิ่มการขีดเส้นบอกระยะสายตา (Line-of-sight path) จากกลุ่มเมฆที่ถูกล็อคเป้าพุ่งตรงมายังพิกัดที่ใช้งานอยู่
+- เพิ่มชุดคำสั่งผ่าน Webhook ให้สามารถล็อคหรือยกเลิกการล็อคเมฆเป้าหมายได้
+- เพิ่มโครงสร้างแบบทดสอบ (`test_manual_targeting.py`) เพื่อตรวจสอบการทำงานของระบบล็อคเป้าแบบแมนนวล
+
+### Changed
+- ปรับปรุงหน้าจอวิเคราะห์เรดาร์ (TMD Radar) ให้รองรับการแสดงผลกลุ่มฝนที่ผู้ใช้กำหนดให้ติดตามอย่างเจาะจง
+- เปลี่ยนแปลงการทำงานของ `WeatherManager` เพื่อให้เมื่อมีการล็อคเป้าหมาย ระบบจะวิเคราะห์และให้ความสำคัญกับกลุ่มฝนนั้น ๆ ตามที่ตั้งไว้ในฐานข้อมูล (Firestore)
+
 ## [0.54.0] - 2026-07-13
 
 ### Added

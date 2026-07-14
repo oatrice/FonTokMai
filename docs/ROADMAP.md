@@ -65,7 +65,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #164 - เพิ่มระบบล็อคเป้าก้อนเมฆแบบ manual
 - **GitHub:** [#164](https://gitlab.com/oatricedev/FonMaYang/-/issues/164)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.55.0)
 
 ### Issue #163 - Investigate inconsistent wind direction between tmd-radar and Open-Meteo contingency
 - **GitHub:** [#163](https://gitlab.com/oatricedev/FonMaYang/-/issues/163)

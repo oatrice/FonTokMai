@@ -14,11 +14,14 @@
     }
   ],
   "active_branch": "feat/164-manual",
-  "started_at": "2026-07-13T17:07:48.734754",
+  "started_at": "2026-07-14T21:07:01.000482",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
@@ -27,16 +30,28 @@
         "CHANGELOG.md",
         "README.md",
         "VERSION",
+        "backend/app/main.py",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/line_webhook.py",
         "backend/app/routers/webhook.py",
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
-        "backend/tests/test_decay_logic.py",
-        "docs/ROADMAP.md",
-        "luma/prompts/prompt_20260713_100745_a35fb30d.md",
+        "backend/tests/test_manual_targeting.py",
+        "luma/prompts/prompt_20260714_140718_fc12a121.md",
+        "luma/prompts/prompt_20260714_140720_773f70d7.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/app/main.py",
+        "backend/app/models.py",
+        "backend/app/repositories/base.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/line_webhook.py",
         "backend/app/routers/webhook.py",
         "backend/app/services/tmd_radar_processor.py",
         "backend/app/services/weather_manager.py",
@@ -115,5 +130,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-14T16:38:56.786800"
+  "last_updated": "2026-07-14T21:07:40.449444"
 }
