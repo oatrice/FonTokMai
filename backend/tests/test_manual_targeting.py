@@ -189,7 +189,7 @@ async def test_webhook_lock_command_with_location_name(db_session):
         assert loc_home.tracking_mode == "auto"
         
         # Verify process_telegram_location was called with work's coordinates
-        mock_process.assert_called_with(chat_id, 17.8392, 102.5734, location_name="work")
+        mock_process.assert_called_with(chat_id, 17.8392, 102.5734, location_name="work", is_lock_command=True)
         mock_wm.load_persistent_cache_to_memory.assert_called_with("kkn240", ANY)
 
         # 2. Lock D3 without location prefix -> should target LAST_ACTIVE_LOCATION if set
@@ -201,7 +201,7 @@ async def test_webhook_lock_command_with_location_name(db_session):
         assert loc_work.tracking_mode == "manual"
         assert loc_work.locked_target_id == "D3"
         
-        mock_process.assert_called_with(chat_id, 17.8392, 102.5734, location_name="work")
+        mock_process.assert_called_with(chat_id, 17.8392, 102.5734, location_name="work", is_lock_command=True)
         
         # 3. If LAST_ACTIVE_LOCATION is not set, fallback to prioritizing "home"
         webhook.LAST_ACTIVE_LOCATION.pop(chat_id, None)
@@ -215,7 +215,7 @@ async def test_webhook_lock_command_with_location_name(db_session):
         assert loc_home.tracking_mode == "manual"
         assert loc_home.locked_target_id == "D4"
         
-        mock_process.assert_called_with(chat_id, 16.4, 102.8, location_name="home")
+        mock_process.assert_called_with(chat_id, 16.4, 102.8, location_name="home", is_lock_command=True)
         
         # 4. Unlock 'work' specifically
         mock_process.reset_mock()
@@ -227,7 +227,7 @@ async def test_webhook_lock_command_with_location_name(db_session):
         loc_home = await repo.get_location(chat_id, "home")
         assert loc_home.tracking_mode == "manual"
         
-        mock_process.assert_called_with(chat_id, 17.8392, 102.5734, location_name="work")
+        mock_process.assert_called_with(chat_id, 17.8392, 102.5734, location_name="work", is_lock_command=True)
 
 
 @pytest.mark.asyncio
@@ -389,7 +389,7 @@ async def test_webhook_lock_uses_last_pinned_location(db_session):
         assert loc_default.locked_target_id == "G5"
         
         # Verify it re-forecasts using default row's coords (15.6, 103.9)
-        mock_process.assert_called_with(chat_id, 15.6, 103.9, location_name="default")
+        mock_process.assert_called_with(chat_id, 15.6, 103.9, location_name="default", is_lock_command=True)
 
 
 @pytest.mark.asyncio
@@ -597,7 +597,7 @@ async def test_webhook_lock_command_with_cloud_label(db_session):
         assert loc_home.locked_target_cx == 350
         assert loc_home.locked_target_cy == 300
         
-        mock_process.assert_called_with(chat_id, 16.4, 102.8, location_name="home")
+        mock_process.assert_called_with(chat_id, 16.4, 102.8, location_name="home", is_lock_command=True)
 
 
 @pytest.mark.asyncio

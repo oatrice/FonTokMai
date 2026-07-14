@@ -1053,8 +1053,24 @@ class WeatherManager:
                     dy = py - cy
                     dist = math.hypot(dx, dy)
                     
-                    peak_vx = float(flow[cy, cx, 0]) if (0 <= cx < flow.shape[1] and 0 <= cy < flow.shape[0]) else fallback_vx
-                    peak_vy = float(flow[cy, cx, 1]) if (0 <= cx < flow.shape[1] and 0 <= cy < flow.shape[0]) else fallback_vy
+                    # Find maximum wind speed from all pixels in the cluster
+                    max_v_mag = 0.0
+                    peak_vx = fallback_vx
+                    peak_vy = fallback_vy
+                    if "pixels" in matched_target and matched_target["pixels"]:
+                        for px_coord in matched_target["pixels"]:
+                            x_p, y_p = px_coord
+                            if 0 <= x_p < flow.shape[1] and 0 <= y_p < flow.shape[0]:
+                                fx = float(flow[y_p, x_p, 0])
+                                fy = float(flow[y_p, x_p, 1])
+                                v_mag = math.hypot(fx, fy)
+                                if v_mag > max_v_mag:
+                                    max_v_mag = v_mag
+                                    peak_vx = fx
+                                    peak_vy = fy
+                    else:
+                        peak_vx = float(flow[cy, cx, 0]) if (0 <= cx < flow.shape[1] and 0 <= cy < flow.shape[0]) else fallback_vx
+                        peak_vy = float(flow[cy, cx, 1]) if (0 <= cx < flow.shape[1] and 0 <= cy < flow.shape[0]) else fallback_vy
                     
                     if dist > 0:
                         v_close = (peak_vx * dx + peak_vy * dy) / dist

@@ -929,7 +929,7 @@ class TMDRadarProcessor:
                             f"\n- ความเร็วลมสูงสุดที่โปรเจกต์บนเส้นสีเขียว: {v_close_kmh:.1f} กม./ชม."
                         )
                         
-                    if is_approaching and eta_val is not None and eta_val < 9999.0:
+                    if eta_val is not None and eta_val < 9999.0 and v_close_kmh is not None and v_close_kmh > 0.05:
                         eta_val_adjusted = max(1.0, float(eta_val) - time_offset_min)
                         eta_h = int(eta_val_adjusted // 60)
                         eta_m = int(eta_val_adjusted % 60)

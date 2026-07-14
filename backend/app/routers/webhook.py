@@ -166,6 +166,7 @@ async def process_telegram_location(
     message_id_to_edit: int = None,
     show_advanced: bool = False,
     location_name: str = None,
+    is_lock_command: bool = False,
 ):
     """
     ดึงข้อมูลพยากรณ์ฝนผ่าน WeatherManager (รองรับ fallback chain อัตโนมัติ)
@@ -181,6 +182,18 @@ async def process_telegram_location(
             LAST_ACTIVE_LOCATION[chat_id] = location_name.lower()
         async with get_repo_context() as repo:
             mock_state = await repo.get_mock_state(chat_id)
+            if not is_lock_command:
+                locs = await repo.get_user_locations(chat_id)
+                for loc in locs:
+                    if loc.tracking_mode == "manual":
+                        await repo.update_tracking_mode(
+                            chat_id=chat_id,
+                            tracking_mode="auto",
+                            locked_target_id=None,
+                            locked_target_cx=None,
+                            locked_target_cy=None,
+                            name=loc.name
+                        )
 
         weather_manager = WeatherManager()
         result = await weather_manager.predict_rain(
@@ -762,23 +775,21 @@ async def handle_lock_command(chat_id: int, command: str):
                 target_str = " ".join(args[1:])
             else:
                 loc = None
-                active_loc_name = LAST_ACTIVE_LOCATION.get(chat_id)
-                if active_loc_name:
-                    for l in locs:
-                        if l.name.lower() == active_loc_name.lower():
-                            loc = l
-                            break
-                # Prefer the most recently pinned Telegram location when no
-                # saved-location name was named or matched. Upsert the pinned
-                # coordinate into the "default" row so tracking can persist and
-                # the re-forecast after locking uses the same coordinate.
-                if not loc:
-                    pinned = LAST_PINNED_LOCATION.get(chat_id)
-                    if pinned:
-                        pinned_lat, pinned_lng = pinned
-                        loc = await repo.save_location(
-                            chat_id, pinned_lat, pinned_lng, "FOREVER", name="default"
-                        )
+                # If there's a recently pinned Telegram location, always prioritize it!
+                pinned = LAST_PINNED_LOCATION.get(chat_id)
+                if pinned:
+                    pinned_lat, pinned_lng = pinned
+                    loc = await repo.save_location(
+                        chat_id, pinned_lat, pinned_lng, "FOREVER", name="default"
+                    )
+                    LAST_ACTIVE_LOCATION[chat_id] = "default"
+                else:
+                    active_loc_name = LAST_ACTIVE_LOCATION.get(chat_id)
+                    if active_loc_name:
+                        for l in locs:
+                            if l.name.lower() == active_loc_name.lower():
+                                loc = l
+                                break
                 if not loc:
                     for name_to_find in ["home", "default", "work"]:
                         for l in locs:
@@ -1040,7 +1051,7 @@ async def handle_lock_command(chat_id: int, command: str):
                 else:
                     eta_text = f"⏱️ คาดว่าจะเคลื่อนเข้าหาคุณในอีกประมาณ: {t_mins} นาที\n"
             else:
-                eta_text = f"💨 ทิศทางลมปัจจุบัน: {wind_speed:.1f} กม./ชม. (ทิศ {wind_dir}) — แนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ\n"
+                eta_text = f"💨 แนวโน้มเคลื่อนที่: ขนานหรือออกห่างจากตำแหน่งคุณ (ตามเส้นสีเขียว)\n"
                 
             if prev_cx is not None and prev_cy is not None:
                 prev_dist = math.sqrt((user_px - prev_cx)**2 + (user_py - prev_cy)**2)
@@ -1090,7 +1101,7 @@ async def handle_lock_command(chat_id: int, command: str):
             success_msg += "\nระบบจะใช้ข้อมูลนี้ในการพยากรณ์รอบถัดไป"
         
         await send_telegram_message(chat_id, success_msg)
-        await process_telegram_location(chat_id, lat, lng, location_name=loc_name)
+        await process_telegram_location(chat_id, lat, lng, location_name=loc_name, is_lock_command=True)
     except Exception as e:
         logger.error(f"Error handling lock command: {e}")
         await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
@@ -1139,7 +1150,7 @@ async def handle_unlock_command(chat_id: int, command: str):
             loc_name = loc.name
             
         await send_telegram_message(chat_id, f"🔓 ปลดล็อคกลุ่มฝน (Auto-track) ของ {loc_name.capitalize()} เรียบร้อยแล้ว")
-        await process_telegram_location(chat_id, lat, lng, location_name=loc_name)
+        await process_telegram_location(chat_id, lat, lng, location_name=loc_name, is_lock_command=True)
     except Exception as e:
         logger.error(f"Error handling unlock command: {e}")
         await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
@@ -1987,6 +1998,8 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
             return
 
         if target_location_name:
+            if target_location_name != "default" and chat_id in LAST_PINNED_LOCATION:
+                LAST_PINNED_LOCATION.pop(chat_id, None)
             for l in locs:
                 if (l.name and l.name.lower() == target_location_name) or (target_location_name == "default" and l.name is None):
                     loc = l
