@@ -2,7 +2,7 @@ import pytest
 import pytest_asyncio
 import math
 import numpy as np
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import ANY, MagicMock, AsyncMock, patch
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
@@ -141,8 +141,17 @@ async def test_weather_manager_manual_targeting_override(db_session):
         updated_loc = await repo.get_location(chat_id, "default")
         assert updated_loc.locked_target_cx == 105
         assert updated_loc.locked_target_cy == 105
-        # The label was updated to "A" (since the matched cluster at index 0 gets label "A")
-        assert updated_loc.locked_target_id == "A"
+        # The user-facing lock label must be preserved; the renderer now matches
+        # by stored pixel position rather than by the reassigned cluster label.
+        assert updated_loc.locked_target_id == "B"
+
+        # Verify the renderer received the stored lock position so it can draw
+        # the crosshair at the right cloud independently of cluster label changes.
+        mock_processor.generate_radar_tracking_image.assert_called_once()
+        renderer_args, _ = mock_processor.generate_radar_tracking_image.call_args
+        assert renderer_args[-3] == "B"
+        assert renderer_args[-2] == 105
+        assert renderer_args[-1] == 105
 
 
 @pytest.mark.asyncio
@@ -151,8 +160,8 @@ async def test_webhook_lock_command_with_location_name(db_session):
     chat_id = 987654
     
     # Save home and work locations
-    await repo.save_location(chat_id, 13.0, 100.0, "FOREVER", name="home")
-    await repo.save_location(chat_id, 14.0, 101.0, "FOREVER", name="work")
+    await repo.save_location(chat_id, 16.4, 102.8, "FOREVER", name="home")
+    await repo.save_location(chat_id, 17.8392, 102.5734, "FOREVER", name="work")
     
     # Mock repo context in webhook
     mock_repo_context = MagicMock()
@@ -180,7 +189,8 @@ async def test_webhook_lock_command_with_location_name(db_session):
         assert loc_home.tracking_mode == "auto"
         
         # Verify process_telegram_location was called with work's coordinates
-        mock_process.assert_called_with(chat_id, 14.0, 101.0, location_name="work")
+        mock_process.assert_called_with(chat_id, 17.8392, 102.5734, location_name="work")
+        mock_wm.load_persistent_cache_to_memory.assert_called_with("kkn240", ANY)
 
         # 2. Lock D3 without location prefix -> should target LAST_ACTIVE_LOCATION if set
         webhook.LAST_ACTIVE_LOCATION[chat_id] = "work"
@@ -191,7 +201,7 @@ async def test_webhook_lock_command_with_location_name(db_session):
         assert loc_work.tracking_mode == "manual"
         assert loc_work.locked_target_id == "D3"
         
-        mock_process.assert_called_with(chat_id, 14.0, 101.0, location_name="work")
+        mock_process.assert_called_with(chat_id, 17.8392, 102.5734, location_name="work")
         
         # 3. If LAST_ACTIVE_LOCATION is not set, fallback to prioritizing "home"
         webhook.LAST_ACTIVE_LOCATION.pop(chat_id, None)
@@ -205,7 +215,7 @@ async def test_webhook_lock_command_with_location_name(db_session):
         assert loc_home.tracking_mode == "manual"
         assert loc_home.locked_target_id == "D4"
         
-        mock_process.assert_called_with(chat_id, 13.0, 100.0, location_name="home")
+        mock_process.assert_called_with(chat_id, 16.4, 102.8, location_name="home")
         
         # 4. Unlock 'work' specifically
         mock_process.reset_mock()
@@ -217,11 +227,11 @@ async def test_webhook_lock_command_with_location_name(db_session):
         loc_home = await repo.get_location(chat_id, "home")
         assert loc_home.tracking_mode == "manual"
         
-        mock_process.assert_called_with(chat_id, 14.0, 101.0, location_name="work")
+        mock_process.assert_called_with(chat_id, 17.8392, 102.5734, location_name="work")
 
 
 @pytest.mark.asyncio
-async def test_webhook_grid_lock_scans_rendered_grid_cell_size(db_session):
+async def test_webhook_grid_lock_scans_rendered_tracking_crop_cell(db_session):
     repo = SQLiteLocationRepository(db_session)
     chat_id = 246810
 
@@ -230,13 +240,22 @@ async def test_webhook_grid_lock_scans_rendered_grid_cell_size(db_session):
     mock_repo_context = MagicMock()
     mock_repo_context.__aenter__.return_value = repo
 
-    frame = np.zeros((720, 720, 3), dtype=np.uint8)
-    # G5 on the rendered 8x8 overlay is x=540..629, y=360..449 for a 720px image.
-    # This red rain pixel is inside rendered G5, but outside the old hardcoded
-    # 800px G5 area of x=600..699, y=400..499.
-    frame[370, 550] = (255, 0, 0)
-    flow = np.zeros((720, 720, 2), dtype=np.float32)
-    flow[370, 550] = (1.0, 0.0)
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+
+    frame = np.zeros((800, 800, 3), dtype=np.uint8)
+    flow = np.zeros((800, 800, 2), dtype=np.float32)
+    processor = TMDRadarProcessor("kkn120")
+    user_px, user_py = processor.latlng_to_pixel(16.4, 102.8, is_loop=False)
+    crop_x1 = max(0, user_px - 120)
+    crop_y1 = max(0, user_py - 120)
+    crop_x2 = min(frame.shape[1], user_px + 120)
+    crop_y2 = min(frame.shape[0], user_py + 120)
+    cell_w = (crop_x2 - crop_x1) / 8.0
+    cell_h = (crop_y2 - crop_y1) / 8.0
+    rain_x = int(crop_x1 + 6 * cell_w + 8)
+    rain_y = int(crop_y1 + 4 * cell_h + 8)
+    frame[rain_y, rain_x] = (255, 0, 0)
+    flow[rain_y, rain_x] = (1.0, 0.0)
     cache_data = ([frame], datetime.now(timezone.utc), 0, flow, "static_cache", 15.0, [0])
 
     from app.routers import webhook
@@ -254,9 +273,64 @@ async def test_webhook_grid_lock_scans_rendered_grid_cell_size(db_session):
         loc_home = await repo.get_location(chat_id, "home")
         assert loc_home.tracking_mode == "manual"
         assert loc_home.locked_target_id == "G5"
-        assert loc_home.locked_target_cx == 585
-        assert loc_home.locked_target_cy == 405
+        assert loc_home.locked_target_cx == rain_x
+        assert loc_home.locked_target_cy == rain_y
 
         success_text = mock_send.await_args.args[1]
         assert "ตั้งค่าล็อคเป้าแมนนวลสำเร็จ" in success_text
         assert "ความแรงฝนสูงสุด: 50.0 dBZ" in success_text
+
+
+def test_renderer_locks_by_position_not_cluster_label():
+    """When the user locks a grid cell like G5, the stored label is a grid label
+    (e.g. 'G5') while clusters are relabeled A/B/C each forecast round. The
+    renderer must find the locked cloud by its stored pixel position, not by
+    matching the grid label to a cluster label.
+    """
+    import cv2
+    import io
+    from PIL import Image
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+
+    processor = TMDRadarProcessor("kkn120")
+    user_x, user_y = 400, 400
+
+    # Green cloud (low dBZ) so the red crosshair stands out in the output.
+    cloud_x, cloud_y = 470, 470
+    frame = np.full((800, 800, 3), 255, dtype=np.uint8)
+    cv2.circle(frame, (cloud_x, cloud_y), 12, (0, 255, 0), -1)
+
+    # Simulate a fresh forecast round where distance-sorting relabeled the cloud
+    # as "A", but the user originally locked it as grid cell "G5".
+    clouds = [{
+        "cx": cloud_x,
+        "cy": cloud_y,
+        "vx": 1.0,
+        "vy": 0.0,
+        "dbz_now": 20.0,
+        "predicted_dbz": 20.0,
+        "dist": 30.0,
+        "eta_min": 15.0,
+        "approaching": True,
+        "label": "A",
+        "pixels": [(cloud_x, cloud_y)],
+    }]
+
+    img_bytes = processor.generate_radar_tracking_image(
+        frame, user_x, user_y, clouds,
+        locked_target_id="G5",
+        locked_target_cx=cloud_x,
+        locked_target_cy=cloud_y,
+    )
+    assert img_bytes is not None
+
+    img = Image.open(io.BytesIO(img_bytes))
+    arr = np.array(img)
+    # The crosshair marker is drawn in red by OpenCV. Depending on how PNG
+    # channels are loaded, the high-red component may appear in the last
+    # channel, so count pixels whose red/final channel is high while the
+    # other two channels are low.
+    red_pixels = np.sum(
+        (arr[:, :, 2] > 200) & (arr[:, :, 0] < 50) & (arr[:, :, 1] < 50)
+    )
+    assert red_pixels > 0, "Expected a red crosshair/marker to be drawn for the locked cloud"

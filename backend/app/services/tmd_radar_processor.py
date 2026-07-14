@@ -1156,9 +1156,43 @@ class TMDRadarProcessor:
         show_clouds: bool = True,
         show_trajectory: bool = True,
         time_offset_min: float = 0.0,
-        locked_target_id: Optional[str] = None
+        locked_target_id: Optional[str] = None,
+        locked_target_cx: Optional[int] = None,
+        locked_target_cy: Optional[int] = None
     ) -> Optional[bytes]:
         import math
+
+        def _resolve_locked_cluster(clusters: list) -> Optional[dict]:
+            """Pick the cluster that corresponds to the manually-locked target.
+
+            Prefer position-based matching using the stored lock pixel, because
+            cluster labels are reassigned every forecast round (sorted by
+            distance), so a grid label like "G5" will never match a cluster
+            label "A"/"B"/... . Falls back to label equality if no stored pixel
+            is available (legacy locks).
+            """
+            if not locked_target_id:
+                return None
+            if locked_target_cx is not None and locked_target_cy is not None:
+                best: Optional[dict] = None
+                best_dist = float("inf")
+                for c in clusters:
+                    dist = math.hypot(c["cx"] - locked_target_cx, c["cy"] - locked_target_cy)
+                    if dist < best_dist:
+                        best_dist = dist
+                        best = c
+                # 60px in the full frame is generous enough to follow a moving
+                # cloud between frames, but tight enough to avoid snapping to
+                # a different nearby cluster in dense areas (~3x the crop scale).
+                if best and best_dist <= 60:
+                    return best
+                return None
+            # Legacy fallback for locks that only stored a cluster label.
+            for c in clusters:
+                if c.get("label") == locked_target_id:
+                    return c
+            return None
+
         display_clouds = clouds or []
         ambient_clouds = [
             c for c in (all_rain_clusters or [])
@@ -1266,14 +1300,17 @@ class TMDRadarProcessor:
         if show_clouds:
             incoming = [c for c in display_clouds if c.get("approaching", False) and -120 <= c.get("eta_min", 9999) <= 180]
             incoming.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
-            
+
+            all_cloud_refs = list(incoming[:3]) + list(ambient_clouds)
+            locked_cluster = _resolve_locked_cluster(all_cloud_refs)
+
             for c_orig in incoming[:3]:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
                 cx = int((cx_orig - x1) * scale)
                 cy = int((cy_orig - y1) * scale)
                 dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
                 vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
-                
+
                 color = _dbz_color(dbz)
                 hull_rect = None
                 if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
@@ -1290,8 +1327,8 @@ class TMDRadarProcessor:
                     cv2.circle(img, (cx, cy), r, color, int(1.5 * scale))
                     obs_r = int(14 * scale)
                     obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
-                
-                is_locked = (locked_target_id is not None and c_orig.get("label") == locked_target_id)
+
+                is_locked = locked_cluster is not None and c_orig is locked_cluster
                 if is_locked:
                     cv2.circle(img, (cx, cy), int(22 * scale), (0, 0, 255), int(2 * scale))
                     cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(30 * scale), int(2 * scale))
@@ -1310,7 +1347,9 @@ class TMDRadarProcessor:
                     
                 lbl = c_orig.get("label", "")
                 if is_locked:
-                    lbl = f"LOCKED[{lbl}]"
+                    # Show the user-facing lock label (e.g. "G5") rather than the
+                    # re-assigned cluster label (e.g. "B").
+                    lbl = f"LOCKED[{locked_target_id}]"
                 eta = max(1.0, float(c_orig.get("eta_min", 0)) - time_offset_min)
                 if eta <= 0:
                     txt = f"{lbl} (Now)"
@@ -1345,17 +1384,14 @@ class TMDRadarProcessor:
             # Sort and build list of ambient clouds to render, prioritizing the locked target
             ambient_clouds.sort(key=lambda c: c.get("dist", 9999))
             rendered_ambient = []
-            if locked_target_id:
-                for c in ambient_clouds:
-                    if c.get("label") == locked_target_id:
-                        rendered_ambient.append(c)
-                        break
+            if locked_cluster is not None and locked_cluster in ambient_clouds:
+                rendered_ambient.append(locked_cluster)
             for c in ambient_clouds:
                 if len(rendered_ambient) >= 8:
                     break
                 if c not in rendered_ambient:
                     rendered_ambient.append(c)
-                    
+
             for c_orig in rendered_ambient:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
                 if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
@@ -1364,7 +1400,7 @@ class TMDRadarProcessor:
                 cy = int((cy_orig - y1) * scale)
                 dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
                 vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
-                
+
                 color = _dbz_color(dbz)
                 for angle_deg in range(0, 360, 30):
                     a1 = math.radians(angle_deg)
@@ -1375,8 +1411,8 @@ class TMDRadarProcessor:
                     cv2.line(img, p1, p2, color, int(scale * 0.8))
                 obs_r = int(10 * scale)
                 obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
-                
-                is_locked = (locked_target_id is not None and c_orig.get("label") == locked_target_id)
+
+                is_locked = locked_cluster is not None and c_orig is locked_cluster
                 if is_locked:
                     cv2.circle(img, (cx, cy), int(20 * scale), (0, 0, 255), int(2 * scale))
                     cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(25 * scale), int(2 * scale))
@@ -1389,7 +1425,7 @@ class TMDRadarProcessor:
                     
                 lbl = c_orig.get("label", "")
                 if is_locked:
-                    lbl = f"LOCKED[{lbl}]"
+                    lbl = f"LOCKED[{locked_target_id}]"
                 txt = f"{lbl}: {int(dbz)}"
                 tw, th = int(55 * scale) if is_locked else int(45 * scale), int(12 * scale)
                 tx = cx - int(tw / 2)

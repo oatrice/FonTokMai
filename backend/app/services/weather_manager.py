@@ -783,24 +783,22 @@ class WeatherManager:
                         if dist < 120 and dist < min_dist:
                             min_dist = dist
                             matched_target = cluster
-                            
+
                     if matched_target:
-                        new_cx = matched_target["cx"]
-                        new_cy = matched_target["cy"]
-                        new_label = matched_target.get("label", "A")
-                        
+                        # Track the target cloud's movement by updating its pixel
+                        # coordinates, but preserve the user-facing lock label
+                        # (e.g. "G5" or the original cluster label from lock).
                         async with get_repo_context() as repo:
                             await repo.update_tracking_mode(
                                 chat_id=chat_id,
                                 tracking_mode="manual",
-                                locked_target_id=new_label,
-                                locked_target_cx=new_cx,
-                                locked_target_cy=new_cy,
+                                locked_target_id=locked_target_id,
+                                locked_target_cx=matched_target["cx"],
+                                locked_target_cy=matched_target["cy"],
                                 name=location_name or "default"
                             )
-                        locked_target_id = new_label
-                        locked_target_cx = new_cx
-                        locked_target_cy = new_cy
+                        locked_target_cx = matched_target["cx"]
+                        locked_target_cy = matched_target["cy"]
 
                 # ── Parametric scenario mock (JSON mock_state) ────────────────────
                 if mock_state and mock_state.startswith("{"):
@@ -1065,7 +1063,9 @@ class WeatherManager:
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
                         all_rain_clusters, predictions, True, True, time_offset_min,
-                        locked_target_id
+                        locked_target_id,
+                        locked_target_cx,
+                        locked_target_cy
                     )
                     
                     # Create adjusted predictions for the timeline so it displays actual ETA from NOW

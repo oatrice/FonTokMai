@@ -788,19 +788,43 @@ async def handle_lock_command(chat_id: int, command: str):
             is_latlng = (5.0 <= val1 <= 25.0) and (95.0 <= val2 <= 107.0)
             
             if is_latlng:
-                from app.services.tmd_radar_processor import TMDRadarProcessor
-                processor = TMDRadarProcessor("kkn120")
-                cx, cy = processor.latlng_to_pixel(val1, val2)
+                cx, cy = None, None
             else:
                 cx, cy = int(val1), int(val2)
                 
         import math
         from app.services.weather_manager import WeatherManager
         from app.services.tmd_radar_processor import TMDRadarProcessor
+        from app.services.tmd_radar_config import STATIONS
+
+        def station_distance(station_code: str) -> float:
+            conf = STATIONS[station_code]
+            return math.hypot(lat - conf.center_lat, lng - conf.center_lng)
+
+        processor = None
+        station_code = None
+        for candidate in sorted(["kkn120", "kkn240", "skn240"], key=station_distance):
+            candidate_processor = TMDRadarProcessor(candidate)
+            user_px, user_py = candidate_processor.latlng_to_pixel(lat, lng, is_loop=False)
+            if user_px is not None and user_py is not None:
+                processor = candidate_processor
+                station_code = candidate
+                break
+
+        if processor is None or station_code is None:
+            await send_telegram_message(chat_id, "⚠️ พิกัดหลักอยู่นอกขอบเขตของแผนที่เรดาร์")
+            return
+
+        if not grid_lbl and "parts" in locals() and len(parts) >= 2:
+            val1 = float(parts[0])
+            val2 = float(parts[1])
+            is_latlng = (5.0 <= val1 <= 25.0) and (95.0 <= val2 <= 107.0)
+            if is_latlng:
+                cx, cy = processor.latlng_to_pixel(val1, val2, is_loop=False)
+
         wm = WeatherManager()
-        processor = TMDRadarProcessor("kkn120")
         
-        cache_data = await wm.load_persistent_cache_to_memory("kkn120", processor)
+        cache_data = await wm.load_persistent_cache_to_memory(station_code, processor)
         
         has_cloud = False
         max_dbz = 0.0
@@ -816,12 +840,18 @@ async def handle_lock_command(chat_id: int, command: str):
             frame_w, frame_h = w, h
             
             if grid_lbl:
-                cell_w = w / 8.0
-                cell_h = h / 8.0
-                x_min = max(0, int(grid_col_idx * cell_w))
-                x_max = min(w, int((grid_col_idx + 1) * cell_w))
-                y_min = max(0, int(grid_row_idx * cell_h))
-                y_max = min(h, int((grid_row_idx + 1) * cell_h))
+                user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=False)
+                crop_r = 120
+                crop_x1 = max(0, user_px - crop_r)
+                crop_y1 = max(0, user_py - crop_r)
+                crop_x2 = min(w, user_px + crop_r)
+                crop_y2 = min(h, user_py + crop_r)
+                cell_w = (crop_x2 - crop_x1) / 8.0
+                cell_h = (crop_y2 - crop_y1) / 8.0
+                x_min = max(0, int(crop_x1 + grid_col_idx * cell_w))
+                x_max = min(w, int(crop_x1 + (grid_col_idx + 1) * cell_w))
+                y_min = max(0, int(crop_y1 + grid_row_idx * cell_h))
+                y_max = min(h, int(crop_y1 + (grid_row_idx + 1) * cell_h))
                 cx = int((x_min + x_max) / 2)
                 cy = int((y_min + y_max) / 2)
                 peak_x, peak_y = cx, cy
@@ -842,13 +872,20 @@ async def handle_lock_command(chat_id: int, command: str):
                             peak_x, peak_y = x_p, y_p
                             
             if has_cloud:
+                cx, cy = peak_x, peak_y
                 vx = float(flow[peak_y, peak_x, 0])
                 vy = float(flow[peak_y, peak_x, 1])
         elif grid_lbl:
-            cell_w = frame_w / 8.0
-            cell_h = frame_h / 8.0
-            cx = int((grid_col_idx + 0.5) * cell_w)
-            cy = int((grid_row_idx + 0.5) * cell_h)
+            user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=False)
+            crop_r = 120
+            crop_x1 = max(0, user_px - crop_r)
+            crop_y1 = max(0, user_py - crop_r)
+            crop_x2 = min(frame_w, user_px + crop_r)
+            crop_y2 = min(frame_h, user_py + crop_r)
+            cell_w = (crop_x2 - crop_x1) / 8.0
+            cell_h = (crop_y2 - crop_y1) / 8.0
+            cx = int(crop_x1 + (grid_col_idx + 0.5) * cell_w)
+            cy = int(crop_y1 + (grid_row_idx + 0.5) * cell_h)
             peak_x, peak_y = cx, cy
 
         if cx is None or cy is None or not (0 <= cx < frame_w and 0 <= cy < frame_h):
