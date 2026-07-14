@@ -961,7 +961,7 @@ class TMDRadarProcessor:
                     if eta_h > 0 and eta_m == 0:
                         time_str = f"~{eta_h} ชม."
                     soonest_lbl = soonest.get("label")
-                    lbl_suffix = f"กลุ่ม [{soonest_lbl}] " if soonest_lbl else ""
+                    lbl_suffix = f"กลุ่มฝน [{soonest_lbl}] " if soonest_lbl else "กลุ่มฝน "
                     text += f"\n☁️ หมายเหตุ: ตรวจพบ{lbl_suffix}({int(soonest.get('dbz_now', 0))} dBZ) กำลังเคลื่อนมา อาจจะถึงในอีก {time_str} (เวลาประมาณ {fmt_clock_time(float(soonest['eta_min']))})"
             
             return text + warning

@@ -110,7 +110,8 @@ async def test_weather_manager_manual_targeting_override(db_session):
     
     from unittest.mock import ANY
     with patch("app.services.weather_manager.get_repo_context", return_value=mock_repo_context), \
-         patch("app.services.weather_manager.TMDRadarProcessor") as MockProcessorClass:
+         patch("app.services.weather_manager.TMDRadarProcessor") as MockProcessorClass, \
+         patch("app.services.weather_manager._DEV_CONFIG", {"decay_enabled": True, "hit_radius": 8}):
          
         mock_processor = MockProcessorClass.return_value
         mock_processor.latlng_to_pixel.return_value = (150, 150)
