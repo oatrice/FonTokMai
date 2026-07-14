@@ -815,7 +815,7 @@ class TMDRadarProcessor:
         return clusters
 
     @staticmethod
-    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None) -> str:
+    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None, locked_target_id: str = None) -> str:
         """
         Generates a smart, non-redundant rain summary line for Telegram based on the pixel's time-series predictions.
         """
@@ -899,6 +899,25 @@ class TMDRadarProcessor:
         if not active_event:
             max_time = predictions[-1]["time_offset"]
             text = f"☀️ ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน {fmt_eta(max_time)}นี้"
+            if locked_target_id:
+                import re
+                if re.match(r'^([a-hA-H])([1-8])$', locked_target_id):
+                    target_desc = f"ช่องตาราง [{locked_target_id.upper()}]"
+                elif re.match(r'^[a-zA-Z]{1,2}$', locked_target_id):
+                    target_desc = f"กลุ่มฝน [{locked_target_id.upper()}]"
+                else:
+                    target_desc = "พิกัดแมนนวล"
+                
+                locked_cloud = None
+                if approaching_clouds:
+                    for c in approaching_clouds:
+                        if c.get("label") == locked_target_id:
+                            locked_cloud = c
+                            break
+                if locked_cloud:
+                    text += f" (เนื่องจาก{target_desc} มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ)"
+                else:
+                    text += f" (เนื่องจาก{target_desc} ไม่มีกลุ่มฝนในตำแหน่งล็อกหรือสลายตัวไปแล้ว)"
             if approaching_clouds:
                 far_clouds = [c for c in approaching_clouds if c.get("eta_min", 0) > max_time]
                 if far_clouds:
@@ -923,8 +942,18 @@ class TMDRadarProcessor:
         start_time = predictions[start_idx]["time_offset"]
         start_dbz = predictions[start_idx]["dbz"]
         lbl_start = dbz_label(start_dbz)
-        cluster_lbl = predictions[start_idx].get("cluster")
-        cluster_suffix = f" (กลุ่มฝน [{cluster_lbl}])" if cluster_lbl else ""
+        cluster_suffix = ""
+        if locked_target_id:
+            import re
+            if re.match(r'^([a-hA-H])([1-8])$', locked_target_id):
+                cluster_suffix = f" (ช่องตาราง [{locked_target_id.upper()}])"
+            elif re.match(r'^[a-zA-Z]{1,2}$', locked_target_id):
+                cluster_suffix = f" (กลุ่มฝน [{locked_target_id.upper()}])"
+            else:
+                cluster_suffix = " (พิกัดแมนนวล)"
+        else:
+            cluster_lbl = predictions[start_idx].get("cluster")
+            cluster_suffix = f" (กลุ่มฝน [{cluster_lbl}])" if cluster_lbl else ""
         
         adj_start = start_time - time_offset_min
         
@@ -1212,7 +1241,7 @@ class TMDRadarProcessor:
                 for c in clusters:
                     dist = math.hypot(c["cx"] - locked_target_cx, c["cy"] - locked_target_cy)
                     
-                    if is_grid_cell and math.hypot(locked_target_cx - cell_center_x, locked_target_cy - cell_center_y) < 6.0:
+                    if is_grid_cell and (cell_x_min <= locked_target_cx <= cell_x_max and cell_y_min <= locked_target_cy <= cell_y_max):
                         if not (cell_x_min <= c["cx"] <= cell_x_max and cell_y_min <= c["cy"] <= cell_y_max):
                             continue
                             
@@ -1371,6 +1400,16 @@ class TMDRadarProcessor:
                     cv2.circle(img, (cx, cy), int(22 * scale), (0, 0, 255), int(2 * scale))
                     cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(30 * scale), int(2 * scale))
                     
+                    # Draw a direct green line-of-sight path from locked cloud (cx, cy) to user (ux, uy)
+                    dist_to_user = math.hypot(ux - cx, uy - cy)
+                    if dist_to_user > 10:
+                        num_dots = int(dist_to_user / 8)
+                        for d_idx in range(1, num_dots):
+                            t = d_idx / num_dots
+                            dot_x = int(cx + (ux - cx) * t)
+                            dot_y = int(cy + (uy - cy) * t)
+                            cv2.circle(img, (dot_x, dot_y), int(1 * scale), (0, 255, 0), -1)
+                            
                     if (vx != 0.0 or vy != 0.0):
                         proj_pts = []
                         for step in range(1, 7):
@@ -1471,6 +1510,16 @@ class TMDRadarProcessor:
                     cv2.circle(img, (cx, cy), int(20 * scale), (0, 0, 255), int(2 * scale))
                     cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(25 * scale), int(2 * scale))
                     
+                    # Draw a direct green line-of-sight path from locked cloud (cx, cy) to user (ux, uy)
+                    dist_to_user = math.hypot(ux - cx, uy - cy)
+                    if dist_to_user > 10:
+                        num_dots = int(dist_to_user / 8)
+                        for d_idx in range(1, num_dots):
+                            t = d_idx / num_dots
+                            dot_x = int(cx + (ux - cx) * t)
+                            dot_y = int(cy + (uy - cy) * t)
+                            cv2.circle(img, (dot_x, dot_y), int(1 * scale), (0, 255, 0), -1)
+                            
                     if (vx != 0.0 or vy != 0.0):
                         proj_pts = []
                         for step in range(1, 7):

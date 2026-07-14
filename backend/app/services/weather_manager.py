@@ -811,7 +811,7 @@ class WeatherManager:
                     for cluster in all_rain_clusters:
                         dist = math.hypot(cluster["cx"] - locked_target_cx, cluster["cy"] - locked_target_cy)
                         
-                        if is_grid_cell and math.hypot(locked_target_cx - cell_center_x, locked_target_cy - cell_center_y) < 6.0:
+                        if is_grid_cell and (cell_x_min <= locked_target_cx <= cell_x_max and cell_y_min <= locked_target_cy <= cell_y_max):
                             if not (cell_x_min <= cluster["cx"] <= cell_x_max and cell_y_min <= cluster["cy"] <= cell_y_max):
                                 continue
                                 
@@ -970,6 +970,13 @@ class WeatherManager:
                         fallback_vx=fallback_vx, fallback_vy=fallback_vy
                     )
                     
+                    if tracking_mode == "manual":
+                        if matched_target:
+                            if math.hypot(src_x - matched_target["cx"], src_y - matched_target["cy"]) > 40.0:
+                                dbz = 0.0
+                        else:
+                            dbz = 0.0
+                    
                     cluster_label = None
                     if dbz >= 10.0 and all_rain_clusters:
                         min_dist = 9999
@@ -1032,7 +1039,8 @@ class WeatherManager:
                     predictions=predictions,
                     time_offset_min=time_offset_min,
                     confidence_score=confidence_score,
-                    approaching_clouds=clouds
+                    approaching_clouds=clouds,
+                    locked_target_id=locked_target_id if tracking_mode == "manual" else None
                 )
                 # Sync cluster ETA with accurate pixel-level predictions
                 if clouds:

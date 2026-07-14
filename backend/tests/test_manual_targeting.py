@@ -600,4 +600,150 @@ async def test_webhook_lock_command_with_cloud_label(db_session):
         mock_process.assert_called_with(chat_id, 16.4, 102.8, location_name="home")
 
 
+@pytest.mark.asyncio
+async def test_weather_manager_manual_restrict_other_clouds(db_session):
+    repo = SQLiteLocationRepository(db_session)
+    chat_id = "112233"
+    
+    # Save a default location
+    await repo.save_location(chat_id, 13.75, 100.5, "FOREVER", name="default")
+    await repo.update_tracking_mode(
+        chat_id=chat_id,
+        tracking_mode="manual",
+        locked_target_id="A",
+        locked_target_cx=100,
+        locked_target_cy=100,
+        name="default"
+    )
+    
+    # Setup mocks
+    mock_processor = MagicMock()
+    # Mocking extrapolate_rain_at_pixel returning (dbz, src_x, src_y)
+    # Step 0: returns 0.0 dbz
+    # Step 1: returns 35.0 dbz, but source pixel is (300, 300) which is far from locked target projected center (103, 104)
+    mock_processor.extrapolate_rain_at_pixel.side_effect = [
+        (0.0, 150, 150),
+        (35.0, 300, 300),  # This is far away from the locked target A
+    ]
+    mock_processor.get_dbz_at_pixel.return_value = 0.0
+    mock_processor.render_rain_summary.return_value = "☀️ ยังไม่มีแนวโน้มฝนตก"
+    mock_processor.get_wind_speed_kmh_from_vector.return_value = 15.0
+    mock_processor.get_wind_direction_text_from_vector.return_value = "ENE"
+    mock_processor.generate_radar_tracking_image.return_value = b"mock_tracking_bytes"
+    mock_processor.generate_timeline_image.return_value = b"mock_timeline_bytes"
+    mock_processor.generate_multiframe_analysis_image.return_value = b"mock_multiframe_bytes"
+    
+    with patch("app.services.weather_manager.get_repo_context") as mock_get_repo_ctx, \
+         patch("app.services.weather_manager.TMDRadarProcessor", return_value=mock_processor), \
+         patch("app.services.weather_manager._DEV_CONFIG", {"verbose": True, "decay_enabled": True, "prediction_steps": 2, "hit_radius": 8}):
+        
+        mock_repo_context = MagicMock()
+        mock_repo_context.__aenter__.return_value = repo
+        mock_get_repo_ctx.return_value = mock_repo_context
+        
+        wm = WeatherManager()
+        wm.processor = mock_processor
+        
+        curr_frame = np.zeros((800, 800, 3), dtype=np.uint8)
+        flow = np.zeros((800, 800, 2), dtype=np.float32)
+        
+        # Locked cloud is A at (100, 100) moving with vx=3, vy=4
+        clouds = [
+            {
+                "cx": 100, "cy": 100,
+                "vx": 3.0, "vy": 4.0,
+                "growth_rate": 0.0,
+                "label": "A"
+            }
+        ]
+        
+        # mock load_persistent_cache_to_memory
+        import time
+        mock_frames = [np.zeros((800, 800, 3), dtype=np.uint8), np.zeros((800, 800, 3), dtype=np.uint8)]
+        wm.load_persistent_cache_to_memory = AsyncMock(return_value=(
+            mock_frames, datetime.now(timezone.utc), time.time(), flow,
+            "static_cache", 15.0, [int(time.time()) - 900, int(time.time())]
+        ))
+        
+        mock_processor.latlng_to_pixel.return_value = (150, 150)
+        mock_processor.find_approaching_clouds.return_value = clouds
+        mock_processor.get_all_rain_clusters.return_value = clouds
+        
+        result = await wm._get_tmd_prediction(
+            lat=13.75,
+            lng=100.5,
+            force_station="kkn120",
+            chat_id=chat_id,
+            location_name="default",
+            mock_state=None
+        )
+        
+        # Verify that for step 1, dbz was filtered/reset to 0.0 because (300, 300) is far from the projected position of A (103, 104)
+        assert result is not None
+        assert len(result["predictions"]) == 2
+        # Step 0 (0.0 dbz)
+        assert result["predictions"][0]["dbz"] == 0.0
+        # Step 1 (should be 0.0 dbz because it was filtered out, even though extrapolate returned 35.0)
+        assert result["predictions"][1]["dbz"] == 0.0
+
+
+def test_render_rain_summary_with_locked_target_id():
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+    
+    predictions = [
+        {"time_offset": 15, "dbz": 30.0, "intensity": "ฝนปานกลาง", "rain": 1.5, "cluster": "A"}
+    ]
+    
+    # 1. Grid cell suffix
+    summary_grid = TMDRadarProcessor.render_rain_summary(
+        predictions=predictions,
+        time_offset_min=0.0,
+        confidence_score=1.0,
+        locked_target_id="E3"
+    )
+    assert "(ช่องตาราง [E3])" in summary_grid
+    
+    # 2. Cloud label suffix
+    summary_cloud = TMDRadarProcessor.render_rain_summary(
+        predictions=predictions,
+        time_offset_min=0.0,
+        confidence_score=1.0,
+        locked_target_id="A"
+    )
+    assert "(กลุ่มฝน [A])" in summary_cloud
+    
+    # 3. Coordinate manual suffix
+    summary_coord = TMDRadarProcessor.render_rain_summary(
+        predictions=predictions,
+        time_offset_min=0.0,
+        confidence_score=1.0,
+        locked_target_id="MANUAL"
+    )
+    assert "(พิกัดแมนนวล)" in summary_coord
+
+    # 4. No-rain grid cell with no cloud (empty/dissipated)
+    predictions_clear = [{"time_offset": 15, "dbz": 0.0, "intensity": "ไม่มีฝน", "rain": 0.0, "cluster": None}]
+    summary_clear_grid = TMDRadarProcessor.render_rain_summary(
+        predictions=predictions_clear,
+        time_offset_min=0.0,
+        confidence_score=1.0,
+        locked_target_id="E3",
+        approaching_clouds=[]
+    )
+    assert "(เนื่องจากช่องตาราง [E3] ไม่มีกลุ่มฝนในตำแหน่งล็อกหรือสลายตัวไปแล้ว)" in summary_clear_grid
+
+    # 5. No-rain cloud label that is moving away (present in approaching_clouds)
+    summary_clear_cloud = TMDRadarProcessor.render_rain_summary(
+        predictions=predictions_clear,
+        time_offset_min=0.0,
+        confidence_score=1.0,
+        locked_target_id="A",
+        approaching_clouds=[{"label": "A", "eta_min": 9999}]
+    )
+    assert "(เนื่องจากกลุ่มฝน [A] มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ)" in summary_clear_cloud
+
+
+
+
+
 

@@ -1040,7 +1040,9 @@ async def handle_lock_command(chat_id: int, command: str):
             success_msg += "ระบบได้บันทึกพิกัดเป้าเล็งไว้แล้ว (คุณสามารถเช็คภาพเรดาร์ล่าสุดเพื่อยืนยัน)"
         else:
             success_msg = f"🔒 ตั้งค่าล็อคเป้าแมนนวลสำเร็จ!\n"
-            if grid_lbl:
+            if is_label_lock:
+                success_msg += f"กลุ่มฝน: [{grid_lbl}] (Pixel: {cx}, {cy})\n"
+            elif grid_lbl:
                 success_msg += f"ช่องตาราง: {grid_lbl} (Pixel: {cx}, {cy})\n"
             else:
                 success_msg += f"พิกัดเรดาร์: Pixel ({cx}, {cy})\n"
