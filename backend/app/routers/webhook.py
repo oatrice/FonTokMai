@@ -18,6 +18,14 @@ import json
 
 logger = logging.getLogger(__name__)
 
+LAST_ACTIVE_LOCATION: dict[int, str] = {}
+
+# Most recently pinned/sent Telegram location per chat (lat, lng).
+# Populated whenever the user sends a location via Telegram, and consumed by
+# /lock (and the inline lock button) when no saved-location name is supplied,
+# so that locking targets the spot the user just shared instead of "home".
+LAST_PINNED_LOCATION: dict[int, tuple[float, float]] = {}
+
 router = APIRouter(
     prefix="/api/v1/telegram",
     tags=["webhook"]
@@ -158,6 +166,7 @@ async def process_telegram_location(
     message_id_to_edit: int = None,
     show_advanced: bool = False,
     location_name: str = None,
+    is_lock_command: bool = False,
 ):
     """
     ดึงข้อมูลพยากรณ์ฝนผ่าน WeatherManager (รองรับ fallback chain อัตโนมัติ)
@@ -169,8 +178,22 @@ async def process_telegram_location(
       location_name: ชื่อของสถานที่ที่จะแสดงในข้อความผลลัพธ์
     """
     try:
+        if location_name:
+            LAST_ACTIVE_LOCATION[chat_id] = location_name.lower()
         async with get_repo_context() as repo:
             mock_state = await repo.get_mock_state(chat_id)
+            if not is_lock_command:
+                locs = await repo.get_user_locations(chat_id)
+                for loc in locs:
+                    if loc.tracking_mode == "manual":
+                        await repo.update_tracking_mode(
+                            chat_id=chat_id,
+                            tracking_mode="auto",
+                            locked_target_id=None,
+                            locked_target_cx=None,
+                            locked_target_cy=None,
+                            name=loc.name
+                        )
 
         weather_manager = WeatherManager()
         result = await weather_manager.predict_rain(
@@ -178,6 +201,7 @@ async def process_telegram_location(
             mock_state=mock_state,
             force_endpoint=force_endpoint,
             location_name=location_name,
+            chat_id=chat_id,
         )
 
         text, actual_endpoint, eta_minutes = _build_forecast_text(result)
@@ -245,6 +269,40 @@ async def process_telegram_location(
 
         # ปุ่มเปรียบเทียบข้อมูล (Issue #53)
         keyboard.append([{"text": "📊 เปรียบเทียบข้อมูล 4 API", "callback_data": f"compare_api_{r_lat}_{r_lng}"}])
+
+        # ปุ่มควบคุมเป้าเรดาร์แบบแมนนวล (Manual Cloud Targeting)
+        if "tmd-radar" in actual_endpoint:
+            t_mode = result.get("tracking_mode", "auto")
+            if t_mode == "manual":
+                locked_lbl = result.get("locked_target_id", "")
+                keyboard.append([{"text": f"🔓 ปลดล็อค {locked_lbl} (Auto-track)", "callback_data": f"unlock_target_{r_lat}_{r_lng}"}])
+            else:
+                approaching_clouds = result.get("approaching_clouds", [])
+                all_rain_clusters = result.get("all_rain_clusters", [])
+                
+                lock_buttons = []
+                added_labels = set()
+                
+                for c in approaching_clouds:
+                    lbl = c.get("label")
+                    if lbl and lbl != "?" and lbl not in added_labels:
+                        lock_buttons.append({"text": f"🔒 ล็อคเป้า {lbl}", "callback_data": f"lock_target_{r_lat}_{r_lng}_{lbl}"})
+                        added_labels.add(lbl)
+                        
+                # Filter ambient clouds (not in approaching_clouds) and sort by distance, taking top 8
+                ambient_clouds = [c for c in all_rain_clusters if c.get("label") not in added_labels]
+                ambient_clouds.sort(key=lambda c: c.get("dist", 9999))
+                
+                for c in ambient_clouds[:8]:
+                    lbl = c.get("label")
+                    if lbl and lbl != "?" and lbl not in added_labels:
+                        lock_buttons.append({"text": f"🔒 ล็อคเป้า {lbl}", "callback_data": f"lock_target_{r_lat}_{r_lng}_{lbl}"})
+                        added_labels.add(lbl)
+                        
+                if lock_buttons:
+                    # Chunk buttons into rows of 2
+                    for i in range(0, len(lock_buttons), 2):
+                        keyboard.append(lock_buttons[i:i+2])
 
         # ปุ่มสลับ Endpoint
         if actual_endpoint in ("rainbow-local", "local", "tmd-radar", "tmd-radar (kkn120)", "tmd-radar (kkn240)", "tmd-radar (skn240)"):
@@ -408,7 +466,7 @@ async def handle_callback_query(callback_query: dict):
 
                     # ดึงข้อมูลผ่าน WeatherManager (รองรับ fallback chain)
                     weather_manager = WeatherManager()
-                    result = await weather_manager.predict_rain(lat, lng)
+                    result = await weather_manager.predict_rain(lat, lng, chat_id=chat_id)
 
                     logger.info(f"Raw API Data for {lat}, {lng}: {json.dumps(result)}")
 
@@ -420,6 +478,94 @@ async def handle_callback_query(callback_query: dict):
                     answer_text = "เกิดข้อผิดพลาดในการดึงข้อมูลดิบ"
             else:
                 answer_text = "รูปแบบข้อมูลดิบไม่ถูกต้อง"
+
+    # Handle Manual target lock callbacks
+    if data.startswith("lock_target_"):
+        parts = data.split("_")
+        if len(parts) >= 5:
+            try:
+                lat = float(parts[2])
+                lng = float(parts[3])
+                label = parts[4]
+                
+                answer_text = f"กำลังล็อคเป้ากลุ่มฝน [{label}]..."
+                
+                weather_manager = WeatherManager()
+                res = await weather_manager.predict_rain(lat, lng, chat_id=chat_id)
+                clouds = res.get("approaching_clouds", [])
+                all_clusters = res.get("all_rain_clusters", [])
+                
+                target_c = None
+                for c in clouds:
+                    if c.get("label") == label:
+                        target_c = c
+                        break
+                if not target_c:
+                    for c in all_clusters:
+                        if c.get("label") == label:
+                            target_c = c
+                            break
+                
+                if target_c:
+                    cx = target_c["cx"]
+                    cy = target_c["cy"]
+                    async with get_repo_context() as repo:
+                        # Resolve which named location row corresponds to the
+                        # locked coordinate, so tracking persists against the
+                        # right place rather than blindly hitting "default".
+                        # If no saved row matches this coordinate, upsert the
+                        # "default" row to the locked coordinate.
+                        all_locs = await repo.get_user_locations(chat_id)
+                        chosen_name = "default"
+                        for l in all_locs:
+                            if (abs(l.latitude - lat) < 1e-6
+                                    and abs(l.longitude - lng) < 1e-6):
+                                chosen_name = l.name
+                                break
+                        else:
+                            await repo.save_location(
+                                chat_id, lat, lng, "FOREVER", name="default"
+                            )
+                        await repo.update_tracking_mode(
+                            chat_id=chat_id,
+                            tracking_mode="manual",
+                            locked_target_id=label,
+                            locked_target_cx=cx,
+                            locked_target_cy=cy,
+                            name=chosen_name,
+                        )
+                    await process_telegram_location(
+                        chat_id, lat, lng,
+                        message_id_to_edit=message_id,
+                        location_name=chosen_name,
+                    )
+                else:
+                    answer_text = f"ไม่พบกลุ่มฝน [{label}] หรือเมฆสลายตัวไปแล้ว"
+            except Exception as e:
+                logger.error(f"Error handling lock target callback: {e}")
+                answer_text = "เกิดข้อผิดพลาดในการล็อคเป้า"
+
+    elif data.startswith("unlock_target_"):
+        parts = data.split("_")
+        if len(parts) >= 4:
+            try:
+                lat = float(parts[2])
+                lng = float(parts[3])
+                
+                answer_text = "กำลังปลดล็อคกลุ่มฝน..."
+                
+                async with get_repo_context() as repo:
+                    await repo.update_tracking_mode(
+                        chat_id=chat_id,
+                        tracking_mode="auto",
+                    )
+                await process_telegram_location(
+                    chat_id, lat, lng,
+                    message_id_to_edit=message_id,
+                )
+            except Exception as e:
+                logger.error(f"Error handling unlock target callback: {e}")
+                answer_text = "เกิดข้อผิดพลาดในการปลดล็อคเป้า"
 
     # Handle Endpoint Switch (พร้อม Loading State)
     if data.startswith("switch_radar_") or data.startswith("switch_global_"):
@@ -589,6 +735,425 @@ async def handle_callback_query(callback_query: dict):
                 "message_id": message_id,
                 "reply_markup": {"inline_keyboard": []}
             })
+
+
+async def handle_lock_command(chat_id: int, command: str):
+    import re
+    cx, cy = None, None
+    grid_lbl = None
+    grid_col_idx = None
+    grid_row_idx = None
+    
+    try:
+        async with get_repo_context() as repo:
+            locs = await repo.get_user_locations(chat_id)
+            if not locs:
+                await send_telegram_message(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ กรุณาส่งพิกัดก่อนใช้งานคำสั่งนี้")
+                return
+            
+            raw_args = command.removeprefix("/lock").strip()
+            args = raw_args.split()
+            if not args:
+                await send_telegram_message(
+                    chat_id, 
+                    "⚠️ รูปแบบคำสั่งไม่ถูกต้อง\n"
+                    "กรุณาใช้:\n"
+                    "- ล็อคช่องตาราง: `/lock [ชื่อพิกัด] D2` หรือ `/lock D2`\n"
+                    "- ล็อคพิกัดจริง: `/lock [ชื่อพิกัด] 13.75 100.5` หรือ `/lock 13.75 100.5`"
+                )
+                return
+                
+            first_arg = args[0].lower()
+            matched_loc = None
+            for l in locs:
+                if l.name.lower() == first_arg:
+                    matched_loc = l
+                    break
+                    
+            if matched_loc:
+                loc = matched_loc
+                target_str = " ".join(args[1:])
+            else:
+                loc = None
+                # If there's a recently pinned Telegram location, always prioritize it!
+                pinned = LAST_PINNED_LOCATION.get(chat_id)
+                if pinned:
+                    pinned_lat, pinned_lng = pinned
+                    loc = await repo.save_location(
+                        chat_id, pinned_lat, pinned_lng, "FOREVER", name="default"
+                    )
+                    LAST_ACTIVE_LOCATION[chat_id] = "default"
+                else:
+                    active_loc_name = LAST_ACTIVE_LOCATION.get(chat_id)
+                    if active_loc_name:
+                        for l in locs:
+                            if l.name.lower() == active_loc_name.lower():
+                                loc = l
+                                break
+                if not loc:
+                    for name_to_find in ["home", "default", "work"]:
+                        for l in locs:
+                            if l.name.lower() == name_to_find:
+                                loc = l
+                                break
+                        if loc:
+                            break
+                if not loc:
+                    loc = locs[0]
+                target_str = raw_args
+                
+            lat, lng = loc.latitude, loc.longitude
+            loc_name = loc.name
+            prev_cx = loc.locked_target_cx
+            prev_cy = loc.locked_target_cy
+        
+        grid_match = re.match(r"^([a-hA-H])[-_]?([1-8])$", target_str.strip())
+        cloud_label_match = re.match(r"^[a-zA-Z]{1,2}$", target_str.strip())
+        
+        is_grid_lock = False
+        is_label_lock = False
+        
+        if grid_match:
+            is_grid_lock = True
+            col_char = grid_match.group(1).upper()
+            row_char = grid_match.group(2)
+            grid_col_idx = ord(col_char) - ord('A')
+            grid_row_idx = int(row_char) - 1
+            cx = int((grid_col_idx + 0.5) * 100)
+            cy = int((grid_row_idx + 0.5) * 100)
+            grid_lbl = f"{col_char}{row_char}"
+        elif cloud_label_match:
+            is_label_lock = True
+            grid_lbl = target_str.strip().upper()
+        else:
+            parts = re.findall(r"[-+]?\d*\.\d+|\d+", target_str)
+            if len(parts) < 2:
+                await send_telegram_message(
+                    chat_id, 
+                    "⚠️ รูปแบบตัวชี้เป้าไม่ถูกต้อง\n"
+                    "กรุณาใช้:\n"
+                    "- ล็อคกลุ่มฝน: `/lock [ชื่อพิกัด] A` หรือ `/lock A`\n"
+                    "- ล็อคช่องตาราง: `/lock [ชื่อพิกัด] D4`\n"
+                    "- ล็อคพิกัดจริง: `/lock [ชื่อพิกัด] 13.75 100.5`"
+                )
+                return
+            
+            val1 = float(parts[0])
+            val2 = float(parts[1])
+            is_latlng = (5.0 <= val1 <= 25.0) and (95.0 <= val2 <= 107.0)
+            
+            if is_latlng:
+                cx, cy = None, None
+            else:
+                cx, cy = int(val1), int(val2)
+                
+        import math
+        from app.services.weather_manager import WeatherManager
+        from app.services.tmd_radar_processor import TMDRadarProcessor
+        from app.services.tmd_radar_config import STATIONS
+
+        def station_distance(station_code: str) -> float:
+            conf = STATIONS[station_code]
+            return math.hypot(lat - conf.center_lat, lng - conf.center_lng)
+
+        wm = WeatherManager()
+        processor = None
+        station_code = None
+        
+        last_used = WeatherManager.LAST_USED_STATION.get(int(chat_id))
+        candidates = ["kkn120", "kkn240", "skn240"]
+        if last_used and last_used in candidates:
+            candidates_to_check = [last_used] + [c for c in sorted(candidates, key=station_distance) if c != last_used]
+        else:
+            candidates_to_check = sorted(candidates, key=station_distance)
+
+        for candidate in candidates_to_check:
+            candidate_processor = TMDRadarProcessor(candidate)
+            user_px, user_py = candidate_processor.latlng_to_pixel(lat, lng, is_loop=False)
+            if user_px is not None and user_py is not None:
+                # Load cache to verify if this station has at least 2 frames (meaning it is functional)
+                try:
+                    c_data = await wm.load_persistent_cache_to_memory(candidate, candidate_processor)
+                    if c_data and len(c_data[0]) >= 2:
+                        processor = candidate_processor
+                        station_code = candidate
+                        break
+                except Exception:
+                    pass
+
+        if processor is None or station_code is None:
+            # Fallback to the closest station that supports the user coordinate bounding box
+            for candidate in candidates_to_check:
+                candidate_processor = TMDRadarProcessor(candidate)
+                user_px, user_py = candidate_processor.latlng_to_pixel(lat, lng, is_loop=False)
+                if user_px is not None and user_py is not None:
+                    processor = candidate_processor
+                    station_code = candidate
+                    break
+
+        if processor is None or station_code is None:
+            await send_telegram_message(chat_id, "⚠️ พิกัดหลักอยู่นอกขอบเขตของแผนที่เรดาร์")
+            return
+
+        if not grid_lbl and "parts" in locals() and len(parts) >= 2:
+            val1 = float(parts[0])
+            val2 = float(parts[1])
+            is_latlng = (5.0 <= val1 <= 25.0) and (95.0 <= val2 <= 107.0)
+            if is_latlng:
+                cx, cy = processor.latlng_to_pixel(val1, val2, is_loop=False)
+
+        cache_data = await wm.load_persistent_cache_to_memory(station_code, processor)
+        
+        has_cloud = False
+        max_dbz = 0.0
+        peak_x, peak_y = cx, cy
+        vx, vy = 0.0, 0.0
+        frame_w = processor.config.static_crop_width
+        frame_h = processor.config.static_crop_height
+        
+        if cache_data:
+            frames, _, _, flow, _, _, _ = cache_data
+            latest_frame = frames[-1]
+            h, w = latest_frame.shape[:2]
+            frame_w, frame_h = w, h
+            
+            if is_grid_lock:
+                user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=False)
+                crop_r = 120
+                crop_x1 = max(0, user_px - crop_r)
+                crop_y1 = max(0, user_py - crop_r)
+                crop_x2 = min(w, user_px + crop_r)
+                crop_y2 = min(h, user_py + crop_r)
+                cell_w = (crop_x2 - crop_x1) / 8.0
+                cell_h = (crop_y2 - crop_y1) / 8.0
+                x_min = max(0, int(crop_x1 + grid_col_idx * cell_w))
+                x_max = min(w, int(crop_x1 + (grid_col_idx + 1) * cell_w))
+                y_min = max(0, int(crop_y1 + grid_row_idx * cell_h))
+                y_max = min(h, int(crop_y1 + (grid_row_idx + 1) * cell_h))
+                cx = int((x_min + x_max) / 2)
+                cy = int((y_min + y_max) / 2)
+                peak_x, peak_y = cx, cy
+                
+                for y_p in range(y_min, y_max):
+                    for x_p in range(x_min, x_max):
+                        dbz = processor.get_dbz_at_pixel(latest_frame, x_p, y_p)
+                        if dbz >= 10.0:
+                            has_cloud = True
+                            if dbz > max_dbz:
+                                max_dbz = dbz
+                                peak_x, peak_y = x_p, y_p
+                                
+                if has_cloud:
+                    cx, cy = peak_x, peak_y
+                    vx = float(flow[peak_y, peak_x, 0])
+                    vy = float(flow[peak_y, peak_x, 1])
+            elif is_label_lock:
+                res = await wm.predict_rain(lat, lng, chat_id=chat_id)
+                clouds = res.get("approaching_clouds", [])
+                all_clusters = res.get("all_rain_clusters", [])
+                
+                target_c = None
+                for c in clouds:
+                    if c.get("label", "").upper() == grid_lbl:
+                        target_c = c
+                        break
+                if not target_c:
+                    for c in all_clusters:
+                        if c.get("label", "").upper() == grid_lbl:
+                            target_c = c
+                            break
+                            
+                if target_c:
+                    cx = target_c["cx"]
+                    cy = target_c["cy"]
+                    has_cloud = True
+                    max_dbz = target_c.get("dbz_now", 0.0)
+                    peak_x, peak_y = cx, cy
+                    vx = float(flow[cy, cx, 0])
+                    vy = float(flow[cy, cx, 1])
+                else:
+                    await send_telegram_message(
+                        chat_id,
+                        f"⚠️ ไม่พบกลุ่มฝนป้ายกำกับ [{grid_lbl}] ในบริเวณรอบตัวคุณ หรือเมฆสลายตัวไปแล้ว"
+                    )
+                    return
+            else:
+                search_radius = 25
+                x_min = max(0, cx - search_radius)
+                x_max = min(w, cx + search_radius)
+                y_min = max(0, cy - search_radius)
+                y_max = min(h, cy + search_radius)
+                
+                for y_p in range(y_min, y_max):
+                    for x_p in range(x_min, x_max):
+                        dbz = processor.get_dbz_at_pixel(latest_frame, x_p, y_p)
+                        if dbz >= 10.0:
+                            has_cloud = True
+                            if dbz > max_dbz:
+                                max_dbz = dbz
+                                peak_x, peak_y = x_p, y_p
+                                
+                if has_cloud:
+                    cx, cy = peak_x, peak_y
+                    vx = float(flow[peak_y, peak_x, 0])
+                    vy = float(flow[peak_y, peak_x, 1])
+        elif is_grid_lock:
+            user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=False)
+            crop_r = 120
+            crop_x1 = max(0, user_px - crop_r)
+            crop_y1 = max(0, user_py - crop_r)
+            crop_x2 = min(frame_w, user_px + crop_r)
+            crop_y2 = min(frame_h, user_py + crop_r)
+            cell_w = (crop_x2 - crop_x1) / 8.0
+            cell_h = (crop_y2 - crop_y1) / 8.0
+            cx = int(crop_x1 + (grid_col_idx + 0.5) * cell_w)
+            cy = int(crop_y1 + (grid_row_idx + 0.5) * cell_h)
+            peak_x, peak_y = cx, cy
+
+        if cx is None or cy is None or not (0 <= cx < frame_w and 0 <= cy < frame_h):
+            await send_telegram_message(chat_id, "⚠️ พิกัดอยู่นอกขอบเขตของแผนที่เรดาร์")
+            return
+
+        eta_text = ""
+        comparison_text = ""
+        avg_vx, avg_vy = vx, vy
+        if is_label_lock and 'target_c' in locals() and target_c:
+            avg_vx = target_c.get("vx", vx)
+            avg_vy = target_c.get("vy", vy)
+
+        wind_speed = 0.0
+        wind_dir = "ไม่ทราบ"
+        avg_wind_speed = 0.0
+        avg_wind_dir = "ไม่ทราบ"
+        
+        if has_cloud:
+            user_px, user_py = processor.latlng_to_pixel(lat, lng)
+            dx = user_px - peak_x
+            dy = user_py - peak_y
+            dist = math.sqrt(dx*dx + dy*dy)
+            
+            wind_speed = processor.get_wind_speed_kmh_from_vector(vx, vy)
+            wind_dir = processor.get_wind_direction_text_from_vector(vx, vy)
+            avg_wind_speed = processor.get_wind_speed_kmh_from_vector(avg_vx, avg_vy)
+            avg_wind_dir = processor.get_wind_direction_text_from_vector(avg_vx, avg_vy)
+            
+            if dist > 0:
+                v_close = (vx * dx + vy * dy) / dist
+            else:
+                v_close = 0
+                
+            if v_close > 0.05:
+                t_mins = int((dist / v_close) * 15)
+                if t_mins >= 60:
+                    hrs = t_mins // 60
+                    mins = t_mins % 60
+                    eta_text = f"⏱️ คาดว่าจะเคลื่อนเข้าหาคุณในอีกประมาณ: {hrs} ชม. {mins} นาที\n"
+                else:
+                    eta_text = f"⏱️ คาดว่าจะเคลื่อนเข้าหาคุณในอีกประมาณ: {t_mins} นาที\n"
+            else:
+                eta_text = f"💨 แนวโน้มเคลื่อนที่: ขนานหรือออกห่างจากตำแหน่งคุณ (ตามเส้นสีเขียว)\n"
+                
+            if prev_cx is not None and prev_cy is not None:
+                prev_dist = math.sqrt((user_px - prev_cx)**2 + (user_py - prev_cy)**2)
+                lon_diff = processor.config.bbox.lng_max - processor.config.bbox.lng_min
+                width_km = lon_diff * 111.0
+                km_per_pixel = width_km / 800.0
+                
+                delta_km = (prev_dist - dist) * km_per_pixel
+                if delta_km > 0.1:
+                    comparison_text = f"📈 เมื่อเทียบกับรอบก่อนหน้า: กลุ่มฝนขยับเข้าใกล้คุณมากขึ้น {delta_km:.1f} กม. (เร็วขึ้น/กระชั้นชิดขึ้น)\n"
+                elif delta_km < -0.1:
+                    comparison_text = f"📉 เมื่อเทียบกับรอบก่อนหน้า: กลุ่มฝนขยับห่างออกไป {abs(delta_km):.1f} กม.\n"
+                else:
+                    comparison_text = f"📊 เมื่อเทียบกับรอบก่อนหน้า: อยู่ห่างที่ระยะใกล้เคียงเดิม\n"
+
+        async with get_repo_context() as repo:
+            await repo.update_tracking_mode(
+                chat_id=chat_id,
+                tracking_mode="manual",
+                locked_target_id=grid_lbl or "MANUAL",
+                locked_target_cx=cx,
+                locked_target_cy=cy,
+                name=loc_name
+            )
+            
+        if not has_cloud:
+            success_msg = f"⚠️ สังเกตการณ์: ไม่พบกลุ่มเมฆฝนในช่องตาราง {grid_lbl or target_str} (ความแรงฝน < 10 dBZ)\n"
+            success_msg += f"ตำแหน่งเป้าหมาย: {loc_name.capitalize()}\n"
+            success_msg += "ระบบได้บันทึกพิกัดเป้าเล็งไว้แล้ว (คุณสามารถเช็คภาพเรดาร์ล่าสุดเพื่อยืนยัน)"
+        else:
+            success_msg = f"🔒 ตั้งค่าล็อคเป้าแมนนวลสำเร็จ!\n"
+            if is_label_lock:
+                success_msg += f"กลุ่มฝน: [{grid_lbl}] (Pixel: {cx}, {cy})\n"
+            elif grid_lbl:
+                success_msg += f"ช่องตาราง: {grid_lbl} (Pixel: {cx}, {cy})\n"
+            else:
+                success_msg += f"พิกัดเรดาร์: Pixel ({cx}, {cy})\n"
+            success_msg += f"ตำแหน่งเป้าหมาย: {loc_name.capitalize()}\n\n"
+            success_msg += f"🔍 ข้อมูลกลุ่มฝนในพื้นที่ล็อคเป้า:\n"
+            success_msg += f"  💧 ความแรงฝนสูงสุด: {max_dbz:.1f} dBZ\n"
+            success_msg += f"  🌬️ ความเร็วลมเฉลี่ยกลุ่มเมฆ: {avg_wind_speed:.1f} กม./ชม. (ทิศ {avg_wind_dir})\n"
+            success_msg += f"  💨 ความเร็วลมสูงสุด: {wind_speed:.1f} กม./ชม. (ทิศ {wind_dir})\n"
+            if eta_text:
+                success_msg += f"  {eta_text}"
+            if comparison_text:
+                success_msg += f"  {comparison_text}"
+            success_msg += "\nระบบจะใช้ข้อมูลนี้ในการพยากรณ์รอบถัดไป"
+        
+        await send_telegram_message(chat_id, success_msg)
+        await process_telegram_location(chat_id, lat, lng, location_name=loc_name, is_lock_command=True)
+    except Exception as e:
+        logger.error(f"Error handling lock command: {e}")
+        await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
+
+
+async def handle_unlock_command(chat_id: int, command: str):
+    try:
+        async with get_repo_context() as repo:
+            locs = await repo.get_user_locations(chat_id)
+            if not locs:
+                await send_telegram_message(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ")
+                return
+                
+            arg = command.removeprefix("/unlock").strip().lower()
+            loc = None
+            if arg:
+                for l in locs:
+                    if l.name.lower() == arg:
+                        loc = l
+                        break
+                        
+            if not loc:
+                active_loc_name = LAST_ACTIVE_LOCATION.get(chat_id)
+                if active_loc_name:
+                    for l in locs:
+                        if l.name.lower() == active_loc_name.lower():
+                            loc = l
+                            break
+                if not loc:
+                    for name_to_find in ["home", "default", "work"]:
+                        for l in locs:
+                            if l.name.lower() == name_to_find:
+                                loc = l
+                                break
+                        if loc:
+                            break
+                if not loc:
+                    loc = locs[0]
+                    
+            await repo.update_tracking_mode(
+                chat_id=chat_id,
+                tracking_mode="auto",
+                name=loc.name
+            )
+            lat, lng = loc.latitude, loc.longitude
+            loc_name = loc.name
+            
+        await send_telegram_message(chat_id, f"🔓 ปลดล็อคกลุ่มฝน (Auto-track) ของ {loc_name.capitalize()} เรียบร้อยแล้ว")
+        await process_telegram_location(chat_id, lat, lng, location_name=loc_name, is_lock_command=True)
+    except Exception as e:
+        logger.error(f"Error handling unlock command: {e}")
+        await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
 
 
 async def handle_mylocation_command(chat_id: int):
@@ -1433,6 +1998,8 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
             return
 
         if target_location_name:
+            if target_location_name != "default" and chat_id in LAST_PINNED_LOCATION:
+                LAST_PINNED_LOCATION.pop(chat_id, None)
             for l in locs:
                 if (l.name and l.name.lower() == target_location_name) or (target_location_name == "default" and l.name is None):
                     loc = l
@@ -1500,6 +2067,11 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
             lng = location.get("longitude")
 
             if lat and lng:
+                # Remember this chat's most recently pinned coordinate so that
+                # a subsequent /lock (with no saved-location name) targets this
+                # spot instead of falling back to the saved "home" location.
+                LAST_PINNED_LOCATION[chat_id] = (float(lat), float(lng))
+
                 # ส่งข้อความตอบกลับทันทีเพื่อให้ผู้ใช้รู้ว่าบอทได้รับข้อมูลแล้ว
                 loading_msg_id = await send_telegram_message_return_id(
                     chat_id,
@@ -1559,6 +2131,14 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
                     log_audit_event("bypass_login_failed", chat_id, username, {})
                     await send_telegram_message(chat_id, "❌ รหัสผ่านไม่ถูกต้อง")
             background_tasks.add_task(_do_login)
+            return {"status": "ok"}
+
+        if text.startswith("/lock ") and chat_id:
+            background_tasks.add_task(handle_lock_command, chat_id, text)
+            return {"status": "ok"}
+            
+        if text.startswith("/unlock") and chat_id:
+            background_tasks.add_task(handle_unlock_command, chat_id, text)
             return {"status": "ok"}
 
         if text.startswith(("/rain", "/check", "/devmock", "/tmd_fallback", "/metrics", "/setbudget")) and chat_id:

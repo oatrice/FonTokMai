@@ -151,3 +151,16 @@ class LocationRepository(ABC):
     async def has_active_admin_bypass(self, chat_id: Union[str, int]) -> bool:
         """ตรวจสอบว่า user นี้มี Admin Bypass ที่ยังไม่หมดอายุหรือไม่"""
         pass
+
+    @abstractmethod
+    async def update_tracking_mode(
+        self,
+        chat_id: Union[str, int],
+        tracking_mode: str,
+        locked_target_id: Optional[str] = None,
+        locked_target_cx: Optional[int] = None,
+        locked_target_cy: Optional[int] = None,
+        name: str = "default"
+    ) -> None:
+        """อัปเดตโหมดการติดตามเป้าก้อนเมฆ (auto หรือ manual) และข้อมูล target ที่ล็อคไว้"""
+        pass

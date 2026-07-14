@@ -8,7 +8,7 @@ import cv2
 import io
 import numpy as np
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from PIL import Image, ImageDraw, ImageFont
 from zoneinfo import ZoneInfo
 from .tomorrow import TomorrowService
@@ -255,6 +255,8 @@ _GLOBAL_TMD_LOCKS = {
 }
 
 class WeatherManager:
+    LAST_USED_STATION: dict[int, str] = {}
+
     def __init__(self):
         self.xweather_svc = XweatherService()
         self.tomorrow_svc = TomorrowService()
@@ -268,6 +270,7 @@ class WeatherManager:
         mock_state: Optional[str] = None,
         force_endpoint: Optional[str] = None,
         location_name: Optional[str] = None,
+        chat_id: Optional[Union[str, int]] = None,
     ) -> dict:
         """
         ดึงข้อมูลพยากรณ์ฝนโดยผ่านระบบ Fallback อัตโนมัติ:
@@ -282,10 +285,10 @@ class WeatherManager:
             "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
             "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
             "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state, location_name=location_name),
-            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state, location_name=location_name),
-            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state, location_name=location_name),
-            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state, location_name=location_name)
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state, location_name=location_name, chat_id=chat_id),
+            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state, location_name=location_name, chat_id=chat_id),
+            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id),
+            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id)
         }
 
         # --- โหมดบังคับ endpoint (ไม่ผ่าน fallback) ---
@@ -527,7 +530,11 @@ class WeatherManager:
         )
         return _GLOBAL_TMD_CACHE[station_code]
 
-    async def _get_tmd_prediction(self, lat: float, lng: float, force_station: Optional[str] = None, mock_state: Optional[str] = None, location_name: Optional[str] = None) -> dict:
+    async def _get_tmd_prediction(
+        self, lat: float, lng: float, force_station: Optional[str] = None,
+        mock_state: Optional[str] = None, location_name: Optional[str] = None,
+        chat_id: Optional[Union[str, int]] = None
+    ) -> dict:
         """
         Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
         Uses dot-product approach vector filter to find approaching cloud clusters,
@@ -694,6 +701,13 @@ class WeatherManager:
                 use_loop_mapping = frame_source == "loop_gif"
                 user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=use_loop_mapping)
                 px, py = user_px, user_py
+
+                if chat_id:
+                    try:
+                        WeatherManager.LAST_USED_STATION[int(chat_id)] = station_code
+                    except Exception:
+                        pass
+
                 import logging
                 logging.info(f"DEBUG_LOCATION: lat={lat}, lng={lng} -> user_px={user_px}, user_py={user_py} (station: {station_code}, is_loop={use_loop_mapping})")
                 if user_px is None or user_py is None:
@@ -755,6 +769,80 @@ class WeatherManager:
                             if abs(appr_c.get("eta_min", 9999)) < abs(existing.get("eta_min", 9999)):
                                 unique_clouds[label] = appr_c
                     clouds = list(unique_clouds.values())
+
+                tracking_mode = "auto"
+                locked_target_id = None
+                locked_target_cx = None
+                locked_target_cy = None
+                matched_target = None
+                
+                if chat_id:
+                    async with get_repo_context() as repo:
+                        loc_record = await repo.get_location(chat_id, location_name or "default")
+                        if loc_record:
+                            tracking_mode = getattr(loc_record, "tracking_mode", "auto")
+                            locked_target_id = getattr(loc_record, "locked_target_id", None)
+                            locked_target_cx = getattr(loc_record, "locked_target_cx", None)
+                            locked_target_cy = getattr(loc_record, "locked_target_cy", None)
+                            
+                if tracking_mode == "manual" and locked_target_cx is not None and locked_target_cy is not None:
+                    min_dist = 9999
+                    
+                    is_grid_cell = False
+                    cell_center_x, cell_center_y = None, None
+                    if locked_target_id:
+                        import re
+                        m = re.match(r"^([a-hA-H])[-_]?([1-8])$", locked_target_id)
+                        if m:
+                            is_grid_cell = True
+                            col_char = m.group(1).upper()
+                            row_char = m.group(2)
+                            grid_col_idx = ord(col_char) - ord('A')
+                            grid_row_idx = int(row_char) - 1
+                            
+                            crop_r = 120
+                            crop_x1 = max(0, user_px - crop_r)
+                            crop_y1 = max(0, user_py - crop_r)
+                            frame_w = curr_frame.shape[1]
+                            frame_h = curr_frame.shape[0]
+                            crop_x2 = min(frame_w, user_px + crop_r)
+                            crop_y2 = min(frame_h, user_py + crop_r)
+                            cell_w = (crop_x2 - crop_x1) / 8.0
+                            cell_h = (crop_y2 - crop_y1) / 8.0
+                            cell_center_x = int(crop_x1 + (grid_col_idx + 0.5) * cell_w)
+                            cell_center_y = int(crop_y1 + (grid_row_idx + 0.5) * cell_h)
+                            
+                            cell_x_min = crop_x1 + grid_col_idx * cell_w - 5.0
+                            cell_x_max = crop_x1 + (grid_col_idx + 1) * cell_w + 5.0
+                            cell_y_min = crop_y1 + grid_row_idx * cell_h - 5.0
+                            cell_y_max = crop_y1 + (grid_row_idx + 1) * cell_h + 5.0
+
+                    for cluster in all_rain_clusters:
+                        dist = math.hypot(cluster["cx"] - locked_target_cx, cluster["cy"] - locked_target_cy)
+                        
+                        if is_grid_cell and (cell_x_min <= locked_target_cx <= cell_x_max and cell_y_min <= locked_target_cy <= cell_y_max):
+                            if not (cell_x_min <= cluster["cx"] <= cell_x_max and cell_y_min <= cluster["cy"] <= cell_y_max):
+                                continue
+                                
+                        if dist < 120 and dist < min_dist:
+                            min_dist = dist
+                            matched_target = cluster
+
+                    if matched_target:
+                        # Track the target cloud's movement by updating its pixel
+                        # coordinates, but preserve the user-facing lock label
+                        # (e.g. "G5" or the original cluster label from lock).
+                        async with get_repo_context() as repo:
+                            await repo.update_tracking_mode(
+                                chat_id=chat_id,
+                                tracking_mode="manual",
+                                locked_target_id=locked_target_id,
+                                locked_target_cx=matched_target["cx"],
+                                locked_target_cy=matched_target["cy"],
+                                name=location_name or "default"
+                            )
+                        locked_target_cx = matched_target["cx"]
+                        locked_target_cy = matched_target["cy"]
 
                 # ── Parametric scenario mock (JSON mock_state) ────────────────────
                 if mock_state and mock_state.startswith("{"):
@@ -864,7 +952,13 @@ class WeatherManager:
                 current_dbz = processor.get_dbz_at_pixel(curr_frame, px, py)
                 
                 fallback_vx, fallback_vy = 0.0, 0.0
-                if clouds:
+                manual_rate = None
+                
+                if tracking_mode == "manual" and matched_target:
+                    fallback_vx = matched_target.get("vx", 0.0)
+                    fallback_vy = matched_target.get("vy", 0.0)
+                    manual_rate = matched_target.get("growth_rate", 0.0)
+                elif clouds:
                     closest_c = min(clouds, key=lambda c: c.get("dist", 9999))
                     fallback_vx = closest_c.get("vx", 0.0)
                     fallback_vy = closest_c.get("vy", 0.0)
@@ -873,14 +967,24 @@ class WeatherManager:
                     offset_min = steps * 15
                     
                     rate = 0.0
-                    if _cfg.get("decay_enabled", True) and clouds:
-                        closest_c = min(clouds, key=lambda c: c.get("dist", 9999))
-                        rate = closest_c.get("growth_rate", 0.0)
+                    if _cfg.get("decay_enabled", True):
+                        if tracking_mode == "manual" and matched_target:
+                            rate = manual_rate if manual_rate is not None else 0.0
+                        elif clouds:
+                            closest_c = min(clouds, key=lambda c: c.get("dist", 9999))
+                            rate = closest_c.get("growth_rate", 0.0)
                         
                     dbz, src_x, src_y = processor.extrapolate_rain_at_pixel(
                         curr_frame, flow, px, py, steps=steps, rate=rate, radius=_cfg.get("hit_radius", 8),
                         fallback_vx=fallback_vx, fallback_vy=fallback_vy
                     )
+                    
+                    if tracking_mode == "manual":
+                        if matched_target:
+                            if math.hypot(src_x - matched_target["cx"], src_y - matched_target["cy"]) > 40.0:
+                                dbz = 0.0
+                        else:
+                            dbz = 0.0
                     
                     cluster_label = None
                     if dbz >= 10.0 and all_rain_clusters:
@@ -940,11 +1044,55 @@ class WeatherManager:
 
                 current_dbz = predictions[0]["dbz"]
                 intensity   = predictions[0]["intensity"]
+                v_close_kmh = None
+                v_actual_kmh = None
+                v_avg_kmh = None
+                if tracking_mode == "manual" and matched_target:
+                    cx, cy = matched_target["cx"], matched_target["cy"]
+                    dx = px - cx
+                    dy = py - cy
+                    dist = math.hypot(dx, dy)
+                    
+                    # Find maximum wind speed from all pixels in the cluster
+                    max_v_mag = 0.0
+                    peak_vx = fallback_vx
+                    peak_vy = fallback_vy
+                    if "pixels" in matched_target and matched_target["pixels"]:
+                        for px_coord in matched_target["pixels"]:
+                            x_p, y_p = px_coord
+                            if 0 <= x_p < flow.shape[1] and 0 <= y_p < flow.shape[0]:
+                                fx = float(flow[y_p, x_p, 0])
+                                fy = float(flow[y_p, x_p, 1])
+                                v_mag = math.hypot(fx, fy)
+                                if v_mag > max_v_mag:
+                                    max_v_mag = v_mag
+                                    peak_vx = fx
+                                    peak_vy = fy
+                    else:
+                        peak_vx = float(flow[cy, cx, 0]) if (0 <= cx < flow.shape[1] and 0 <= cy < flow.shape[0]) else fallback_vx
+                        peak_vy = float(flow[cy, cx, 1]) if (0 <= cx < flow.shape[1] and 0 <= cy < flow.shape[0]) else fallback_vy
+                    
+                    if dist > 0:
+                        v_close = (peak_vx * dx + peak_vy * dy) / dist
+                    else:
+                        v_close = 0.0
+                    lon_diff = processor.config.bbox.lng_max - processor.config.bbox.lng_min
+                    width_km = lon_diff * 111.0
+                    km_per_pixel = width_km / 800.0
+                    v_close_kmh = v_close * km_per_pixel * 4.0
+                    v_avg_kmh = processor.get_wind_speed_kmh_from_vector(fallback_vx, fallback_vy)
+                    v_actual_kmh = processor.get_wind_speed_kmh_from_vector(peak_vx, peak_vy)
+
                 summary_line = processor.render_rain_summary(
                     predictions=predictions,
                     time_offset_min=time_offset_min,
                     confidence_score=confidence_score,
-                    approaching_clouds=clouds
+                    approaching_clouds=clouds,
+                    locked_target_id=locked_target_id if tracking_mode == "manual" else None,
+                    all_rain_clusters=all_rain_clusters,
+                    v_close_kmh=v_close_kmh,
+                    v_actual_kmh=v_actual_kmh,
+                    v_avg_kmh=v_avg_kmh
                 )
                 # Sync cluster ETA with accurate pixel-level predictions
                 if clouds:
@@ -1009,7 +1157,10 @@ class WeatherManager:
                     tracking_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
-                        all_rain_clusters, predictions, True, True, time_offset_min
+                        all_rain_clusters, predictions, True, True, time_offset_min,
+                        locked_target_id,
+                        locked_target_cx,
+                        locked_target_cy
                     )
                     
                     # Create adjusted predictions for the timeline so it displays actual ETA from NOW
@@ -1041,8 +1192,11 @@ class WeatherManager:
                     "endpoint":          f"tmd-radar ({station_code})",
                     "growth_rate_pct":   percent_change,
                     "approaching_clouds": clouds,
+                    "all_rain_clusters":  all_rain_clusters,
                     "rain_summary":      summary_line,
                     "is_outdated":       time_offset_min > 45,
+                    "tracking_mode":     tracking_mode,
+                    "locked_target_id":   locked_target_id,
                     "radar_gif_bytes":   None,
                     "radar_hq_gif_bytes": None,
                     "radar_static_bytes": static_bytes,

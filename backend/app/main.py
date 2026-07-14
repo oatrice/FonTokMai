@@ -57,6 +57,25 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         
+        # Dynamically add manual tracking columns to user_locations if they do not exist
+        from sqlalchemy import text
+        for col_name, col_type in [
+            ("tracking_mode", "VARCHAR DEFAULT 'auto' NOT NULL"),
+            ("locked_target_id", "VARCHAR"),
+            ("locked_target_cx", "INTEGER"),
+            ("locked_target_cy", "INTEGER"),
+        ]:
+            try:
+                await conn.execute(text(f"ALTER TABLE user_locations ADD COLUMN {col_name} {col_type}"))
+            except Exception:
+                pass
+                
+        # Dynamically add source column to radar_latest_cache if it does not exist
+        try:
+            await conn.execute(text("ALTER TABLE radar_latest_cache ADD COLUMN source VARCHAR DEFAULT 'api'"))
+        except Exception:
+            pass
+        
     from app.services.disaster_manager import process_disaster_event
     from app.dependencies import get_repo_context
     from app.services.weather_manager import _DEV_CONFIG

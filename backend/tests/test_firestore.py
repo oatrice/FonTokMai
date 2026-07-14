@@ -78,6 +78,10 @@ async def test_save_location_two_months(firestore_repo):
     firestore_repo.mock_collection.document.return_value = mock_doc_ref
     mock_doc_ref.set = AsyncMock()
     
+    mock_doc = MagicMock()
+    mock_doc.exists = False
+    mock_doc_ref.get = AsyncMock(return_value=mock_doc)
+    
     loc = await firestore_repo.save_location(chat_id, lat, lng, "TWO_MONTHS", "Work")
     
     assert str(loc.chat_id) == str(chat_id)
@@ -103,6 +107,10 @@ async def test_save_location_forever(firestore_repo):
     mock_doc_ref = MagicMock()
     firestore_repo.mock_collection.document.return_value = mock_doc_ref
     mock_doc_ref.set = AsyncMock()
+    
+    mock_doc = MagicMock()
+    mock_doc.exists = False
+    mock_doc_ref.get = AsyncMock(return_value=mock_doc)
     
     loc = await firestore_repo.save_location(chat_id, 10.0, 20.0, "FOREVER", "Home")
     

@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.54.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
+**v0.55.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
 ใช้ภาพเรดาร์ TMD + Optical Flow เพื่อคาดการณ์ฝนล่วงหน้า 15–90+ นาที
 
 ---
@@ -9,6 +9,7 @@
 
 - **TMD Radar Processing** — ดาวน์โหลดและประมวลผลภาพเรดาร์ TMD (kkn120, kkn240, skn240) ด้วย Optical Flow
 - **Rain Prediction** — คาดการณ์เวลาฝนจะมาถึง (ETA) และความเข้ม (dBZ) ล่วงหน้าสูงสุด 90+ นาที
+- **Manual Target Locking** — เลือกล็อคเป้าหมายกลุ่มฝนที่สนใจเพื่อดูทิศทางและระยะทางเคลื่อนที่บนภาพเรดาร์ได้แบบเจาะจง
 - **Multi-Provider Fallback** — รองรับ Tomorrow.io, Rainbow API, Xweather, Open-Meteo เป็น fallback
 - **Telegram Bot** — แจ้งเตือนผ่าน Telegram พร้อมภาพเรดาร์ tracking, timeline, และ multi-frame analysis
 - **LINE Bot** — แจ้งเตือนและรับส่งพิกัด/คำสั่งทาง LINE OA พร้อมส่งภาพเรดาร์ล่าสุด และแผนภูมิวิเคราะห์กลุ่มฝน
@@ -32,6 +33,8 @@
 | `/tracking` | ดูภาพวิเคราะห์ทิศทางกลุ่มฝน (Tracking Radar) สำหรับพิกัดล่าสุด |
 | `/timeline` | ดูภาพกราฟไทม์ไลน์ระยะเวลาฝน (Timeline Graph) สำหรับพิกัดล่าสุด |
 | `/nowcast` | ดูภาพเคลื่อนไหวพยากรณ์ฝน (GIF Nowcast) สำหรับพิกัดล่าสุด |
+| `/lock <grid>` | ล็อคเป้าหมายกลุ่มฝนตามช่องตาราง (เช่น `/lock C4`) หรือตำแหน่งแมนนวล |
+| `/unlock` | ยกเลิกการล็อคเป้าหมายกลุ่มฝน |
 
 ### Developer Commands (DEVELOPER_CHAT_IDS only)
 | Command | Description |
@@ -79,7 +82,7 @@ Telegram / LINE Webhook
     │
     ▼
 WeatherManager.predict_rain()
-    ├── TMDRadarProcessor  ← Optical Flow + Cloud Tracking
+    ├── TMDRadarProcessor  ← Optical Flow + Cloud Tracking + Target Lock
     ├── TomorrowService    ← Fallback 1
     ├── XweatherService    ← Fallback 2 (disabled by default)
     ├── RainbowService     ← Fallback 3
@@ -87,8 +90,8 @@ WeatherManager.predict_rain()
 ```
 
 **Key Services:**
-- `backend/app/services/weather_manager.py` — Orchestrator, mock state handler
-- `backend/app/services/tmd_radar_processor.py` — Image processing, optical flow, visualization
+- `backend/app/services/weather_manager.py` — Orchestrator, mock state handler, manual target tracking
+- `backend/app/services/tmd_radar_processor.py` — Image processing, optical flow, visualization, target indicators
 - `backend/app/services/notification.py` — Abstract notification dispatcher (Telegram & LINE)
 - `backend/app/routers/webhook.py` — Telegram webhook entry point
 - `backend/app/routers/line_webhook.py` — LINE webhook entry point
@@ -124,6 +127,7 @@ Key test files:
 - `tests/test_grpc_fork_config.py` — gRPC fork configuration and lazy tasks client tests
 - `tests/test_async_enqueue_task.py` — Async tasks enqueue verification tests
 - `tests/test_decay_logic.py` — Cloud decay toggle and prediction steps verification tests
+- `tests/test_manual_targeting.py` — Manual target tracking, override logic, and visual indicators tests
 
 ---
 
@@ -131,4 +135,4 @@ Key test files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.54.0** — เพิ่มการตั้งค่าระดับนักพัฒนาสำหรับเปิด-ปิดการคำนวณอัตราการสลายตัวของเมฆฝน (decay_enabled) และปรับแต่งก้าวเวลาพยากรณ์ล่วงหน้าได้แบบยืดหยุ่น (prediction_steps) พร้อมรองรับการพิมพ์คำสั่ง /devmock config แบบเว้นวรรคและชุดทดสอบกลไกการสลายตัว
+Current: **v0.55.0** — เพิ่มระบบล็อคเป้าหมายกลุ่มเมฆฝนบนเรดาร์ด้วยตนเอง (Manual Target Tracking) พร้อมระบบแสดงพิกัดและเส้นสายตา (line-of-sight path) แบบไดนามิกบนภาพเรดาร์ และชุดคำสั่งผ่าน Webhook เพื่อความสะดวกในการติดตามกลุ่มฝนที่สนใจ

@@ -815,7 +815,7 @@ class TMDRadarProcessor:
         return clusters
 
     @staticmethod
-    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None) -> str:
+    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None, locked_target_id: str = None, all_rain_clusters: list = None, v_close_kmh: float = None, v_actual_kmh: float = None, v_avg_kmh: float = None) -> str:
         """
         Generates a smart, non-redundant rain summary line for Telegram based on the pixel's time-series predictions.
         """
@@ -899,8 +899,59 @@ class TMDRadarProcessor:
         if not active_event:
             max_time = predictions[-1]["time_offset"]
             text = f"☀️ ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน {fmt_eta(max_time)}นี้"
+            if locked_target_id:
+                import re
+                if re.match(r'^([a-hA-H])([1-8])$', locked_target_id):
+                    target_desc = f"ช่องตาราง [{locked_target_id.upper()}]"
+                elif re.match(r'^[a-zA-Z]{1,2}$', locked_target_id):
+                    target_desc = f"กลุ่มฝน [{locked_target_id.upper()}]"
+                else:
+                    target_desc = "พิกัดแมนนวล"
+                
+                locked_cloud = None
+                # Check all_rain_clusters (which contains all clouds) rather than just approaching_clouds (which only contains approaching ones)
+                search_list = all_rain_clusters if all_rain_clusters else approaching_clouds
+                if search_list:
+                    for c in search_list:
+                        if c.get("label") == locked_target_id:
+                            locked_cloud = c
+                            break
+                if locked_cloud:
+                    is_approaching = locked_cloud.get("approaching", False)
+                    eta_val = locked_cloud.get("eta_min")
+                    
+                    speed_text = ""
+                    if v_actual_kmh is not None and v_close_kmh is not None:
+                        avg_str = f"\n- ความเร็วลมเฉลี่ยกลุ่มเมฆ: {v_avg_kmh:.1f} กม./ชม." if v_avg_kmh is not None else ""
+                        speed_text = (
+                            f"{avg_str}"
+                            f"\n- ความเร็วลมสูงสุด: {v_actual_kmh:.1f} กม./ชม."
+                            f"\n- ความเร็วลมสูงสุดที่โปรเจกต์บนเส้นสีเขียว: {v_close_kmh:.1f} กม./ชม."
+                        )
+                        
+                    if eta_val is not None and eta_val < 9999.0 and v_close_kmh is not None and v_close_kmh > 0.05:
+                        eta_val_adjusted = max(1.0, float(eta_val) - time_offset_min)
+                        eta_h = int(eta_val_adjusted // 60)
+                        eta_m = int(eta_val_adjusted % 60)
+                        time_str = f"~{eta_h} ชม. {eta_m} นาที" if eta_h > 0 else f"~{eta_m} นาที"
+                        if eta_h > 0 and eta_m == 0:
+                            time_str = f"~{eta_h} ชม."
+                        clock_time_str = fmt_clock_time(float(eta_val))
+                        
+                        if float(eta_val) > max_time:
+                            context_str = "ซึ่งอยู่นอกช่วงเวลาพยากรณ์หลัก"
+                        else:
+                            context_str = "แต่คาดว่าแนวฝนจะเบี่ยงทิศทาง/สลายตัว หรือเคลื่อนผ่านใกล้เคียงโดยไม่ตกตรงตำแหน่งคุณ"
+                            
+                        text += f" (เนื่องจาก{target_desc} เคลื่อนที่เข้าหาตำแหน่งคุณ (ตามเส้นสีเขียว คาดว่าจะถึงในอีก {time_str} (เวลาประมาณ {clock_time_str})) {context_str}:{speed_text})"
+                    else:
+                        text += f" (เนื่องจาก{target_desc} มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ:{speed_text})"
+                else:
+                    text += f" (เนื่องจาก{target_desc} ไม่มีกลุ่มฝนในตำแหน่งล็อกหรือสลายตัวไปแล้ว)"
             if approaching_clouds:
                 far_clouds = [c for c in approaching_clouds if c.get("eta_min", 0) > max_time]
+                if locked_target_id:
+                    far_clouds = [c for c in far_clouds if c.get("label") == locked_target_id]
                 if far_clouds:
                     soonest = min(far_clouds, key=lambda c: c.get("eta_min", 999))
                     eta_val = max(1.0, float(soonest["eta_min"]) - time_offset_min)
@@ -909,7 +960,9 @@ class TMDRadarProcessor:
                     time_str = f"~{eta_h} ชม. {eta_m} นาที" if eta_h > 0 else f"~{eta_m} นาที"
                     if eta_h > 0 and eta_m == 0:
                         time_str = f"~{eta_h} ชม."
-                    text += f"\n☁️ หมายเหตุ: ตรวจพบกลุ่มฝน ({int(soonest.get('dbz_now', 0))} dBZ) กำลังเคลื่อนมา อาจจะถึงในอีก {time_str} (เวลาประมาณ {fmt_clock_time(float(soonest['eta_min']))})"
+                    soonest_lbl = soonest.get("label")
+                    lbl_suffix = f"กลุ่มฝน [{soonest_lbl}] " if soonest_lbl else "กลุ่มฝน "
+                    text += f"\n☁️ หมายเหตุ: ตรวจพบ{lbl_suffix}({int(soonest.get('dbz_now', 0))} dBZ) กำลังเคลื่อนมา อาจจะถึงในอีก {time_str} (เวลาประมาณ {fmt_clock_time(float(soonest['eta_min']))})"
             
             return text + warning
 
@@ -921,11 +974,23 @@ class TMDRadarProcessor:
         start_time = predictions[start_idx]["time_offset"]
         start_dbz = predictions[start_idx]["dbz"]
         lbl_start = dbz_label(start_dbz)
+        cluster_suffix = ""
+        if locked_target_id:
+            import re
+            if re.match(r'^([a-hA-H])([1-8])$', locked_target_id):
+                cluster_suffix = f" (ช่องตาราง [{locked_target_id.upper()}])"
+            elif re.match(r'^[a-zA-Z]{1,2}$', locked_target_id):
+                cluster_suffix = f" (กลุ่มฝน [{locked_target_id.upper()}])"
+            else:
+                cluster_suffix = " (พิกัดแมนนวล)"
+        else:
+            cluster_lbl = predictions[start_idx].get("cluster")
+            cluster_suffix = f" (กลุ่มฝน [{cluster_lbl}])" if cluster_lbl else ""
         
         adj_start = start_time - time_offset_min
         
         if adj_start <= 0:
-            msg_start = f"🌧️ ฝนกำลังตกอยู่ ({int(start_dbz)} dBZ — {lbl_start})"
+            msg_start = f"🌧️ ฝนกำลังตกอยู่ ({int(start_dbz)} dBZ — {lbl_start}){cluster_suffix}"
             if stop_idx == -1:
                 max_time = predictions[-1]["time_offset"]
                 msg_duration = f"และคาดว่าจะตกต่อเนื่องถึงอย่างน้อย {fmt_eta(max_time)} (เวลา {fmt_clock_time(max_time)})"
@@ -933,7 +998,7 @@ class TMDRadarProcessor:
                 stop_time = predictions[stop_idx]["time_offset"]
                 msg_duration = f"และคาดว่าจะหยุดตกในอีก {fmt_eta(stop_time)} (เวลาประมาณ {fmt_clock_time(stop_time)})"
         else:
-            msg_start = f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} (เวลาประมาณ {fmt_clock_time(start_time)}) ({int(start_dbz)} dBZ — {lbl_start})"
+            msg_start = f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} (เวลาประมาณ {fmt_clock_time(start_time)}) ({int(start_dbz)} dBZ — {lbl_start}){cluster_suffix}"
             if stop_idx == -1:
                 max_time = predictions[-1]["time_offset"]
                 duration = int(max_time - start_time)
@@ -1155,9 +1220,78 @@ class TMDRadarProcessor:
         predictions: list = None,
         show_clouds: bool = True,
         show_trajectory: bool = True,
-        time_offset_min: float = 0.0
+        time_offset_min: float = 0.0,
+        locked_target_id: Optional[str] = None,
+        locked_target_cx: Optional[int] = None,
+        locked_target_cy: Optional[int] = None
     ) -> Optional[bytes]:
         import math
+
+        def _resolve_locked_cluster(clusters: list) -> Optional[dict]:
+            """Pick the cluster that corresponds to the manually-locked target.
+
+            Prefer position-based matching using the stored lock pixel, because
+            cluster labels are reassigned every forecast round (sorted by
+            distance), so a grid label like "G5" will never match a cluster
+            label "A"/"B"/... . Falls back to label equality if no stored pixel
+            is available (legacy locks).
+            """
+            if not locked_target_id:
+                return None
+            if locked_target_cx is not None and locked_target_cy is not None:
+                best: Optional[dict] = None
+                best_dist = float("inf")
+                
+                is_grid_cell = False
+                cell_center_x, cell_center_y = None, None
+                if locked_target_id:
+                    import re
+                    m = re.match(r"^([a-hA-H])[-_]?([1-8])$", locked_target_id)
+                    if m:
+                        is_grid_cell = True
+                        col_char = m.group(1).upper()
+                        row_char = m.group(2)
+                        grid_col_idx = ord(col_char) - ord('A')
+                        grid_row_idx = int(row_char) - 1
+                        
+                        crop_r = 120
+                        crop_x1 = max(0, user_x - crop_r)
+                        crop_y1 = max(0, user_y - crop_r)
+                        frame_h, frame_w = frame.shape[:2]
+                        crop_x2 = min(frame_w, user_x + crop_r)
+                        crop_y2 = min(frame_h, user_y + crop_r)
+                        cell_w = (crop_x2 - crop_x1) / 8.0
+                        cell_h = (crop_y2 - crop_y1) / 8.0
+                        cell_center_x = int(crop_x1 + (grid_col_idx + 0.5) * cell_w)
+                        cell_center_y = int(crop_y1 + (grid_row_idx + 0.5) * cell_h)
+                        
+                        cell_x_min = crop_x1 + grid_col_idx * cell_w - 5.0
+                        cell_x_max = crop_x1 + (grid_col_idx + 1) * cell_w + 5.0
+                        cell_y_min = crop_y1 + grid_row_idx * cell_h - 5.0
+                        cell_y_max = crop_y1 + (grid_row_idx + 1) * cell_h + 5.0
+
+                for c in clusters:
+                    dist = math.hypot(c["cx"] - locked_target_cx, c["cy"] - locked_target_cy)
+                    
+                    if is_grid_cell and (cell_x_min <= locked_target_cx <= cell_x_max and cell_y_min <= locked_target_cy <= cell_y_max):
+                        if not (cell_x_min <= c["cx"] <= cell_x_max and cell_y_min <= c["cy"] <= cell_y_max):
+                            continue
+                            
+                    if dist < best_dist:
+                        best_dist = dist
+                        best = c
+                # 60px in the full frame is generous enough to follow a moving
+                # cloud between frames, but tight enough to avoid snapping to
+                # a different nearby cluster in dense areas (~3x the crop scale).
+                if best and best_dist <= 60:
+                    return best
+                return None
+            # Legacy fallback for locks that only stored a cluster label.
+            for c in clusters:
+                if c.get("label") == locked_target_id:
+                    return c
+            return None
+
         display_clouds = clouds or []
         ambient_clouds = [
             c for c in (all_rain_clusters or [])
@@ -1265,14 +1399,17 @@ class TMDRadarProcessor:
         if show_clouds:
             incoming = [c for c in display_clouds if c.get("approaching", False) and -120 <= c.get("eta_min", 9999) <= 180]
             incoming.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
-            
+
+            all_cloud_refs = list(incoming[:3]) + list(ambient_clouds)
+            locked_cluster = _resolve_locked_cluster(all_cloud_refs)
+
             for c_orig in incoming[:3]:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
                 cx = int((cx_orig - x1) * scale)
                 cy = int((cy_orig - y1) * scale)
                 dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
                 vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
-                
+
                 color = _dbz_color(dbz)
                 hull_rect = None
                 if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
@@ -1289,7 +1426,38 @@ class TMDRadarProcessor:
                     cv2.circle(img, (cx, cy), r, color, int(1.5 * scale))
                     obs_r = int(14 * scale)
                     obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
-                
+
+                is_locked = locked_cluster is not None and c_orig is locked_cluster
+                if is_locked:
+                    cv2.circle(img, (cx, cy), int(22 * scale), (0, 0, 255), int(2 * scale))
+                    cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(30 * scale), int(2 * scale))
+                    
+                    # Draw a direct green line-of-sight path from locked cloud (cx, cy) to user (ux, uy)
+                    dist_to_user = math.hypot(ux - cx, uy - cy)
+                    if dist_to_user > 10:
+                        num_dots = int(dist_to_user / 8)
+                        for d_idx in range(1, num_dots):
+                            t = d_idx / num_dots
+                            dot_x = int(cx + (ux - cx) * t)
+                            dot_y = int(cy + (uy - cy) * t)
+                            cv2.circle(img, (dot_x, dot_y), int(1 * scale), (0, 255, 0), -1)
+                            
+                    if (vx != 0.0 or vy != 0.0):
+                        proj_pts = []
+                        for step in range(1, 7):
+                            px_proj = cx_orig + vx * step
+                            py_proj = cy_orig + vy * step
+                            c_proj_x = int((px_proj - x1) * scale)
+                            c_proj_y = int((py_proj - y1) * scale)
+                            proj_pts.append((c_proj_x, c_proj_y))
+                        
+                        for i in range(len(proj_pts)):
+                            cv2.circle(img, proj_pts[i], int(2 * scale), (0, 0, 255), -1)
+                            if i > 0:
+                                cv2.line(img, proj_pts[i-1], proj_pts[i], (0, 0, 255), int(1 * scale))
+                            else:
+                                cv2.line(img, (cx, cy), proj_pts[0], (0, 0, 255), int(1 * scale))
+
                 vx_s = int(vx * scale * 3.0)
                 vy_s = int(vy * scale * 3.0)
                 arrow_sx, arrow_sy = cx, cy
@@ -1302,15 +1470,20 @@ class TMDRadarProcessor:
                 else:
                     cv2.arrowedLine(img, (arrow_sx, arrow_sy), (arrow_sx + vx_s, arrow_sy + vy_s), (255, 255, 0), int(1.5 * scale), tipLength=0.3)
                     
+                lbl = c_orig.get("label", "")
+                if is_locked:
+                    # Show the user-facing lock label (e.g. "G5") rather than the
+                    # re-assigned cluster label (e.g. "B").
+                    lbl = f"LOCKED[{locked_target_id}]"
                 eta = max(1.0, float(c_orig.get("eta_min", 0)) - time_offset_min)
                 if eta <= 0:
-                    txt = f"{c_orig.get('label', '')} (Now)"
+                    txt = f"{lbl} (Now)"
                 else:
                     abs_eta = int(abs(eta))
                     time_str = f"{abs_eta}m" if abs_eta < 60 else f"{abs_eta//60}h{abs_eta%60}m"
-                    txt = f"{c_orig.get('label', '')}: ~{time_str}"
+                    txt = f"{lbl}: ~{time_str}"
                     
-                tw, th = int(55 * scale), int(15 * scale)
+                tw, th = int(65 * scale) if is_locked else int(55 * scale), int(15 * scale)
                 tx = arrow_sx - int(tw / 2)
                 if hull_rect:
                     ty = hull_rect[1] - int(10 * scale) - th
@@ -1329,12 +1502,22 @@ class TMDRadarProcessor:
                     'anchor_x': arrow_sx,
                     'anchor_y': arrow_sy,
                     'scale': 0.45 * scale,
-                    'fg': (255, 255, 255),
-                    'bg': (0, 0, 0)
+                    'fg': (0, 0, 255) if is_locked else (255, 255, 255),
+                    'bg': (255, 255, 255) if is_locked else (0, 0, 0)
                 })
 
+            # Sort and build list of ambient clouds to render, prioritizing the locked target
             ambient_clouds.sort(key=lambda c: c.get("dist", 9999))
-            for c_orig in ambient_clouds[:8]:
+            rendered_ambient = []
+            if locked_cluster is not None and locked_cluster in ambient_clouds:
+                rendered_ambient.append(locked_cluster)
+            for c in ambient_clouds:
+                if len(rendered_ambient) >= 8:
+                    break
+                if c not in rendered_ambient:
+                    rendered_ambient.append(c)
+
+            for c_orig in rendered_ambient:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
                 if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
                     continue
@@ -1342,7 +1525,7 @@ class TMDRadarProcessor:
                 cy = int((cy_orig - y1) * scale)
                 dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
                 vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
-                
+
                 color = _dbz_color(dbz)
                 for angle_deg in range(0, 360, 30):
                     a1 = math.radians(angle_deg)
@@ -1353,15 +1536,49 @@ class TMDRadarProcessor:
                     cv2.line(img, p1, p2, color, int(scale * 0.8))
                 obs_r = int(10 * scale)
                 obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
-                
+
+                is_locked = locked_cluster is not None and c_orig is locked_cluster
+                if is_locked:
+                    cv2.circle(img, (cx, cy), int(20 * scale), (0, 0, 255), int(2 * scale))
+                    cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(25 * scale), int(2 * scale))
+                    
+                    # Draw a direct green line-of-sight path from locked cloud (cx, cy) to user (ux, uy)
+                    dist_to_user = math.hypot(ux - cx, uy - cy)
+                    if dist_to_user > 10:
+                        num_dots = int(dist_to_user / 8)
+                        for d_idx in range(1, num_dots):
+                            t = d_idx / num_dots
+                            dot_x = int(cx + (ux - cx) * t)
+                            dot_y = int(cy + (uy - cy) * t)
+                            cv2.circle(img, (dot_x, dot_y), int(1 * scale), (0, 255, 0), -1)
+                            
+                    if (vx != 0.0 or vy != 0.0):
+                        proj_pts = []
+                        for step in range(1, 7):
+                            px_proj = cx_orig + vx * step
+                            py_proj = cy_orig + vy * step
+                            c_proj_x = int((px_proj - x1) * scale)
+                            c_proj_y = int((py_proj - y1) * scale)
+                            proj_pts.append((c_proj_x, c_proj_y))
+                        
+                        for i in range(len(proj_pts)):
+                            cv2.circle(img, proj_pts[i], int(2 * scale), (0, 0, 255), -1)
+                            if i > 0:
+                                cv2.line(img, proj_pts[i-1], proj_pts[i], (0, 0, 255), int(1 * scale))
+                            else:
+                                cv2.line(img, (cx, cy), proj_pts[0], (0, 0, 255), int(1 * scale))
+
                 vx_s = int(vx * scale * 2.5)
                 vy_s = int(vy * scale * 2.5)
                 v_mag = math.hypot(vx_s, vy_s)
                 if v_mag > 2:
                     cv2.arrowedLine(img, (cx, cy), (cx + vx_s, cy + vy_s), (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
                     
-                txt = f"{c_orig.get('label', '')}: {int(dbz)}"
-                tw, th = int(45 * scale), int(12 * scale)
+                lbl = c_orig.get("label", "")
+                if is_locked:
+                    lbl = f"LOCKED[{locked_target_id}]"
+                txt = f"{lbl}: {int(dbz)}"
+                tw, th = int(55 * scale) if is_locked else int(45 * scale), int(12 * scale)
                 tx = cx - int(tw / 2)
                 ty = cy - int(16 * scale) - th
                 
@@ -1377,8 +1594,36 @@ class TMDRadarProcessor:
                     'anchor_x': cx,
                     'anchor_y': cy,
                     'scale': 0.4 * scale,
-                    'fg': (200, 200, 200),
-                    'bg': (0, 0, 0)
+                    'fg': (0, 0, 255) if is_locked else (200, 200, 200),
+                    'bg': (255, 255, 255) if is_locked else (0, 0, 0)
+                })
+
+        # Draw the manual target lock marker at the exact locked coordinates if no cluster was matched
+        if locked_target_id and locked_target_cx is not None and locked_target_cy is not None and locked_cluster is None:
+            cx = int((locked_target_cx - x1) * scale)
+            cy = int((locked_target_cy - y1) * scale)
+            if 0 <= cx < img.shape[1] and 0 <= cy < img.shape[0]:
+                cv2.circle(img, (cx, cy), int(20 * scale), (0, 0, 255), int(2 * scale))
+                cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(25 * scale), int(2 * scale))
+                
+                txt = f"LOCKED[{locked_target_id}]"
+                tw, th = int(65 * scale), int(15 * scale)
+                tx = cx - int(tw / 2)
+                ty = cy - int(20 * scale) - th
+                labels.append({
+                    'text': txt,
+                    'type': 'approaching',
+                    'margin': 8 * scale,
+                    'w': tw, 'h': th,
+                    'cx': tx + tw/2,
+                    'cy': ty - th/2,
+                    'ideal_cx': tx + tw/2,
+                    'ideal_cy': ty - th/2,
+                    'anchor_x': cx,
+                    'anchor_y': cy,
+                    'scale': 0.45 * scale,
+                    'fg': (0, 0, 255),
+                    'bg': (255, 255, 255)
                 })
 
         hit_r = int(_DEV_CONFIG.get("hit_radius", 8) * scale)
@@ -1391,6 +1636,36 @@ class TMDRadarProcessor:
             
         cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
         cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(10 * scale), int(3 * scale))
+
+        # Draw subtle 8x8 grid overlay for manual coordinate locking
+        gh, gw = img.shape[0], img.shape[1]
+        cell_w, cell_h = gw / 8, gh / 8
+        grid_color = (80, 80, 80)
+        grid_thickness = max(1, int(0.5 * scale))
+        
+        for c_idx in range(1, 8):
+            x = int(c_idx * cell_w)
+            cv2.line(img, (x, 0), (x, gh), grid_color, grid_thickness)
+            
+        for r_idx in range(1, 8):
+            y = int(r_idx * cell_h)
+            cv2.line(img, (0, y), (gw, y), grid_color, grid_thickness)
+            
+        font_scale = 0.4 * scale
+        text_color = (200, 200, 200)
+        bg_color = (0, 0, 0)
+        
+        for c_idx in range(8):
+            label_x = chr(ord('A') + c_idx)
+            tx = int((c_idx + 0.5) * cell_w - 6 * scale)
+            cv2.putText(img, label_x, (tx, int(15 * scale)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, bg_color, max(1, int(font_scale * 4)))
+            cv2.putText(img, label_x, (tx, int(15 * scale)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, max(1, int(font_scale * 1.5)))
+            
+        for r_idx in range(8):
+            label_y = str(r_idx + 1)
+            ty = int((r_idx + 0.5) * cell_h + 5 * scale)
+            cv2.putText(img, label_y, (int(5 * scale), ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, bg_color, max(1, int(font_scale * 4)))
+            cv2.putText(img, label_y, (int(5 * scale), ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, max(1, int(font_scale * 1.5)))
 
         TMDRadarProcessor._resolve_label_collisions(labels, obstacles, img.shape[1], img.shape[0])
 
