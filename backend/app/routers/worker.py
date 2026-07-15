@@ -87,6 +87,7 @@ class LocationPayload(BaseModel):
     force_endpoint: Optional[str] = None
     message_id_to_edit: Optional[int] = None
     show_advanced: bool = False
+    message_id_to_edit: Optional[int] = None
 
 @router.post("/process-telegram-location")
 async def worker_process_telegram_location(payload: LocationPayload):
@@ -128,12 +129,13 @@ class CommandPayload(BaseModel):
     chat_id: int
     command: str
     show_advanced: bool = False
+    message_id_to_edit: Optional[int] = None
 
 @router.post("/handle-rain")
 async def worker_handle_rain(payload: CommandPayload):
     try:
         from app.routers.webhook import handle_rain_command
-        await handle_rain_command(payload.chat_id, payload.command, payload.show_advanced)
+        await handle_rain_command(payload.chat_id, payload.command, payload.show_advanced, payload.message_id_to_edit)
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Worker failed handle_rain: {e}")
@@ -143,7 +145,7 @@ async def worker_handle_rain(payload: CommandPayload):
 async def worker_handle_devmock(payload: CommandPayload):
     try:
         from app.routers.webhook import handle_devmock_command
-        await handle_devmock_command(payload.chat_id, payload.command)
+        await handle_devmock_command(payload.chat_id, payload.command, payload.username, payload.message_id_to_edit)
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Worker failed handle_devmock: {e}")
@@ -193,12 +195,13 @@ class AdminCommandPayload(BaseModel):
     chat_id: int
     command: str
     username: str = ""
+    message_id_to_edit: Optional[int] = None
 
 @router.post("/handle-metrics")
 async def worker_handle_metrics(payload: AdminCommandPayload):
     try:
         from app.routers.webhook import handle_metrics_command
-        await handle_metrics_command(payload.chat_id, payload.command, payload.username)
+        await handle_metrics_command(payload.chat_id, payload.command, payload.username, payload.message_id_to_edit)
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Worker failed handle_metrics: {e}")
@@ -208,7 +211,7 @@ async def worker_handle_metrics(payload: AdminCommandPayload):
 async def worker_handle_setbudget(payload: AdminCommandPayload):
     try:
         from app.routers.webhook import handle_setbudget_command
-        await handle_setbudget_command(payload.chat_id, payload.command, payload.username)
+        await handle_setbudget_command(payload.chat_id, payload.command, payload.username, payload.message_id_to_edit)
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Worker failed handle_setbudget: {e}")
@@ -218,7 +221,7 @@ async def worker_handle_setbudget(payload: AdminCommandPayload):
 async def worker_handle_tmd_fallback(payload: AdminCommandPayload):
     try:
         from app.routers.webhook import handle_tmd_fallback_command
-        await handle_tmd_fallback_command(payload.chat_id, payload.command, payload.username)
+        await handle_tmd_fallback_command(payload.chat_id, payload.command, payload.username, payload.message_id_to_edit)
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Worker failed handle_tmd_fallback: {e}")

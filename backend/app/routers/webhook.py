@@ -268,7 +268,7 @@ async def process_telegram_location(
             keyboard.append([{"text": "❌ ไม่เป็นไร", "callback_data": "loc_no"}])
 
         # ปุ่มเปรียบเทียบข้อมูล (Issue #53)
-        keyboard.append([{"text": "📊 เปรียบเทียบข้อมูล 4 API", "callback_data": f"compare_api_{r_lat}_{r_lng}"}])
+        keyboard.append([{"text": "📊 เปรียบเทียบข้อมูลจากทุกแหล่ง", "callback_data": f"compare_api_{r_lat}_{r_lng}"}])
 
         # ปุ่มควบคุมเป้าเรดาร์แบบแมนนวล (Manual Cloud Targeting)
         if "tmd-radar" in actual_endpoint:
@@ -1242,7 +1242,7 @@ async def handle_radar_command(chat_id: int):
         await send_telegram_message(chat_id, text, reply_markup=reply_markup)
 
 
-async def handle_metrics_command(chat_id: int, command: str, username: str = ""):
+async def handle_metrics_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     if not await check_admin_access(chat_id):
         return
 
@@ -1295,7 +1295,7 @@ async def handle_metrics_command(chat_id: int, command: str, username: str = "")
     await send_telegram_document(chat_id, csv_data, f"metrics_{days}_days.csv")
 
 
-async def handle_setbudget_command(chat_id: int, command: str, username: str = ""):
+async def handle_setbudget_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     if not await check_admin_access(chat_id):
         return
 
@@ -1331,7 +1331,7 @@ async def handle_setbudget_command(chat_id: int, command: str, username: str = "
         )
 
 
-async def handle_tmd_fallback_command(chat_id: int, command: str, username: str = ""):
+async def handle_tmd_fallback_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     """
     /tmd_fallback on
     /tmd_fallback off
@@ -1371,7 +1371,7 @@ async def handle_tmd_fallback_command(chat_id: int, command: str, username: str 
     )
 
 
-async def handle_devmock_command(chat_id: int, command: str, username: str = ""):
+async def handle_devmock_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     if not await check_admin_access(chat_id):
         return
 
@@ -1387,7 +1387,8 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "")
             for loc in locs:
                 await repo.update_last_alerted(loc, None)
 
-            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌧️ ฝนตกหนัก (Boost เมฆจริง)\n⏳ กำลังสร้างแจ้งเตือน...")
+            if message_id_to_edit: await edit_telegram_message(chat_id, message_id_to_edit, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌧️ ฝนตกหนัก (Boost เมฆจริง)\n⏳ กำลังสร้างแจ้งเตือน...")
+            else: await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌧️ ฝนตกหนัก (Boost เมฆจริง)\n⏳ กำลังสร้างแจ้งเตือน...")
 
             from app.scheduler_tasks import check_rain_and_alert
             await check_rain_and_alert()
@@ -1400,28 +1401,32 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "")
             for loc in locs:
                 await repo.update_last_alerted(loc, None)
 
-            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌪️ พายุจำลอง (สร้างเมฆปลอม 5 สี)\n⏳ กำลังสร้างแจ้งเตือน...")
+            if message_id_to_edit: await edit_telegram_message(chat_id, message_id_to_edit, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌪️ พายุจำลอง (สร้างเมฆปลอม 5 สี)\n⏳ กำลังสร้างแจ้งเตือน...")
+            else: await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: 🌪️ พายุจำลอง (สร้างเมฆปลอม 5 สี)\n⏳ กำลังสร้างแจ้งเตือน...")
 
             from app.scheduler_tasks import check_rain_and_alert
             await check_rain_and_alert()
             
         elif command == "/devmock clear":
             await repo.set_mock_state(chat_id, "clear")
-            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: ☀️ ท้องฟ้าแจ่มใส\n⏳ กำลังตรวจสอบสภาพอากาศ...")
+            if message_id_to_edit: await edit_telegram_message(chat_id, message_id_to_edit, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: ☀️ ท้องฟ้าแจ่มใส\n⏳ กำลังตรวจสอบสภาพอากาศ...")
+            else: await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: ☀️ ท้องฟ้าแจ่มใส\n⏳ กำลังตรวจสอบสภาพอากาศ...")
             
             from app.scheduler_tasks import check_rain_and_alert
             await check_rain_and_alert()
             
         elif command == "/devmock error":
             await repo.set_mock_state(chat_id, "error")
-            await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: ❌ เชื่อมต่อ API ล้มเหลวทั้งหมด\n⏳ กำลังส่งตำแหน่งเพื่อทดสอบ Fallback...")
+            if message_id_to_edit: await edit_telegram_message(chat_id, message_id_to_edit, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: ❌ เชื่อมต่อ API ล้มเหลวทั้งหมด\n⏳ กำลังส่งตำแหน่งเพื่อทดสอบ Fallback...")
+            else: await send_telegram_message(chat_id, "🛠️ [DEV MOCK] เปิดใช้งานโหมดจำลองสถานการณ์: ❌ เชื่อมต่อ API ล้มเหลวทั้งหมด\n⏳ กำลังส่งตำแหน่งเพื่อทดสอบ Fallback...")
             
             # Simulate a location update to trigger the fallback error message immediately
             locs = await repo.get_user_locations(chat_id)
             if locs:
                 await process_telegram_location(chat_id, locs[0].latitude, locs[0].longitude, message_id_to_edit=None)
             else:
-                await send_telegram_message(chat_id, "ไม่พบตำแหน่งที่บันทึกไว้ โปรดส่ง Location มาใหม่เพื่อทดสอบ error")
+                if message_id_to_edit: await edit_telegram_message(chat_id, message_id_to_edit, "ไม่พบตำแหน่งที่บันทึกไว้ โปรดส่ง Location มาใหม่เพื่อทดสอบ error")
+                else: await send_telegram_message(chat_id, "ไม่พบตำแหน่งที่บันทึกไว้ โปรดส่ง Location มาใหม่เพื่อทดสอบ error")
 
         elif command.startswith("/devmock scenario"):
             import json as _json
@@ -1968,7 +1973,7 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "")
             return
 
 
-async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False):
+async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False, message_id_to_edit: int = None):
     import re
     coords_match = re.search(r'([+-]?\d+\.\d+)[,\s]+([+-]?\d+\.\d+)', command)
     custom_lat = None
@@ -2020,7 +2025,10 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
             return
             
         if target_location_name == "all":
-            await send_telegram_message(chat_id, f"⏳ กำลังตรวจสอบสภาพอากาศทั้งหมด {len(locs)} จุด...")
+            if message_id_to_edit:
+                await edit_telegram_message(chat_id, message_id_to_edit, f"⏳ กำลังตรวจสอบสภาพอากาศทั้งหมด {len(locs)} จุด...")
+            else:
+                await send_telegram_message(chat_id, f"⏳ กำลังตรวจสอบสภาพอากาศทั้งหมด {len(locs)} จุด...")
             for l in locs:
                 loc_display = l.name.capitalize() if l.name else "Default"
                 msg_text = f"⏳ กำลังตรวจสอบสภาพอากาศที่ '{loc_display}'..."
@@ -2215,40 +2223,47 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
                     return {"status": "ok"}
 
         if text.startswith("/metrics") and chat_id:
-            if not await tasks_svc.enqueue_task("worker/handle-metrics", {"chat_id": chat_id, "command": text.strip(), "username": username}):
-                background_tasks.add_task(handle_metrics_command, chat_id, text.strip(), username)
+            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังดึงข้อมูลสถิติ...")
+            if not await tasks_svc.enqueue_task("worker/handle-metrics", {"chat_id": chat_id, "command": text.strip(), "username": username, "message_id_to_edit": loading_msg_id}):
+                background_tasks.add_task(handle_metrics_command, chat_id, text.strip(), username, message_id_to_edit=loading_msg_id)
             return {"status": "ok"}
 
         if text.startswith("/setbudget") and chat_id:
-            if not await tasks_svc.enqueue_task("worker/handle-setbudget", {"chat_id": chat_id, "command": text.strip(), "username": username}):
-                background_tasks.add_task(handle_setbudget_command, chat_id, text.strip(), username)
+            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังตั้งค่างบประมาณ...")
+            if not await tasks_svc.enqueue_task("worker/handle-setbudget", {"chat_id": chat_id, "command": text.strip(), "username": username, "message_id_to_edit": loading_msg_id}):
+                background_tasks.add_task(handle_setbudget_command, chat_id, text.strip(), username, message_id_to_edit=loading_msg_id)
             return {"status": "ok"}
 
         if text.startswith("/rain_pro") and chat_id:
-            if not await tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text, "show_advanced": True}):
-                background_tasks.add_task(handle_rain_command, chat_id, text, show_advanced=True)
+            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังประมวลผล...")
+            if not await tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text, "show_advanced": True, "message_id_to_edit": loading_msg_id}):
+                background_tasks.add_task(handle_rain_command, chat_id, text, show_advanced=True, message_id_to_edit=loading_msg_id)
             return {"status": "ok"}
 
         if text.startswith("/rain") and chat_id:
-            if not await tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text}):
-                background_tasks.add_task(handle_rain_command, chat_id, text)
+            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังประมวลผล...")
+            if not await tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text, "message_id_to_edit": loading_msg_id}):
+                background_tasks.add_task(handle_rain_command, chat_id, text, message_id_to_edit=loading_msg_id)
             return {"status": "ok"}
 
         if text.startswith("/devmock") and chat_id:
-            if not await tasks_svc.enqueue_task("worker/handle-devmock", {"chat_id": chat_id, "command": text.strip()}):
-                background_tasks.add_task(handle_devmock_command, chat_id, text.strip())
+            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังเข้าสู่ DevMock Mode...")
+            if not await tasks_svc.enqueue_task("worker/handle-devmock", {"chat_id": chat_id, "command": text.strip(), "message_id_to_edit": loading_msg_id}):
+                background_tasks.add_task(handle_devmock_command, chat_id, text.strip(), message_id_to_edit=loading_msg_id)
             return {"status": "ok"}
 
         if text.startswith("/tmd_fallback") and chat_id:
-            if not await tasks_svc.enqueue_task("worker/handle-tmd-fallback", {"chat_id": chat_id, "command": text.strip(), "username": username}):
-                background_tasks.add_task(handle_tmd_fallback_command, chat_id, text.strip(), username)
+            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังสลับระบบข้อมูล...")
+            if not await tasks_svc.enqueue_task("worker/handle-tmd-fallback", {"chat_id": chat_id, "command": text.strip(), "username": username, "message_id_to_edit": loading_msg_id}):
+                background_tasks.add_task(handle_tmd_fallback_command, chat_id, text.strip(), username, message_id_to_edit=loading_msg_id)
             return {"status": "ok"}
 
         # /check — shorthand alias for /rain tmd-radar (for manual testing)
         if text.strip() == "/check" and chat_id:
             logger.info(f"[WEBHOOK] /check received from chat_id={chat_id}, routing to handle_rain_command with 'tmd-radar'")
-            if not await tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": "/rain tmd-radar"}):
-                background_tasks.add_task(handle_rain_command, chat_id, "/rain tmd-radar")
+            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังประมวลผล...")
+            if not await tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": "/rain tmd-radar", "message_id_to_edit": loading_msg_id}):
+                background_tasks.add_task(handle_rain_command, chat_id, "/rain tmd-radar", message_id_to_edit=loading_msg_id)
             return {"status": "ok"}
 
         logger.debug(f"[WEBHOOK] Unrecognized command or text, returning ignored. text='{text}'")
