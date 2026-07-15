@@ -39,6 +39,7 @@ async def test_setup_telegram_commands_production():
         assert "setbudget" in command_names
         assert "tmd_fallback" in command_names
         assert "restore_public_access" in command_names
+        assert "disable_public_access" in command_names
         assert "job" in command_names
         assert "status" in command_names
         # Should NOT have devmock

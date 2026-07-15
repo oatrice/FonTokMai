@@ -239,6 +239,18 @@ async def worker_handle_restore_public_access(payload: AdminCommandPayload):
         return {"status": "error", "message": str(e)}
 
 
+@router.post("/handle-disable-public-access")
+async def worker_handle_disable_public_access(payload: AdminCommandPayload):
+    try:
+        from app.routers.webhook import handle_disable_public_access_command
+        await handle_disable_public_access_command(payload.chat_id, payload.command, payload.username, payload.message_id_to_edit)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed handle_disable_public_access: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+
 @router.post("/handle-job")
 async def worker_handle_job(payload: AdminCommandPayload):
     try:

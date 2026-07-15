@@ -15,7 +15,7 @@ TELEGRAM_SEND_DOC_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendD
 TELEGRAM_SEND_PHOTO_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
 TELEGRAM_EDIT_MESSAGE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
 TELEGRAM_ANSWER_CB_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answerCallbackQuery"
-async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
+async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_markup: Optional[dict] = None, parse_mode: Optional[str] = "HTML") -> bool:
     """
     Edits a previously sent message in a specific Telegram chat_id.
     """
@@ -24,6 +24,8 @@ async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_
         "message_id": message_id,
         "text": text
     }
+    if parse_mode is not None:
+        payload["parse_mode"] = parse_mode
     if reply_markup is not None:
         payload["reply_markup"] = reply_markup
         
@@ -53,7 +55,7 @@ async def answer_callback_query(callback_query_id: str, text: Optional[str] = No
     except Exception as e:
         logger.error(f"Failed to answer callback query {callback_query_id}: {type(e).__name__} - {e}")
         return False
-async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[dict] = None, parse_mode: Optional[str] = None) -> bool:
+async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[dict] = None, parse_mode: Optional[str] = "HTML") -> bool:
     """
     Sends a message to a specific Telegram chat_id.
     """
@@ -77,7 +79,7 @@ async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[
         logger.error(f"Failed to send telegram message to {chat_id}: {type(e).__name__} - {e}")
         return False
 
-async def send_telegram_message_return_id(chat_id: int, text: str) -> Optional[int]:
+async def send_telegram_message_return_id(chat_id: int, text: str, parse_mode: Optional[str] = "HTML") -> Optional[int]:
     """
     Sends a message to a specific Telegram chat_id and returns the message_id.
     Used for sending immediate "loading..." messages that will be edited later.
@@ -87,6 +89,8 @@ async def send_telegram_message_return_id(chat_id: int, text: str) -> Optional[i
         "chat_id": chat_id,
         "text": text,
     }
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(TELEGRAM_API_URL, json=payload)
@@ -246,6 +250,7 @@ async def setup_telegram_commands() -> bool:
         {"command": "setbudget", "description": "ตั้งค่างบประมาณ GCP (สำหรับแอดมิน)"},
         {"command": "tmd_fallback", "description": "สลับแหล่งข้อมูลฝนสำรอง (สำหรับแอดมิน)"},
         {"command": "restore_public_access", "description": "กู้คืนสิทธิ์ Public Access ให้กับ API (สำหรับแอดมิน)"},
+        {"command": "disable_public_access", "description": "ยกเลิกสิทธิ์ Public Access (โหมด Private) (สำหรับแอดมิน)"},
         {"command": "job", "description": "จัดการสถานะ Scheduler Job (สำหรับแอดมิน)"},
         {"command": "status", "description": "ตรวจสอบสถานะระบบหลังบ้านและ GCP (สำหรับแอดมิน)"},
     ]

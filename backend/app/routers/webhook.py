@@ -2146,6 +2146,30 @@ async def handle_restore_public_access_command(chat_id: int, command: str, usern
         await send_telegram_message(chat_id, msg)
 
 
+@cmd_router.bind("/disable_public_access", requires_admin=True, task_route="worker/handle-disable-public-access", loading_text="⏳ กำลังยกเลิกสิทธิ์ Public Access (โหมด Private)...")
+async def handle_disable_public_access_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
+    import subprocess
+    import os
+    
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
+
+    try:
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../scripts/disable_public_access.sh")
+        result = subprocess.run(["bash", script_path], capture_output=True, text=True, cwd=os.path.dirname(script_path))
+        if result.returncode == 0:
+            msg = "✅ ยกเลิกสิทธิ์ Public Access (โหมด Private) เรียบร้อยแล้วครับ"
+        else:
+            msg = f"❌ เกิดข้อผิดพลาดในการรันสคริปต์ (Exit code: {result.returncode})\nError: {result.stderr or result.stdout}"
+    except Exception as e:
+        msg = f"❌ เกิดข้อผิดพลาดในระบบ: {e}"
+
+    if message_id_to_edit:
+        await edit_telegram_message(chat_id, message_id_to_edit, msg)
+    else:
+        await send_telegram_message(chat_id, msg)
+
+
 @cmd_router.bind("/job", requires_admin=True, task_route="worker/handle-job", loading_text="⏳ กำลังจัดการสถานะ Scheduler Job...")
 async def handle_job_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     import subprocess
@@ -2261,7 +2285,7 @@ async def handle_status_command(chat_id: int, command: str, username: str = "", 
                 name = job.get("name", "").split("/")[-1]
                 state = job.get("state", "UNKNOWN")
                 state_emoji = "🟢 ACTIVE" if state == "ENABLED" else "⏸️ PAUSED" if state == "PAUSED" else f"❓ {state}"
-                job_states.append(f"• `{name}`: {state_emoji}")
+                job_states.append(f"• <code>{name}</code>: {state_emoji}")
             jobs_str = "\n".join(job_states)
         else:
             jobs_str = f"❌ ไม่สามารถดึงข้อมูล Jobs ได้: {result.stderr or result.stdout}"
