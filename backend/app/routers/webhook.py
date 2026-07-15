@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Request, BackgroundTasks
 import httpx
 import os
+import json
+import subprocess
 import logging
 from datetime import datetime, timezone
 from app.services.weather_manager import WeatherManager
@@ -14,7 +16,6 @@ from app.services.telegram import (
     send_telegram_document,
     DEVELOPER_CHAT_IDS,
 )
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,19 @@ async def check_admin_access(chat_id: int) -> bool:
         return True
         
     return False
+
+
+async def _reply(
+    chat_id: int,
+    text: str,
+    message_id_to_edit: int = None,
+    reply_markup: dict = None,
+) -> None:
+    """Send or edit a Telegram message depending on whether we have a loading message."""
+    if message_id_to_edit:
+        await edit_telegram_message(chat_id, message_id_to_edit, text, reply_markup)
+    else:
+        await send_telegram_message(chat_id, text, reply_markup)
 
 
 def format_duration_text(minutes: int) -> str:
@@ -220,10 +234,7 @@ async def process_telegram_location(
                 "⚠️ ขออภัย ไม่สามารถเชื่อมต่อกับระบบพยากรณ์ฝนได้ในขณะนี้\n"
                 "กรุณาลองใหม่อีกครั้งในภายหลัง"
             )
-            if message_id_to_edit:
-                await edit_telegram_message(chat_id, message_id_to_edit, error_text)
-            else:
-                await send_telegram_message(chat_id, error_text)
+            await _reply(chat_id, error_text, message_id_to_edit)
             return
 
         # ตรวจสอบ location ที่บันทึกไว้
@@ -316,10 +327,7 @@ async def process_telegram_location(
 
         logger.info(f"Preparing to send message to chat_id={chat_id}: '{text[:80]}...'")
 
-        if message_id_to_edit:
-            await edit_telegram_message(chat_id, message_id_to_edit, text, reply_markup)
-        else:
-            await send_telegram_message(chat_id, text, reply_markup)
+        await _reply(chat_id, text, message_id_to_edit, reply_markup)
             
         gif_bytes = result.get("radar_gif_bytes")
         hq_gif_bytes = result.get("radar_hq_gif_bytes")
@@ -391,10 +399,7 @@ async def process_telegram_location(
         logger.error(f"Error processing telegram location: {e}")
         error_text = "ขออภัย ไม่สามารถดึงข้อมูลพยากรณ์ฝนได้ในขณะนี้"
         try:
-            if message_id_to_edit:
-                await edit_telegram_message(chat_id, message_id_to_edit, error_text)
-            else:
-                await send_telegram_message(chat_id, error_text)
+            await _reply(chat_id, error_text, message_id_to_edit)
         except Exception as inner_e:
             logger.error(f"Failed to send fallback error message: {inner_e}")
 
@@ -754,10 +759,7 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
         async with get_repo_context() as repo:
             locs = await repo.get_user_locations(chat_id)
             if not locs:
-                if message_id_to_edit:
-                    await edit_telegram_message(chat_id, message_id_to_edit, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ กรุณาส่งพิกัดก่อนใช้งานคำสั่งนี้")
-                else:
-                    await send_telegram_message(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ กรุณาส่งพิกัดก่อนใช้งานคำสั่งนี้")
+                await _reply(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ กรุณาส่งพิกัดก่อนใช้งานคำสั่งนี้", message_id_to_edit)
                 return
             
             raw_args = command.removeprefix("/lock").strip()
@@ -769,10 +771,7 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
                     "- ล็อคช่องตาราง: `/lock [ชื่อพิกัด] D2` หรือ `/lock D2`\n"
                     "- ล็อคพิกัดจริง: `/lock [ชื่อพิกัด] 13.75 100.5` หรือ `/lock 13.75 100.5`"
                 )
-                if message_id_to_edit:
-                    await edit_telegram_message(chat_id, message_id_to_edit, error_msg)
-                else:
-                    await send_telegram_message(chat_id, error_msg)
+                await _reply(chat_id, error_msg, message_id_to_edit)
                 return
                 
             first_arg = args[0].lower()
@@ -847,10 +846,7 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
                     "- ล็อคช่องตาราง: `/lock [ชื่อพิกัด] D4`\n"
                     "- ล็อคพิกัดจริง: `/lock [ชื่อพิกัด] 13.75 100.5`"
                 )
-                if message_id_to_edit:
-                    await edit_telegram_message(chat_id, message_id_to_edit, error_msg)
-                else:
-                    await send_telegram_message(chat_id, error_msg)
+                await _reply(chat_id, error_msg, message_id_to_edit)
                 return
             
             val1 = float(parts[0])
@@ -907,10 +903,7 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
                     break
 
         if processor is None or station_code is None:
-            if message_id_to_edit:
-                await edit_telegram_message(chat_id, message_id_to_edit, "⚠️ พิกัดหลักอยู่นอกขอบเขตของแผนที่เรดาร์")
-            else:
-                await send_telegram_message(chat_id, "⚠️ พิกัดหลักอยู่นอกขอบเขตของแผนที่เรดาร์")
+            await _reply(chat_id, "⚠️ พิกัดหลักอยู่นอกขอบเขตของแผนที่เรดาร์", message_id_to_edit)
             return
 
         if not grid_lbl and "parts" in locals() and len(parts) >= 2:
@@ -991,10 +984,7 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
                     vy = float(flow[cy, cx, 1])
                 else:
                     error_msg = f"⚠️ ไม่พบกลุ่มฝนป้ายกำกับ [{grid_lbl}] ในบริเวณรอบตัวคุณ หรือเมฆสลายตัวไปแล้ว"
-                    if message_id_to_edit:
-                        await edit_telegram_message(chat_id, message_id_to_edit, error_msg)
-                    else:
-                        await send_telegram_message(chat_id, error_msg)
+                    await _reply(chat_id, error_msg, message_id_to_edit)
                     return
             else:
                 search_radius = 25
@@ -1030,10 +1020,7 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
             peak_x, peak_y = cx, cy
 
         if cx is None or cy is None or not (0 <= cx < frame_w and 0 <= cy < frame_h):
-            if message_id_to_edit:
-                await edit_telegram_message(chat_id, message_id_to_edit, "⚠️ พิกัดอยู่นอกขอบเขตของแผนที่เรดาร์")
-            else:
-                await send_telegram_message(chat_id, "⚠️ พิกัดอยู่นอกขอบเขตของแผนที่เรดาร์")
+            await _reply(chat_id, "⚠️ พิกัดอยู่นอกขอบเขตของแผนที่เรดาร์", message_id_to_edit)
             return
 
         eta_text = ""
@@ -1122,17 +1109,11 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
                 success_msg += f"  {comparison_text}"
             success_msg += "\nระบบจะใช้ข้อมูลนี้ในการพยากรณ์รอบถัดไป"
         
-        if message_id_to_edit:
-            await edit_telegram_message(chat_id, message_id_to_edit, success_msg)
-        else:
-            await send_telegram_message(chat_id, success_msg)
+        await _reply(chat_id, success_msg, message_id_to_edit)
         await process_telegram_location(chat_id, lat, lng, location_name=loc_name, is_lock_command=True)
     except Exception as e:
         logger.error(f"Error handling lock command: {e}")
-        if message_id_to_edit:
-            await edit_telegram_message(chat_id, message_id_to_edit, f"❌ เกิดข้อผิดพลาด: {str(e)}")
-        else:
-            await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
+        await _reply(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}", message_id_to_edit)
 
 
 @cmd_router.bind("/unlock", requires_admin=True, task_route="worker/handle-unlock", loading_text="⏳ กำลังประมวลผล...")
@@ -1141,10 +1122,7 @@ async def handle_unlock_command(chat_id: int, command: str, message_id_to_edit: 
         async with get_repo_context() as repo:
             locs = await repo.get_user_locations(chat_id)
             if not locs:
-                if message_id_to_edit:
-                    await edit_telegram_message(chat_id, message_id_to_edit, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ")
-                else:
-                    await send_telegram_message(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ")
+                await _reply(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ", message_id_to_edit)
                 return
                 
             arg = command.removeprefix("/unlock").strip().lower()
@@ -1182,17 +1160,11 @@ async def handle_unlock_command(chat_id: int, command: str, message_id_to_edit: 
             loc_name = loc.name
             
         success_msg = f"🔓 ปลดล็อคกลุ่มฝน (Auto-track) ของ {loc_name.capitalize()} เรียบร้อยแล้ว"
-        if message_id_to_edit:
-            await edit_telegram_message(chat_id, message_id_to_edit, success_msg)
-        else:
-            await send_telegram_message(chat_id, success_msg)
+        await _reply(chat_id, success_msg, message_id_to_edit)
         await process_telegram_location(chat_id, lat, lng, location_name=loc_name, is_lock_command=True)
     except Exception as e:
         logger.error(f"Error handling unlock command: {e}")
-        if message_id_to_edit:
-            await edit_telegram_message(chat_id, message_id_to_edit, f"❌ เกิดข้อผิดพลาด: {str(e)}")
-        else:
-            await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
+        await _reply(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}", message_id_to_edit)
 
 
 @cmd_router.bind("/mylocation", task_route="worker/handle-mylocation")
@@ -2122,8 +2094,7 @@ async def handle_bypass_login_command(chat_id: int, command: str, username: str 
         await send_telegram_message(chat_id, "❌ รหัสผ่านไม่ถูกต้อง")
 
 
-@cmd_router.bind("/restore_public_access", requires_admin=True, task_route="worker/handle-restore-public-access", loading_text="⏳ กำลังกู้คืนสิทธิ์ Public Access ให้กับ API...")
-async def handle_restore_public_access_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
+async def _run_admin_script(script_relative_path: str, success_msg: str, chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     import subprocess
     import os
     
@@ -2131,59 +2102,45 @@ async def handle_restore_public_access_command(chat_id: int, command: str, usern
         log_audit_event("admin_command_executed", chat_id, username, {"command": command})
 
     try:
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../scripts/restore_public_access.sh")
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), script_relative_path)
         result = subprocess.run(["bash", script_path], capture_output=True, text=True, cwd=os.path.dirname(script_path))
         if result.returncode == 0:
-            msg = "✅ กู้คืนสิทธิ์ Public Access ให้กับ fontokmai-api สำเร็จแล้วครับ"
+            msg = success_msg
         else:
             msg = f"❌ เกิดข้อผิดพลาดในการรันสคริปต์ (Exit code: {result.returncode})\nError: {result.stderr or result.stdout}"
     except Exception as e:
         msg = f"❌ เกิดข้อผิดพลาดในระบบ: {e}"
 
-    if message_id_to_edit:
-        await edit_telegram_message(chat_id, message_id_to_edit, msg)
-    else:
-        await send_telegram_message(chat_id, msg)
+    await _reply(chat_id, msg, message_id_to_edit)
+
+
+@cmd_router.bind("/restore_public_access", requires_admin=True, task_route="worker/handle-restore-public-access", loading_text="⏳ กำลังกู้คืนสิทธิ์ Public Access ให้กับ API...")
+async def handle_restore_public_access_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
+    await _run_admin_script(
+        "../../scripts/restore_public_access.sh",
+        "✅ กู้คืนสิทธิ์ Public Access ให้กับ fontokmai-api สำเร็จแล้วครับ",
+        chat_id, command, username, message_id_to_edit
+    )
 
 
 @cmd_router.bind("/disable_public_access", requires_admin=True, task_route="worker/handle-disable-public-access", loading_text="⏳ กำลังยกเลิกสิทธิ์ Public Access (โหมด Private)...")
 async def handle_disable_public_access_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
-    import subprocess
-    import os
-    
-    if str(chat_id) not in DEVELOPER_CHAT_IDS:
-        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
-
-    try:
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../scripts/disable_public_access.sh")
-        result = subprocess.run(["bash", script_path], capture_output=True, text=True, cwd=os.path.dirname(script_path))
-        if result.returncode == 0:
-            msg = "✅ ยกเลิกสิทธิ์ Public Access (โหมด Private) เรียบร้อยแล้วครับ"
-        else:
-            msg = f"❌ เกิดข้อผิดพลาดในการรันสคริปต์ (Exit code: {result.returncode})\nError: {result.stderr or result.stdout}"
-    except Exception as e:
-        msg = f"❌ เกิดข้อผิดพลาดในระบบ: {e}"
-
-    if message_id_to_edit:
-        await edit_telegram_message(chat_id, message_id_to_edit, msg)
-    else:
-        await send_telegram_message(chat_id, msg)
+    await _run_admin_script(
+        "../../scripts/disable_public_access.sh",
+        "✅ ยกเลิกสิทธิ์ Public Access (โหมด Private) เรียบร้อยแล้วครับ",
+        chat_id, command, username, message_id_to_edit
+    )
 
 
 @cmd_router.bind("/job", requires_admin=True, task_route="worker/handle-job", loading_text="⏳ กำลังจัดการสถานะ Scheduler Job...")
 async def handle_job_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
-    import subprocess
-    
     if str(chat_id) not in DEVELOPER_CHAT_IDS:
         log_audit_event("admin_command_executed", chat_id, username, {"command": command})
 
     parts = command.strip().split()
     if len(parts) < 3:
         msg = "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณาใช้:\n`/job <pause|resume> <check-rain|fetch-radar|disasters-freq|disasters-infreq>`"
-        if message_id_to_edit:
-            await edit_telegram_message(chat_id, message_id_to_edit, msg)
-        else:
-            await send_telegram_message(chat_id, msg)
+        await _reply(chat_id, msg, message_id_to_edit)
         return
 
     action = parts[1].lower()
@@ -2191,10 +2148,7 @@ async def handle_job_command(chat_id: int, command: str, username: str = "", mes
 
     if action not in ("pause", "resume"):
         msg = "❌ Action ไม่ถูกต้อง ต้องเป็น `pause` หรือ `resume` เท่านั้น"
-        if message_id_to_edit:
-            await edit_telegram_message(chat_id, message_id_to_edit, msg)
-        else:
-            await send_telegram_message(chat_id, msg)
+        await _reply(chat_id, msg, message_id_to_edit)
         return
 
     job_mapping = {
@@ -2207,10 +2161,7 @@ async def handle_job_command(chat_id: int, command: str, username: str = "", mes
     job_name = job_mapping.get(job_key)
     if not job_name:
         msg = f"❌ ไม่พบ Job ชื่อ '{job_key}' ในระบบ"
-        if message_id_to_edit:
-            await edit_telegram_message(chat_id, message_id_to_edit, msg)
-        else:
-            await send_telegram_message(chat_id, msg)
+        await _reply(chat_id, msg, message_id_to_edit)
         return
 
     import os
@@ -2228,18 +2179,11 @@ async def handle_job_command(chat_id: int, command: str, username: str = "", mes
     except Exception as e:
         msg = f"❌ เกิดข้อผิดพลาดในการรันคำสั่ง: {e}"
 
-    if message_id_to_edit:
-        await edit_telegram_message(chat_id, message_id_to_edit, msg)
-    else:
-        await send_telegram_message(chat_id, msg)
+    await _reply(chat_id, msg, message_id_to_edit)
 
 
 @cmd_router.bind("/status", requires_admin=True, task_route="worker/handle-status", loading_text="⏳ กำลังดึงข้อมูลสถานะระบบและ GCP...")
 async def handle_status_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
-    import subprocess
-    import os
-    import json
-    
     if str(chat_id) not in DEVELOPER_CHAT_IDS:
         log_audit_event("admin_command_executed", chat_id, username, {"command": command})
 
@@ -2299,10 +2243,7 @@ async def handle_status_command(chat_id: int, command: str, username: str = "", 
         f"🔹 <b>สถานะของงานระบบ (Cloud Scheduler Jobs):</b>\n{jobs_str or 'ไม่มีงาน'}"
     )
 
-    if message_id_to_edit:
-        await edit_telegram_message(chat_id, message_id_to_edit, msg)
-    else:
-        await send_telegram_message(chat_id, msg)
+    await _reply(chat_id, msg, message_id_to_edit)
 
 
 async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundTasks):
