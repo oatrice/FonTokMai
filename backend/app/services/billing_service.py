@@ -45,3 +45,26 @@ class BillingService:
         except Exception as e:
             logger.error(f"Failed to update GCP budget: {e}", exc_info=True)
             return False
+
+    async def get_budget(self) -> float | None:
+        if not self.billing_account_id:
+            logger.error("GCP_BILLING_ACCOUNT_ID is not configured in environment variables.")
+            return None
+
+        try:
+            import asyncio
+            parent = f"billingAccounts/{self.billing_account_id}"
+            
+            def _find():
+                budgets = self.client.list_budgets(parent=parent)
+                for budget in budgets:
+                    if budget.display_name == self.budget_display_name:
+                        units = budget.amount.specified_amount.units
+                        nanos = budget.amount.specified_amount.nanos
+                        return float(units) + (float(nanos) / 1e9)
+                return None
+
+            return await asyncio.to_thread(_find)
+        except Exception as e:
+            logger.error(f"Failed to get GCP budget: {e}", exc_info=True)
+            return None

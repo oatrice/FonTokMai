@@ -249,3 +249,15 @@ async def worker_handle_job(payload: AdminCommandPayload):
         logger.error(f"Worker failed handle_job: {e}")
         return {"status": "error", "message": str(e)}
 
+
+@router.post("/handle-status")
+async def worker_handle_status(payload: AdminCommandPayload):
+    try:
+        from app.routers.webhook import handle_status_command
+        await handle_status_command(payload.chat_id, payload.command, payload.username, payload.message_id_to_edit)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed handle_status: {e}")
+        return {"status": "error", "message": str(e)}
+
+

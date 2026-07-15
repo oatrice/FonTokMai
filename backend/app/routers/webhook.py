@@ -2210,6 +2210,77 @@ async def handle_job_command(chat_id: int, command: str, username: str = "", mes
         await send_telegram_message(chat_id, msg)
 
 
+@cmd_router.bind("/status", requires_admin=True, task_route="worker/handle-status", loading_text="⏳ กำลังดึงข้อมูลสถานะระบบและ GCP...")
+async def handle_status_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
+    import subprocess
+    import os
+    import json
+    
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
+
+    project_id = os.getenv("GCP_PROJECT_ID", "fonmayang")
+    region = os.getenv("GCP_LOCATION", "asia-southeast1")
+
+    # 1. Check Cloud Run Public Access
+    run_access_str = "❓ Unknown"
+    try:
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../scripts/check_public_access.sh")
+        result = subprocess.run(["bash", script_path], capture_output=True, text=True, cwd=os.path.dirname(script_path))
+        if "PUBLIC" in result.stdout:
+            run_access_str = "🌐 PUBLIC (เปิดสาธารณะ)"
+        elif "PRIVATE" in result.stdout:
+            run_access_str = "🔒 PRIVATE (ปิดส่วนตัว)"
+        else:
+            run_access_str = "❓ Error reading policy"
+    except Exception as e:
+        run_access_str = f"❓ Exception: {e}"
+
+    # 2. Check GCP Monthly Budget
+    budget_str = "❓ Unknown"
+    try:
+        from app.services.billing_service import BillingService
+        billing_svc = BillingService()
+        budget = await billing_svc.get_budget()
+        if budget is not None:
+            budget_str = f"💰 {budget:,.2f} THB"
+        else:
+            budget_str = "❓ Not found or Billing Account not set"
+    except Exception as e:
+        budget_str = f"❓ Exception: {e}"
+
+    # 3. Check Cloud Scheduler Jobs
+    jobs_str = ""
+    try:
+        cmd_args = ["gcloud", "scheduler", "jobs", "list", f"--project={project_id}", f"--location={region}", "--format=json"]
+        result = subprocess.run(cmd_args, capture_output=True, text=True)
+        if result.returncode == 0:
+            jobs_data = json.loads(result.stdout)
+            job_states = []
+            for job in jobs_data:
+                name = job.get("name", "").split("/")[-1]
+                state = job.get("state", "UNKNOWN")
+                state_emoji = "🟢 ACTIVE" if state == "ENABLED" else "⏸️ PAUSED" if state == "PAUSED" else f"❓ {state}"
+                job_states.append(f"• `{name}`: {state_emoji}")
+            jobs_str = "\n".join(job_states)
+        else:
+            jobs_str = f"❌ ไม่สามารถดึงข้อมูล Jobs ได้: {result.stderr or result.stdout}"
+    except Exception as e:
+        jobs_str = f"❌ Exception: {e}"
+
+    msg = (
+        "📊 <b>สถานะระบบหลังบ้าน (GCP Status Audit)</b>\n\n"
+        f"🔹 <b>สิทธิ์เข้าถึง Cloud Run API:</b>\n{run_access_str}\n\n"
+        f"🔹 <b>งบประมาณรายเดือน GCP (GCP Monthly Budget):</b>\n{budget_str}\n\n"
+        f"🔹 <b>สถานะของงานระบบ (Cloud Scheduler Jobs):</b>\n{jobs_str or 'ไม่มีงาน'}"
+    )
+
+    if message_id_to_edit:
+        await edit_telegram_message(chat_id, message_id_to_edit, msg)
+    else:
+        await send_telegram_message(chat_id, msg)
+
+
 async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundTasks):
     payload = await request.json()
 
