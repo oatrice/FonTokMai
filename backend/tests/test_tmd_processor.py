@@ -328,3 +328,53 @@ def test_generate_timeline_image():
     assert isinstance(img_bytes_thai, bytes)
     assert img_bytes_thai.startswith(b"\x89PNG")
 
+
+@pytest.mark.asyncio
+async def test_cloud_contour_wrapping():
+    """
+    Ensure contour-based wrapping handles cloud pixels correctly without raising errors.
+    """
+    processor = TMDRadarProcessor(station_code="kkn120")
+    img = np.zeros((800, 800, 3), dtype=np.uint8)
+    
+    # Mocking necessary parameters for draw_analysis_overlay
+    # Create cloud structure containing 'pixels' key representing an L-shaped cloud chunk
+    dummy_clouds = [
+        {
+            "cx": 400, "cy": 400,
+            "dbz_now": 35.0,
+            "predicted_dbz": 35.0,
+            "approaching": True,
+            "eta_min": 10.0,
+            "pixels": [
+                (400, 400), (401, 400), (402, 400),
+                (402, 401), (402, 402)
+            ]
+        }
+    ]
+    
+    # Run the overlay drawing function (or rather simulate the part where it renders)
+    # We can patch get_user_locations or just directly test draw_analysis_overlay
+    with patch('app.services.tmd_radar_processor.STATIONS') as mock_stations:
+        config = MagicMock()
+        config.bbox.lat_max = 20.0
+        config.bbox.lat_min = 10.0
+        config.bbox.lng_max = 110.0
+        config.bbox.lng_min = 100.0
+        config.loop_crop_x = 0
+        config.loop_crop_y = 0
+        config.loop_crop_width = 800
+        config.loop_crop_height = 800
+        mock_stations.__getitem__.return_value = config
+        
+        # Test drawing overlay directly
+        output_bytes = processor.generate_radar_tracking_image(
+            img, user_x=400, user_y=400,
+            clouds=dummy_clouds, all_rain_clusters=[]
+        )
+        
+        assert output_bytes is not None
+        assert isinstance(output_bytes, bytes)
+
+
+

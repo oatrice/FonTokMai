@@ -1414,13 +1414,32 @@ class TMDRadarProcessor:
                 hull_rect = None
                 if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
                     pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for px, py in c_orig["pixels"]], dtype=np.int32)
-                    hull = cv2.convexHull(pts)
-                    hull_rect = cv2.boundingRect(hull)
+                    x, y, w, h = cv2.boundingRect(pts)
+                    margin = 2
+                    mask_w, mask_h = w + 2 * margin, h + 2 * margin
+                    mask = np.zeros((mask_h, mask_w), dtype=np.uint8)
+                    
+                    local_pts = pts - np.array([[[x - margin, y - margin]]], dtype=np.int32)
+                    for pt in local_pts:
+                        px, py = pt[0]
+                        if 0 <= px < mask_w and 0 <= py < mask_h:
+                            mask[py, px] = 255
+                            
+                    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+                    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+                    
+                    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    global_contours = []
+                    for ctr in contours:
+                        global_ctr = ctr + np.array([[[x - margin, y - margin]]], dtype=np.int32)
+                        global_contours.append(global_ctr)
+                        
                     overlay = img.copy()
-                    cv2.fillPoly(overlay, [hull], color)
+                    cv2.fillPoly(overlay, global_contours, color)
                     cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
-                    cv2.polylines(img, [hull], True, color, max(1, int(2.0 * scale)))
-                    obstacles.append((hull_rect[0]-5, hull_rect[1]-5, hull_rect[2]+10, hull_rect[3]+10))
+                    cv2.polylines(img, global_contours, True, color, max(1, int(2.0 * scale)))
+                    hull_rect = (x, y, w, h)
+                    obstacles.append((x - 5, y - 5, w + 10, h + 10))
                 else:
                     r = int(12 * scale)
                     cv2.circle(img, (cx, cy), r, color, int(1.5 * scale))
