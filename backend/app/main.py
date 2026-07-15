@@ -91,6 +91,13 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logging.error(f"Failed to load global dev config: {e}")
     
+    # Setup Telegram bot commands on startup
+    from app.services.telegram import setup_telegram_commands
+    try:
+        await setup_telegram_commands()
+    except Exception as e:
+        logging.error(f"Failed to setup Telegram commands during startup: {e}")
+    
     yield
 
 app = FastAPI(

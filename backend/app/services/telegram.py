@@ -225,3 +225,37 @@ async def send_grouped_disaster_alert(chat_id: int, event_type: str, event_data:
     except Exception as e:
         logger.error(f"Failed to send disaster alert to {chat_id}: {e}")
         return False
+
+
+async def setup_telegram_commands() -> bool:
+    """
+    Sets up the custom command menu suggestion for the Telegram bot dynamically on startup.
+    """
+    is_dev = os.getenv("ENVIRONMENT", "production").lower() == "development"
+    
+    commands = [
+        {"command": "rain", "description": "เช็คฝน"},
+        {"command": "check", "description": "เช็คสถานะหรือตำแหน่ง"},
+        {"command": "lock", "description": "สั่งล็อคเป้าก้อนเมฆแมนนวล"},
+    ]
+    if is_dev:
+        commands.append({"command": "devmock", "description": "Mock ข้อมูลสำหรับการทดสอบ"})
+        
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "mock_token")
+    url = f"https://api.telegram.org/bot{token}/setMyCommands"
+    
+    payload = {
+        "commands": commands
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload)
+            if response.status_code != 200:
+                logger.warning(f"Telegram setMyCommands API responded with {response.status_code}: {response.text}")
+                return False
+            return True
+    except Exception as e:
+        logger.error(f"Failed to set Telegram commands: {type(e).__name__} - {e}")
+        return False
+

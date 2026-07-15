@@ -1,60 +1,36 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "coding",
   "active_issues": [
     {
-      "number": 164,
-      "title": "เพิ่มระบบล็อคเป้าก้อนเมฆแบบ manual",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/164",
+      "number": 165,
+      "title": "ทำระบบ bind command แบบที่ bind กับ ZCode",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/165",
       "body": null,
-      "project_item_id": "GLAB_164",
+      "project_item_id": "GLAB_165",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/164-manual",
-  "started_at": "2026-07-14T21:07:01.000482",
+  "active_branch": "feat/165-bind-command-bind-zcode",
+  "started_at": "2026-07-15T13:25:01.161208",
   "checklist": {
-    "step_planning": true,
-    "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_planning": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "backend/app/main.py",
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/line_webhook.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/services/tmd_radar_processor.py",
-        "backend/app/services/weather_manager.py",
-        "backend/tests/test_manual_targeting.py",
-        "luma/prompts/prompt_20260714_140718_fc12a121.md",
-        "luma/prompts/prompt_20260714_140720_773f70d7.md",
+        "VERSION"
+      ],
+      "changed_files": [
+        "luma/prompts/prompt_20260715_062459_5b786cd3.md",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
-        "backend/app/main.py",
-        "backend/app/models.py",
-        "backend/app/repositories/base.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/line_webhook.py",
-        "backend/app/routers/webhook.py",
-        "backend/app/services/tmd_radar_processor.py",
-        "backend/app/services/weather_manager.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -130,5 +106,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-14T21:07:40.449444"
+  "last_updated": "2026-07-15T13:25:12.312781"
 }
