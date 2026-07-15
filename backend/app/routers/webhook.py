@@ -18,6 +18,8 @@ import json
 
 logger = logging.getLogger(__name__)
 
+from app.services.command_router import router as cmd_router
+
 LAST_ACTIVE_LOCATION: dict[int, str] = {}
 
 # Most recently pinned/sent Telegram location per chat (lat, lng).
@@ -740,6 +742,7 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
             })
 
 
+@cmd_router.bind("/lock ", requires_admin=True, task_route="worker/handle-lock", loading_text="⏳ กำลังประมวลผล...")
 async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: int = None):
     import re
     cx, cy = None, None
@@ -1132,6 +1135,7 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
             await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
 
 
+@cmd_router.bind("/unlock", requires_admin=True, task_route="worker/handle-unlock", loading_text="⏳ กำลังประมวลผล...")
 async def handle_unlock_command(chat_id: int, command: str, message_id_to_edit: int = None):
     try:
         async with get_repo_context() as repo:
@@ -1191,6 +1195,7 @@ async def handle_unlock_command(chat_id: int, command: str, message_id_to_edit: 
             await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
 
 
+@cmd_router.bind("/mylocation", task_route="worker/handle-mylocation")
 async def handle_mylocation_command(chat_id: int):
     async with get_repo_context() as repo:
         locs = await repo.get_user_locations(chat_id)
@@ -1228,6 +1233,7 @@ async def handle_mylocation_command(chat_id: int):
     await send_telegram_message(chat_id, text, reply_markup)
 
 
+@cmd_router.bind("/radar", task_route="worker/handle-radar")
 async def handle_radar_command(chat_id: int):
     async with get_repo_context() as repo:
         loc = await repo.get_location(chat_id)
@@ -1242,6 +1248,7 @@ async def handle_radar_command(chat_id: int):
         await send_telegram_message(chat_id, text, reply_markup=reply_markup)
 
 
+@cmd_router.bind("/metrics", requires_admin=True, task_route="worker/handle-metrics", loading_text="⏳ กำลังดึงข้อมูลสถิติ...")
 async def handle_metrics_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     if not await check_admin_access(chat_id):
         return
@@ -1295,6 +1302,7 @@ async def handle_metrics_command(chat_id: int, command: str, username: str = "",
     await send_telegram_document(chat_id, csv_data, f"metrics_{days}_days.csv")
 
 
+@cmd_router.bind("/setbudget", requires_admin=True, task_route="worker/handle-setbudget", loading_text="⏳ กำลังตั้งค่างบประมาณ...")
 async def handle_setbudget_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     if not await check_admin_access(chat_id):
         return
@@ -1331,6 +1339,7 @@ async def handle_setbudget_command(chat_id: int, command: str, username: str = "
         )
 
 
+@cmd_router.bind("/tmd_fallback", requires_admin=True, task_route="worker/handle-tmd-fallback", loading_text="⏳ กำลังสลับระบบข้อมูล...")
 async def handle_tmd_fallback_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     """
     /tmd_fallback on
@@ -1371,6 +1380,7 @@ async def handle_tmd_fallback_command(chat_id: int, command: str, username: str 
     )
 
 
+@cmd_router.bind("/devmock", requires_admin=True, task_route="worker/handle-devmock", loading_text="⏳ กำลังเข้าสู่ DevMock Mode...")
 async def handle_devmock_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     if not await check_admin_access(chat_id):
         return
@@ -1973,6 +1983,9 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
             return
 
 
+@cmd_router.bind("/rain_pro", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", show_advanced=True)
+@cmd_router.bind("/rain", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
+@cmd_router.bind("/check", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", command_override="/rain tmd-radar")
 async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False, message_id_to_edit: int = None):
     import re
     coords_match = re.search(r'([+-]?\d+\.\d+)[,\s]+([+-]?\d+\.\d+)', command)
@@ -2086,6 +2099,29 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
             await send_telegram_message(chat_id, "⚠️ ระบบยุ่งชั่วคราว กรุณาลองใหม่อีกครั้ง")
         return {"status": "error", "detail": str(e)}
 
+@cmd_router.bind("/bypass_logout")
+async def handle_bypass_logout_command(chat_id: int, username: str = ""):
+    async with get_repo_context() as repo:
+        await repo.delete_admin_bypass(chat_id)
+    log_audit_event("bypass_logout", chat_id, username, {})
+    await send_telegram_message(chat_id, "ออกจากระบบ Emergency Admin Bypass เรียบร้อยแล้ว")
+
+
+@cmd_router.bind("/bypass ")
+async def handle_bypass_login_command(chat_id: int, command: str, username: str = ""):
+    password = command.removeprefix("/bypass ").strip()
+    import os
+    actual_pass = os.getenv("ADMIN_BYPASS_PASSWORD")
+    if actual_pass and password == actual_pass:
+        async with get_repo_context() as repo:
+            await repo.save_admin_bypass(chat_id)
+        log_audit_event("bypass_login_success", chat_id, username, {})
+        await send_telegram_message(chat_id, "✅ ยืนยันรหัสผ่านถูกต้อง! เปิดใช้งาน Emergency Admin Bypass (1 ชั่วโมง)")
+    else:
+        log_audit_event("bypass_login_failed", chat_id, username, {})
+        await send_telegram_message(chat_id, "❌ รหัสผ่านไม่ถูกต้อง")
+
+
 async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundTasks):
     payload = await request.json()
 
@@ -2163,108 +2199,21 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
         from app.services.cloud_tasks import CloudTasksService
         tasks_svc = CloudTasksService()
 
-        if text.startswith("/mylocation") and chat_id:
-            if not await tasks_svc.enqueue_task("worker/handle-mylocation", {"chat_id": chat_id}):
-                background_tasks.add_task(handle_mylocation_command, chat_id)
+        # Dispatch command via ZCode-inspired Command Router
+        handled = await cmd_router.dispatch(
+            text=text,
+            chat_id=chat_id,
+            username=username,
+            background_tasks=background_tasks,
+            check_admin_access_fn=check_admin_access,
+            send_telegram_message_fn=send_telegram_message,
+            send_telegram_message_return_id_fn=send_telegram_message_return_id,
+            enqueue_task_fn=tasks_svc.enqueue_task
+        )
+        if handled:
             return {"status": "ok"}
 
-        if text.startswith("/radar") and chat_id:
-            if not await tasks_svc.enqueue_task("worker/handle-radar", {"chat_id": chat_id}):
-                background_tasks.add_task(handle_radar_command, chat_id)
-            return {"status": "ok"}
-            
-        if text.startswith("/bypass_logout") and chat_id:
-            async def _do_logout():
-                async with get_repo_context() as repo:
-                    await repo.delete_admin_bypass(chat_id)
-                log_audit_event("bypass_logout", chat_id, username, {})
-                await send_telegram_message(chat_id, "ออกจากระบบ Emergency Admin Bypass เรียบร้อยแล้ว")
-            background_tasks.add_task(_do_logout)
-            return {"status": "ok"}
 
-        if text.startswith("/bypass ") and chat_id:
-            password = text.removeprefix("/bypass ").strip()
-            async def _do_login():
-                import os
-                actual_pass = os.getenv("ADMIN_BYPASS_PASSWORD")
-                if actual_pass and password == actual_pass:
-                    async with get_repo_context() as repo:
-                        await repo.save_admin_bypass(chat_id)
-                    log_audit_event("bypass_login_success", chat_id, username, {})
-                    await send_telegram_message(chat_id, "✅ ยืนยันรหัสผ่านถูกต้อง! เปิดใช้งาน Emergency Admin Bypass (1 ชั่วโมง)")
-                else:
-                    log_audit_event("bypass_login_failed", chat_id, username, {})
-                    await send_telegram_message(chat_id, "❌ รหัสผ่านไม่ถูกต้อง")
-            background_tasks.add_task(_do_login)
-            return {"status": "ok"}
-
-        if text.startswith("/lock ") and chat_id:
-            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังประมวลผล...")
-            if not await tasks_svc.enqueue_task("worker/handle-lock", {"chat_id": chat_id, "command": text, "message_id_to_edit": loading_msg_id}):
-                background_tasks.add_task(handle_lock_command, chat_id, text, loading_msg_id)
-            return {"status": "ok"}
-            
-        if text.startswith("/unlock") and chat_id:
-            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังประมวลผล...")
-            if not await tasks_svc.enqueue_task("worker/handle-unlock", {"chat_id": chat_id, "command": text, "message_id_to_edit": loading_msg_id}):
-                background_tasks.add_task(handle_unlock_command, chat_id, text, loading_msg_id)
-            return {"status": "ok"}
-
-        if text.startswith(("/rain", "/check", "/devmock", "/tmd_fallback", "/metrics", "/setbudget")) and chat_id:
-            import os
-            is_dev_env = os.getenv("ENVIRONMENT", "production").lower() == "development"
-            if not is_dev_env:
-                has_access = await check_admin_access(chat_id)
-                if not has_access:
-                    background_tasks.add_task(
-                        send_telegram_message, chat_id, 
-                        "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน"
-                    )
-                    return {"status": "ok"}
-
-        if text.startswith("/metrics") and chat_id:
-            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังดึงข้อมูลสถิติ...")
-            if not await tasks_svc.enqueue_task("worker/handle-metrics", {"chat_id": chat_id, "command": text.strip(), "username": username, "message_id_to_edit": loading_msg_id}):
-                background_tasks.add_task(handle_metrics_command, chat_id, text.strip(), username, message_id_to_edit=loading_msg_id)
-            return {"status": "ok"}
-
-        if text.startswith("/setbudget") and chat_id:
-            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังตั้งค่างบประมาณ...")
-            if not await tasks_svc.enqueue_task("worker/handle-setbudget", {"chat_id": chat_id, "command": text.strip(), "username": username, "message_id_to_edit": loading_msg_id}):
-                background_tasks.add_task(handle_setbudget_command, chat_id, text.strip(), username, message_id_to_edit=loading_msg_id)
-            return {"status": "ok"}
-
-        if text.startswith("/rain_pro") and chat_id:
-            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังประมวลผล...")
-            if not await tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text, "show_advanced": True, "message_id_to_edit": loading_msg_id}):
-                background_tasks.add_task(handle_rain_command, chat_id, text, show_advanced=True, message_id_to_edit=loading_msg_id)
-            return {"status": "ok"}
-
-        if text.startswith("/rain") and chat_id:
-            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังประมวลผล...")
-            if not await tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": text, "message_id_to_edit": loading_msg_id}):
-                background_tasks.add_task(handle_rain_command, chat_id, text, message_id_to_edit=loading_msg_id)
-            return {"status": "ok"}
-
-        if text.startswith("/devmock") and chat_id:
-            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังเข้าสู่ DevMock Mode...")
-            if not await tasks_svc.enqueue_task("worker/handle-devmock", {"chat_id": chat_id, "command": text.strip(), "message_id_to_edit": loading_msg_id}):
-                background_tasks.add_task(handle_devmock_command, chat_id, text.strip(), message_id_to_edit=loading_msg_id)
-            return {"status": "ok"}
-
-        if text.startswith("/tmd_fallback") and chat_id:
-            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังสลับระบบข้อมูล...")
-            if not await tasks_svc.enqueue_task("worker/handle-tmd-fallback", {"chat_id": chat_id, "command": text.strip(), "username": username, "message_id_to_edit": loading_msg_id}):
-                background_tasks.add_task(handle_tmd_fallback_command, chat_id, text.strip(), username, message_id_to_edit=loading_msg_id)
-            return {"status": "ok"}
-
-        # /check — shorthand alias for /rain tmd-radar (for manual testing)
-        if text.strip() == "/check" and chat_id:
-            logger.info(f"[WEBHOOK] /check received from chat_id={chat_id}, routing to handle_rain_command with 'tmd-radar'")
-            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังประมวลผล...")
-            if not await tasks_svc.enqueue_task("worker/handle-rain", {"chat_id": chat_id, "command": "/rain tmd-radar", "message_id_to_edit": loading_msg_id}):
-                background_tasks.add_task(handle_rain_command, chat_id, "/rain tmd-radar", message_id_to_edit=loading_msg_id)
-            return {"status": "ok"}
 
         logger.debug(f"[WEBHOOK] Unrecognized command or text, returning ignored. text='{text}'")
 
