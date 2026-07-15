@@ -14,6 +14,8 @@ import os
 import subprocess
 from typing import Any
 
+import httpx
+
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
@@ -106,7 +108,6 @@ def _revoke_public_access() -> str:
     try:
         import google.auth
         from google.auth.transport.requests import Request as GoogleAuthRequest
-        import httpx
 
         # Get default credentials (works seamlessly on Cloud Run)
         credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
@@ -165,8 +166,6 @@ async def _send_telegram_alert(message: str) -> None:
     if not token or not chat_ids_str:
         logger.warning("[BudgetAlert] Telegram not configured, skipping notification.")
         return
-
-    import httpx
 
     chat_ids = [cid.strip() for cid in chat_ids_str.split(",") if cid.strip()]
     async with httpx.AsyncClient() as client:

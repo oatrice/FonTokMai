@@ -1220,13 +1220,10 @@ async def handle_radar_command(chat_id: int):
         await send_telegram_message(chat_id, text, reply_markup=reply_markup)
 
 
-@cmd_router.bind("/metrics", requires_admin=True, task_route="worker/handle-metrics", loading_text="⏳ กำลังดึงข้อมูลสถิติ...")
+@cmd_router.bind("/metrics", requires_admin=True, audit_log=True, task_route="worker/handle-metrics", loading_text="⏳ กำลังดึงข้อมูลสถิติ...")
 async def handle_metrics_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     if not await check_admin_access(chat_id):
         return
-
-    if str(chat_id) not in DEVELOPER_CHAT_IDS:
-        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
 
     parts = command.strip().split()
     days = 7
@@ -1274,13 +1271,10 @@ async def handle_metrics_command(chat_id: int, command: str, username: str = "",
     await send_telegram_document(chat_id, csv_data, f"metrics_{days}_days.csv")
 
 
-@cmd_router.bind("/setbudget", requires_admin=True, task_route="worker/handle-setbudget", loading_text="⏳ กำลังตั้งค่างบประมาณ...")
+@cmd_router.bind("/setbudget", requires_admin=True, audit_log=True, task_route="worker/handle-setbudget", loading_text="⏳ กำลังตั้งค่างบประมาณ...")
 async def handle_setbudget_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     if not await check_admin_access(chat_id):
         return
-
-    if str(chat_id) not in DEVELOPER_CHAT_IDS:
-        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
 
     parts = command.strip().split()
     if len(parts) < 2:
@@ -1311,7 +1305,7 @@ async def handle_setbudget_command(chat_id: int, command: str, username: str = "
         )
 
 
-@cmd_router.bind("/tmd_fallback", requires_admin=True, task_route="worker/handle-tmd-fallback", loading_text="⏳ กำลังสลับระบบข้อมูล...")
+@cmd_router.bind("/tmd_fallback", requires_admin=True, audit_log=True, task_route="worker/handle-tmd-fallback", loading_text="⏳ กำลังสลับระบบข้อมูล...")
 async def handle_tmd_fallback_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     """
     /tmd_fallback on
@@ -1319,9 +1313,6 @@ async def handle_tmd_fallback_command(chat_id: int, command: str, username: str 
     """
     if not await check_admin_access(chat_id):
         return
-
-    if str(chat_id) not in DEVELOPER_CHAT_IDS:
-        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
 
     parts = command.strip().split()
     if len(parts) < 2:
@@ -1352,13 +1343,10 @@ async def handle_tmd_fallback_command(chat_id: int, command: str, username: str 
     )
 
 
-@cmd_router.bind("/devmock", requires_admin=True, task_route="worker/handle-devmock", loading_text="⏳ กำลังเข้าสู่ DevMock Mode...")
+@cmd_router.bind("/devmock", requires_admin=True, audit_log=True, task_route="worker/handle-devmock", loading_text="⏳ กำลังเข้าสู่ DevMock Mode...")
 async def handle_devmock_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     if not await check_admin_access(chat_id):
         return
-
-    if str(chat_id) not in DEVELOPER_CHAT_IDS:
-        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
 
     async with get_repo_context() as repo:
         if command == "/devmock rain":
@@ -2132,11 +2120,8 @@ async def handle_disable_public_access_command(chat_id: int, command: str, usern
     )
 
 
-@cmd_router.bind("/job", requires_admin=True, task_route="worker/handle-job", loading_text="⏳ กำลังจัดการสถานะ Scheduler Job...")
+@cmd_router.bind("/job", requires_admin=True, audit_log=True, task_route="worker/handle-job", loading_text="⏳ กำลังจัดการสถานะ Scheduler Job...")
 async def handle_job_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
-    if str(chat_id) not in DEVELOPER_CHAT_IDS:
-        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
-
     parts = command.strip().split()
     if len(parts) < 3:
         msg = "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณาใช้:\n`/job <pause|resume> <check-rain|fetch-radar|disasters-freq|disasters-infreq>`"
@@ -2182,11 +2167,8 @@ async def handle_job_command(chat_id: int, command: str, username: str = "", mes
     await _reply(chat_id, msg, message_id_to_edit)
 
 
-@cmd_router.bind("/status", requires_admin=True, task_route="worker/handle-status", loading_text="⏳ กำลังดึงข้อมูลสถานะระบบและ GCP...")
+@cmd_router.bind("/status", requires_admin=True, audit_log=True, task_route="worker/handle-status", loading_text="⏳ กำลังดึงข้อมูลสถานะระบบและ GCP...")
 async def handle_status_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
-    if str(chat_id) not in DEVELOPER_CHAT_IDS:
-        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
-
     project_id = os.getenv("GCP_PROJECT_ID", "fonmayang")
     region = os.getenv("GCP_LOCATION", "asia-southeast1")
 
@@ -2332,7 +2314,9 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
             check_admin_access_fn=check_admin_access,
             send_telegram_message_fn=send_telegram_message,
             send_telegram_message_return_id_fn=send_telegram_message_return_id,
-            enqueue_task_fn=tasks_svc.enqueue_task
+            enqueue_task_fn=tasks_svc.enqueue_task,
+            audit_log_fn=log_audit_event,
+            developer_chat_ids=set(DEVELOPER_CHAT_IDS),
         )
         if handled:
             return {"status": "ok"}
