@@ -27,10 +27,18 @@ async def test_setup_telegram_commands_production():
         commands = payload_data["commands"]
         command_names = [c["command"] for c in commands]
         
-        # Should have rain, check, lock
+        # Should have rain, check, lock, and other newly registered commands
         assert "rain" in command_names
         assert "check" in command_names
         assert "lock" in command_names
+        assert "radar" in command_names
+        assert "mylocation" in command_names
+        assert "unlock" in command_names
+        assert "bypass" in command_names
+        assert "bypass_logout" in command_names
+        assert "metrics" in command_names
+        assert "setbudget" in command_names
+        assert "tmd_fallback" in command_names
         # Should NOT have devmock
         assert "devmock" not in command_names
 
@@ -57,10 +65,13 @@ async def test_setup_telegram_commands_development():
         commands = payload_data["commands"]
         command_names = [c["command"] for c in commands]
         
-        # Should have rain, check, lock AND devmock
+        # Should have rain, check, lock AND devmock and others
         assert "rain" in command_names
         assert "check" in command_names
         assert "lock" in command_names
+        assert "radar" in command_names
+        assert "mylocation" in command_names
+        assert "unlock" in command_names
         assert "devmock" in command_names
 
 @respx.mock

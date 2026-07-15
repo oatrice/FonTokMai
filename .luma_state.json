@@ -20,6 +20,15 @@
       "project_item_id": "GLAB_174",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 175,
+      "title": "Adjust cloud polygon drawing area to cover each cloud chunk specifically",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/175",
+      "body": null,
+      "project_item_id": "GLAB_175",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
     }
   ],
   "active_branch": "feat/165-bind-command-bind-zcode",
@@ -36,16 +45,31 @@
       ],
       "changed_files": [
         "backend/app/main.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/routers/worker.py",
+        "backend/app/services/command_router.py",
         "backend/app/services/telegram.py",
+        "backend/app/services/tmd_radar_processor.py",
+        "backend/tests/test_command_router.py",
+        "backend/tests/test_output.png",
         "backend/tests/test_telegram_commands.py",
+        "backend/tests/test_tmd_processor.py",
+        "backend/tests/test_webhook_architecture.py",
+        "backend/tests/tracking_test.png",
         "luma_metrics.json",
-        "luma_state.json"
+        "luma_state.json",
+        "update_global_agents.py"
       ],
       "meaningful_files": [
         "backend/app/main.py",
+        "backend/app/routers/webhook.py",
+        "backend/app/routers/worker.py",
+        "backend/app/services/command_router.py",
         "backend/app/services/telegram.py",
+        "backend/app/services/tmd_radar_processor.py",
         "luma_metrics.json",
-        "luma_state.json"
+        "luma_state.json",
+        "update_global_agents.py"
       ],
       "version_file": "VERSION",
       "has_meaningful_changes": true
@@ -119,5 +143,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-15T20:09:30.075777"
+  "last_updated": "2026-07-15T21:35:11.071432"
 }
