@@ -2122,6 +2122,94 @@ async def handle_bypass_login_command(chat_id: int, command: str, username: str 
         await send_telegram_message(chat_id, "❌ รหัสผ่านไม่ถูกต้อง")
 
 
+@cmd_router.bind("/restore_public_access", requires_admin=True, task_route="worker/handle-restore-public-access", loading_text="⏳ กำลังกู้คืนสิทธิ์ Public Access ให้กับ API...")
+async def handle_restore_public_access_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
+    import subprocess
+    import os
+    
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
+
+    try:
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../scripts/restore_public_access.sh")
+        result = subprocess.run(["bash", script_path], capture_output=True, text=True, cwd=os.path.dirname(script_path))
+        if result.returncode == 0:
+            msg = "✅ กู้คืนสิทธิ์ Public Access ให้กับ fontokmai-api สำเร็จแล้วครับ"
+        else:
+            msg = f"❌ เกิดข้อผิดพลาดในการรันสคริปต์ (Exit code: {result.returncode})\nError: {result.stderr or result.stdout}"
+    except Exception as e:
+        msg = f"❌ เกิดข้อผิดพลาดในระบบ: {e}"
+
+    if message_id_to_edit:
+        await edit_telegram_message(chat_id, message_id_to_edit, msg)
+    else:
+        await send_telegram_message(chat_id, msg)
+
+
+@cmd_router.bind("/job", requires_admin=True, task_route="worker/handle-job", loading_text="⏳ กำลังจัดการสถานะ Scheduler Job...")
+async def handle_job_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
+    import subprocess
+    
+    if str(chat_id) not in DEVELOPER_CHAT_IDS:
+        log_audit_event("admin_command_executed", chat_id, username, {"command": command})
+
+    parts = command.strip().split()
+    if len(parts) < 3:
+        msg = "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณาใช้:\n`/job <pause|resume> <check-rain|fetch-radar|disasters-freq|disasters-infreq>`"
+        if message_id_to_edit:
+            await edit_telegram_message(chat_id, message_id_to_edit, msg)
+        else:
+            await send_telegram_message(chat_id, msg)
+        return
+
+    action = parts[1].lower()
+    job_key = parts[2].lower()
+
+    if action not in ("pause", "resume"):
+        msg = "❌ Action ไม่ถูกต้อง ต้องเป็น `pause` หรือ `resume` เท่านั้น"
+        if message_id_to_edit:
+            await edit_telegram_message(chat_id, message_id_to_edit, msg)
+        else:
+            await send_telegram_message(chat_id, msg)
+        return
+
+    job_mapping = {
+        "check-rain": "fonmayang-check-rain",
+        "fetch-radar": "fonmayang-fetch-radar",
+        "disasters-freq": "fonmayang-disasters-freq",
+        "disasters-infreq": "fonmayang-disasters-infreq",
+    }
+
+    job_name = job_mapping.get(job_key)
+    if not job_name:
+        msg = f"❌ ไม่พบ Job ชื่อ '{job_key}' ในระบบ"
+        if message_id_to_edit:
+            await edit_telegram_message(chat_id, message_id_to_edit, msg)
+        else:
+            await send_telegram_message(chat_id, msg)
+        return
+
+    import os
+    project_id = os.getenv("GCP_PROJECT_ID", "fonmayang")
+    region = os.getenv("GCP_LOCATION", "asia-southeast1")
+
+    try:
+        cmd_args = ["gcloud", "scheduler", "jobs", action, job_name, f"--project={project_id}", f"--location={region}", "--quiet"]
+        result = subprocess.run(cmd_args, capture_output=True, text=True)
+        if result.returncode == 0:
+            status_emoji = "⏸️" if action == "pause" else "▶️"
+            msg = f"{status_emoji} จัดการสถานะ Job {job_name} เป็น {action.upper()} สำเร็จแล้วครับ"
+        else:
+            msg = f"❌ เกิดข้อผิดพลาดจาก gcloud API (Exit code: {result.returncode})\nError: {result.stderr or result.stdout}"
+    except Exception as e:
+        msg = f"❌ เกิดข้อผิดพลาดในการรันคำสั่ง: {e}"
+
+    if message_id_to_edit:
+        await edit_telegram_message(chat_id, message_id_to_edit, msg)
+    else:
+        await send_telegram_message(chat_id, msg)
+
+
 async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundTasks):
     payload = await request.json()
 

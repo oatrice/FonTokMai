@@ -27,7 +27,6 @@ async def test_setup_telegram_commands_production():
         commands = payload_data["commands"]
         command_names = [c["command"] for c in commands]
         
-        # Should have rain, check, lock, and other newly registered commands
         assert "rain" in command_names
         assert "check" in command_names
         assert "lock" in command_names
@@ -39,6 +38,8 @@ async def test_setup_telegram_commands_production():
         assert "metrics" in command_names
         assert "setbudget" in command_names
         assert "tmd_fallback" in command_names
+        assert "restore_public_access" in command_names
+        assert "job" in command_names
         # Should NOT have devmock
         assert "devmock" not in command_names
 

@@ -226,3 +226,26 @@ async def worker_handle_tmd_fallback(payload: AdminCommandPayload):
     except Exception as e:
         logger.error(f"Worker failed handle_tmd_fallback: {e}")
         return {"status": "error", "message": str(e)}
+
+
+@router.post("/handle-restore-public-access")
+async def worker_handle_restore_public_access(payload: AdminCommandPayload):
+    try:
+        from app.routers.webhook import handle_restore_public_access_command
+        await handle_restore_public_access_command(payload.chat_id, payload.command, payload.username, payload.message_id_to_edit)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed handle_restore_public_access: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/handle-job")
+async def worker_handle_job(payload: AdminCommandPayload):
+    try:
+        from app.routers.webhook import handle_job_command
+        await handle_job_command(payload.chat_id, payload.command, payload.username, payload.message_id_to_edit)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed handle_job: {e}")
+        return {"status": "error", "message": str(e)}
+

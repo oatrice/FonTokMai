@@ -245,6 +245,8 @@ async def setup_telegram_commands() -> bool:
         {"command": "metrics", "description": "ดึงข้อมูลสถิติระบบ (สำหรับแอดมิน)"},
         {"command": "setbudget", "description": "ตั้งค่างบประมาณ GCP (สำหรับแอดมิน)"},
         {"command": "tmd_fallback", "description": "สลับแหล่งข้อมูลฝนสำรอง (สำหรับแอดมิน)"},
+        {"command": "restore_public_access", "description": "กู้คืนสิทธิ์ Public Access ให้กับ API (สำหรับแอดมิน)"},
+        {"command": "job", "description": "จัดการสถานะ Scheduler Job (สำหรับแอดมิน)"},
     ]
     if is_dev:
         commands.append({"command": "devmock", "description": "Mock ข้อมูลสำหรับการทดสอบ"})
