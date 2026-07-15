@@ -237,25 +237,29 @@ async def setup_telegram_commands() -> bool:
     """
     is_dev = os.getenv("ENVIRONMENT", "production").lower() == "development"
     
+    # Public commands suggested to all users
     commands = [
         {"command": "rain", "description": "เช็คพิกัดกลุ่มฝนล่าสุด"},
         {"command": "check", "description": "เช็คพิกัดเรดาร์ฝน (Shorthand)"},
         {"command": "radar", "description": "แสดงแหล่งข้อมูลเรดาร์ฝนภายนอก"},
         {"command": "mylocation", "description": "แสดงรายการพิกัดพื้นที่ทั้งหมดของคุณ"},
-        {"command": "lock", "description": "ล็อคเป้าก้อนเมฆแมนนวล"},
-        {"command": "unlock", "description": "ปลดล็อคพื้นที่แจ้งเตือน"},
-        {"command": "bypass", "description": "เข้าสู่โหมด Emergency Admin Bypass"},
-        {"command": "bypass_logout", "description": "ออกจากโหมด Emergency Admin Bypass"},
-        {"command": "metrics", "description": "ดึงข้อมูลสถิติระบบ (สำหรับแอดมิน)"},
-        {"command": "setbudget", "description": "ตั้งค่างบประมาณ GCP (สำหรับแอดมิน)"},
-        {"command": "tmd_fallback", "description": "สลับแหล่งข้อมูลฝนสำรอง (สำหรับแอดมิน)"},
-        {"command": "restore_public_access", "description": "กู้คืนสิทธิ์ Public Access ให้กับ API (สำหรับแอดมิน)"},
-        {"command": "disable_public_access", "description": "ยกเลิกสิทธิ์ Public Access (โหมด Private) (สำหรับแอดมิน)"},
-        {"command": "job", "description": "จัดการสถานะ Scheduler Job (สำหรับแอดมิน)"},
-        {"command": "status", "description": "ตรวจสอบสถานะระบบหลังบ้านและ GCP (สำหรับแอดมิน)"},
     ]
+    
     if is_dev:
-        commands.append({"command": "devmock", "description": "Mock ข้อมูลสำหรับการทดสอบ"})
+        commands.extend([
+            {"command": "lock", "description": "ล็อคเป้าก้อนเมฆแมนนวล"},
+            {"command": "unlock", "description": "ปลดล็อคพื้นที่แจ้งเตือน"},
+            {"command": "bypass", "description": "เข้าสู่โหมด Emergency Admin Bypass"},
+            {"command": "bypass_logout", "description": "ออกจากโหมด Emergency Admin Bypass"},
+            {"command": "metrics", "description": "ดึงข้อมูลสถิติระบบ (สำหรับแอดมิน)"},
+            {"command": "setbudget", "description": "ตั้งค่างบประมาณ GCP (สำหรับแอดมิน)"},
+            {"command": "tmd_fallback", "description": "สลับแหล่งข้อมูลฝนสำรอง (สำหรับแอดมิน)"},
+            {"command": "restore_public_access", "description": "กู้คืนสิทธิ์ Public Access ให้กับ API (สำหรับแอดมิน)"},
+            {"command": "disable_public_access", "description": "ยกเลิกสิทธิ์ Public Access (โหมด Private) (สำหรับแอดมิน)"},
+            {"command": "job", "description": "จัดการสถานะ Scheduler Job (สำหรับแอดมิน)"},
+            {"command": "status", "description": "ตรวจสอบสถานะระบบหลังบ้านและ GCP (สำหรับแอดมิน)"},
+            {"command": "devmock", "description": "Mock ข้อมูลสำหรับการทดสอบ"},
+        ])
         
     token = os.getenv("TELEGRAM_BOT_TOKEN", "mock_token")
     url = f"https://api.telegram.org/bot{token}/setMyCommands"

@@ -29,20 +29,21 @@ async def test_setup_telegram_commands_production():
         
         assert "rain" in command_names
         assert "check" in command_names
-        assert "lock" in command_names
         assert "radar" in command_names
         assert "mylocation" in command_names
-        assert "unlock" in command_names
-        assert "bypass" in command_names
-        assert "bypass_logout" in command_names
-        assert "metrics" in command_names
-        assert "setbudget" in command_names
-        assert "tmd_fallback" in command_names
-        assert "restore_public_access" in command_names
-        assert "disable_public_access" in command_names
-        assert "job" in command_names
-        assert "status" in command_names
-        # Should NOT have devmock
+        
+        # Admin / Dev commands should NOT be in the production list
+        assert "lock" not in command_names
+        assert "unlock" not in command_names
+        assert "bypass" not in command_names
+        assert "bypass_logout" not in command_names
+        assert "metrics" not in command_names
+        assert "setbudget" not in command_names
+        assert "tmd_fallback" not in command_names
+        assert "restore_public_access" not in command_names
+        assert "disable_public_access" not in command_names
+        assert "job" not in command_names
+        assert "status" not in command_names
         assert "devmock" not in command_names
 
 @respx.mock
