@@ -11,6 +11,15 @@
       "project_item_id": "GLAB_165",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
+    },
+    {
+      "number": 174,
+      "title": "Improve Telegram Bot response latency (Immediate Acknowledgment & Background Processing)",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/174",
+      "body": null,
+      "project_item_id": "GLAB_174",
+      "project_id": null,
+      "repository": "oatricedev/FonMaYang"
     }
   ],
   "active_branch": "feat/165-bind-command-bind-zcode",
@@ -26,11 +35,15 @@
         "VERSION"
       ],
       "changed_files": [
-        "luma/prompts/prompt_20260715_062459_5b786cd3.md",
+        "backend/app/main.py",
+        "backend/app/services/telegram.py",
+        "backend/tests/test_telegram_commands.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/app/main.py",
+        "backend/app/services/telegram.py",
         "luma_metrics.json",
         "luma_state.json"
       ],
@@ -106,5 +119,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-15T13:25:12.312781"
+  "last_updated": "2026-07-15T20:09:30.075777"
 }

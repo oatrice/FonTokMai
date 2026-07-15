@@ -149,3 +149,77 @@ async def worker_handle_devmock(payload: CommandPayload):
         logger.error(f"Worker failed handle_devmock: {e}")
         return {"status": "error", "message": str(e)}
 
+
+class CallbackPayload(BaseModel):
+    callback_query: dict
+    already_answered: bool = False
+
+@router.post("/handle-callback")
+async def worker_handle_callback(payload: CallbackPayload):
+    try:
+        from app.routers.webhook import handle_callback_query
+        await handle_callback_query(payload.callback_query, payload.already_answered)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed handle_callback: {e}")
+        return {"status": "error", "message": str(e)}
+
+class CommandWithMsgIdPayload(BaseModel):
+    chat_id: int
+    command: str
+    message_id_to_edit: Optional[int] = None
+
+@router.post("/handle-lock")
+async def worker_handle_lock(payload: CommandWithMsgIdPayload):
+    try:
+        from app.routers.webhook import handle_lock_command
+        await handle_lock_command(payload.chat_id, payload.command, payload.message_id_to_edit)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed handle_lock: {e}")
+        return {"status": "error", "message": str(e)}
+
+@router.post("/handle-unlock")
+async def worker_handle_unlock(payload: CommandWithMsgIdPayload):
+    try:
+        from app.routers.webhook import handle_unlock_command
+        await handle_unlock_command(payload.chat_id, payload.command, payload.message_id_to_edit)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed handle_unlock: {e}")
+        return {"status": "error", "message": str(e)}
+
+class AdminCommandPayload(BaseModel):
+    chat_id: int
+    command: str
+    username: str = ""
+
+@router.post("/handle-metrics")
+async def worker_handle_metrics(payload: AdminCommandPayload):
+    try:
+        from app.routers.webhook import handle_metrics_command
+        await handle_metrics_command(payload.chat_id, payload.command, payload.username)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed handle_metrics: {e}")
+        return {"status": "error", "message": str(e)}
+
+@router.post("/handle-setbudget")
+async def worker_handle_setbudget(payload: AdminCommandPayload):
+    try:
+        from app.routers.webhook import handle_setbudget_command
+        await handle_setbudget_command(payload.chat_id, payload.command, payload.username)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed handle_setbudget: {e}")
+        return {"status": "error", "message": str(e)}
+
+@router.post("/handle-tmd-fallback")
+async def worker_handle_tmd_fallback(payload: AdminCommandPayload):
+    try:
+        from app.routers.webhook import handle_tmd_fallback_command
+        await handle_tmd_fallback_command(payload.chat_id, payload.command, payload.username)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed handle_tmd_fallback: {e}")
+        return {"status": "error", "message": str(e)}

@@ -397,7 +397,7 @@ async def process_telegram_location(
             logger.error(f"Failed to send fallback error message: {inner_e}")
 
 
-async def handle_callback_query(callback_query: dict):
+async def handle_callback_query(callback_query: dict, already_answered: bool = False):
     query_id = callback_query.get("id")
     from_user = callback_query.get("from", {})
     chat_id = from_user.get("id")
@@ -597,7 +597,8 @@ async def handle_callback_query(callback_query: dict):
                 
                 loading_msg_id = await send_telegram_message_return_id(chat_id, f"⏳ กำลังประมวลผลสภาพอากาศด้วย {provider}...")
                 await process_telegram_location(chat_id, lat, lng, force_endpoint=provider, message_id_to_edit=loading_msg_id)
-                await answer_callback_query(query_id)
+                if not already_answered:
+                    await answer_callback_query(query_id)
             except ValueError:
                 logger.error("Invalid lat/lng in force_api")
 
@@ -719,13 +720,15 @@ async def handle_callback_query(callback_query: dict):
                 
                 await edit_telegram_message(chat_id, message_id, text, reply_markup=reply_markup)
                 
-                await answer_callback_query(query_id)
+                if not already_answered:
+                    await answer_callback_query(query_id)
                 
             except Exception as e:
                 logger.error(f"Error handling compare_api: {e}")
                 answer_text = "เกิดข้อผิดพลาดในการดึงข้อมูลเปรียบเทียบ"
 
-    await answer_callback_query(query_id, text=answer_text)
+    if not already_answered:
+        await answer_callback_query(query_id, text=answer_text)
     
     async with httpx.AsyncClient() as client:
         # ลบ Inline Keyboard (เฉพาะ action ที่เกี่ยวกับ location ไม่ใช่ raw/switch)
@@ -737,7 +740,7 @@ async def handle_callback_query(callback_query: dict):
             })
 
 
-async def handle_lock_command(chat_id: int, command: str):
+async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: int = None):
     import re
     cx, cy = None, None
     grid_lbl = None
@@ -748,19 +751,25 @@ async def handle_lock_command(chat_id: int, command: str):
         async with get_repo_context() as repo:
             locs = await repo.get_user_locations(chat_id)
             if not locs:
-                await send_telegram_message(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ กรุณาส่งพิกัดก่อนใช้งานคำสั่งนี้")
+                if message_id_to_edit:
+                    await edit_telegram_message(chat_id, message_id_to_edit, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ กรุณาส่งพิกัดก่อนใช้งานคำสั่งนี้")
+                else:
+                    await send_telegram_message(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ กรุณาส่งพิกัดก่อนใช้งานคำสั่งนี้")
                 return
             
             raw_args = command.removeprefix("/lock").strip()
             args = raw_args.split()
             if not args:
-                await send_telegram_message(
-                    chat_id, 
+                error_msg = (
                     "⚠️ รูปแบบคำสั่งไม่ถูกต้อง\n"
                     "กรุณาใช้:\n"
                     "- ล็อคช่องตาราง: `/lock [ชื่อพิกัด] D2` หรือ `/lock D2`\n"
                     "- ล็อคพิกัดจริง: `/lock [ชื่อพิกัด] 13.75 100.5` หรือ `/lock 13.75 100.5`"
                 )
+                if message_id_to_edit:
+                    await edit_telegram_message(chat_id, message_id_to_edit, error_msg)
+                else:
+                    await send_telegram_message(chat_id, error_msg)
                 return
                 
             first_arg = args[0].lower()
@@ -828,14 +837,17 @@ async def handle_lock_command(chat_id: int, command: str):
         else:
             parts = re.findall(r"[-+]?\d*\.\d+|\d+", target_str)
             if len(parts) < 2:
-                await send_telegram_message(
-                    chat_id, 
+                error_msg = (
                     "⚠️ รูปแบบตัวชี้เป้าไม่ถูกต้อง\n"
                     "กรุณาใช้:\n"
                     "- ล็อคกลุ่มฝน: `/lock [ชื่อพิกัด] A` หรือ `/lock A`\n"
                     "- ล็อคช่องตาราง: `/lock [ชื่อพิกัด] D4`\n"
                     "- ล็อคพิกัดจริง: `/lock [ชื่อพิกัด] 13.75 100.5`"
                 )
+                if message_id_to_edit:
+                    await edit_telegram_message(chat_id, message_id_to_edit, error_msg)
+                else:
+                    await send_telegram_message(chat_id, error_msg)
                 return
             
             val1 = float(parts[0])
@@ -892,7 +904,10 @@ async def handle_lock_command(chat_id: int, command: str):
                     break
 
         if processor is None or station_code is None:
-            await send_telegram_message(chat_id, "⚠️ พิกัดหลักอยู่นอกขอบเขตของแผนที่เรดาร์")
+            if message_id_to_edit:
+                await edit_telegram_message(chat_id, message_id_to_edit, "⚠️ พิกัดหลักอยู่นอกขอบเขตของแผนที่เรดาร์")
+            else:
+                await send_telegram_message(chat_id, "⚠️ พิกัดหลักอยู่นอกขอบเขตของแผนที่เรดาร์")
             return
 
         if not grid_lbl and "parts" in locals() and len(parts) >= 2:
@@ -972,10 +987,11 @@ async def handle_lock_command(chat_id: int, command: str):
                     vx = float(flow[cy, cx, 0])
                     vy = float(flow[cy, cx, 1])
                 else:
-                    await send_telegram_message(
-                        chat_id,
-                        f"⚠️ ไม่พบกลุ่มฝนป้ายกำกับ [{grid_lbl}] ในบริเวณรอบตัวคุณ หรือเมฆสลายตัวไปแล้ว"
-                    )
+                    error_msg = f"⚠️ ไม่พบกลุ่มฝนป้ายกำกับ [{grid_lbl}] ในบริเวณรอบตัวคุณ หรือเมฆสลายตัวไปแล้ว"
+                    if message_id_to_edit:
+                        await edit_telegram_message(chat_id, message_id_to_edit, error_msg)
+                    else:
+                        await send_telegram_message(chat_id, error_msg)
                     return
             else:
                 search_radius = 25
@@ -1011,7 +1027,10 @@ async def handle_lock_command(chat_id: int, command: str):
             peak_x, peak_y = cx, cy
 
         if cx is None or cy is None or not (0 <= cx < frame_w and 0 <= cy < frame_h):
-            await send_telegram_message(chat_id, "⚠️ พิกัดอยู่นอกขอบเขตของแผนที่เรดาร์")
+            if message_id_to_edit:
+                await edit_telegram_message(chat_id, message_id_to_edit, "⚠️ พิกัดอยู่นอกขอบเขตของแผนที่เรดาร์")
+            else:
+                await send_telegram_message(chat_id, "⚠️ พิกัดอยู่นอกขอบเขตของแผนที่เรดาร์")
             return
 
         eta_text = ""
@@ -1100,19 +1119,28 @@ async def handle_lock_command(chat_id: int, command: str):
                 success_msg += f"  {comparison_text}"
             success_msg += "\nระบบจะใช้ข้อมูลนี้ในการพยากรณ์รอบถัดไป"
         
-        await send_telegram_message(chat_id, success_msg)
+        if message_id_to_edit:
+            await edit_telegram_message(chat_id, message_id_to_edit, success_msg)
+        else:
+            await send_telegram_message(chat_id, success_msg)
         await process_telegram_location(chat_id, lat, lng, location_name=loc_name, is_lock_command=True)
     except Exception as e:
         logger.error(f"Error handling lock command: {e}")
-        await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
+        if message_id_to_edit:
+            await edit_telegram_message(chat_id, message_id_to_edit, f"❌ เกิดข้อผิดพลาด: {str(e)}")
+        else:
+            await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
 
 
-async def handle_unlock_command(chat_id: int, command: str):
+async def handle_unlock_command(chat_id: int, command: str, message_id_to_edit: int = None):
     try:
         async with get_repo_context() as repo:
             locs = await repo.get_user_locations(chat_id)
             if not locs:
-                await send_telegram_message(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ")
+                if message_id_to_edit:
+                    await edit_telegram_message(chat_id, message_id_to_edit, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ")
+                else:
+                    await send_telegram_message(chat_id, "⚠️ ไม่พบข้อมูลพิกัดหลักของคุณ")
                 return
                 
             arg = command.removeprefix("/unlock").strip().lower()
@@ -1149,11 +1177,18 @@ async def handle_unlock_command(chat_id: int, command: str):
             lat, lng = loc.latitude, loc.longitude
             loc_name = loc.name
             
-        await send_telegram_message(chat_id, f"🔓 ปลดล็อคกลุ่มฝน (Auto-track) ของ {loc_name.capitalize()} เรียบร้อยแล้ว")
+        success_msg = f"🔓 ปลดล็อคกลุ่มฝน (Auto-track) ของ {loc_name.capitalize()} เรียบร้อยแล้ว"
+        if message_id_to_edit:
+            await edit_telegram_message(chat_id, message_id_to_edit, success_msg)
+        else:
+            await send_telegram_message(chat_id, success_msg)
         await process_telegram_location(chat_id, lat, lng, location_name=loc_name, is_lock_command=True)
     except Exception as e:
         logger.error(f"Error handling unlock command: {e}")
-        await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
+        if message_id_to_edit:
+            await edit_telegram_message(chat_id, message_id_to_edit, f"❌ เกิดข้อผิดพลาด: {str(e)}")
+        else:
+            await send_telegram_message(chat_id, f"❌ เกิดข้อผิดพลาด: {str(e)}")
 
 
 async def handle_mylocation_command(chat_id: int):
@@ -2047,8 +2082,30 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
     payload = await request.json()
 
     if "callback_query" in payload:
-        await handle_callback_query(payload["callback_query"])
-        return {"status": "ok"}
+        callback_query = payload["callback_query"]
+        query_id = callback_query.get("id")
+        data = callback_query.get("data", "")
+        
+        is_heavy = data.startswith(("lock_target_", "unlock_target_", "switch_radar_", "switch_global_", "force_api_", "compare_api_", "raw_"))
+        
+        if is_heavy:
+            from app.services.telegram import answer_callback_query
+            toast_text = "กำลังประมวลผล..."
+            if data.startswith("lock_target_"): toast_text = "กำลังล็อคเป้ากลุ่มฝน..."
+            elif data.startswith("unlock_target_"): toast_text = "กำลังปลดล็อคกลุ่มฝน..."
+            elif data.startswith("switch_"): toast_text = "กำลังดึงข้อมูลใหม่..."
+            elif data.startswith("compare_api_"): toast_text = "กำลังดึงข้อมูลเปรียบเทียบ..."
+            
+            await answer_callback_query(query_id, text=toast_text)
+            
+            from app.services.cloud_tasks import CloudTasksService
+            tasks_svc = CloudTasksService()
+            if not await tasks_svc.enqueue_task("worker/handle-callback", {"callback_query": callback_query, "already_answered": True}):
+                background_tasks.add_task(handle_callback_query, callback_query, already_answered=True)
+            return {"status": "ok"}
+        else:
+            await handle_callback_query(callback_query)
+            return {"status": "ok"}
 
     if "message" in payload:
         message = payload["message"]
@@ -2134,11 +2191,15 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
             return {"status": "ok"}
 
         if text.startswith("/lock ") and chat_id:
-            background_tasks.add_task(handle_lock_command, chat_id, text)
+            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังประมวลผล...")
+            if not await tasks_svc.enqueue_task("worker/handle-lock", {"chat_id": chat_id, "command": text, "message_id_to_edit": loading_msg_id}):
+                background_tasks.add_task(handle_lock_command, chat_id, text, loading_msg_id)
             return {"status": "ok"}
             
         if text.startswith("/unlock") and chat_id:
-            background_tasks.add_task(handle_unlock_command, chat_id, text)
+            loading_msg_id = await send_telegram_message_return_id(chat_id, "⏳ กำลังประมวลผล...")
+            if not await tasks_svc.enqueue_task("worker/handle-unlock", {"chat_id": chat_id, "command": text, "message_id_to_edit": loading_msg_id}):
+                background_tasks.add_task(handle_unlock_command, chat_id, text, loading_msg_id)
             return {"status": "ok"}
 
         if text.startswith(("/rain", "/check", "/devmock", "/tmd_fallback", "/metrics", "/setbudget")) and chat_id:
@@ -2154,11 +2215,13 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
                     return {"status": "ok"}
 
         if text.startswith("/metrics") and chat_id:
-            background_tasks.add_task(handle_metrics_command, chat_id, text.strip(), username)
+            if not await tasks_svc.enqueue_task("worker/handle-metrics", {"chat_id": chat_id, "command": text.strip(), "username": username}):
+                background_tasks.add_task(handle_metrics_command, chat_id, text.strip(), username)
             return {"status": "ok"}
 
         if text.startswith("/setbudget") and chat_id:
-            background_tasks.add_task(handle_setbudget_command, chat_id, text.strip(), username)
+            if not await tasks_svc.enqueue_task("worker/handle-setbudget", {"chat_id": chat_id, "command": text.strip(), "username": username}):
+                background_tasks.add_task(handle_setbudget_command, chat_id, text.strip(), username)
             return {"status": "ok"}
 
         if text.startswith("/rain_pro") and chat_id:
@@ -2177,7 +2240,8 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
             return {"status": "ok"}
 
         if text.startswith("/tmd_fallback") and chat_id:
-            background_tasks.add_task(handle_tmd_fallback_command, chat_id, text.strip(), username)
+            if not await tasks_svc.enqueue_task("worker/handle-tmd-fallback", {"chat_id": chat_id, "command": text.strip(), "username": username}):
+                background_tasks.add_task(handle_tmd_fallback_command, chat_id, text.strip(), username)
             return {"status": "ok"}
 
         # /check — shorthand alias for /rain tmd-radar (for manual testing)
