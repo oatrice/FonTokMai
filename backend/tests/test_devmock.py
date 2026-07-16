@@ -180,6 +180,11 @@ async def test_scheduler_mock_state_injection():
                 "wind_speed_kmh": 20.0,
                 "endpoint": "tomorrow"
             }
+            mock_svc.get_advanced_alerts.return_value = {
+                "advisories": [],
+                "lightning": None,
+                "stormcell": None
+            }
             
             with patch("app.scheduler_tasks.send_telegram_message") as mock_send:
                 with patch("app.scheduler_tasks.fetch_tmd_radar_routine", new_callable=AsyncMock) as mock_fetch:

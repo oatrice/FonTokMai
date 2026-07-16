@@ -43,7 +43,7 @@ async def test_fetch_loop_gif_and_extract_frames():
     
     # Mock httpx and imageio
     with patch('httpx.AsyncClient.get', new_callable=AsyncMock) as mock_get:
-        mock_response = AsyncMock()
+        mock_response = MagicMock()
         mock_response.content = b"GIF89a_fake_gif_bytes"
         mock_response.status_code = 200
         mock_get.return_value = mock_response
