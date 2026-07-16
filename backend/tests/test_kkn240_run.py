@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 async def main():
     # 1. Download target GIF (New image link)
-    url = "https://firebasestorage.googleapis.com/v0/b/fonmayang.firebasestorage.app/o/radar%2Fkkn240%2Fkkn240_1784172338.gif?alt=media&token=156af8a6-4a55-4e94-a59b-39dd7cd461c4"
+    url = "https://firebasestorage.googleapis.com/v0/b/fonmayang.firebasestorage.app/o/radar%2Fkkn240%2Fkkn240_1784173037.gif?alt=media&token=d5fd25cf-2fa0-4203-b2ce-9cab97c80f38"
     tests_dir = os.path.dirname(__file__)
     gif_path = os.path.join(tests_dir, "test_kkn240.gif")
     
