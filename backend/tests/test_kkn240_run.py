@@ -78,9 +78,10 @@ async def main():
             flow=flow,
             user_x=user_x,
             user_y=user_y,
-            scan_radius=200,
+            scan_radius=100,
             min_dbz=0.1,
-            cluster_dist=15
+            cluster_dist=15,
+            min_size=5
         )
         
         print("\n=== CLUSTER ANALYSIS (OFFLINE SCRIPT) ===")

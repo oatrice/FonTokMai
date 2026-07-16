@@ -320,6 +320,7 @@ class TMDClusteringMixin:
         scan_radius: int = 200,
         min_dbz: float = 10.0,
         cluster_dist: int = 25,
+        min_size: int = 5,
     ) -> list:
         """
         Scan a wide radius for ALL rain clusters (regardless of direction).
@@ -333,7 +334,9 @@ class TMDClusteringMixin:
             for dx in range(-scan_radius, scan_radius + 1, 1):
                 sx = user_x + dx
                 sy = user_y + dy
-                if sx < 0 or sx >= w or sy < 0 or sy >= h:
+                # Exclude the outer 80px margin where titles, scales, and legends reside
+                # to prevent map features/text from being misclassified as rain clusters.
+                if sx < 80 or sx >= w - 80 or sy < 80 or sy >= h - 80:
                     continue
                 d = TMDRadarProcessor._get_dbz_at_pixel_static(frame, sx, sy)
                 if d < min_dbz:
@@ -363,6 +366,9 @@ class TMDClusteringMixin:
                         used[j] = True
                         group.append(c2)
                         queue.append(c2)
+
+            if len(group) < min_size:
+                continue
 
             total_w = sum(g[4] for g in group)
             if total_w <= 0:

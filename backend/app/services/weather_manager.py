@@ -728,9 +728,10 @@ class WeatherManager:
                 all_rain_clusters = await asyncio.to_thread(
                     processor.get_all_rain_clusters,
                     curr_frame, flow, user_px, user_py,
-                    scan_radius=min(200, _cfg.get("search_radius", 80) * 2),
+                    scan_radius=_cfg.get("search_radius", 80) + 20,
                     min_dbz=0.1,  # Lower threshold so even light rain gets clustered and labeled
                     cluster_dist=25,
+                    min_size=5,
                 )
                 
                 # Label all_rain_clusters FIRST
