@@ -718,6 +718,7 @@ class TMDTrackingMixin:
         if not active_event:
             max_time = predictions[-1]["time_offset"]
             text = f"☀️ ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน {fmt_eta(max_time)}นี้"
+            locked_cloud_detail_shown = False  # True once locked cloud ETA is written to text
             if locked_target_id:
                 import re
                 if re.match(r'^([a-hA-H])([1-8])$', locked_target_id):
@@ -763,15 +764,22 @@ class TMDTrackingMixin:
                             context_str = "แต่คาดว่าแนวฝนจะเบี่ยงทิศทาง/สลายตัว หรือเคลื่อนผ่านใกล้เคียงโดยไม่ตกตรงตำแหน่งคุณ"
                             
                         text += f" (เนื่องจาก{target_desc} เคลื่อนที่เข้าหาตำแหน่งคุณ (ตามเส้นสีเขียว คาดว่าจะถึงในอีก {time_str} (เวลาประมาณ {clock_time_str})) {context_str}:{speed_text})"
+                        locked_cloud_detail_shown = True  # ETA shown — suppress duplicate ☁️ note
                     else:
                         text += f" (เนื่องจาก{target_desc} มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ:{speed_text})"
+                        locked_cloud_detail_shown = True  # cloud described — note would be redundant
                 else:
                     text += f" (เนื่องจาก{target_desc} ไม่มีกลุ่มฝนในตำแหน่งล็อกหรือสลายตัวไปแล้ว)"
             if approaching_clouds:
                 far_clouds = [c for c in approaching_clouds if c.get("eta_min", 0) > max_time]
                 if locked_target_id:
                     far_clouds = [c for c in far_clouds if c.get("label") == locked_target_id]
-                if far_clouds:
+                # Suppress the ☁️ note when the locked cloud was already fully described in the
+                # main text above. The note uses eta_min from approaching_clouds
+                # (find_approaching_clouds), while the main text uses eta_min from all_rain_clusters
+                # (get_all_rain_clusters). These systems cluster pixels differently, so their ETAs
+                # diverge — showing both creates a contradictory message.
+                if far_clouds and not locked_cloud_detail_shown:
                     soonest = min(far_clouds, key=lambda c: c.get("eta_min", 999))
                     eta_val = max(1.0, float(soonest["eta_min"]) - time_offset_min)
                     eta_h = int(eta_val // 60)
