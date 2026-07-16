@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 async def main():
     # 1. Download target GIF - Using the exact timestamp frame from the bot's logs (1784172600)
     # The URL pattern for GCS stored frames:
-    url = "https://firebasestorage.googleapis.com/v0/b/fonmayang.firebasestorage.app/o/radar%2Fkkn240%2Fkkn240_1784174333.gif?alt=media&token=e1979336-7064-4028-9361-da410e9d095b"
+    url = "https://firebasestorage.googleapis.com/v0/b/fonmayang.firebasestorage.app/o/radar%2Fkkn240%2Fkkn240_1784174781.gif?alt=media&token=12b0611e-51fd-4866-830a-9cf5cef86753"
     tests_dir = os.path.dirname(__file__)
     gif_path = os.path.join(tests_dir, "test_kkn240_latest.gif")
     
