@@ -3,7 +3,12 @@ from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 
-from app.scheduler_tasks import check_rain_and_alert
+from app.scheduler_tasks import (
+    check_rain_and_alert,
+    check_disasters_frequent_routine,
+    check_disasters_infrequent_routine,
+    fetch_tmd_radar_routine,
+)
 from app.models import UserLocation
 
 @pytest.fixture
@@ -487,8 +492,8 @@ async def test_check_rain_and_alert_line_platform(
 
 
 @pytest.mark.asyncio
-@patch("app.scheduler_tasks.fetch_usgs_geojson", new_callable=AsyncMock)
-@patch("app.scheduler_tasks.process_disaster_event", new_callable=AsyncMock)
+@patch("app.services.earthquake.fetch_usgs_geojson", new_callable=AsyncMock)
+@patch("app.services.disaster_manager.process_disaster_event", new_callable=AsyncMock)
 @patch("app.scheduler_tasks.get_repo_context")
 async def test_check_disasters_frequent_routine(mock_get_repo, mock_process_event, mock_fetch_usgs):
     mock_repo = AsyncMock()
@@ -507,8 +512,8 @@ async def test_check_disasters_frequent_routine(mock_get_repo, mock_process_even
 
 
 @pytest.mark.asyncio
-@patch("app.scheduler_tasks.XweatherService")
-@patch("app.scheduler_tasks.process_disaster_event", new_callable=AsyncMock)
+@patch("app.services.xweather.XweatherService")
+@patch("app.services.disaster_manager.process_disaster_event", new_callable=AsyncMock)
 @patch("app.scheduler_tasks.get_repo_context")
 async def test_check_disasters_infrequent_routine(mock_get_repo, mock_process_event, mock_xweather_class):
     mock_repo = AsyncMock()
@@ -535,8 +540,8 @@ async def test_check_disasters_infrequent_routine(mock_get_repo, mock_process_ev
 
 
 @pytest.mark.asyncio
-@patch("app.scheduler_tasks.TMDRadarProcessor")
-@patch("app.scheduler_tasks.MetricsService")
+@patch("app.services.tmd_radar_processor.TMDRadarProcessor")
+@patch("app.services.metrics_service.MetricsService")
 @patch("app.scheduler_tasks.get_repo_context")
 async def test_fetch_tmd_radar_routine(mock_get_repo, mock_metrics_class, mock_processor_class):
     mock_repo = AsyncMock()

@@ -21,24 +21,24 @@ async def fetch_usgs_geojson() -> list[Dict[str, Any]]:
         response.raise_for_status()
         data = response.json()
             
-            events = []
-            for feature in data.get("features", []):
-                props = feature.get("properties", {})
-                geom = feature.get("geometry", {})
-                
-                coords = geom.get("coordinates", [0, 0, 0]) # lon, lat, depth
-                
-                events.append({
-                    "id": feature.get("id"),
-                    "mag": props.get("mag"),
-                    "place": props.get("place"),
-                    "time": props.get("time"),
-                    "lat": coords[1] if len(coords) >= 2 else 0.0,
-                    "lng": coords[0] if len(coords) >= 2 else 0.0,
-                    "depth": coords[2] if len(coords) >= 3 else 0.0,
-                    "source": "USGS"
-                })
-            return events
+        events = []
+        for feature in data.get("features", []):
+            props = feature.get("properties", {})
+            geom = feature.get("geometry", {})
+            
+            coords = geom.get("coordinates", [0, 0, 0]) # lon, lat, depth
+            
+            events.append({
+                "id": feature.get("id"),
+                "mag": props.get("mag"),
+                "place": props.get("place"),
+                "time": props.get("time"),
+                "lat": coords[1] if len(coords) >= 2 else 0.0,
+                "lng": coords[0] if len(coords) >= 2 else 0.0,
+                "depth": coords[2] if len(coords) >= 3 else 0.0,
+                "source": "USGS"
+            })
+        return events
     except Exception as e:
         logger.error(f"Error fetching USGS GeoJSON: {e}")
         return []

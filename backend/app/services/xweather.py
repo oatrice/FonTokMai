@@ -4,6 +4,7 @@ import httpx
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
 from .weather_base import BaseWeatherService
+from app.dependencies import get_http_client
 
 logger = logging.getLogger(__name__)
 

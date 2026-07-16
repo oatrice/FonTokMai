@@ -18,6 +18,25 @@ logger = logging.getLogger(__name__)
 from app.routers.webhook_callbacks import handle_callback_query
 from app.routers.webhook_location import process_telegram_location
 from app.routers import webhook_commands, webhook_admin, webhook_devmock
+from app.routers.webhook_commands import (
+    handle_mylocation_command,
+    handle_radar_command,
+    handle_rain_command,
+    handle_lock_command,
+    handle_unlock_command,
+)
+from app.routers.webhook_admin import (
+    handle_metrics_command,
+    handle_setbudget_command,
+    handle_restore_public_access_command,
+    handle_disable_public_access_command,
+    handle_job_command,
+    handle_status_command,
+)
+from app.routers.webhook_devmock import (
+    handle_devmock_command,
+    handle_tmd_fallback_command,
+)
 
 
 

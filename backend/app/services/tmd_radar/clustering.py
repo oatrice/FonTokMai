@@ -326,6 +326,7 @@ class TMDClusteringMixin:
         Returns a list of dicts with cx, cy, vx, vy, dbz_now, eta_min, approaching.
         Used for the always-visible radar overlay (circles + arrows).
         """
+        from app.services.tmd_radar.processor import TMDRadarProcessor
         h, w = frame.shape[:2]
         candidates = []
         for dy in range(-scan_radius, scan_radius + 1, 1):

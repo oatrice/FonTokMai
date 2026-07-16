@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime, timezone
 
 from .weather_base import BaseWeatherService
+from app.dependencies import get_http_client
 
 logger = logging.getLogger(__name__)
 
