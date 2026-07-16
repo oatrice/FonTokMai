@@ -28,7 +28,7 @@ _DEV_CONFIG: dict = {
     "dot_threshold":  0.5,    # dot product threshold (how directly it must approach)
     "flow_mode":      "average", # 'latest' or 'average'
     "hit_radius":     8,      # radius around user to check for rain hits
-    "verbose":        False,  # Enable verbose debugging logs
+    "verbose":        True,   # Enable verbose debugging logs (DEBUG MODE — disable when done)
     "decay_enabled":  True,   # Whether to apply growth/decay rate to cloud extrapolation
     "prediction_steps": 7,    # Number of steps to predict forward (each 15 mins)
 }

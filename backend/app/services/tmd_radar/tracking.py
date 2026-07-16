@@ -426,6 +426,23 @@ class TMDTrackingMixin:
                 if c not in rendered_ambient:
                     rendered_ambient.append(c)
 
+            # ── Debug log: show every ambient cloud's centroid vs peak ──────────────
+            for _c in rendered_ambient:
+                _lbl  = _c.get('label', '?')
+                _ccx  = _c.get('cx', -1)
+                _ccy  = _c.get('cy', -1)
+                _pcx  = _c.get('peak_cx', _ccx)
+                _pcy  = _c.get('peak_cy', _ccy)
+                _dist = _c.get('dist', -1)
+                _npx  = len(_c.get('pixels', []))
+                _dbz  = _c.get('dbz_now', -1)
+                _drift = math.hypot(_pcx - _ccx, _pcy - _ccy)
+                logger.info(
+                    f"[AMBIENT_DBG] lbl={_lbl} centroid=({_ccx},{_ccy}) "
+                    f"peak=({_pcx},{_pcy}) drift={_drift:.1f}px "
+                    f"pixels={_npx} dbz={_dbz:.1f} dist_to_user={_dist:.1f}"
+                )
+
             for c_orig in rendered_ambient:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
                 if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
@@ -458,6 +475,38 @@ class TMDTrackingMixin:
                 # Obstacle bounding box at centroid (stable for label collision avoidance)
                 obs_r = int(10 * scale)
                 obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
+
+                # ── Visual debug overlay (verbose=True) ──────────────────────────
+                if _DEV_CONFIG.get("verbose"):
+                    _lbl_d = c_orig.get('label', '?')
+                    # Yellow dot = weighted centroid
+                    cv2.circle(img, (cx, cy), int(4 * scale), (0, 255, 255), -1)
+                    # Red dot = peak dBZ pixel
+                    cv2.circle(img, (pcx, pcy), int(4 * scale), (0, 0, 255), -1)
+                    # Cyan line: centroid → peak  (shows how far apart they are)
+                    if (pcx, pcy) != (cx, cy):
+                        cv2.line(img, (cx, cy), (pcx, pcy), (255, 255, 0), max(1, int(scale * 0.6)))
+                    # White bounding box around ALL pixels in this cluster
+                    _pixels = c_orig.get('pixels', [])
+                    if _pixels:
+                        _px_screen = [
+                            (int((p[0]-x1)*scale), int((p[1]-y1)*scale))
+                            for p in _pixels
+                            if 0 <= int((p[0]-x1)*scale) < img.shape[1]
+                            and 0 <= int((p[1]-y1)*scale) < img.shape[0]
+                        ]
+                        if _px_screen:
+                            _bx1 = min(p[0] for p in _px_screen)
+                            _by1 = min(p[1] for p in _px_screen)
+                            _bx2 = max(p[0] for p in _px_screen)
+                            _by2 = max(p[1] for p in _px_screen)
+                            cv2.rectangle(img, (_bx1, _by1), (_bx2, _by2), (255, 255, 255), max(1, int(scale * 0.5)))
+                    # Small label near centroid: "C cent" and near peak: "C peak"
+                    _fs = max(0.3, 0.32 * scale)
+                    cv2.putText(img, f"{_lbl_d}cent", (cx+int(3*scale), cy-int(5*scale)),
+                                cv2.FONT_HERSHEY_PLAIN, _fs, (0, 255, 255), 1, cv2.LINE_AA)
+                    cv2.putText(img, f"{_lbl_d}peak", (pcx+int(3*scale), pcy-int(5*scale)),
+                                cv2.FONT_HERSHEY_PLAIN, _fs, (0, 0, 255), 1, cv2.LINE_AA)
 
                 is_locked = locked_cluster is not None and c_orig is locked_cluster
                 if is_locked:
