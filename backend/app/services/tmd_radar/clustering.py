@@ -373,6 +373,14 @@ class TMDClusteringMixin:
             avg_vy = sum(g[3] for g in group) / len(group)
             dbz_now = max(g[4] for g in group)
 
+            # Peak-dBZ pixel: the single brightest point in this cluster.
+            # Used as the visual anchor for the dashed-circle marker so it lands
+            # on the convective core rather than the weighted centroid, which can
+            # be offset for asymmetric or large clusters.
+            peak_pixel = max(group, key=lambda g: g[4])
+            peak_cx = peak_pixel[0]
+            peak_cy = peak_pixel[1]
+
             v_mag = math.hypot(avg_vx, avg_vy)
             dist = math.hypot(cx - user_x, cy - user_y)
 
@@ -398,7 +406,8 @@ class TMDClusteringMixin:
             ymax = max(g[1] for g in group)
 
             clusters.append({
-                "cx": cx, "cy": cy,
+                "cx": cx, "cy": cy,           # weighted centroid — used for dedup, ETA, arrows
+                "peak_cx": peak_cx, "peak_cy": peak_cy,  # brightest pixel — used for visual marker
                 "vx": avg_vx, "vy": avg_vy,
                 "dbz_now": dbz_now,
                 "predicted_dbz": dbz_now,

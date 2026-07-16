@@ -430,28 +430,41 @@ class TMDTrackingMixin:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
                 if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
                     continue
+
+                # Centroid position — used for ETA/arrow/projection (computation-stable)
                 cx = int((cx_orig - x1) * scale)
                 cy = int((cy_orig - y1) * scale)
+
+                # Peak-dBZ position — used for the dashed-circle marker and label anchor
+                # so the circle lands on the convective core, not the weighted centroid.
+                # Falls back to centroid for far_approaching clouds that lack peak_cx.
+                peak_cx_orig = c_orig.get("peak_cx", cx_orig)
+                peak_cy_orig = c_orig.get("peak_cy", cy_orig)
+                pcx = int((peak_cx_orig - x1) * scale)
+                pcy = int((peak_cy_orig - y1) * scale)
+
                 dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
                 vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
 
                 color = _dbz_color(dbz)
+                # Draw dashed circle at PEAK (brightest pixel) position
                 for angle_deg in range(0, 360, 30):
                     a1 = math.radians(angle_deg)
                     a2 = math.radians(angle_deg + 20)
                     r = int(10 * scale)
-                    p1 = (int(cx + r * math.cos(a1)), int(cy + r * math.sin(a1)))
-                    p2 = (int(cx + r * math.cos(a2)), int(cy + r * math.sin(a2)))
+                    p1 = (int(pcx + r * math.cos(a1)), int(pcy + r * math.sin(a1)))
+                    p2 = (int(pcx + r * math.cos(a2)), int(pcy + r * math.sin(a2)))
                     cv2.line(img, p1, p2, color, int(scale * 0.8))
+                # Obstacle bounding box at centroid (stable for label collision avoidance)
                 obs_r = int(10 * scale)
                 obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
 
                 is_locked = locked_cluster is not None and c_orig is locked_cluster
                 if is_locked:
-                    cv2.circle(img, (cx, cy), int(20 * scale), (0, 0, 255), int(2 * scale))
-                    cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(25 * scale), int(2 * scale))
+                    cv2.circle(img, (pcx, pcy), int(20 * scale), (0, 0, 255), int(2 * scale))
+                    cv2.drawMarker(img, (pcx, pcy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(25 * scale), int(2 * scale))
                     
-                    # Draw a direct green line-of-sight path from locked cloud (cx, cy) to user (ux, uy)
+                    # Line-of-sight path from centroid to user (uses centroid for directional accuracy)
                     dist_to_user = math.hypot(ux - cx, uy - cy)
                     if dist_to_user > 10:
                         num_dots = int(dist_to_user / 8)
@@ -477,6 +490,7 @@ class TMDTrackingMixin:
                             else:
                                 cv2.line(img, (cx, cy), proj_pts[0], (0, 0, 255), int(1 * scale))
 
+                # Velocity arrow from centroid (direction/speed computation uses centroid)
                 vx_s = int(vx * scale * 2.5)
                 vy_s = int(vy * scale * 2.5)
                 v_mag = math.hypot(vx_s, vy_s)
@@ -488,8 +502,9 @@ class TMDTrackingMixin:
                     lbl = f"LOCKED[{locked_target_id}]"
                 txt = f"{lbl}: {int(dbz)}"
                 tw, th = int(55 * scale) if is_locked else int(45 * scale), int(12 * scale)
-                tx = cx - int(tw / 2)
-                ty = cy - int(16 * scale) - th
+                # Label positioned above the PEAK marker (so text sits on the bright spot)
+                tx = pcx - int(tw / 2)
+                ty = pcy - int(16 * scale) - th
                 
                 labels.append({
                     'text': txt,
@@ -500,8 +515,8 @@ class TMDTrackingMixin:
                     'cy': ty - th/2,
                     'ideal_cx': tx + tw/2,
                     'ideal_cy': ty - th/2,
-                    'anchor_x': cx,
-                    'anchor_y': cy,
+                    'anchor_x': pcx,   # anchor line drawn to peak
+                    'anchor_y': pcy,
                     'scale': 0.4 * scale,
                     'fg': (0, 0, 255) if is_locked else (200, 200, 200),
                     'bg': (255, 255, 255) if is_locked else (0, 0, 0)
