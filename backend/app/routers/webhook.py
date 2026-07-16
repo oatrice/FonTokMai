@@ -5,7 +5,7 @@ from app.services import telegram
 from app.services.command_router import router as cmd_router
 from app.routers.webhook_utils import (
     LAST_ACTIVE_LOCATION, LAST_PINNED_LOCATION,
-    log_audit_event, check_admin_access
+    check_admin_access
 )
 
 router = APIRouter(
@@ -153,8 +153,6 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
             send_telegram_message_fn=telegram.send_telegram_message,
             send_telegram_message_return_id_fn=telegram.send_telegram_message_return_id,
             enqueue_task_fn=tasks_svc.enqueue_task,
-            audit_log_fn=log_audit_event,
-            developer_chat_ids=set(telegram.DEVELOPER_CHAT_IDS),
         )
         if handled:
             return {"status": "ok"}

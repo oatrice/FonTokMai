@@ -11,10 +11,10 @@ class RainViewerService(BaseWeatherService):
         self.timeout = httpx.Timeout(10.0)
 
     async def get_current_radar_metadata(self) -> dict:
-        async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers) as client:
-            response = await client.get(self.API_URL)
-            response.raise_for_status()
-            data = response.json()
+        from app.dependencies import get_http_client
+        client = get_http_client()
+        response = await client.get(self.API_URL, headers=self.headers, timeout=self.timeout)
+        data = response.json()
             
             # Use the latest past radar frame
             latest_frame = data.get("radar", {}).get("past", [{}])[-1]

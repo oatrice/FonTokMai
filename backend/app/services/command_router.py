@@ -63,15 +63,10 @@ class TelegramCommandRouter:
         send_telegram_message_fn: Callable[[int, str], Any],
         send_telegram_message_return_id_fn: Callable[[int, str], Any],
         enqueue_task_fn: Callable[[str, dict], Any],
-        audit_log_fn: Optional[Callable] = None,
-        developer_chat_ids: Optional[set] = None,
     ) -> bool:
         """
         Dispatches the command to the registered handler.
         Returns True if a command was matched and handled, False otherwise.
-
-        audit_log_fn: callable(event_type, chat_id, username, details) for audit logging.
-        developer_chat_ids: set of chat_id strings that are exempt from audit logging.
         """
         match_result = self.match(text)
         if not match_result:
@@ -91,12 +86,6 @@ class TelegramCommandRouter:
                         "⚠️ ขออภัยครับ คำสั่งนี้ไม่เปิดให้ใช้งานในระบบปัจจุบัน"
                     )
                     return True
-
-        # 1b. Audit logging for admin commands (auto-handled here, not in handlers)
-        if config.get("audit_log") and audit_log_fn:
-            dev_ids = developer_chat_ids or set()
-            if str(chat_id) not in dev_ids:
-                audit_log_fn("admin_command_executed", chat_id, username, {"command": text})
 
         # 2. Immediate feedback loading message
         loading_msg_id = None

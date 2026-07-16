@@ -133,10 +133,10 @@ class OCRService:
             files = {
                 'file': ('radar.png', content, 'image/png')
             }
-            
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.post(url, data=payload, files=files)
-                result = response.json()
+            from app.dependencies import get_http_client
+            client = get_http_client()
+            response = await client.post(url, data=payload, files=files, timeout=10.0)
+            result = response.json()
                 
             if result.get("IsErroredOnProcessing"):
                 print(f"OCR.space Error: {result.get('ErrorMessage')}")

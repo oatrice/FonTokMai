@@ -485,3 +485,77 @@ async def test_check_rain_and_alert_line_platform(
     # 3. DB was updated
     mock_repo.update_last_alerted.assert_called_once()
 
+
+@pytest.mark.asyncio
+@patch("app.scheduler_tasks.fetch_usgs_geojson", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.process_disaster_event", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.get_repo_context")
+async def test_check_disasters_frequent_routine(mock_get_repo, mock_process_event, mock_fetch_usgs):
+    mock_repo = AsyncMock()
+    @asynccontextmanager
+    async def mock_context():
+        yield mock_repo
+    mock_get_repo.side_effect = mock_context
+    
+    mock_events = [{"id": "eq1", "lat": 13.0, "lng": 100.0, "mag": 5.0, "place": "Bangkok"}]
+    mock_fetch_usgs.return_value = mock_events
+    
+    await check_disasters_frequent_routine()
+    
+    mock_fetch_usgs.assert_called_once()
+    mock_process_event.assert_called_once_with(mock_repo, "earthquake", mock_events[0])
+
+
+@pytest.mark.asyncio
+@patch("app.scheduler_tasks.XweatherService")
+@patch("app.scheduler_tasks.process_disaster_event", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.get_repo_context")
+async def test_check_disasters_infrequent_routine(mock_get_repo, mock_process_event, mock_xweather_class):
+    mock_repo = AsyncMock()
+    @asynccontextmanager
+    async def mock_context():
+        yield mock_repo
+    mock_get_repo.side_effect = mock_context
+    
+    mock_xweather = mock_xweather_class.return_value
+    mock_cyclones = [{"id": "cy1", "name": "Stormy"}]
+    mock_fires = [{"id": "fire1", "name": "Forest Fire"}]
+    
+    mock_xweather.get_active_tropical_cyclones = AsyncMock(return_value=mock_cyclones)
+    mock_xweather.get_active_fires = AsyncMock(return_value=mock_fires)
+    
+    await check_disasters_infrequent_routine()
+    
+    mock_xweather.get_active_tropical_cyclones.assert_called_once()
+    mock_xweather.get_active_fires.assert_called_once()
+    
+    assert mock_process_event.call_count == 2
+    mock_process_event.assert_any_call(mock_repo, "cyclone", mock_cyclones[0])
+    mock_process_event.assert_any_call(mock_repo, "fire", mock_fires[0])
+
+
+@pytest.mark.asyncio
+@patch("app.scheduler_tasks.TMDRadarProcessor")
+@patch("app.scheduler_tasks.MetricsService")
+@patch("app.scheduler_tasks.get_repo_context")
+async def test_fetch_tmd_radar_routine(mock_get_repo, mock_metrics_class, mock_processor_class):
+    mock_repo = AsyncMock()
+    @asynccontextmanager
+    async def mock_context():
+        yield mock_repo
+    mock_get_repo.side_effect = mock_context
+    
+    mock_metrics = mock_metrics_class.return_value
+    mock_metrics.record_cron_run = AsyncMock()
+    
+    mock_processor = mock_processor_class.return_value
+    mock_processor.update_radar_cache = AsyncMock(return_value={"station": "mock", "updated": True})
+    
+    await fetch_tmd_radar_routine()
+    
+    # 3 stations: "kkn120", "kkn240", "skn240"
+    assert mock_processor_class.call_count == 3
+    assert mock_processor.update_radar_cache.call_count == 3
+    mock_metrics.record_cron_run.assert_called_once()
+
+

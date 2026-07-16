@@ -78,13 +78,14 @@ class TMDCacheMixin:
         """Fetches the latest static radar image (Polling method)."""
         import time
         url = f"{self.config.static_image_url}?t={int(time.time())}"
+        from app.dependencies import get_http_client
+        client = get_http_client()
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(url)
-                if response.status_code == 200:
-                    return response.content
-                else:
-                    logger.warning(f"[{self.station_code}] Failed to fetch static image: HTTP {response.status_code}")
+            response = await client.get(url, timeout=10.0)
+            if response.status_code == 200:
+                return response.content
+            else:
+                logger.warning(f"[{self.station_code}] Failed to fetch static image: HTTP {response.status_code}")
         except Exception as e:
             logger.error(f"[{self.station_code}] Exception in fetch_latest_image_bytes: {e}", exc_info=True)
         return None
@@ -106,30 +107,31 @@ class TMDCacheMixin:
                 )
                 return [], None, None
             url = f"{url}?t={int(time.time())}"
+            from app.dependencies import get_http_client
+            client = get_http_client()
             try:
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    response = await client.get(url)
-                    if response.status_code == 200:
-                        loop_bytes = response.content
-                        last_modified = response.headers.get("last-modified")
+                response = await client.get(url, timeout=30.0)
+                if response.status_code == 200:
+                    loop_bytes = response.content
+                    last_modified = response.headers.get("last-modified")
+                    
+                    try:
+                        php_url = f"https://weather.tmd.go.th/{self.station_code[:3]}.php?t={int(time.time())}"
+                        php_resp = await client.get(php_url, timeout=30.0)
+                        if php_resp.status_code == 200:
+                            dt = self.parse_html_timestamp(php_resp.text)
+                    except Exception as e:
+                        print(f"Error fetching exact timestamp from HTML: {e}")
                         
+                    if dt is None and last_modified:
                         try:
-                            php_url = f"https://weather.tmd.go.th/{self.station_code[:3]}.php?t={int(time.time())}"
-                            php_resp = await client.get(php_url)
-                            if php_resp.status_code == 200:
-                                dt = self.parse_html_timestamp(php_resp.text)
+                            dt = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
                         except Exception as e:
-                            print(f"Error fetching exact timestamp from HTML: {e}")
-                            
-                        if dt is None and last_modified:
-                            try:
-                                dt = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
-                            except Exception as e:
-                                print(f"Error parsing date: {e}")
-                    else:
-                        logger.warning(
-                            f"[{self.station_code}] Loop GIF URL returned HTTP {response.status_code}: {url}"
-                        )
+                            print(f"Error parsing date: {e}")
+                else:
+                    logger.warning(
+                        f"[{self.station_code}] Loop GIF URL returned HTTP {response.status_code}: {url}"
+                    )
             except Exception as e:
                 logger.error(f"[{self.station_code}] Error fetching loop gif: {e}")
 

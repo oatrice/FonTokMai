@@ -15,10 +15,11 @@ EMSC_WS_URL = os.getenv("EMSC_WS_URL", "wss://www.seismicportal.eu/standing_orde
 async def fetch_usgs_geojson() -> list[Dict[str, Any]]:
     """Fetch the latest earthquakes from USGS GeoJSON feed (past hour)."""
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(USGS_URL)
-            response.raise_for_status()
-            data = response.json()
+        from app.dependencies import get_http_client
+        client = get_http_client()
+        response = await client.get(USGS_URL, timeout=10.0)
+        response.raise_for_status()
+        data = response.json()
             
             events = []
             for feature in data.get("features", []):

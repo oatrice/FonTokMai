@@ -1,4 +1,5 @@
 import httpx
+from app.dependencies import get_http_client
 import os
 import logging
 import json
@@ -30,12 +31,12 @@ async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_
         payload["reply_markup"] = reply_markup
         
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(TELEGRAM_EDIT_MESSAGE_URL, json=payload)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        response = await client.post(TELEGRAM_EDIT_MESSAGE_URL, json=payload, timeout=30.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to edit telegram message {message_id} in {chat_id}: {type(e).__name__} - {e}")
         return False
@@ -46,12 +47,12 @@ async def answer_callback_query(callback_query_id: str, text: Optional[str] = No
     if text:
         payload["text"] = text
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(TELEGRAM_ANSWER_CB_URL, json=payload)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        response = await client.post(TELEGRAM_ANSWER_CB_URL, json=payload, timeout=10.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to answer callback query {callback_query_id}: {type(e).__name__} - {e}")
         return False
@@ -69,12 +70,12 @@ async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[
         payload["parse_mode"] = parse_mode
         
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(TELEGRAM_API_URL, json=payload)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        response = await client.post(TELEGRAM_API_URL, json=payload, timeout=30.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to send telegram message to {chat_id}: {type(e).__name__} - {e}")
         return False
@@ -92,13 +93,13 @@ async def send_telegram_message_return_id(chat_id: int, text: str, parse_mode: O
     if parse_mode:
         payload["parse_mode"] = parse_mode
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(TELEGRAM_API_URL, json=payload)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return None
-            data = response.json()
-            return data.get("result", {}).get("message_id")
+        client = get_http_client()
+        response = await client.post(TELEGRAM_API_URL, json=payload, timeout=30.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return None
+        data = response.json()
+        return data.get("result", {}).get("message_id")
     except Exception as e:
         logger.error(f"Failed to send telegram loading message to {chat_id}: {type(e).__name__} - {e}")
         return None
@@ -110,14 +111,14 @@ async def send_telegram_document(chat_id: int, file_data: bytes, filename: str) 
     Sends a document/animation to a specific Telegram chat_id.
     """
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            files = {"animation": (filename, file_data, "image/gif")}
-            data = {"chat_id": chat_id}
-            response = await client.post(TELEGRAM_SEND_ANIMATION_URL, data=data, files=files)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        files = {"animation": (filename, file_data, "image/gif")}
+        data = {"chat_id": chat_id}
+        response = await client.post(TELEGRAM_SEND_ANIMATION_URL, data=data, files=files, timeout=60.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to send telegram animation to {chat_id}: {e}")
         return False
@@ -127,14 +128,14 @@ async def send_telegram_raw_document(chat_id: int, file_data: bytes, filename: s
     Sends a file as an uncompressed document to a specific Telegram chat_id.
     """
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            files = {"document": (filename, file_data, "image/gif")}
-            data = {"chat_id": chat_id}
-            response = await client.post(TELEGRAM_SEND_DOC_URL, data=data, files=files)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        files = {"document": (filename, file_data, "image/gif")}
+        data = {"chat_id": chat_id}
+        response = await client.post(TELEGRAM_SEND_DOC_URL, data=data, files=files, timeout=60.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to send telegram raw document to {chat_id}: {e}")
         return False
@@ -144,14 +145,14 @@ async def send_telegram_photo(chat_id: int, photo_data: bytes, filename: str) ->
     Sends a photo to a specific Telegram chat_id.
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            files = {"photo": (filename, photo_data, "image/png")}
-            data = {"chat_id": chat_id}
-            response = await client.post(TELEGRAM_SEND_PHOTO_URL, data=data, files=files)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        files = {"photo": (filename, photo_data, "image/png")}
+        data = {"chat_id": chat_id}
+        response = await client.post(TELEGRAM_SEND_PHOTO_URL, data=data, files=files, timeout=30.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to send telegram photo to {chat_id}: {type(e).__name__} - {e}")
         return False
@@ -220,12 +221,12 @@ async def send_grouped_disaster_alert(chat_id: int, event_type: str, event_data:
     }
     
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(TELEGRAM_API_URL, json=payload)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        response = await client.post(TELEGRAM_API_URL, json=payload)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to send disaster alert to {chat_id}: {e}")
         return False
@@ -269,12 +270,12 @@ async def setup_telegram_commands() -> bool:
     }
     
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(url, json=payload)
-            if response.status_code != 200:
-                logger.warning(f"Telegram setMyCommands API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        response = await client.post(url, json=payload, timeout=30.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram setMyCommands API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to set Telegram commands: {type(e).__name__} - {e}")
         return False

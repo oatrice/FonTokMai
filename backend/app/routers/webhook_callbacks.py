@@ -336,11 +336,12 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
     if not already_answered:
         await telegram.answer_callback_query(query_id, text=answer_text)
     
-    async with httpx.AsyncClient() as client:
-        # ลบ Inline Keyboard
-        if message_id and not (data.startswith("raw_") or data.startswith("switch_")):
-            await client.post(TELEGRAM_EDIT_REPLY_MARKUP_URL, json={
-                "chat_id": chat_id,
-                "message_id": message_id,
-                "reply_markup": {"inline_keyboard": []}
-            })
+    from app.dependencies import get_http_client
+    client = get_http_client()
+    # ลบ Inline Keyboard
+    if message_id and not (data.startswith("raw_") or data.startswith("switch_")):
+        await client.post(TELEGRAM_EDIT_REPLY_MARKUP_URL, json={
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "reply_markup": {"inline_keyboard": []}
+        })

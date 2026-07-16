@@ -99,6 +99,8 @@ async def lifespan(app: FastAPI):
         logging.error(f"Failed to setup Telegram commands during startup: {e}")
     
     yield
+    from app.dependencies import close_http_client
+    await close_http_client()
 
 app = FastAPI(
     title="FonMaYang (RainNowcast) API",
@@ -106,6 +108,43 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+from fastapi import Request
+import json
+from app.routers.webhook_utils import log_audit_event
+from app.services.command_router import router as cmd_router
+from app.services.telegram import DEVELOPER_CHAT_IDS
+
+@app.middleware("http")
+async def telegram_webhook_audit_middleware(request: Request, call_next):
+    # Only run for the Telegram webhook endpoint
+    if request.url.path == "/api/v1/telegram/webhook" and request.method == "POST":
+        try:
+            body = await request.body()
+            # Cache the body in memory to allow downstream handlers to read it again
+            async def receive():
+                return {"type": "http.request", "body": body, "more_body": False}
+            request._receive = receive
+            
+            payload = json.loads(body)
+            if "message" in payload:
+                message = payload["message"]
+                text = message.get("text", "")
+                chat_id = message.get("chat", {}).get("id")
+                username = message.get("from", {}).get("username", "")
+                
+                if text and chat_id:
+                    match_result = cmd_router.match(text)
+                    if match_result:
+                        prefix, config = match_result
+                        if config.get("audit_log"):
+                            dev_ids = set(str(did) for did in DEVELOPER_CHAT_IDS)
+                            if str(chat_id) not in dev_ids:
+                                log_audit_event("admin_command_executed", chat_id, username, {"command": text})
+        except Exception as e:
+            logging.error(f"Error in telegram_webhook_audit_middleware: {e}")
+            
+    return await call_next(request)
 
 from app.routers import weather, webhook, scheduler, metrics, worker, budget_webhook, line_webhook
 
