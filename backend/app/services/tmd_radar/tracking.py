@@ -144,17 +144,46 @@ class TMDTrackingMixin:
             return None
 
         display_clouds = clouds or []
+
+        # Pre-compute which clouds will be drawn in the "incoming" contour style (eta <= 180 min).
+        # This must happen BEFORE building ambient_clouds so the dedup is scoped only to
+        # actually-drawn clouds, not the full display_clouds list.
+        # BUG-FIX: previously ambient_clouds deduped against ALL display_clouds, which caused
+        # far-approaching clusters (eta > 180) to be invisible in both incoming AND ambient.
+        _incoming_pre = [
+            c for c in display_clouds
+            if c.get("approaching", False) and -120 <= c.get("eta_min", 9999) <= 180
+        ]
+        _incoming_pre.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
+        _drawn_clouds = _incoming_pre[:3]  # The up-to-3 clouds rendered with full contour/circle
+
         ambient_clouds = [
             c for c in (all_rain_clusters or [])
             if not any(
                 math.hypot(c["cx"] - d["cx"], c["cy"] - d["cy"]) < 30
-                for d in display_clouds
+                for d in _drawn_clouds  # only exclude clusters already drawn in contour style
             )
         ] if all_rain_clusters else []
-        
+
+        # Far-approaching clouds (eta > 180 min) are excluded from incoming by the eta cap
+        # but must still appear in the image to match the text summary. Inject them into
+        # ambient_clouds so they render with the dashed-circle style and their label.
+        far_approaching = [
+            c for c in display_clouds
+            if c.get("approaching", False) and c.get("eta_min", 9999) > 180
+        ]
+        for fc in far_approaching:
+            if not any(math.hypot(fc["cx"] - a["cx"], fc["cy"] - a["cy"]) < 30 for a in ambient_clouds):
+                ambient_clouds.append(fc)
+
         from app.services.weather_manager import _DEV_CONFIG
+        logger.info(
+            f"[TRACKING_IMG] drawn_incoming={[c.get('label') for c in _drawn_clouds]}, "
+            f"ambient={[c.get('label') for c in ambient_clouds]}, "
+            f"far_approaching={[c.get('label') for c in far_approaching]}"
+        )
         if _DEV_CONFIG.get("verbose"):
-            logger.info(f"[TRACKING_IMG] Preparing to draw. display_clouds={len(display_clouds)}, ambient_clouds={len(ambient_clouds)}")
+            logger.info(f"[TRACKING_IMG] display_clouds={len(display_clouds)}, ambient_clouds={len(ambient_clouds)}, far_approaching={len(far_approaching)}")
         
         if frame is None or (not display_clouds and not ambient_clouds):
             return None
@@ -248,8 +277,8 @@ class TMDTrackingMixin:
                     #     last_labeled_pt = (cx, cy)
         
         if show_clouds:
-            incoming = [c for c in display_clouds if c.get("approaching", False) and -120 <= c.get("eta_min", 9999) <= 180]
-            incoming.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
+            # Re-use the pre-computed list (avoids redundant sort)
+            incoming = _incoming_pre
 
             all_cloud_refs = list(incoming[:3]) + list(ambient_clouds)
             locked_cluster = _resolve_locked_cluster(all_cloud_refs)
