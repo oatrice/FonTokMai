@@ -165,25 +165,13 @@ class TMDTrackingMixin:
             )
         ] if all_rain_clusters else []
 
-        # Far-approaching clouds (eta > 180 min) are excluded from incoming by the eta cap
-        # but must still appear in the image to match the text summary. Inject them into
-        # ambient_clouds so they render with the dashed-circle style and their label.
-        far_approaching = [
-            c for c in display_clouds
-            if c.get("approaching", False) and c.get("eta_min", 9999) > 180
-        ]
-        for fc in far_approaching:
-            if not any(math.hypot(fc["cx"] - a["cx"], fc["cy"] - a["cy"]) < 30 for a in ambient_clouds):
-                ambient_clouds.append(fc)
-
         from app.services.weather_manager import _DEV_CONFIG
         logger.info(
             f"[TRACKING_IMG] drawn_incoming={[c.get('label') for c in _drawn_clouds]}, "
-            f"ambient={[c.get('label') for c in ambient_clouds]}, "
-            f"far_approaching={[c.get('label') for c in far_approaching]}"
+            f"ambient={[c.get('label') for c in ambient_clouds]}"
         )
         if _DEV_CONFIG.get("verbose"):
-            logger.info(f"[TRACKING_IMG] display_clouds={len(display_clouds)}, ambient_clouds={len(ambient_clouds)}, far_approaching={len(far_approaching)}")
+            logger.info(f"[TRACKING_IMG] display_clouds={len(display_clouds)}, ambient_clouds={len(ambient_clouds)}")
         
         if frame is None or (not display_clouds and not ambient_clouds):
             return None

@@ -757,6 +757,10 @@ class WeatherManager:
                         if matched_amb:
                             appr_c["cx"] = matched_amb["cx"]
                             appr_c["cy"] = matched_amb["cy"]
+                            if "peak_cx" in matched_amb:
+                                appr_c["peak_cx"] = matched_amb["peak_cx"]
+                            if "peak_cy" in matched_amb:
+                                appr_c["peak_cy"] = matched_amb["peak_cy"]
                             if "pixels" in matched_amb:
                                 appr_c["pixels"] = matched_amb["pixels"]
                                 
