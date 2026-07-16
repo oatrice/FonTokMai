@@ -24,7 +24,7 @@ from app.dependencies import get_repo_context
 _DEV_CONFIG: dict = {
     "cluster_min":    3,      # min pixels to form a valid cloud cluster
     "search_radius":  80,     # px radius to scan for approaching clouds
-    "min_dbz":        10.0,   # minimum dBZ to count as rain
+    "min_dbz":        5.0,    # minimum dBZ to count as rain
     "dot_threshold":  0.5,    # dot product threshold (how directly it must approach)
     "flow_mode":      "average", # 'latest' or 'average'
     "hit_radius":     8,      # radius around user to check for rain hits
