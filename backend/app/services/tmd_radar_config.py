@@ -146,6 +146,8 @@ DBZ_COLOR_MAPPING: Dict[Tuple[int, int, int], float] = {
     (36, 212, 41): 20.0,
     (6, 207, 6): 20.0,
     (81, 212, 89): 20.0,
+    (95, 157, 97): 20.0,    # Faint green (JPEG artifact from C4)
+    (78, 141, 54): 20.0,    # Light green (JPEG artifact from C4)
     # Green (25-30 dBZ)
     (0, 128, 0): 25.0,
     (73, 160, 71): 25.0,
@@ -153,6 +155,8 @@ DBZ_COLOR_MAPPING: Dict[Tuple[int, int, int], float] = {
     (88, 171, 81): 25.0,
     (5, 174, 5): 25.0,
     (84, 198, 52): 25.0,
+    (86, 138, 74): 25.0,    # Green (JPEG artifact from C4)
+    (54, 113, 45): 25.0,    # Deep green (JPEG artifact from C4)
     # Yellow (35-40 dBZ)
     (255, 255, 0): 35.0,
     (248, 248, 4): 35.0,
