@@ -311,7 +311,14 @@ class TMDTrackingMixin:
                         
                         global_ctr = approx + np.array([[[x - margin, y - margin]]], dtype=np.int32)
                         global_contours.append(global_ctr)
-                        
+
+                    if len(global_contours) > 1:
+                        areas = [int(cv2.contourArea(ctr)) for ctr in global_contours]
+                        logger.info(
+                            f"[TRACKING_IMG] incoming cloud '{c_orig.get('label', '?')}' rendered as "
+                            f"{len(global_contours)} polygons (sizes={areas} px, total_pixels={len(c_orig['pixels'])})"
+                        )
+
                     overlay = img.copy()
                     cv2.fillPoly(overlay, global_contours, color)
                     cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
