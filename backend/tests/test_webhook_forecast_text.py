@@ -1,5 +1,5 @@
 import pytest
-from app.routers.webhook import _build_forecast_text
+from app.routers.webhook_utils import _build_forecast_text
 
 def test_build_forecast_text_no_rain_tmd_radar():
     """

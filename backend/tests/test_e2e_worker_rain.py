@@ -78,12 +78,12 @@ async def test_worker_handle_rain_sends_telegram_message():
     }
 
     with patch("app.services.weather_manager.get_repo_context", mock_repo_ctx), \
-         patch("app.routers.webhook.get_repo_context", mock_repo_ctx):
+         patch("app.dependencies.get_repo_context", mock_repo_ctx):
 
-        with patch("app.routers.webhook.WeatherManager") as MockWeatherManager, \
-             patch("app.routers.webhook.send_telegram_message_return_id", new_callable=AsyncMock) as mock_loading, \
-             patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock) as mock_send, \
-             patch("app.routers.webhook.edit_telegram_message", new_callable=AsyncMock) as mock_edit:
+        with patch("app.services.weather_manager.WeatherManager") as MockWeatherManager, \
+             patch("app.services.telegram.send_telegram_message_return_id", new_callable=AsyncMock) as mock_loading, \
+             patch("app.services.telegram.send_telegram_message", new_callable=AsyncMock) as mock_send, \
+             patch("app.services.telegram.edit_telegram_message", new_callable=AsyncMock) as mock_edit:
 
             mock_loading.return_value = 12345  # loading message id
 
@@ -91,7 +91,7 @@ async def test_worker_handle_rain_sends_telegram_message():
             mock_instance.predict_rain = AsyncMock(return_value=mock_weather_result)
             mock_instance.get_advanced_alerts = AsyncMock(return_value={"advisories": []})
 
-            from app.routers.webhook import handle_rain_command
+            from app.routers.webhook_commands import handle_rain_command
             await handle_rain_command(chat_id=99999, command="/rain")
 
     # ต้องมีการส่งข้อความ loading หรือ edit message
@@ -115,10 +115,10 @@ async def test_worker_handle_rain_no_location_sends_warning():
     async def mock_repo_ctx():
         yield mock_repo
 
-    with patch("app.routers.webhook.get_repo_context", mock_repo_ctx), \
-         patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock) as mock_send:
+    with patch("app.dependencies.get_repo_context", mock_repo_ctx), \
+         patch("app.services.telegram.send_telegram_message", new_callable=AsyncMock) as mock_send:
 
-        from app.routers.webhook import handle_rain_command
+        from app.routers.webhook_commands import handle_rain_command
         await handle_rain_command(chat_id=99999, command="/rain")
 
     # ต้องส่งข้อความเตือน
@@ -155,8 +155,8 @@ def test_worker_http_endpoint_returns_ok_on_success(client):
     async def mock_repo_ctx():
         yield mock_repo
 
-    with patch("app.routers.webhook.get_repo_context", mock_repo_ctx), \
-         patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock):
+    with patch("app.dependencies.get_repo_context", mock_repo_ctx), \
+         patch("app.services.telegram.send_telegram_message", new_callable=AsyncMock):
 
         response = client.post(
             "/worker/handle-rain",

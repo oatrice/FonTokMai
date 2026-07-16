@@ -134,7 +134,7 @@ class CommandPayload(BaseModel):
 @router.post("/handle-rain")
 async def worker_handle_rain(payload: CommandPayload):
     try:
-        from app.routers.webhook import handle_rain_command
+        from app.routers.webhook_commands import handle_rain_command
         await handle_rain_command(payload.chat_id, payload.command, payload.show_advanced, payload.message_id_to_edit)
         return {"status": "ok"}
     except Exception as e:

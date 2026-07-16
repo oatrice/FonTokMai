@@ -131,7 +131,7 @@ async def test_line_webhook_success_flow():
         "endpoint": "tomorrow",
     }
 
-    with patch("app.routers.line_webhook.WeatherManager") as mock_wm_cls:
+    with patch("app.services.weather_manager.WeatherManager") as mock_wm_cls:
         mock_wm_instance = mock_wm_cls.return_value
         mock_wm_instance.predict_rain = AsyncMock(return_value=mock_weather_result)
 

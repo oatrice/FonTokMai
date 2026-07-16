@@ -42,14 +42,14 @@ def test_telegram_webhook_with_location():
         "endpoint": "rainbow-global",
     }
 
-    with patch("app.routers.webhook.WeatherManager") as mock_wm_cls:
+    with patch("app.services.weather_manager.WeatherManager") as mock_wm_cls:
         mock_wm_instance = mock_wm_cls.return_value
         mock_wm_instance.predict_rain = AsyncMock(return_value=mock_weather_result)
 
-        with patch("app.routers.webhook.send_telegram_message_return_id", new_callable=AsyncMock) as mock_loading:
+        with patch("app.services.telegram.send_telegram_message_return_id", new_callable=AsyncMock) as mock_loading:
             mock_loading.return_value = 999  # simulate returned message_id
 
-            with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
+            with patch("app.dependencies.get_repo_context") as mock_get_repo_context:
                 mock_repo = AsyncMock()
                 mock_repo.get_location.return_value = None
                 mock_repo.get_mock_state.return_value = None
@@ -86,7 +86,7 @@ def test_telegram_webhook_without_location():
     """
     Issue #38: ถ้าไม่มี location payload ห้ามเรียก WeatherManager
     """
-    with patch("app.routers.webhook.WeatherManager") as mock_wm_cls:
+    with patch("app.services.weather_manager.WeatherManager") as mock_wm_cls:
         mock_wm_instance = mock_wm_cls.return_value
         mock_wm_instance.predict_rain = AsyncMock()
 
@@ -109,7 +109,7 @@ def test_telegram_webhook_mylocation_cmd():
     with patch("app.services.telegram.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value.status_code = 200
         
-        with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
+        with patch("app.routers.webhook_commands.get_repo_context") as mock_get_repo_context:
             mock_repo = AsyncMock()
             mock_repo.get_user_locations.return_value = []
             
@@ -134,7 +134,7 @@ def test_telegram_webhook_callback_query_2m():
     with patch("app.services.telegram.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value.status_code = 200
         
-        with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
+        with patch("app.routers.webhook_callbacks.get_repo_context") as mock_get_repo_context:
             mock_repo = AsyncMock()
             
             @asynccontextmanager
@@ -163,7 +163,7 @@ def test_telegram_webhook_radar_cmd_with_loc():
     with patch("app.services.telegram.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value.status_code = 200
         
-        with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
+        with patch("app.routers.webhook_commands.get_repo_context") as mock_get_repo_context:
             mock_repo = AsyncMock()
             from app.models import UserLocation
             loc = UserLocation(chat_id=8888, latitude=13.0, longitude=100.0)
@@ -203,7 +203,7 @@ def test_telegram_webhook_callback_false_alarm():
     with patch("app.services.telegram.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value.status_code = 200
         
-        with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
+        with patch("app.routers.webhook_callbacks.get_repo_context") as mock_get_repo_context:
             mock_repo = AsyncMock()
             
             @asynccontextmanager
@@ -234,10 +234,10 @@ def test_telegram_webhook_callback_compare_api():
     with patch("app.services.telegram.httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value.status_code = 200
         
-        with patch("app.routers.webhook.edit_telegram_message", new_callable=AsyncMock) as mock_edit:
+        with patch("app.services.telegram.edit_telegram_message", new_callable=AsyncMock) as mock_edit:
             mock_edit.return_value = True
             
-            with patch("app.routers.webhook.WeatherManager") as mock_wm_cls:
+            with patch("app.services.weather_manager.WeatherManager") as mock_wm_cls:
                 mock_wm_instance = mock_wm_cls.return_value
                 mock_wm_instance.compare_all_apis = AsyncMock(return_value={
                     "tomorrow": {"endpoint": "tomorrow", "max_rain": 1.0, "intensity": "เบา", "accuracy_score": 0.95},
@@ -245,7 +245,7 @@ def test_telegram_webhook_callback_compare_api():
                     "rainbow-global": {"error": "Timeout"}
                 })
                 
-                with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
+                with patch("app.routers.webhook_callbacks.get_repo_context") as mock_get_repo_context:
                     mock_repo = AsyncMock()
                     mock_repo.get_mock_state.return_value = None
                     
@@ -282,15 +282,15 @@ def test_telegram_webhook_all_apis_fail():
     Test when WeatherManager.predict_rain raises an exception,
     the webhook should catch it and send the fallback error message.
     """
-    with patch("app.routers.webhook.WeatherManager") as mock_wm_cls:
+    with patch("app.services.weather_manager.WeatherManager") as mock_wm_cls:
         mock_wm_instance = mock_wm_cls.return_value
         mock_wm_instance.predict_rain = AsyncMock(return_value={"endpoint": "error", "error": "All APIs failed"})
 
-        with patch("app.routers.webhook.send_telegram_message_return_id", new_callable=AsyncMock) as mock_loading:
+        with patch("app.services.telegram.send_telegram_message_return_id", new_callable=AsyncMock) as mock_loading:
             mock_loading.return_value = 111
 
-            with patch("app.routers.webhook.edit_telegram_message", new_callable=AsyncMock) as mock_edit:
-                with patch("app.routers.webhook.get_repo_context") as mock_get_repo_context:
+            with patch("app.services.telegram.edit_telegram_message", new_callable=AsyncMock) as mock_edit:
+                with patch("app.routers.webhook_location.get_repo_context") as mock_get_repo_context:
                     mock_repo = AsyncMock()
                     mock_repo.get_location.return_value = None
                     mock_repo.get_mock_state.return_value = None
