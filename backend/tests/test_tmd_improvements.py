@@ -73,3 +73,51 @@ def test_solidity_gating_concave_contour():
     # To do this, let's check that the generated image bytes are valid.
     assert img_bytes is not None
     assert isinstance(img_bytes, bytes)
+
+def test_verbose_vs_draw_debug_grid(monkeypatch):
+    from app.services.weather_manager import _DEV_CONFIG
+    
+    # Reset config states
+    monkeypatch.setitem(_DEV_CONFIG, "verbose", False)
+    if "draw_debug_grid" in _DEV_CONFIG:
+        monkeypatch.setitem(_DEV_CONFIG, "draw_debug_grid", False)
+    
+    processor = TMDRadarProcessor("kkn240")
+    frame = np.zeros((800, 800, 3), dtype=np.uint8)
+    
+    dummy_clouds = [
+        {
+            "cx": 400, "cy": 400,
+            "dbz_now": 35.0,
+            "predicted_dbz": 35.0,
+            "approaching": True,
+            "eta_min": 10.0,
+            "pixels": [(400, 400)]
+        }
+    ]
+    
+    # 1. With verbose = True but draw_debug_grid = False (or absent), the output should be a single panel (480x480)
+    monkeypatch.setitem(_DEV_CONFIG, "verbose", True)
+    img_bytes = processor.generate_radar_tracking_image(
+        frame, user_x=400, user_y=400,
+        clouds=dummy_clouds, all_rain_clusters=[]
+    )
+    assert img_bytes is not None
+    img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+    assert img is not None
+    # A single panel at scale 3x from crop_r=120 should be 720x720. 2x2 grid would be 1440x1440.
+    # Therefore, single panel height is < 1000
+    assert img.shape[0] < 1000, f"Expected single panel, got height {img.shape[0]}"
+    
+    # 2. With draw_debug_grid = True, the output should be 2x2 grid
+    monkeypatch.setitem(_DEV_CONFIG, "draw_debug_grid", True)
+    img_bytes_grid = processor.generate_radar_tracking_image(
+        frame, user_x=400, user_y=400,
+        clouds=dummy_clouds, all_rain_clusters=[]
+    )
+    assert img_bytes_grid is not None
+    img_grid = cv2.imdecode(np.frombuffer(img_bytes_grid, np.uint8), cv2.IMREAD_COLOR)
+    assert img_grid is not None
+    # 2x2 grid should be > 1000 (twice the single panel height)
+    assert img_grid.shape[0] > 1000, f"Expected 2x2 grid, got height {img_grid.shape[0]}"
+

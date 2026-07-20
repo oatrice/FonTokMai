@@ -1017,7 +1017,7 @@ class TMDTrackingMixin:
                 print("PIL ERROR:", e)
 
         from app.services.weather_manager import _DEV_CONFIG
-        if _DEV_CONFIG.get("verbose"):
+        if _DEV_CONFIG.get("draw_debug_grid"):
             # 1. Raw Mask Generation
             raw_mask_crop = self.extract_rain_mask(crop_img)
             raw_mask_large = cv2.resize(raw_mask_crop, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_NEAREST)

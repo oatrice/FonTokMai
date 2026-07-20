@@ -29,6 +29,7 @@ _DEV_CONFIG: dict = {
     "flow_mode":      "average", # 'latest' or 'average'
     "hit_radius":     7,      # radius around user to check for rain hits
     "verbose":        False,  # Enable verbose debugging logs (DEBUG MODE — disable when done)
+    "draw_debug_grid": False, # Enable verbose 2x2 grid images layout
     "decay_enabled":  True,   # Whether to apply growth/decay rate to cloud extrapolation
     "prediction_steps": 13,   # Number of steps to predict forward (each 15 mins)
     "chaikin_iterations": 3,  # Chaikin corner-cutting iterations for smoothing radar contours

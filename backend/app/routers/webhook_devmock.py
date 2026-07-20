@@ -439,6 +439,7 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                 _DEV_CONFIG["flow_mode"]     = "average"
                 _DEV_CONFIG["hit_radius"]    = 8
                 _DEV_CONFIG["verbose"]       = False
+                _DEV_CONFIG["draw_debug_grid"] = False
                 _DEV_CONFIG["decay_enabled"] = True
                 _DEV_CONFIG["prediction_steps"] = 7
                 _DEV_CONFIG["enable_raster_smooth"] = True
@@ -459,7 +460,8 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                 "gaussian_kernel_size": 15,
                 "raster_smooth_threshold": 80,
                 "draw_all_ambient_polygons": False,
-                "enable_hsv_mask": False
+                "enable_hsv_mask": False,
+                "draw_debug_grid": False
             }
             
             for pair in _re.findall(r'(\w+)\s*:\s*([a-zA-Z0-9_.-]+)', args):
