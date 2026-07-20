@@ -8,7 +8,7 @@ from app.services.weather_manager import _DEV_CONFIG
 
 def _load_fixture() -> tuple:
     tests_dir = os.path.dirname(__file__)
-    fixture_path = os.path.join(tests_dir, "test_skn240_frames.npz")
+    fixture_path = os.getenv("FIXTURE_PATH", os.path.join(tests_dir, "test_skn240_frames.npz"))
     if not os.path.exists(fixture_path):
         return None, None, None, None
     data = np.load(fixture_path, allow_pickle=True)

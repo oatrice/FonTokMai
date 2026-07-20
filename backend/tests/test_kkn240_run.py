@@ -17,7 +17,7 @@ from app.models import Base
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 station_code = os.getenv("STATION", "kkn240")
-_FIXTURE_PATH = os.path.join(os.path.dirname(__file__), f"test_{station_code}_frames.npz")
+_FIXTURE_PATH = os.getenv("FIXTURE_PATH", os.path.join(os.path.dirname(__file__), f"test_{station_code}_frames.npz"))
 
 
 def _load_fixture() -> tuple:
@@ -88,6 +88,15 @@ async def _download_frames_from_urls(frame_urls: list, last_modified_dt=None) ->
         blob = bucket.blob(url)
         try:
             img_bytes = await asyncio.to_thread(blob.download_as_bytes)
+            # Auto-duplicate to backup path if not already in backup
+            if f"{station_code}/" in url and "backup" not in url:
+                dest_url = url.replace(f"{station_code}/", f"{station_code}_backup/")
+                dest_blob = bucket.blob(dest_url)
+                if not await asyncio.to_thread(dest_blob.exists):
+                    await asyncio.to_thread(
+                        bucket.copy_blob, blob, bucket, new_name=dest_url
+                    )
+                    print(f"Auto-duplicated to backup: {url} -> {dest_url}")
             return img_bytes
         except Exception as e:
             print(f"Error downloading blob {url}: {e}")
