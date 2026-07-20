@@ -131,6 +131,12 @@ class CommandPayload(BaseModel):
     show_advanced: bool = False
     message_id_to_edit: Optional[int] = None
 
+class AdminCommandPayload(BaseModel):
+    chat_id: int
+    command: str
+    username: str = ""
+    message_id_to_edit: Optional[int] = None
+
 @router.post("/handle-rain")
 async def worker_handle_rain(payload: CommandPayload):
     try:
