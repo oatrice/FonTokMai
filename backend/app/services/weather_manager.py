@@ -785,16 +785,16 @@ class WeatherManager:
                 all_rain_clusters = await asyncio.to_thread(
                     processor.get_all_rain_clusters,
                     curr_frame, flow, user_px, user_py,
-                    scan_radius=min(200, _cfg.get("search_radius", 80) + 20),
-                    min_dbz=0.1,  # Lower threshold so even light rain gets clustered and labeled
-                    cluster_dist=8,  # Reduced from 12 to 8 to split large clusters (C, E) into smaller sub-cells
+                    scan_radius=max(130, min(200, _cfg.get("search_radius", 80) + 20)),
+                    min_dbz=_cfg.get("min_dbz", 10.0),  # Set to 10.0 to match Firestore config and eliminate noise bridges
+                    cluster_dist=5,  # Balanced value to split far cells while keeping main clusters intact
                     min_size=5,
                 )
                 
-                # Label all_rain_clusters FIRST
                 if all_rain_clusters:
+                    # Sort by dBZ descending first, then distance ascending so red/heavy rain clusters get labels A, B...
+                    all_rain_clusters.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), c.get("dist", 9999)))
                     for i, c in enumerate(all_rain_clusters):
-                        # Use A-Z, then AA-ZZ if needed (though usually < 26)
                         c["label"] = chr(ord('A') + min(i, 25))
                         
                 # Match labels from all_rain_clusters to clouds

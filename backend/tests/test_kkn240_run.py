@@ -321,16 +321,17 @@ async def main():
             flow=flow,
             user_x=user_x,
             user_y=user_y,
-            scan_radius=min(200, _cfg.get("search_radius", 80) + 20),
-            min_dbz=0.1,  # Keep lower threshold for light rain
-            cluster_dist=8,  # Reduced from 12 to 8 to split large clusters (C, E) into smaller sub-cells
+            scan_radius=max(130, min(200, _cfg.get("search_radius", 80) + 20)),
+            min_dbz=_cfg.get("min_dbz", 10.0),  # Set to 10.0 to match Firestore config and eliminate noise bridges
+            cluster_dist=5,  # Trying 5 to see if it balances separating P15, P16, P17 while keeping A mostly intact
             min_size=5
         )
 
         # 5c. Label all_rain_clusters FIRST (weather_manager.py lines 737-741)
         if clusters:
+            # Sort by dBZ descending first, then distance ascending so red/heavy rain clusters get labels A, B...
+            clusters.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), c.get("dist", 9999)))
             for i, c in enumerate(clusters):
-                # Use A-Z, then AA-ZZ if needed (though usually < 26)
                 c["label"] = chr(ord('A') + min(i, 25))
 
         # 5d. Match labels from all_rain_clusters to clouds (weather_manager.py lines 743-776)

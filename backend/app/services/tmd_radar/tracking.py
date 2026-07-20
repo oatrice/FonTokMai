@@ -293,10 +293,10 @@ class TMDTrackingMixin:
                         if 0 <= px < mask_w and 0 <= py < mask_h:
                             mask[py, px] = 255
                             
-                    # Use a slightly smaller ellipse kernel to follow cloud shape closely and smoothly
-                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+                    # Use a larger ellipse kernel to merge separate sub-polygons of the same cluster smoothly
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25))
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-                    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+                    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
                     
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     global_contours = []
@@ -420,7 +420,7 @@ class TMDTrackingMixin:
             rendered_ambient = []
             if locked_cluster is not None and locked_cluster in ambient_clouds:
                 rendered_ambient.append(locked_cluster)
-            max_ambient = 10 if _DEV_CONFIG.get("verbose") else 5
+            max_ambient = 5 if _DEV_CONFIG.get("verbose") else 3
             for c in ambient_clouds:
                 if len(rendered_ambient) >= max_ambient:
                     break
@@ -480,9 +480,9 @@ class TMDTrackingMixin:
                         if 0 <= px < mask_w and 0 <= py < mask_h:
                             mask[py, px] = 255
                             
-                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25))
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-                    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+                    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
                     
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     global_contours = []
