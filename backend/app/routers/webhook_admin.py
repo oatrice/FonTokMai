@@ -101,9 +101,12 @@ async def handle_bypass_logout_command(chat_id: int, username: str = ""):
     await telegram.send_telegram_message(chat_id, "ออกจากระบบ Emergency Admin Bypass เรียบร้อยแล้ว")
 
 
-@cmd_router.bind("/bypass ")
+@cmd_router.bind("/bypass")
 async def handle_bypass_login_command(chat_id: int, command: str, username: str = ""):
-    password = command.removeprefix("/bypass ").strip()
+    password = command.removeprefix("/bypass").strip()
+    if not password:
+        await telegram.send_telegram_message(chat_id, "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณากรอกรหัสผ่านด้วยครับ: /bypass <รหัสผ่าน>")
+        return
     import os
     actual_pass = os.getenv("ADMIN_BYPASS_PASSWORD")
     if actual_pass and password == actual_pass:

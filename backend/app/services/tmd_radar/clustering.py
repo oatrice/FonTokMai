@@ -489,7 +489,7 @@ class TMDClusteringMixin:
         
         # 1. Get intensity mask for whole image
         # extract_rain_mask returns uint8 with intensity = min(255, dbz * 4)
-        mask = TMDClusteringMixin.extract_rain_mask(None, frame)
+        mask = self.extract_rain_mask(frame)
         
         # 2. Filter by min_dbz
         min_intensity = int(min_dbz * 4)
