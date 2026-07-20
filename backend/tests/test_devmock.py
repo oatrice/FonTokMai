@@ -133,7 +133,7 @@ async def test_webhook_devmock_command():
             await task.func(*task.args, **task.kwargs)
         
     with patch("app.services.telegram.DEVELOPER_CHAT_IDS", ["123"]):
-        with patch("app.routers.webhook_devmock.get_repo_context") as mock_ctx:
+        with patch("app.dependencies.get_repo_context") as mock_ctx:
             mock_repo = AsyncMock()
             mock_repo.has_active_admin_bypass.return_value = False
             mock_ctx.return_value.__aenter__.return_value = mock_repo
@@ -142,7 +142,7 @@ async def test_webhook_devmock_command():
             
     with patch("app.services.telegram.DEVELOPER_CHAT_IDS", [str(chat_id)]):
         with patch("app.services.telegram.send_telegram_message") as mock_send:
-            with patch("app.routers.webhook_devmock.get_repo_context") as mock_ctx:
+            with patch("app.dependencies.get_repo_context") as mock_ctx:
                 with patch("app.scheduler_tasks.check_rain_and_alert", new_callable=AsyncMock) as mock_check:
                     mock_repo = AsyncMock()
                     mock_ctx.return_value.__aenter__.return_value = mock_repo

@@ -3,7 +3,13 @@ import json
 import logging
 from datetime import datetime, timezone
 
-from app.dependencies import get_repo_context
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def get_repo_context():
+    from app.dependencies import get_repo_context as _get_repo_context
+    async with _get_repo_context() as repo:
+        yield repo
 from app.services import telegram
 
 logger = logging.getLogger(__name__)

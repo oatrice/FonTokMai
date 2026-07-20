@@ -133,6 +133,10 @@ async def test_skn240_visual_fixes():
     y1 = max(0, user_y - crop_r)
     scale = 3.0
     
+    print("ALL CLUSTERS NEAR MUKDAHAN:")
+    for c in clusters:
+        if c["cx"] > 400 and c["cy"] > 400:
+            print(f"cx={c['cx']}, cy={c['cy']}, size={len(c.get('pixels', []))}")
     giant_mukdahan = [c for c in clusters if c["cx"] > 480 and c["cy"] > 430 and len(c.get("pixels", [])) > 2000]
     assert len(giant_mukdahan) > 0, "Could not find the giant Mukdahan rain cluster!"
     c = giant_mukdahan[0]

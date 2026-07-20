@@ -42,7 +42,7 @@ async def test_metrics_command_security():
 
     with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
         with patch("app.services.telegram.DEVELOPER_CHAT_IDS", ["123"]):
-            with patch("app.routers.webhook_admin.get_repo_context") as mock_ctx:
+            with patch("app.dependencies.get_repo_context") as mock_ctx:
                 mock_repo = AsyncMock()
                 mock_repo.has_active_admin_bypass.return_value = False
                 mock_ctx.return_value.__aenter__.return_value = mock_repo
@@ -73,7 +73,7 @@ async def test_metrics_command_success():
     ]
 
     with patch("app.services.telegram.DEVELOPER_CHAT_IDS", [str(chat_id)]):
-        with patch("app.routers.webhook_admin.get_repo_context") as mock_ctx:
+        with patch("app.dependencies.get_repo_context") as mock_ctx:
             mock_repo = AsyncMock()
             mock_repo.has_active_admin_bypass.return_value = True
             mock_repo.get_cron_metrics.return_value = dummy_logs
@@ -106,7 +106,7 @@ async def test_setbudget_command_security():
 
     with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
         with patch("app.services.telegram.DEVELOPER_CHAT_IDS", ["123"]):
-            with patch("app.routers.webhook_admin.get_repo_context") as mock_ctx:
+            with patch("app.dependencies.get_repo_context") as mock_ctx:
                 mock_repo = AsyncMock()
                 mock_repo.has_active_admin_bypass.return_value = False
                 mock_ctx.return_value.__aenter__.return_value = mock_repo
@@ -124,7 +124,7 @@ async def test_setbudget_command_success():
     bg_tasks = BackgroundTasks()
 
     with patch("app.services.telegram.DEVELOPER_CHAT_IDS", [str(chat_id)]):
-        with patch("app.routers.webhook_admin.get_repo_context") as mock_ctx:
+        with patch("app.dependencies.get_repo_context") as mock_ctx:
             mock_repo = AsyncMock()
             mock_repo.has_active_admin_bypass.return_value = True
             mock_ctx.return_value.__aenter__.return_value = mock_repo
@@ -151,7 +151,7 @@ async def test_setbudget_command_invalid_args():
     bg_tasks = BackgroundTasks()
 
     with patch("app.services.telegram.DEVELOPER_CHAT_IDS", [str(chat_id)]):
-        with patch("app.routers.webhook_admin.get_repo_context") as mock_ctx:
+        with patch("app.dependencies.get_repo_context") as mock_ctx:
             mock_repo = AsyncMock()
             mock_repo.has_active_admin_bypass.return_value = True
             mock_ctx.return_value.__aenter__.return_value = mock_repo
