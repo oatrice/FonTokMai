@@ -36,6 +36,7 @@ _DEV_CONFIG: dict = {
     "gaussian_kernel_size": 15,        # Gaussian blur size before thresholding
     "raster_smooth_threshold": 80,     # Default threshold after blur to prevent thin clouds melting
     "enable_hsv_mask":      False,     # Use HSV range thresholding for robust cloud detection (default False for cluster split compliance)
+    "use_skn240_backup":    False,     # Force using skn240 backup files for testing (adjustable via /devmock config)
 }
 
 
