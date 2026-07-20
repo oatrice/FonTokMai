@@ -74,7 +74,9 @@ class TMDTrackingMixin:
         time_offset_min: float = 0.0,
         locked_target_id: Optional[str] = None,
         locked_target_cx: Optional[int] = None,
-        locked_target_cy: Optional[int] = None
+        locked_target_cy: Optional[int] = None,
+        cluster_dist_approaching: int = 10,
+        cluster_dist_ambient: int = 6
     ) -> Optional[bytes]:
         import math
 
@@ -301,8 +303,13 @@ class TMDTrackingMixin:
                         if 0 <= px < mask_w and 0 <= py < mask_h:
                             mask[py, px] = 255
                             
-                    # Use a lighter ellipse kernel to remove single-pixel holes
-                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+                    # Use a scale-aware kernel to remove single-pixel holes and match clustering threshold
+                    ksize = int(cluster_dist_approaching * scale)
+                    if ksize % 2 == 0:
+                        ksize += 1
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize))
+                    
+                    raw_mask = mask.copy()
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
                     
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -317,7 +324,7 @@ class TMDTrackingMixin:
                             
                             # Check connected components in raw mask under this contour
                             cx_crop, cy_crop, cw_crop, ch_crop = cv2.boundingRect(ctr)
-                            local_raw = mask[cy_crop:cy_crop+ch_crop, cx_crop:cx_crop+cw_crop].copy()
+                            local_raw = raw_mask[cy_crop:cy_crop+ch_crop, cx_crop:cx_crop+cw_crop].copy()
                             local_ctr_mask = np.zeros_like(local_raw)
                             local_ctr = ctr - np.array([[[cx_crop, cy_crop]]], dtype=np.int32)
                             cv2.fillPoly(local_ctr_mask, [local_ctr], 255)
@@ -456,7 +463,7 @@ class TMDTrackingMixin:
             visible_ambient_clouds = []
             for c in ambient_clouds:
                 cx_orig, cy_orig = c["cx"], c["cy"]
-                if not (cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80):
+                if not (cx_orig < x1 - 15 or cx_orig > x2 + 15 or cy_orig < y1 - 15 or cy_orig > y2 + 15):
                     visible_ambient_clouds.append(c)
 
             # Sort and build list of ambient clouds to render, prioritizing higher dBZ first, then closer distance
@@ -522,8 +529,13 @@ class TMDTrackingMixin:
                         if 0 <= px < mask_w and 0 <= py < mask_h:
                             mask[py, px] = 255
                             
-                    # Use a lighter ellipse kernel to remove single-pixel holes
-                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+                    # Use a scale-aware kernel to remove single-pixel holes and match clustering threshold
+                    ksize = int(cluster_dist_ambient * scale)
+                    if ksize % 2 == 0:
+                        ksize += 1
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize))
+                    
+                    raw_mask = mask.copy()
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
                     
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -538,7 +550,7 @@ class TMDTrackingMixin:
                             
                             # Check connected components in raw mask under this contour
                             cx_crop, cy_crop, cw_crop, ch_crop = cv2.boundingRect(ctr)
-                            local_raw = mask[cy_crop:cy_crop+ch_crop, cx_crop:cx_crop+cw_crop].copy()
+                            local_raw = raw_mask[cy_crop:cy_crop+ch_crop, cx_crop:cx_crop+cw_crop].copy()
                             local_ctr_mask = np.zeros_like(local_raw)
                             local_ctr = ctr - np.array([[[cx_crop, cy_crop]]], dtype=np.int32)
                             cv2.fillPoly(local_ctr_mask, [local_ctr], 255)
@@ -769,6 +781,16 @@ class TMDTrackingMixin:
             ty = int((r_idx + 0.5) * cell_h + 5 * scale)
             cv2.putText(img, label_y, (int(5 * scale), ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, bg_color, max(1, int(font_scale * 4)))
             cv2.putText(img, label_y, (int(5 * scale), ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, max(1, int(font_scale * 1.5)))
+
+        # Add top grid labels A-H as obstacles
+        for c_idx in range(8):
+            tx_obs = int((c_idx + 0.5) * cell_w - 15 * scale)
+            obstacles.append((tx_obs, 0, int(30 * scale), int(25 * scale)))
+            
+        # Add left grid labels 1-8 as obstacles
+        for r_idx in range(8):
+            ty_obs = int((r_idx + 0.5) * cell_h - 15 * scale)
+            obstacles.append((0, ty_obs, int(25 * scale), int(30 * scale)))
 
         if time_utc:
             # Estimate timestamp area to avoid labels overlapping it

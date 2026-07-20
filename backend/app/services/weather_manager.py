@@ -1222,7 +1222,9 @@ class WeatherManager:
                         all_rain_clusters, predictions, True, True, time_offset_min,
                         locked_target_id,
                         locked_target_cx,
-                        locked_target_cy
+                        locked_target_cy,
+                        cluster_dist_approaching=10,
+                        cluster_dist_ambient=6
                     )
                     
                     # Create adjusted predictions for the timeline so it displays actual ETA from NOW
