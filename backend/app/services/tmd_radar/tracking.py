@@ -410,10 +410,15 @@ class TMDTrackingMixin:
                     if enable_smooth:
                         # Pre-Contour Raster Smoothing (Metaball effect)
                         ksize_val = _DEV_CONFIG.get("gaussian_kernel_size", 25)
+                        thresh_val = _DEV_CONFIG.get("raster_smooth_threshold", 127)
+                        # Restrict kernel size further for thin rain bands to prevent melting
+                        ksize_val = min(ksize_val, max(3, int(min(mask_w, mask_h) * 0.15)))
+                        # Cap the max kernel at 9 to preserve thin rain details
+                        ksize_val = min(ksize_val, 9)
                         if ksize_val % 2 == 0:
                             ksize_val += 1
                         mask = cv2.GaussianBlur(mask, (ksize_val, ksize_val), 0)
-                        _, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+                        _, mask = cv2.threshold(mask, thresh_val, 255, cv2.THRESH_BINARY)
                     else:
                         # Apply a gentle MORPH_OPEN to remove single-pixel noise without eroding valid rain clouds
                         open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
@@ -667,10 +672,15 @@ class TMDTrackingMixin:
                     if enable_smooth:
                         # Pre-Contour Raster Smoothing (Metaball effect)
                         ksize_val = _DEV_CONFIG.get("gaussian_kernel_size", 25)
+                        thresh_val = _DEV_CONFIG.get("raster_smooth_threshold", 127)
+                        # Restrict kernel size further for thin rain bands to prevent melting
+                        ksize_val = min(ksize_val, max(3, int(min(mask_w, mask_h) * 0.15)))
+                        # Cap the max kernel at 9 to preserve thin rain details
+                        ksize_val = min(ksize_val, 9)
                         if ksize_val % 2 == 0:
                             ksize_val += 1
                         mask = cv2.GaussianBlur(mask, (ksize_val, ksize_val), 0)
-                        _, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+                        _, mask = cv2.threshold(mask, thresh_val, 255, cv2.THRESH_BINARY)
                     else:
                         # Apply a gentle MORPH_OPEN to remove single-pixel noise without eroding valid rain clouds
                         open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
