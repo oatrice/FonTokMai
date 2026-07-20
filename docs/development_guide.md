@@ -43,3 +43,30 @@
 
 5. **เริ่มทดสอบ**
    ส่งข้อความหรือแชร์ Location ไปที่ `@FonTokMaiDevBot` ใน Telegram ระบบ Local ของคุณจะได้รับการแจ้งเตือนและทำงานได้ตามปกติ
+
+## การจำลองและทดสอบฝนตกในช่วงเวลาที่ไม่มีฝนตกจริง (Radar Mock/Backup Testing)
+
+เมื่อจำเป็นต้องทดสอบบอทหรือความถูกต้องของอัลกอริทึมพยากรณ์ฝน แต่ในสภาพอากาศจริงไม่มีฝนตก เราสามารถใช้ประวัติรูปภาพฝนตกจริงที่ย้ายไปไว้ที่โฟลเดอร์ backup บน Firebase Storage แทนได้ดังนี้:
+
+### 1. เปิดโหมดดึงข้อมูลจาก Backup สำหรับบอท (Local Webhook Testing)
+ในไฟล์ [backend/.env](file:///Users/oatrice/Software%20Project/FonMaYang/backend/.env) ให้เปิดใช้งานตัวแปรสภาพแวดล้อม:
+```env
+USE_SKN240_BACKUP=true
+```
+* **ผลลัพธ์:** เมื่อมีการเรียกใช้เรดาร์สถานีสกลนคร (`skn240`) ระบบจะสลับไปดึงรูปภาพจาก `radar/skn240_backup/` และเลื่อนช่วงเวลาของไฟล์ให้สอดคล้องกับเวลาปัจจุบันโดยอัตโนมัติ ทำให้บอทวิเคราะห์ฝนและแจ้งเตือนพยากรณ์เหมือนพึ่งเกิดขึ้นสด ๆ ร้อน ๆ
+
+### 2. การรันสคริปต์ทดสอบอัลกอริทึมภายนอก (Script Nowcasting Testing)
+เรามีสคริปต์ [test_kkn240_run.py](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_kkn240_run.py) ที่จำลองการหาพื้นที่ฝนตกและการคำนวณ Optical Flow ของสถานี `skn240`
+
+* **รันสคริปต์โดยใช้ Fixture เดิม (รวดเร็ว/ออฟไลน์):**
+  ```bash
+  PYTHONPATH=backend ./backend/.venv/bin/python backend/tests/test_kkn240_run.py
+  ```
+* **รันและสั่งอัปเดต Fixture ใหม่จาก Backup บนคลาวด์:**
+  หากต้องการดาวน์โหลดและบันทึกชุดรูปภาพล่าสุดในโฟลเดอร์ backup มาบันทึกทับลงใน [test_kkn240_frames.npz](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_kkn240_frames.npz) เป็น Fixture ตัวใหม่:
+  ```bash
+  export $(grep -v '^#' backend/.env | xargs)
+  UPDATE_FIXTURE=true PYTHONPATH=backend ./backend/.venv/bin/python backend/tests/test_kkn240_run.py
+  ```
+  *(เมื่ออัปเดตแล้ว ในการรันรอบถัดไปสคริปต์จะใช้ Fixture ท้องถิ่นนี้รันทันทีโดยไม่ต้องโหลดจากอินเทอร์เน็ต)*
+

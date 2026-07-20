@@ -450,8 +450,50 @@ class WeatherManager:
         Loads the radar cache from Firestore, populates _GLOBAL_TMD_CACHE, 
         and returns the cached data tuple. Returns None if it fails or has no cache.
         """
-        async with get_repo_context() as repo:
-            cache = await repo.get_latest_radar_cache(station_code)
+        # Check if we should override with backup files for testing
+        if station_code == "skn240" and os.getenv("USE_SKN240_BACKUP", "false").lower() == "true":
+            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
+            from google.cloud import storage
+            client = storage.Client()
+            bucket = client.bucket(bucket_name)
+            
+            logger.info("🛠️ [SKN240 BACKUP MODE] Listing blobs in radar/skn240_backup/...")
+            try:
+                blobs = list(bucket.list_blobs(prefix="radar/skn240_backup/"))
+                backup_frames = []
+                for b in blobs:
+                    # e.g., radar/skn240_backup/skn240_1784212828.gif
+                    base_name = b.name.split("/")[-1]
+                    ts_str = base_name.replace("skn240_", "").replace(".gif", "")
+                    try:
+                        ts = int(ts_str)
+                        backup_frames.append({"url": b.name, "timestamp": ts})
+                    except ValueError:
+                        continue
+                
+                if backup_frames:
+                    backup_frames = sorted(backup_frames, key=lambda x: x["timestamp"])
+                    # Shift timestamps so the latest one matches the current time
+                    import time
+                    now_ts = int(time.time())
+                    original_latest_ts = backup_frames[-1]["timestamp"]
+                    for f in backup_frames:
+                        delta = original_latest_ts - f["timestamp"]
+                        f["timestamp"] = now_ts - delta
+                    
+                    cache = {"frames": backup_frames}
+                    logger.info(f"🛠️ [SKN240 BACKUP MODE] Successfully loaded {len(backup_frames)} frames from backup folder.")
+                else:
+                    logger.warning("🛠️ [SKN240 BACKUP MODE] No files found in radar/skn240_backup/! Falling back to DB cache.")
+                    async with get_repo_context() as repo:
+                        cache = await repo.get_latest_radar_cache(station_code)
+            except Exception as e_backup:
+                logger.error(f"🛠️ [SKN240 BACKUP MODE] Error loading backup files: {e_backup}. Falling back to DB cache.")
+                async with get_repo_context() as repo:
+                    cache = await repo.get_latest_radar_cache(station_code)
+        else:
+            async with get_repo_context() as repo:
+                cache = await repo.get_latest_radar_cache(station_code)
         
         if not cache or not (cache.get("frames") or (cache.get("url_t") and cache.get("url_t_minus_1"))):
             return None
@@ -524,9 +566,11 @@ class WeatherManager:
         )
         
         import time
+        # Collect frame URLs from the Firestore cache (for reproducibility)
+        frame_urls = [f["url"] for f in cache_frames[-6:]] if cache_frames else []
         _GLOBAL_TMD_CACHE[station_code] = (
             frames, last_modified_dt, time.time(), flow,
-            frame_source, data_gap_minutes, frame_timestamps,
+            frame_source, data_gap_minutes, frame_timestamps, frame_urls,
         )
         return _GLOBAL_TMD_CACHE[station_code]
 
@@ -586,6 +630,7 @@ class WeatherManager:
                         frame_source = cached_data[4] if len(cached_data) > 4 else "static_cache"
                         data_gap_minutes = cached_data[5] if len(cached_data) > 5 else 15.0
                         frame_timestamps = list(cached_data[6]) if len(cached_data) > 6 else []
+                        frame_urls = list(cached_data[7]) if len(cached_data) > 7 else []
                         age_s = int(time.time() - cached_data[2])
                         logger.info(
                             f"[{station_code}] 📦 IN-MEMORY cache HIT — "
@@ -615,6 +660,7 @@ class WeatherManager:
                             frame_source = cached_data[4]
                             data_gap_minutes = cached_data[5]
                             frame_timestamps = list(cached_data[6])
+                            frame_urls = list(cached_data[7]) if len(cached_data) > 7 else []
                         else:
                             frames = []
                             last_modified_dt = None
@@ -622,6 +668,7 @@ class WeatherManager:
                             frame_source = "static_cache"
                             frame_timestamps = []
                             data_gap_minutes = 15.0
+                            frame_urls = []
                         if not frames or len(frames) < 2:
                             fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
                             if len(fresh_frames) >= 2:
@@ -649,14 +696,10 @@ class WeatherManager:
                                     f"[{station_code}] 🌀 LIVE loop GIF fallback — "
                                     f"{len(frames)} frames fetched direct from TMD (Firestore cache was empty/stale)"
                                 )
-                                _GLOBAL_TMD_CACHE[station_code] = (
-                                    frames, last_modified_dt, time.time(), flow,
-                                    frame_source, data_gap_minutes, frame_timestamps,
-                                )
                                 # Also persist to Firestore so next call after in-memory expiry
                                 # uses Firestore instead of re-fetching loop GIF again.
+                                saved_frames = []
                                 try:
-                                    saved_frames = []
                                     for f_img, f_ts in zip(frames, frame_timestamps):
                                         # Resize to 800×800 so is_loop detection (frame.shape < 800)
                                         # returns False when reloaded — ensuring static pixel coords.
@@ -679,6 +722,12 @@ class WeatherManager:
                                         )
                                 except Exception as _e:
                                     logger.warning(f"[{station_code}] 🌀 GIF fallback: Firestore persist failed: {_e}")
+                                # Collect frame URLs from saved frames for reproducibility
+                                frame_urls = [sf["url"] for sf in saved_frames] if saved_frames else []
+                                _GLOBAL_TMD_CACHE[station_code] = (
+                                    frames, last_modified_dt, time.time(), flow,
+                                    frame_source, data_gap_minutes, frame_timestamps, frame_urls,
+                                )
                             else:
                                 continue
 
@@ -712,6 +761,14 @@ class WeatherManager:
                 logging.info(f"DEBUG_LOCATION: lat={lat}, lng={lng} -> user_px={user_px}, user_py={user_py} (station: {station_code}, is_loop={use_loop_mapping})")
                 if user_px is None or user_py is None:
                     continue
+
+                # Log frame identity for reproducibility (so offline test can match exact frames)
+                logger.info(
+                    f"[FRAME_ID] station={station_code}, source={frame_source}, "
+                    f"n_frames={len(frames)} (last_ts={frame_timestamps[-1] if frame_timestamps else '?'}), "
+                    f"timestamps={frame_timestamps}, shape={frames[-1].shape[:2]}, "
+                    f"urls={frame_urls}"
+                )
 
                 # Find all cloud clusters approaching the user (using dev-configurable thresholds)
                 _cfg = _DEV_CONFIG
