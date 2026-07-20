@@ -306,8 +306,12 @@ class TMDTrackingMixin:
         
         has_predicted_rain = predictions and any(p.get("dbz", 0) >= 10.0 for p in predictions)
         if show_trajectory and predictions and has_predicted_rain:
+            from app.services.weather_manager import _DEV_CONFIG
+            show_backward = _DEV_CONFIG.get("show_backward_trajectory", True)
             pts = []
             for p in predictions:
+                if not show_backward and p.get("time_offset", 0) < time_offset_min:
+                    continue
                 px_pred = p["src_x"]
                 py_pred = p["src_y"]
                 cx = int((px_pred - x1) * scale)
@@ -554,7 +558,7 @@ class TMDTrackingMixin:
                 lbl = c_orig.get("label", "")
                 if is_locked:
                     lbl = f"LOCKED[{locked_target_id}]"
-                elif dbz <= 25.0:
+                elif dbz < 20.0:
                     lbl = f"{lbl}?"
                 eta = max(1.0, float(c_orig.get("eta_min", 0)) - time_offset_min)
                 if eta <= 0:
@@ -651,7 +655,7 @@ class TMDTrackingMixin:
                 dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
                 vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
 
-                color = (180, 180, 180) if dbz <= 25.0 else _dbz_color(dbz)
+                color = (180, 180, 180) if dbz < 20.0 else _dbz_color(dbz)
                 
                 # Draw polygon outline & fill for ambient clouds (similar to approaching clouds)
                 if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
@@ -842,7 +846,7 @@ class TMDTrackingMixin:
                 lbl = c_orig.get("label", "")
                 if is_locked:
                     lbl = f"LOCKED[{locked_target_id}]"
-                elif dbz <= 25.0:
+                elif dbz < 20.0:
                     lbl = f"{lbl}?"
                 txt = f"{lbl}: {int(dbz)}"
                 tw, th = int(55 * scale) if is_locked else int(45 * scale), int(12 * scale)

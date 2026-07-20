@@ -40,6 +40,8 @@ _DEV_CONFIG: dict = {
     "use_skn240_backup":    False,     # Force using skn240 backup files for testing (adjustable via /devmock config)
     "min_ambient_dbz":      20.0,      # minimum dBZ for ambient clusters to be labeled/drawn
     "min_ambient_size":     15,        # minimum size (pixels) for ambient clusters to be labeled/drawn
+    "show_trajectory":      True,      # Draw trajectory points and lines
+    "show_backward_trajectory": True,  # Draw historical backward trajectory line
 }
 
 
@@ -803,11 +805,21 @@ class WeatherManager:
                 if all_rain_clusters:
                     min_amb_dbz = _cfg.get("min_ambient_dbz", 20.0)
                     min_amb_size = _cfg.get("min_ambient_size", 15)
-                    all_rain_clusters = [
-                        c for c in all_rain_clusters
-                        if len(c.get("pixels", [])) < 5
-                        or (c.get("dbz_now", 0) >= min_amb_dbz and len(c.get("pixels", [])) >= min_amb_size)
-                    ]
+                    filtered_clusters = []
+                    for c in all_rain_clusters:
+                        if len(c.get("pixels", [])) < 5:
+                            filtered_clusters.append(c)
+                            continue
+                        dbz = c.get("dbz_now", 0)
+                        size = len(c.get("pixels", []))
+                        if dbz >= min_amb_dbz and size >= min_amb_size:
+                            filtered_clusters.append(c)
+                        else:
+                            logger.info(
+                                f"[FILTER] Ambient cluster filtered out: centroid=({c.get('cx'):.1f}, {c.get('cy'):.1f}), "
+                                f"dbz={dbz:.1f}, size={size}px (thresholds: dbz>={min_amb_dbz}, size>={min_amb_size})"
+                            )
+                    all_rain_clusters = filtered_clusters
 
                 if all_rain_clusters:
                     # Sort by dBZ descending first, then distance ascending so red/heavy rain clusters get labels A, B...
@@ -1237,7 +1249,7 @@ class WeatherManager:
                     tracking_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
-                        all_rain_clusters, predictions, True, True, time_offset_min,
+                        all_rain_clusters, predictions, True, _DEV_CONFIG.get("show_trajectory", True), time_offset_min,
                         locked_target_id,
                         locked_target_cx,
                         locked_target_cy,

@@ -449,6 +449,8 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                 _DEV_CONFIG["enable_hsv_mask"] = False
                 _DEV_CONFIG["min_ambient_dbz"] = 20.0
                 _DEV_CONFIG["min_ambient_size"] = 15
+                _DEV_CONFIG["show_trajectory"] = True
+                _DEV_CONFIG["show_backward_trajectory"] = True
                 await repo.set_global_dev_config(_DEV_CONFIG)
                 await telegram.send_telegram_message(chat_id, "🛠️ Dev Config รีเซ็ตเป็นค่า default แล้วครับ ✅")
                 return
@@ -465,6 +467,8 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                 "enable_hsv_mask": False,
                 "min_ambient_dbz": 20.0,
                 "min_ambient_size": 15,
+                "show_trajectory": True,
+                "show_backward_trajectory": True,
                 "draw_debug_grid": False
             }
             
