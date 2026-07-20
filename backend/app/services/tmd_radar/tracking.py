@@ -299,19 +299,19 @@ class TMDTrackingMixin:
                     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
                     
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                    global_contours = []
+                    
+                    all_points = []
                     for ctr in contours:
-                        # Filter out extremely small noise points and tiny polygons
-                        if cv2.contourArea(ctr) < 15:
-                            continue
-                            
-                        # Use approxPolyDP instead of convexHull to wrap closely and cleanly
-                        # around the concave shapes of the individual cloud chunks (Issue #175)
-                        epsilon = 0.005 * cv2.arcLength(ctr, True)
-                        approx = cv2.approxPolyDP(ctr, epsilon, True)
+                        all_points.extend(ctr)
                         
-                        global_ctr = approx + np.array([[[x - margin, y - margin]]], dtype=np.int32)
-                        global_contours.append(global_ctr)
+                    global_contours = []
+                    if len(all_points) > 0:
+                        hull = cv2.convexHull(np.array(all_points))
+                        if cv2.contourArea(hull) >= 15:
+                            epsilon = 0.005 * cv2.arcLength(hull, True)
+                            approx = cv2.approxPolyDP(hull, epsilon, True)
+                            global_ctr = approx + np.array([[[x - margin, y - margin]]], dtype=np.int32)
+                            global_contours = [global_ctr]
 
                     if len(global_contours) > 1:
                         areas = [int(cv2.contourArea(ctr)) for ctr in global_contours]
@@ -415,13 +415,20 @@ class TMDTrackingMixin:
                     'bg': (255, 255, 255) if is_locked else (0, 0, 0)
                 })
 
+            # Filter ambient clouds to only those visible on the cropped map
+            visible_ambient_clouds = []
+            for c in ambient_clouds:
+                cx_orig, cy_orig = c["cx"], c["cy"]
+                if not (cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80):
+                    visible_ambient_clouds.append(c)
+
             # Sort and build list of ambient clouds to render, prioritizing higher dBZ first, then closer distance
-            ambient_clouds.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), c.get("dist", 9999)))
+            visible_ambient_clouds.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), -c.get("size", len(c.get("pixels", []))), c.get("dist", 9999)))
             rendered_ambient = []
-            if locked_cluster is not None and locked_cluster in ambient_clouds:
+            if locked_cluster is not None and locked_cluster in visible_ambient_clouds:
                 rendered_ambient.append(locked_cluster)
             max_ambient = 5 if _DEV_CONFIG.get("verbose") else 3
-            for c in ambient_clouds:
+            for c in visible_ambient_clouds:
                 if len(rendered_ambient) >= max_ambient:
                     break
                 if c not in rendered_ambient:
@@ -446,8 +453,6 @@ class TMDTrackingMixin:
 
             for c_orig in rendered_ambient:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
-                if cx_orig < x1 - 80 or cx_orig > x2 + 80 or cy_orig < y1 - 80 or cy_orig > y2 + 80:
-                    continue
 
                 # Centroid position — used for ETA/arrow/projection (computation-stable)
                 cx = int((cx_orig - x1) * scale)
@@ -485,15 +490,19 @@ class TMDTrackingMixin:
                     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
                     
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                    global_contours = []
+                    
+                    all_points = []
                     for ctr in contours:
-                        if cv2.contourArea(ctr) < 15:
-                            continue
-                        epsilon = 0.005 * cv2.arcLength(ctr, True)
-                        approx = cv2.approxPolyDP(ctr, epsilon, True)
-                        global_ctr = approx + np.array([[[bx - margin, by - margin]]], dtype=np.int32)
-                        global_contours.append(global_ctr)
+                        all_points.extend(ctr)
                         
+                    global_contours = []
+                    if len(all_points) > 0:
+                        hull = cv2.convexHull(np.array(all_points))
+                        if cv2.contourArea(hull) >= 15:
+                            epsilon = 0.005 * cv2.arcLength(hull, True)
+                            approx = cv2.approxPolyDP(hull, epsilon, True)
+                            global_contours = [approx + np.array([[[bx - margin, by - margin]]], dtype=np.int32)]
+                            
                     if global_contours:
                         overlay = img.copy()
                         cv2.fillPoly(overlay, global_contours, color)

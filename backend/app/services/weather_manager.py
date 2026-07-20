@@ -785,9 +785,9 @@ class WeatherManager:
                 all_rain_clusters = await asyncio.to_thread(
                     processor.get_all_rain_clusters,
                     curr_frame, flow, user_px, user_py,
-                    scan_radius=max(130, min(200, _cfg.get("search_radius", 80) + 20)),
-                    min_dbz=_cfg.get("min_dbz", 10.0),  # Set to 10.0 to match Firestore config and eliminate noise bridges
-                    cluster_dist=5,  # Balanced value to split far cells while keeping main clusters intact
+                    scan_radius=None,
+                    min_dbz=_cfg.get("min_dbz", 10.0),
+                    cluster_dist=12,
                     min_size=5,
                 )
                 

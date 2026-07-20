@@ -157,6 +157,21 @@ class TMDClusteringMixin:
             intensity = int(min(255, max(50, dbz * 4)))
             best_intensity[better_mask] = intensity
             
+        # Hysteresis for faded rain edges (which mix with map background)
+        weak_colors = [(87, 96, 65), (69, 78, 47), (130, 145, 106)]
+        weak_mask = np.zeros(img.shape[:2], dtype=bool)
+        for wc in weak_colors:
+            wc_arr = np.array(wc, dtype=np.float32)
+            dist = np.sqrt(np.sum((img_float - wc_arr)**2, axis=-1))
+            weak_mask |= (dist < 15.0)
+            
+        if np.any(weak_mask):
+            # Dilate strong rain to find adjacent weak pixels
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (35, 35))
+            dilated_strong = cv2.dilate(best_intensity, kernel)
+            valid_weak = weak_mask & (dilated_strong > 0)
+            best_intensity[valid_weak] = max(50, int(15.0 * 4))
+            
         # Apply a small median blur to remove single-pixel noise which confuses optical flow
         mask = cv2.medianBlur(best_intensity, 3)
         return mask
@@ -317,80 +332,89 @@ class TMDClusteringMixin:
         flow: np.ndarray,
         user_x: int,
         user_y: int,
-        scan_radius: int = 200,
+        scan_radius: Optional[int] = None,
         min_dbz: float = 10.0,
-        cluster_dist: int = 25,
+        cluster_dist: int = 12,
         min_size: int = 5,
     ) -> list:
         """
-        Scan a wide radius for ALL rain clusters (regardless of direction).
-        Returns a list of dicts with cx, cy, vx, vy, dbz_now, eta_min, approaching.
-        Used for the always-visible radar overlay (circles + arrows).
+        Scan for ALL rain clusters (regardless of direction).
+        Uses OpenCV contour detection for massive speedup over Python loops.
         """
-        from app.services.tmd_radar.processor import TMDRadarProcessor
         h, w = frame.shape[:2]
-        candidates = []
-        for dy in range(-scan_radius, scan_radius + 1, 1):
-            for dx in range(-scan_radius, scan_radius + 1, 1):
-                sx = user_x + dx
-                sy = user_y + dy
-                # Exclude the outer 80px margin where titles, scales, and legends reside
-                # to prevent map features/text from being misclassified as rain clusters.
-                if sx < 80 or sx >= w - 80 or sy < 80 or sy >= h - 80:
-                    continue
-                d = TMDRadarProcessor._get_dbz_at_pixel_static(frame, sx, sy)
-                if d < min_dbz:
-                    continue
-                vx = float(flow[sy, sx, 0])
-                vy = float(flow[sy, sx, 1])
-                candidates.append((sx, sy, vx, vy, d))
-
-        if not candidates:
+        
+        # 1. Get intensity mask for whole image
+        # extract_rain_mask returns uint8 with intensity = min(255, dbz * 4)
+        mask = TMDClusteringMixin.extract_rain_mask(None, frame)
+        
+        # 2. Filter by min_dbz
+        min_intensity = int(min_dbz * 4)
+        rain_pixels = mask >= min_intensity
+        
+        if scan_radius is not None:
+            roi_mask = np.zeros_like(mask)
+            x1, y1 = max(0, user_x - scan_radius), max(0, user_y - scan_radius)
+            x2, y2 = min(w, user_x + scan_radius + 1), min(h, user_y + scan_radius + 1)
+            roi_mask[y1:y2, x1:x2] = 1
+            rain_pixels = rain_pixels & (roi_mask > 0)
+            
+        y_coords, x_coords = np.nonzero(rain_pixels)
+        if len(x_coords) == 0:
             return []
-
-        # Simple greedy clustering
-        used = [False] * len(candidates)
+            
+        # 3. Morphological close to bridge gaps of `cluster_dist`
+        bin_mask = (rain_pixels * 255).astype(np.uint8)
+        ksize = cluster_dist
+        if ksize % 2 == 0:
+            ksize += 1
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize))
+        closed_mask = cv2.morphologyEx(bin_mask, cv2.MORPH_CLOSE, kernel)
+        
+        # 4. Find contours
+        contours, _ = cv2.findContours(closed_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
         clusters = []
-        for i, c1 in enumerate(candidates):
-            if used[i]:
+        for ctr in contours:
+            # Mask just this contour
+            x, y, cw, ch = cv2.boundingRect(ctr)
+            # Create a small local mask for speed
+            local_bin = np.zeros((ch, cw), dtype=np.uint8)
+            local_ctr = ctr - np.array([[[x, y]]], dtype=np.int32)
+            cv2.fillPoly(local_bin, [local_ctr], 255)
+            
+            local_rain = rain_pixels[y:y+ch, x:x+cw]
+            local_cluster = (local_bin > 0) & local_rain
+            ly_coords, lx_coords = np.nonzero(local_cluster)
+            
+            if len(lx_coords) < min_size:
                 continue
-            group = [c1]
-            used[i] = True
-            queue = [c1]
-            while queue:
-                cur = queue.pop()
-                for j, c2 in enumerate(candidates):
-                    if used[j]:
-                        continue
-                    if math.hypot(cur[0] - c2[0], cur[1] - c2[1]) <= cluster_dist:
-                        used[j] = True
-                        group.append(c2)
-                        queue.append(c2)
-
-            if len(group) < min_size:
-                continue
-
-            total_w = sum(g[4] for g in group)
+                
+            cy_coords = ly_coords + y
+            cx_coords = lx_coords + x
+            
+            pixel_intensities = mask[cy_coords, cx_coords]
+            pixel_dbzs = pixel_intensities / 4.0
+            
+            pixel_vxs = flow[cy_coords, cx_coords, 0]
+            pixel_vys = flow[cy_coords, cx_coords, 1]
+            
+            total_w = np.sum(pixel_dbzs)
             if total_w <= 0:
                 continue
-            cx = int(sum(g[0] * g[4] for g in group) / total_w)
-            cy = int(sum(g[1] * g[4] for g in group) / total_w)
-            avg_vx = sum(g[2] for g in group) / len(group)
-            avg_vy = sum(g[3] for g in group) / len(group)
-            dbz_now = max(g[4] for g in group)
-
-            # Peak-dBZ pixel: the single brightest point in this cluster.
-            # Used as the visual anchor for the dashed-circle marker so it lands
-            # on the convective core rather than the weighted centroid, which can
-            # be offset for asymmetric or large clusters.
-            peak_pixel = max(group, key=lambda g: g[4])
-            peak_cx = peak_pixel[0]
-            peak_cy = peak_pixel[1]
-
+                
+            cx = int(np.sum(cx_coords * pixel_dbzs) / total_w)
+            cy = int(np.sum(cy_coords * pixel_dbzs) / total_w)
+            avg_vx = float(np.mean(pixel_vxs))
+            avg_vy = float(np.mean(pixel_vys))
+            dbz_now = float(np.max(pixel_dbzs))
+            
+            max_idx = np.argmax(pixel_dbzs)
+            peak_cx = int(cx_coords[max_idx])
+            peak_cy = int(cy_coords[max_idx])
+            
             v_mag = math.hypot(avg_vx, avg_vy)
             dist = math.hypot(cx - user_x, cy - user_y)
-
-            # Determine if approaching
+            
             approaching = False
             eta_min = None
             if v_mag > 0.1 and dist > 0:
@@ -399,33 +423,32 @@ class TMDClusteringMixin:
                 vec_x = user_x - cx
                 vec_y = user_y - cy
                 dot = vx_norm * (vec_x / dist) + vy_norm * (vec_y / dist)
-                if dot > 0.3:  # looser than find_approaching_clouds threshold
+                if dot > 0.3:
                     approaching = True
                     eta_min = (dist / (v_mag * dot)) * 15.0
-
+                    
             if eta_min is None:
                 eta_min = (dist / v_mag * 15.0) if v_mag > 0.1 else 9999.0
-
-            xmin = min(g[0] for g in group)
-            xmax = max(g[0] for g in group)
-            ymin = min(g[1] for g in group)
-            ymax = max(g[1] for g in group)
-
+                
+            xmin, xmax = int(np.min(cx_coords)), int(np.max(cx_coords))
+            ymin, ymax = int(np.min(cy_coords)), int(np.max(cy_coords))
+            
             clusters.append({
-                "cx": cx, "cy": cy,           # weighted centroid — used for dedup, ETA, arrows
-                "peak_cx": peak_cx, "peak_cy": peak_cy,  # brightest pixel — used for visual marker
+                "cx": cx, "cy": cy,
+                "peak_cx": peak_cx, "peak_cy": peak_cy,
                 "vx": avg_vx, "vy": avg_vy,
                 "dbz_now": dbz_now,
                 "predicted_dbz": dbz_now,
                 "dist": dist,
                 "eta_min": eta_min,
                 "approaching": approaching,
-                "size": len(group),
+                "size": len(cx_coords),
+                "bbox": (xmin, xmax, ymin, ymax),
                 "xmin": xmin, "xmax": xmax,
                 "ymin": ymin, "ymax": ymax,
-                "pixels": [(g[0], g[1]) for g in group]
+                "pixels": list(zip(map(int, cx_coords), map(int, cy_coords)))
             })
-
+            
         clusters.sort(key=lambda c: c["dist"])
         for i, c in enumerate(clusters):
             c["label"] = chr(ord('A') + min(i, 25))

@@ -321,9 +321,9 @@ async def main():
             flow=flow,
             user_x=user_x,
             user_y=user_y,
-            scan_radius=max(130, min(200, _cfg.get("search_radius", 80) + 20)),
-            min_dbz=_cfg.get("min_dbz", 10.0),  # Set to 10.0 to match Firestore config and eliminate noise bridges
-            cluster_dist=5,  # Trying 5 to see if it balances separating P15, P16, P17 while keeping A mostly intact
+            scan_radius=None,
+            min_dbz=_cfg.get("min_dbz", 10.0),
+            cluster_dist=12,
             min_size=5
         )
 
@@ -371,12 +371,17 @@ async def main():
 
         print("\n=== CLUSTER ANALYSIS (OFFLINE SCRIPT) ===")
         for c in clusters:
+            import numpy as np
+            if "xmin" in c:
+                bbox_str = f"bbox=(x:{c['xmin']}-{c['xmax']}, y:{c['ymin']}-{c['ymax']})"
+            else:
+                bbox_str = "bbox=unknown"
             lbl = c['label']
             cx, cy = c['cx'], c['cy']
             pkx, pky = c.get('peak_cx', cx), c.get('peak_cy', cy)
-            dist = c['dist']
+            dist = c.get('dist', 9999.0)
             drift = np.hypot(pkx - cx, pky - cy)
-            print(f"Cluster [{lbl}]: Centroid=({cx}, {cy}), Peak=({pkx}, {pky}), Drift={drift:.2f}px, Size={c['size']}, Dist={dist:.1f}px")
+            print(f"Cluster [{lbl}]: Centroid=({cx}, {cy}), Peak=({pkx}, {pky}), Drift={drift:.2f}px, Size={c['size']}, Dist={dist:.1f}px, {bbox_str}")
 
         print("\n=== APPROACHING CLOUDS ===")
         if not clouds:
