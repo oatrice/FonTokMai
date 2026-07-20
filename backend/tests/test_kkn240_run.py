@@ -323,7 +323,7 @@ async def main():
             user_y=user_y,
             scan_radius=min(200, _cfg.get("search_radius", 80) + 20),
             min_dbz=0.1,  # Keep lower threshold for light rain
-            cluster_dist=12,  # Reduced from 25 to 12 to split separate groups
+            cluster_dist=8,  # Reduced from 12 to 8 to split large clusters (C, E) into smaller sub-cells
             min_size=5
         )
 

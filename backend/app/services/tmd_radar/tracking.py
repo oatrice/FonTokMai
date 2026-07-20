@@ -293,8 +293,8 @@ class TMDTrackingMixin:
                         if 0 <= px < mask_w and 0 <= py < mask_h:
                             mask[py, px] = 255
                             
-                    # Use a larger ellipse kernel to merge distinct cloud chunks smoothly
-                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+                    # Use a slightly smaller ellipse kernel to follow cloud shape closely and smoothly
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
                     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
                     
@@ -307,7 +307,7 @@ class TMDTrackingMixin:
                             
                         # Use approxPolyDP instead of convexHull to wrap closely and cleanly
                         # around the concave shapes of the individual cloud chunks (Issue #175)
-                        epsilon = 0.02 * cv2.arcLength(ctr, True)
+                        epsilon = 0.005 * cv2.arcLength(ctr, True)
                         approx = cv2.approxPolyDP(ctr, epsilon, True)
                         
                         global_ctr = approx + np.array([[[x - margin, y - margin]]], dtype=np.int32)
@@ -381,9 +381,9 @@ class TMDTrackingMixin:
                     
                 lbl = c_orig.get("label", "")
                 if is_locked:
-                    # Show the user-facing lock label (e.g. "G5") rather than the
-                    # re-assigned cluster label (e.g. "B").
                     lbl = f"LOCKED[{locked_target_id}]"
+                elif dbz <= 25.0:
+                    lbl = f"{lbl}?"
                 eta = max(1.0, float(c_orig.get("eta_min", 0)) - time_offset_min)
                 if eta <= 0:
                     txt = f"{lbl} (Now)"
@@ -415,13 +415,14 @@ class TMDTrackingMixin:
                     'bg': (255, 255, 255) if is_locked else (0, 0, 0)
                 })
 
-            # Sort and build list of ambient clouds to render, prioritizing the locked target
-            ambient_clouds.sort(key=lambda c: c.get("dist", 9999))
+            # Sort and build list of ambient clouds to render, prioritizing higher dBZ first, then closer distance
+            ambient_clouds.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), c.get("dist", 9999)))
             rendered_ambient = []
             if locked_cluster is not None and locked_cluster in ambient_clouds:
                 rendered_ambient.append(locked_cluster)
+            max_ambient = 10 if _DEV_CONFIG.get("verbose") else 5
             for c in ambient_clouds:
-                if len(rendered_ambient) >= 8:
+                if len(rendered_ambient) >= max_ambient:
                     break
                 if c not in rendered_ambient:
                     rendered_ambient.append(c)
@@ -463,7 +464,41 @@ class TMDTrackingMixin:
                 dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
                 vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
 
-                color = _dbz_color(dbz)
+                color = (180, 180, 180) if dbz <= 25.0 else _dbz_color(dbz)
+                
+                # Draw polygon outline & fill for ambient clouds (similar to approaching clouds)
+                if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
+                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for px, py in c_orig["pixels"]], dtype=np.int32)
+                    bx, by, bw, bh = cv2.boundingRect(pts)
+                    margin = 2
+                    mask_w, mask_h = bw + 2 * margin, bh + 2 * margin
+                    mask = np.zeros((mask_h, mask_w), dtype=np.uint8)
+                    
+                    local_pts = pts - np.array([[[bx - margin, by - margin]]], dtype=np.int32)
+                    for pt in local_pts:
+                        px, py = pt[0]
+                        if 0 <= px < mask_w and 0 <= py < mask_h:
+                            mask[py, px] = 255
+                            
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+                    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+                    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+                    
+                    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    global_contours = []
+                    for ctr in contours:
+                        if cv2.contourArea(ctr) < 15:
+                            continue
+                        epsilon = 0.005 * cv2.arcLength(ctr, True)
+                        approx = cv2.approxPolyDP(ctr, epsilon, True)
+                        global_ctr = approx + np.array([[[bx - margin, by - margin]]], dtype=np.int32)
+                        global_contours.append(global_ctr)
+                        
+                    if global_contours:
+                        overlay = img.copy()
+                        cv2.fillPoly(overlay, global_contours, color)
+                        cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
+                        cv2.polylines(img, global_contours, True, color, max(1, int(2.0 * scale)))
                 # Draw dashed circle at PEAK (brightest pixel) position
                 for angle_deg in range(0, 360, 30):
                     a1 = math.radians(angle_deg)
@@ -550,6 +585,8 @@ class TMDTrackingMixin:
                 lbl = c_orig.get("label", "")
                 if is_locked:
                     lbl = f"LOCKED[{locked_target_id}]"
+                elif dbz <= 25.0:
+                    lbl = f"{lbl}?"
                 txt = f"{lbl}: {int(dbz)}"
                 tw, th = int(55 * scale) if is_locked else int(45 * scale), int(12 * scale)
                 # Label positioned above the PEAK marker (so text sits on the bright spot)

@@ -787,7 +787,7 @@ class WeatherManager:
                     curr_frame, flow, user_px, user_py,
                     scan_radius=min(200, _cfg.get("search_radius", 80) + 20),
                     min_dbz=0.1,  # Lower threshold so even light rain gets clustered and labeled
-                    cluster_dist=12,  # Reduced from 25 to 12 to match human visual clustering
+                    cluster_dist=8,  # Reduced from 12 to 8 to split large clusters (C, E) into smaller sub-cells
                     min_size=5,
                 )
                 
