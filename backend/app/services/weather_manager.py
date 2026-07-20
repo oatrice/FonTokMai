@@ -32,6 +32,9 @@ _DEV_CONFIG: dict = {
     "decay_enabled":  True,   # Whether to apply growth/decay rate to cloud extrapolation
     "prediction_steps": 13,   # Number of steps to predict forward (each 15 mins)
     "chaikin_iterations": 3,  # Chaikin corner-cutting iterations for smoothing radar contours
+    "enable_raster_smooth": True,      # Enable organic metaball-style smoothing on masks
+    "gaussian_kernel_size": 25,        # Gaussian blur size before thresholding
+    "enable_hsv_mask":      False,     # Use HSV range thresholding for robust cloud detection (default False for cluster split compliance)
 }
 
 

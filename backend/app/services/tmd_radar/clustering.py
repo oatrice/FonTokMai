@@ -137,11 +137,28 @@ class TMDClusteringMixin:
         ``extract_rain_mask`` applies medianBlur which eliminates sparse/isolated
         pixels and is intended only for optical-flow computation.
         """
-        img_float = img.astype(np.float32)
+        from app.services.weather_manager import _DEV_CONFIG
+        enable_hsv = _DEV_CONFIG.get("enable_hsv_mask", True)
 
-        min_dists = np.full(img.shape[:2], 25.0, dtype=np.float32)
+        img_float = img.astype(np.float32)
         best_intensity = np.zeros(img.shape[:2], dtype=np.uint8)
 
+        if enable_hsv:
+            hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+            lower_hsv1 = np.array([0, 160, 130], dtype=np.uint8)
+            upper_hsv1 = np.array([180, 255, 255], dtype=np.uint8)
+            hsv_mask = cv2.inRange(hsv, lower_hsv1, upper_hsv1)
+            
+            ignore_mask = np.zeros(img.shape[:2], dtype=bool)
+            for ic in IGNORED_COLORS:
+                ic_arr = np.array(ic, dtype=np.float32)
+                dist = np.sqrt(np.sum((img_float - ic_arr)**2, axis=-1))
+                ignore_mask |= (dist < 18.0)
+            
+            hsv_mask[ignore_mask] = 0
+            best_intensity[hsv_mask > 0] = max(50, int(15.0 * 4))
+
+        min_dists = np.full(img.shape[:2], 25.0, dtype=np.float32)
         ignored_min_dists = np.full(img.shape[:2], float('inf'), dtype=np.float32)
         for ic in IGNORED_COLORS:
             ic_arr = np.array(ic, dtype=np.float32)
@@ -167,12 +184,36 @@ class TMDClusteringMixin:
         Applies medianBlur to remove single-pixel noise — use this for optical flow.
         For per-pixel candidate detection, use _extract_raw_dbz_map() instead.
         """
+        from app.services.weather_manager import _DEV_CONFIG
+        enable_hsv = _DEV_CONFIG.get("enable_hsv_mask", True)
+
         img_float = img.astype(np.float32)
-        
-        min_dists = np.full(img.shape[:2], 25.0, dtype=np.float32)
         best_intensity = np.zeros(img.shape[:2], dtype=np.uint8)
-        
-        # Calculate min distance to any ignored color
+
+        if enable_hsv:
+            # Convert RGB to HSV
+            hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+            # Define broad range that matches radar storm pixels:
+            # Hue: 0-180 (all colors), Saturation: 90-255 (vibrant colors), Value: 100-255 (bright colors)
+            lower_hsv1 = np.array([0, 160, 130], dtype=np.uint8)
+            upper_hsv1 = np.array([180, 255, 255], dtype=np.uint8)
+            hsv_mask = cv2.inRange(hsv, lower_hsv1, upper_hsv1)
+            
+            # Map background / ignore colors specifically (terrain greens/grays/blues that could blend in)
+            ignore_mask = np.zeros(img.shape[:2], dtype=bool)
+            for ic in IGNORED_COLORS:
+                ic_arr = np.array(ic, dtype=np.float32)
+                dist = np.sqrt(np.sum((img_float - ic_arr)**2, axis=-1))
+                ignore_mask |= (dist < 18.0)
+            
+            # Remove ignored background map features from the HSV mask
+            hsv_mask[ignore_mask] = 0
+            
+            # Set default intensity for valid storm pixels
+            best_intensity[hsv_mask > 0] = max(50, int(15.0 * 4)) # default 15 dBZ
+
+        # Fallback and exact match reinforcement from standard RGB DBZ Color Mapping
+        min_dists = np.full(img.shape[:2], 25.0, dtype=np.float32)
         ignored_min_dists = np.full(img.shape[:2], float('inf'), dtype=np.float32)
         for ic in IGNORED_COLORS:
             ic_arr = np.array(ic, dtype=np.float32)
@@ -183,10 +224,7 @@ class TMDClusteringMixin:
         for color, dbz in DBZ_COLOR_MAPPING.items():
             c_arr = np.array(color, dtype=np.float32)
             dist = np.sqrt(np.sum((img_float - c_arr)**2, axis=-1))
-            
-            # Must be closer to this dBZ color than to ANY ignored color
             valid_mask = dist < ignored_min_dists
-            
             better_mask = (dist < min_dists) & valid_mask
             min_dists[better_mask] = dist[better_mask]
             
@@ -201,15 +239,12 @@ class TMDClusteringMixin:
             dist = np.sqrt(np.sum((img_float - wc_arr)**2, axis=-1))
             weak_mask |= (dist < 15.0)
         if np.any(weak_mask):
-            # Dilate strong rain to find adjacent weak pixels.
-            # (7,7) is intentionally smaller than before to keep edge mask tight
-            # so that optical flow from Farneback can see clean cloud boundaries.
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
             dilated_strong = cv2.dilate(best_intensity, kernel)
             valid_weak = weak_mask & (dilated_strong > 0)
             best_intensity[valid_weak] = max(50, int(15.0 * 4))
             
-        # Apply a small median blur to remove single-pixel noise which confuses optical flow
+        # Apply a small median blur to remove single-pixel noise
         mask = cv2.medianBlur(best_intensity, 3)
         return mask
 

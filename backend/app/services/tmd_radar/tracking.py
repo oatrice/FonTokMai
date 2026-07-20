@@ -265,6 +265,7 @@ class TMDTrackingMixin:
         scale = 3.0
         
         img = cv2.resize(crop_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
+        img_raw_orig = img.copy()
         ux = int((user_x - x1) * scale)
         uy = int((user_y - y1) * scale)
         
@@ -403,9 +404,20 @@ class TMDTrackingMixin:
                     raw_mask = mask.copy()
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
                     
-                    # Apply a gentle MORPH_OPEN to remove single-pixel noise without eroding valid rain clouds
-                    open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-                    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, open_kernel)
+                    from app.services.weather_manager import _DEV_CONFIG
+                    enable_smooth = _DEV_CONFIG.get("enable_raster_smooth", True)
+                    
+                    if enable_smooth:
+                        # Pre-Contour Raster Smoothing (Metaball effect)
+                        ksize_val = _DEV_CONFIG.get("gaussian_kernel_size", 25)
+                        if ksize_val % 2 == 0:
+                            ksize_val += 1
+                        mask = cv2.GaussianBlur(mask, (ksize_val, ksize_val), 0)
+                        _, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+                    else:
+                        # Apply a gentle MORPH_OPEN to remove single-pixel noise without eroding valid rain clouds
+                        open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, open_kernel)
                     
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     
@@ -649,9 +661,20 @@ class TMDTrackingMixin:
                     raw_mask = mask.copy()
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
                     
-                    # Apply a gentle MORPH_OPEN to remove single-pixel noise without eroding valid rain clouds
-                    open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-                    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, open_kernel)
+                    from app.services.weather_manager import _DEV_CONFIG
+                    enable_smooth = _DEV_CONFIG.get("enable_raster_smooth", True)
+                    
+                    if enable_smooth:
+                        # Pre-Contour Raster Smoothing (Metaball effect)
+                        ksize_val = _DEV_CONFIG.get("gaussian_kernel_size", 25)
+                        if ksize_val % 2 == 0:
+                            ksize_val += 1
+                        mask = cv2.GaussianBlur(mask, (ksize_val, ksize_val), 0)
+                        _, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+                    else:
+                        # Apply a gentle MORPH_OPEN to remove single-pixel noise without eroding valid rain clouds
+                        open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, open_kernel)
                     
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     
@@ -979,6 +1002,43 @@ class TMDTrackingMixin:
                 img = np.array(img_pil.convert("RGB"))
             except Exception as e:
                 print("PIL ERROR:", e)
+
+        from app.services.weather_manager import _DEV_CONFIG
+        if _DEV_CONFIG.get("verbose"):
+            # 1. Raw Mask Generation
+            raw_mask_crop = self.extract_rain_mask(crop_img)
+            raw_mask_large = cv2.resize(raw_mask_crop, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_NEAREST)
+            raw_mask_rgb = cv2.cvtColor(raw_mask_large, cv2.COLOR_GRAY2RGB)
+            
+            # 2. Smooth Mask Generation (GaussianBlur + Threshold)
+            ksize_val = _DEV_CONFIG.get("gaussian_kernel_size", 25)
+            if ksize_val % 2 == 0:
+                ksize_val += 1
+            smooth_mask_large = cv2.GaussianBlur(raw_mask_large, (ksize_val, ksize_val), 0)
+            _, smooth_mask_large = cv2.threshold(smooth_mask_large, 127, 255, cv2.THRESH_BINARY)
+            smooth_mask_rgb = cv2.cvtColor(smooth_mask_large, cv2.COLOR_GRAY2RGB)
+            
+            # Add text labels on each quadrant
+            fs = max(0.6, 0.5 * scale)
+            th = max(2, int(1.5 * scale))
+            cv2.putText(img_raw_orig, "1. Raw Image", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), th * 2, cv2.LINE_AA)
+            cv2.putText(img_raw_orig, "1. Raw Image", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 255, 255), th, cv2.LINE_AA)
+            
+            cv2.putText(raw_mask_rgb, "2. Raw Mask", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), th * 2, cv2.LINE_AA)
+            cv2.putText(raw_mask_rgb, "2. Raw Mask", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 255, 255), th, cv2.LINE_AA)
+            
+            cv2.putText(smooth_mask_rgb, "3. Smooth Mask", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), th * 2, cv2.LINE_AA)
+            cv2.putText(smooth_mask_rgb, "3. Smooth Mask", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 255, 0), th, cv2.LINE_AA)
+            
+            # Keep final overlay as a separate copy with its own text label
+            img_final = img.copy()
+            cv2.putText(img_final, "4. Final Overlay", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), th * 2, cv2.LINE_AA)
+            cv2.putText(img_final, "4. Final Overlay", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 0, 255), th, cv2.LINE_AA)
+            
+            # Build 2x2 Grid Layout
+            top_row = np.hstack([img_raw_orig, raw_mask_rgb])
+            bottom_row = np.hstack([smooth_mask_rgb, img_final])
+            img = np.vstack([top_row, bottom_row])
 
         img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         is_success, buffer = cv2.imencode(".png", img_bgr)
