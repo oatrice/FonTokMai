@@ -222,4 +222,22 @@ IGNORED_COLORS = [
     (71, 161, 73),
     (76, 161, 78),
     (69, 155, 84),
+    # River / Lake / Sea background blue/cyan colors
+    (62, 101, 144),  # Water body / lake blue
+    (75, 149, 169),  # Water body cyan
+    (52, 139, 153),  # Water body dark cyan
+    (53, 147, 174),  # Water body light cyan
+    (176, 217, 239), # Water body soft blue
+    (210, 237, 247), # Water body very soft blue
+    (231, 243, 243), # Water body white-blue
+    (104, 180, 182), # Water body bright cyan
+    (107, 156, 168), # Water body grey-cyan
+    (79, 112, 169),  # Mekong River blue
+    (84, 115, 139),  # Mekong River dark grey-blue
+    (53, 83, 112),   # Mekong River deep blue
+    (67, 101, 149),  # Mekong River blue-purple
+    (203, 217, 238), # Mekong River light blue
+    (90, 118, 71),   # Terrain green-brown (kkn240)
+    (86, 139, 75),   # Terrain green (kkn240)
 ]
+
