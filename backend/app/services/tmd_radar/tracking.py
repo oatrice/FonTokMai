@@ -587,12 +587,19 @@ class TMDTrackingMixin:
                     'bg': (255, 255, 255) if is_locked else (0, 0, 0)
                 })
 
-            # Filter ambient clouds to only those visible on the cropped map
+            # Filter ambient clouds to only those visible on the cropped map and not tiny/weak noise
             visible_ambient_clouds = []
+            min_amb_dbz = _DEV_CONFIG.get("min_ambient_dbz", 20.0)
+            min_amb_size = _DEV_CONFIG.get("min_ambient_size", 15)
+            
             for c in ambient_clouds:
                 cx_orig, cy_orig = c["cx"], c["cy"]
+                is_locked = locked_cluster is not None and c is locked_cluster
                 if not (cx_orig < x1 - 15 or cx_orig > x2 + 15 or cy_orig < y1 - 15 or cy_orig > y2 + 15):
-                    visible_ambient_clouds.append(c)
+                    dbz_val = c.get("predicted_dbz", c.get("dbz_now", 20))
+                    pixels_count = len(c.get("pixels", []))
+                    if is_locked or (dbz_val >= min_amb_dbz and pixels_count >= min_amb_size):
+                        visible_ambient_clouds.append(c)
 
             # Sort and build list of ambient clouds to render, prioritizing higher dBZ first, then closer distance
             visible_ambient_clouds.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), -c.get("size", len(c.get("pixels", []))), c.get("dist", 9999)))

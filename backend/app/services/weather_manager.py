@@ -38,6 +38,8 @@ _DEV_CONFIG: dict = {
     "raster_smooth_threshold": 80,     # Default threshold after blur to prevent thin clouds melting
     "enable_hsv_mask":      False,     # Use HSV range thresholding for robust cloud detection (default False for cluster split compliance)
     "use_skn240_backup":    False,     # Force using skn240 backup files for testing (adjustable via /devmock config)
+    "min_ambient_dbz":      20.0,      # minimum dBZ for ambient clusters to be labeled/drawn
+    "min_ambient_size":     15,        # minimum size (pixels) for ambient clusters to be labeled/drawn
 }
 
 
@@ -798,6 +800,15 @@ class WeatherManager:
                     min_size=5,
                 )
                 
+                if all_rain_clusters:
+                    min_amb_dbz = _cfg.get("min_ambient_dbz", 20.0)
+                    min_amb_size = _cfg.get("min_ambient_size", 15)
+                    all_rain_clusters = [
+                        c for c in all_rain_clusters
+                        if len(c.get("pixels", [])) < 5
+                        or (c.get("dbz_now", 0) >= min_amb_dbz and len(c.get("pixels", [])) >= min_amb_size)
+                    ]
+
                 if all_rain_clusters:
                     # Sort by dBZ descending first, then distance ascending so red/heavy rain clusters get labels A, B...
                     all_rain_clusters.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), c.get("dist", 9999)))

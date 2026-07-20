@@ -447,6 +447,8 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                 _DEV_CONFIG["raster_smooth_threshold"] = 80
                 _DEV_CONFIG["draw_all_ambient_polygons"] = False
                 _DEV_CONFIG["enable_hsv_mask"] = False
+                _DEV_CONFIG["min_ambient_dbz"] = 20.0
+                _DEV_CONFIG["min_ambient_size"] = 15
                 await repo.set_global_dev_config(_DEV_CONFIG)
                 await telegram.send_telegram_message(chat_id, "🛠️ Dev Config รีเซ็ตเป็นค่า default แล้วครับ ✅")
                 return
@@ -461,6 +463,8 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                 "raster_smooth_threshold": 80,
                 "draw_all_ambient_polygons": False,
                 "enable_hsv_mask": False,
+                "min_ambient_dbz": 20.0,
+                "min_ambient_size": 15,
                 "draw_debug_grid": False
             }
             
