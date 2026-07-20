@@ -61,7 +61,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #165 - ทำระบบ bind command แบบที่ bind กับ ZCode
 - **GitHub:** [#165](https://gitlab.com/oatricedev/FonMaYang/-/issues/165)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.56.0)
 
 ### Issue #164 - เพิ่มระบบล็อคเป้าก้อนเมฆแบบ manual
 - **GitHub:** [#164](https://gitlab.com/oatricedev/FonMaYang/-/issues/164)
@@ -702,4 +702,12 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ### Issue # - Infra: Track Cloud Run deploy config and monitoring export audit tooling
 - **State:** opened
 - ✅ **Done** (0.39.0)
+
+### Issue # - Improve Telegram Bot response latency (Immediate Acknowledgment & Background Processing)
+- **State:** opened
+- ✅ **Done** (0.56.0)
+
+### Issue # - Adjust cloud polygon drawing area to cover each cloud chunk specifically
+- **State:** opened
+- ✅ **Done** (0.56.0)
 

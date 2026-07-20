@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.0] - 2026-07-21
+
+### Added
+- เพิ่มระบบจัดกลุ่มฝน (Radar Clustering) ด้วย OpenCV Contour Processing และแบบจำลองข้อมูล dBZ เพื่อคัดกรองสัญญาณรบกวน (Noise Filter) แทนการใช้ Convex Hull แบบเดิม
+- เพิ่มความสามารถในการแสดงผลภาพเรดาร์ด้วยเส้นขอบขัดเรียบ Chaikin (Chaikin Corner-Cutting Smoothing) และเส้นเรืองแสงสไตล์นีออน (Neon Contour Rendering)
+- เพิ่มระบบลงทะเบียนเมนูคำสั่งของ Telegram Bot แบบไดนามิกตามสภาพแวดล้อม (Dynamic Command Menu Setup) ในโหมดพัฒนาและโหมดใช้งานจริง
+- เพิ่มกลุ่มคำสั่งควบคุมและตรวจสอบสถานะสำหรับแอดมิน (Admin/Developer Webhook Commands)
+  - `/bypass` และ `/bypass_logout` สำหรับเข้า/ออกจากระบบจำลองแอดมินชั่วคราว
+  - `/status` สำหรับตรวจสอบสถานะระบบหลังบ้าน, สิทธิ์ Public Access, และสถานะ Cloud Scheduler Jobs
+  - `/metrics` สำหรับดาวน์โหลดไฟล์รายงานประวัติการทำงานในรูปแบบ CSV
+  - `/setbudget` สำหรับการตั้งค่างบประมาณของระบบแบบไดนามิก
+  - `/job` สำหรับหยุดชั่วคราวหรือเปิดใช้งาน Cloud Scheduler รายงานฝนรายตัว
+  - `/restore_public_access` และ `/disable_public_access` สำหรับควบคุมสิทธิ์การเข้าถึง API สาธารณะ
+
+### Changed
+- ปรับปรุงกระบวนการคัดกรองขอบเขตเมฆฝน (Cloud Mask Morphology) ด้วย Gaussian Blur, HSV Thresholding, และการกรองสีขอบทางภูมิศาสตร์เพื่อความแม่นยำยิ่งขึ้น
+- ปรับโครงสร้างสิทธิ์การเข้าถึงคำสั่งแอดมินโดยใช้งานผ่าน TelegramCommandRouter ที่ควบคุมด้วยระบบ Cloud Tasks
+
+### Fixed
+- แก้ไขปัญหาการส่งการแจ้งเตือนความคืบหน้าฝนที่ทับซ้อนและขัดแย้งกันเอง (ETA notification collision avoidance) โดยเพิ่มสถานะการล็อคคำอธิบายเมฆฝน
+- ปรับปรุงการตรวจสอบข้อมูลและการกู้คืนเฟรมภาพกรณีข้อมูลขาดหาย (Backup frame loading mode)
+
 ## [0.55.0] - 2026-07-14
 
 ### Added
