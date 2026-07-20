@@ -281,7 +281,7 @@ class TMDTrackingMixin:
             all_cloud_refs = list(incoming[:3]) + list(ambient_clouds)
             locked_cluster = _resolve_locked_cluster(all_cloud_refs)
 
-            for c_orig in incoming[:3]:
+            for c_orig in incoming:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
                 cx = int((cx_orig - x1) * scale)
                 cy = int((cy_orig - y1) * scale)
@@ -311,6 +311,10 @@ class TMDTrackingMixin:
                     
                     raw_mask = mask.copy()
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+                    
+                    # Apply a gentle MORPH_OPEN to remove single-pixel noise without eroding valid rain clouds
+                    open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, open_kernel)
                     
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     
@@ -352,7 +356,7 @@ class TMDTrackingMixin:
                             else:
                                 final_contour = ctr
                                 
-                            epsilon = 0.008 * cv2.arcLength(final_contour, True)
+                            epsilon = 0.006 * cv2.arcLength(final_contour, True)
                             approx = cv2.approxPolyDP(final_contour, epsilon, True)
                             global_ctr = approx + np.array([[[x - margin, y - margin]]], dtype=np.int32)
                             global_contours.append(global_ctr)
@@ -471,7 +475,7 @@ class TMDTrackingMixin:
             rendered_ambient = []
             if locked_cluster is not None and locked_cluster in visible_ambient_clouds:
                 rendered_ambient.append(locked_cluster)
-            max_ambient = 5 if _DEV_CONFIG.get("verbose") else 3
+            max_ambient = 10 if _DEV_CONFIG.get("verbose") else 6
             for c in visible_ambient_clouds:
                 if len(rendered_ambient) >= max_ambient:
                     break
@@ -538,6 +542,10 @@ class TMDTrackingMixin:
                     raw_mask = mask.copy()
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
                     
+                    # Apply a gentle MORPH_OPEN to remove single-pixel noise without eroding valid rain clouds
+                    open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, open_kernel)
+                    
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     
                     global_contours = []
@@ -578,7 +586,7 @@ class TMDTrackingMixin:
                             else:
                                 final_contour = ctr
                                 
-                            epsilon = 0.008 * cv2.arcLength(final_contour, True)
+                            epsilon = 0.006 * cv2.arcLength(final_contour, True)
                             approx = cv2.approxPolyDP(final_contour, epsilon, True)
                             global_ctr = approx + np.array([[[bx - margin, by - margin]]], dtype=np.int32)
                             global_contours.append(global_ctr)
