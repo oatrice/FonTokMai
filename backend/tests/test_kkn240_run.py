@@ -303,6 +303,11 @@ async def main():
         curr_frame = frames[-1].copy()
         prev_frame = frames[-2].copy()
         _DEV_CONFIG["verbose"] = True
+        _DEV_CONFIG["enable_hsv_mask"] = True
+        _DEV_CONFIG["enable_raster_smooth"] = True
+        _DEV_CONFIG["draw_all_ambient_polygons"] = True
+        _DEV_CONFIG["gaussian_kernel_size"] = 15
+        _DEV_CONFIG["raster_smooth_threshold"] = 50
         _cfg = _DEV_CONFIG.copy()
         clouds = processor.find_approaching_clouds(
             curr_frame, prev_frame, flow, user_x, user_y,

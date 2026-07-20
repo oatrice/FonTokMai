@@ -597,14 +597,17 @@ class TMDTrackingMixin:
             # Sort and build list of ambient clouds to render, prioritizing higher dBZ first, then closer distance
             visible_ambient_clouds.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), -c.get("size", len(c.get("pixels", []))), c.get("dist", 9999)))
             rendered_ambient = []
-            if locked_cluster is not None and locked_cluster in visible_ambient_clouds:
-                rendered_ambient.append(locked_cluster)
-            max_ambient = 10 if _DEV_CONFIG.get("verbose") else 6
-            for c in visible_ambient_clouds:
-                if len(rendered_ambient) >= max_ambient:
-                    break
-                if c not in rendered_ambient:
-                    rendered_ambient.append(c)
+            if _DEV_CONFIG.get("draw_all_ambient_polygons", False):
+                rendered_ambient = visible_ambient_clouds.copy()
+            else:
+                if locked_cluster is not None and locked_cluster in visible_ambient_clouds:
+                    rendered_ambient.append(locked_cluster)
+                max_ambient = 10 if _DEV_CONFIG.get("verbose") else 6
+                for c in visible_ambient_clouds:
+                    if len(rendered_ambient) >= max_ambient:
+                        break
+                    if c not in rendered_ambient:
+                        rendered_ambient.append(c)
 
             # ── Debug log: show every ambient cloud's centroid vs peak ──────────────
             for _c in rendered_ambient:
