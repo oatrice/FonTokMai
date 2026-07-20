@@ -293,15 +293,16 @@ class TMDTrackingMixin:
                         if 0 <= px < mask_w and 0 <= py < mask_h:
                             mask[py, px] = 255
                             
-                    # Use a slightly smaller kernel to prevent merging distinct cloud chunks
-                    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+                    # Use a larger ellipse kernel to merge distinct cloud chunks smoothly
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+                    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
                     
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     global_contours = []
                     for ctr in contours:
-                        # Filter out extremely small noise points
-                        if cv2.contourArea(ctr) < 5 and len(ctr) < 3:
+                        # Filter out extremely small noise points and tiny polygons
+                        if cv2.contourArea(ctr) < 15:
                             continue
                             
                         # Use approxPolyDP instead of convexHull to wrap closely and cleanly
@@ -634,6 +635,14 @@ class TMDTrackingMixin:
             ty = int((r_idx + 0.5) * cell_h + 5 * scale)
             cv2.putText(img, label_y, (int(5 * scale), ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, bg_color, max(1, int(font_scale * 4)))
             cv2.putText(img, label_y, (int(5 * scale), ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, max(1, int(font_scale * 1.5)))
+
+        if time_utc:
+            # Estimate timestamp area to avoid labels overlapping it
+            ts_w = int(120 * scale)
+            ts_h = int(30 * scale)
+            ts_x = img.shape[1] - ts_w - int(8 * scale)
+            ts_y = int(8 * scale)
+            obstacles.append((ts_x, ts_y, ts_w, ts_h))
 
         from app.services.tmd_radar.processor import TMDRadarProcessor
         TMDRadarProcessor._resolve_label_collisions(labels, obstacles, img.shape[1], img.shape[0])

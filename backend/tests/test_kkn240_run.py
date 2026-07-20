@@ -186,9 +186,9 @@ async def main():
 
     async with TestingSessionLocal() as session:
         repo = SQLiteLocationRepository(session)
-        # Register user target location: 16.6944, 104.5306
+        # Register user target location: 17.1712, 104.4594
         chat_id = "test_user_6346467495"
-        await repo.save_location(chat_id, 16.6944, 104.5306, "FOREVER", name="default")
+        await repo.save_location(chat_id, 17.1712, 104.4594, "FOREVER", name="default")
 
         # 2. Initialize TMDRadarProcessor and fetch frames
         processor = TMDRadarProcessor("skn240")
@@ -296,8 +296,8 @@ async def main():
         )
 
         # 4. Find user pixel coordinates (is_loop=True: frames come from the loop GIF)
-        user_x, user_y = processor.latlng_to_pixel(16.6944, 104.5306, is_loop=True)
-        print(f"User location: 16.6944, 104.5306 -> Pixel coordinate (X={user_x}, Y={user_y})")
+        user_x, user_y = processor.latlng_to_pixel(17.1712, 104.4594, is_loop=True)
+        print(f"User location: 17.1712, 104.4594 -> Pixel coordinate (X={user_x}, Y={user_y})")
 
         # 5a. Find approaching clouds - identical to production (weather_manager.py lines 689-726)
         curr_frame = frames[-1].copy()
@@ -314,14 +314,14 @@ async def main():
         )
         print(f"find_approaching_clouds returned {len(clouds)} cloud(s).")
 
-        # 5b. Check all clusters - params identical to production (weather_manager.py line 728-735)
+        # 5b. Check all clusters - params identical to production (weather_manager.py line 785-791)
         clusters = processor.get_all_rain_clusters(
             frame=frames[-1],
             flow=flow,
             user_x=user_x,
             user_y=user_y,
-            scan_radius=100,
-            min_dbz=0.1,
+            scan_radius=min(200, _cfg.get("search_radius", 80) + 20),
+            min_dbz=0.1,  # Lower threshold so even light rain gets clustered and labeled
             cluster_dist=25,
             min_size=5
         )
