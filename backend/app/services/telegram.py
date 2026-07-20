@@ -1,4 +1,5 @@
 import httpx
+from app.dependencies import get_http_client
 import os
 import logging
 import json
@@ -15,7 +16,7 @@ TELEGRAM_SEND_DOC_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendD
 TELEGRAM_SEND_PHOTO_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
 TELEGRAM_EDIT_MESSAGE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
 TELEGRAM_ANSWER_CB_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answerCallbackQuery"
-async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_markup: Optional[dict] = None) -> bool:
+async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_markup: Optional[dict] = None, parse_mode: Optional[str] = "HTML") -> bool:
     """
     Edits a previously sent message in a specific Telegram chat_id.
     """
@@ -24,16 +25,18 @@ async def edit_telegram_message(chat_id: int, message_id: int, text: str, reply_
         "message_id": message_id,
         "text": text
     }
+    if parse_mode is not None:
+        payload["parse_mode"] = parse_mode
     if reply_markup is not None:
         payload["reply_markup"] = reply_markup
         
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(TELEGRAM_EDIT_MESSAGE_URL, json=payload)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        response = await client.post(TELEGRAM_EDIT_MESSAGE_URL, json=payload, timeout=30.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to edit telegram message {message_id} in {chat_id}: {type(e).__name__} - {e}")
         return False
@@ -44,16 +47,16 @@ async def answer_callback_query(callback_query_id: str, text: Optional[str] = No
     if text:
         payload["text"] = text
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(TELEGRAM_ANSWER_CB_URL, json=payload)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        response = await client.post(TELEGRAM_ANSWER_CB_URL, json=payload, timeout=10.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to answer callback query {callback_query_id}: {type(e).__name__} - {e}")
         return False
-async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[dict] = None, parse_mode: Optional[str] = None) -> bool:
+async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[dict] = None, parse_mode: Optional[str] = "HTML") -> bool:
     """
     Sends a message to a specific Telegram chat_id.
     """
@@ -67,17 +70,17 @@ async def send_telegram_message(chat_id: int, text: str, reply_markup: Optional[
         payload["parse_mode"] = parse_mode
         
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(TELEGRAM_API_URL, json=payload)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        response = await client.post(TELEGRAM_API_URL, json=payload, timeout=30.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to send telegram message to {chat_id}: {type(e).__name__} - {e}")
         return False
 
-async def send_telegram_message_return_id(chat_id: int, text: str) -> Optional[int]:
+async def send_telegram_message_return_id(chat_id: int, text: str, parse_mode: Optional[str] = "HTML") -> Optional[int]:
     """
     Sends a message to a specific Telegram chat_id and returns the message_id.
     Used for sending immediate "loading..." messages that will be edited later.
@@ -87,14 +90,16 @@ async def send_telegram_message_return_id(chat_id: int, text: str) -> Optional[i
         "chat_id": chat_id,
         "text": text,
     }
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(TELEGRAM_API_URL, json=payload)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return None
-            data = response.json()
-            return data.get("result", {}).get("message_id")
+        client = get_http_client()
+        response = await client.post(TELEGRAM_API_URL, json=payload, timeout=30.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return None
+        data = response.json()
+        return data.get("result", {}).get("message_id")
     except Exception as e:
         logger.error(f"Failed to send telegram loading message to {chat_id}: {type(e).__name__} - {e}")
         return None
@@ -106,14 +111,14 @@ async def send_telegram_document(chat_id: int, file_data: bytes, filename: str) 
     Sends a document/animation to a specific Telegram chat_id.
     """
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            files = {"animation": (filename, file_data, "image/gif")}
-            data = {"chat_id": chat_id}
-            response = await client.post(TELEGRAM_SEND_ANIMATION_URL, data=data, files=files)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        files = {"animation": (filename, file_data, "image/gif")}
+        data = {"chat_id": chat_id}
+        response = await client.post(TELEGRAM_SEND_ANIMATION_URL, data=data, files=files, timeout=60.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to send telegram animation to {chat_id}: {e}")
         return False
@@ -123,14 +128,14 @@ async def send_telegram_raw_document(chat_id: int, file_data: bytes, filename: s
     Sends a file as an uncompressed document to a specific Telegram chat_id.
     """
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            files = {"document": (filename, file_data, "image/gif")}
-            data = {"chat_id": chat_id}
-            response = await client.post(TELEGRAM_SEND_DOC_URL, data=data, files=files)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        files = {"document": (filename, file_data, "image/gif")}
+        data = {"chat_id": chat_id}
+        response = await client.post(TELEGRAM_SEND_DOC_URL, data=data, files=files, timeout=60.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to send telegram raw document to {chat_id}: {e}")
         return False
@@ -140,14 +145,14 @@ async def send_telegram_photo(chat_id: int, photo_data: bytes, filename: str) ->
     Sends a photo to a specific Telegram chat_id.
     """
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            files = {"photo": (filename, photo_data, "image/png")}
-            data = {"chat_id": chat_id}
-            response = await client.post(TELEGRAM_SEND_PHOTO_URL, data=data, files=files)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        files = {"photo": (filename, photo_data, "image/png")}
+        data = {"chat_id": chat_id}
+        response = await client.post(TELEGRAM_SEND_PHOTO_URL, data=data, files=files, timeout=30.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to send telegram photo to {chat_id}: {type(e).__name__} - {e}")
         return False
@@ -216,12 +221,62 @@ async def send_grouped_disaster_alert(chat_id: int, event_type: str, event_data:
     }
     
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(TELEGRAM_API_URL, json=payload)
-            if response.status_code != 200:
-                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-                return False
-            return True
+        client = get_http_client()
+        response = await client.post(TELEGRAM_API_URL, json=payload)
+        if response.status_code != 200:
+            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+            return False
+        return True
     except Exception as e:
         logger.error(f"Failed to send disaster alert to {chat_id}: {e}")
         return False
+
+
+async def setup_telegram_commands() -> bool:
+    """
+    Sets up the custom command menu suggestion for the Telegram bot dynamically on startup.
+    """
+    is_dev = os.getenv("ENVIRONMENT", "production").lower() == "development"
+    
+    # Public commands suggested to all users
+    commands = [
+        {"command": "rain", "description": "เช็คพิกัดกลุ่มฝนล่าสุด"},
+        {"command": "check", "description": "เช็คพิกัดเรดาร์ฝน (Shorthand)"},
+        {"command": "radar", "description": "แสดงแหล่งข้อมูลเรดาร์ฝนภายนอก"},
+        {"command": "mylocation", "description": "แสดงรายการพิกัดพื้นที่ทั้งหมดของคุณ"},
+    ]
+    
+    if is_dev:
+        commands.extend([
+            {"command": "lock", "description": "ล็อคเป้าก้อนเมฆแมนนวล"},
+            {"command": "unlock", "description": "ปลดล็อคพื้นที่แจ้งเตือน"},
+            {"command": "bypass", "description": "เข้าสู่โหมด Emergency Admin Bypass"},
+            {"command": "bypass_logout", "description": "ออกจากโหมด Emergency Admin Bypass"},
+            {"command": "metrics", "description": "ดึงข้อมูลสถิติระบบ (สำหรับแอดมิน)"},
+            {"command": "setbudget", "description": "ตั้งค่างบประมาณ GCP (สำหรับแอดมิน)"},
+            {"command": "tmd_fallback", "description": "สลับแหล่งข้อมูลฝนสำรอง (สำหรับแอดมิน)"},
+            {"command": "restore_public_access", "description": "กู้คืนสิทธิ์ Public Access ให้กับ API (สำหรับแอดมิน)"},
+            {"command": "disable_public_access", "description": "ยกเลิกสิทธิ์ Public Access (โหมด Private) (สำหรับแอดมิน)"},
+            {"command": "job", "description": "จัดการสถานะ Scheduler Job (สำหรับแอดมิน)"},
+            {"command": "status", "description": "ตรวจสอบสถานะระบบหลังบ้านและ GCP (สำหรับแอดมิน)"},
+            {"command": "devmock", "description": "Mock ข้อมูลสำหรับการทดสอบ"},
+        ])
+        
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "mock_token")
+    url = f"https://api.telegram.org/bot{token}/setMyCommands"
+    
+    payload = {
+        "commands": commands
+    }
+    
+    try:
+        client = get_http_client()
+        response = await client.post(url, json=payload, timeout=30.0)
+        if response.status_code != 200:
+            logger.warning(f"Telegram setMyCommands API responded with {response.status_code}: {response.text}")
+            return False
+        return True
+    except Exception as e:
+        logger.error(f"Failed to set Telegram commands: {type(e).__name__} - {e}")
+        return False
+

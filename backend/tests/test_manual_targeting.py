@@ -168,18 +168,18 @@ async def test_webhook_lock_command_with_location_name(db_session):
     mock_repo_context = MagicMock()
     mock_repo_context.__aenter__.return_value = repo
     
-    from app.routers import webhook
+    from app.routers import webhook_commands
     
-    with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
+    with patch("app.routers.webhook_commands.get_repo_context", return_value=mock_repo_context), \
          patch("app.services.weather_manager.WeatherManager") as MockWMClass, \
-         patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock) as mock_send, \
-         patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock) as mock_process:
+         patch("app.services.telegram.send_telegram_message", new_callable=AsyncMock) as mock_send, \
+         patch("app.routers.webhook_commands.process_telegram_location", new_callable=AsyncMock) as mock_process:
          
         mock_wm = MockWMClass.return_value
         mock_wm.load_persistent_cache_to_memory = AsyncMock(return_value=None)
          
         # 1. Lock 'work' to D2
-        await webhook.handle_lock_command(chat_id, "/lock work D2")
+        await webhook_commands.handle_lock_command(chat_id, "/lock work D2")
         
         # Verify only 'work' is updated to manual
         loc_work = await repo.get_location(chat_id, "work")
@@ -194,9 +194,9 @@ async def test_webhook_lock_command_with_location_name(db_session):
         mock_wm.load_persistent_cache_to_memory.assert_called_with("kkn240", ANY)
 
         # 2. Lock D3 without location prefix -> should target LAST_ACTIVE_LOCATION if set
-        webhook.LAST_ACTIVE_LOCATION[chat_id] = "work"
+        webhook_commands.LAST_ACTIVE_LOCATION[chat_id] = "work"
         mock_process.reset_mock()
-        await webhook.handle_lock_command(chat_id, "/lock D3")
+        await webhook_commands.handle_lock_command(chat_id, "/lock D3")
         
         loc_work = await repo.get_location(chat_id, "work")
         assert loc_work.tracking_mode == "manual"
@@ -205,12 +205,12 @@ async def test_webhook_lock_command_with_location_name(db_session):
         mock_process.assert_called_with(chat_id, 17.8392, 102.5734, location_name="work", is_lock_command=True)
         
         # 3. If LAST_ACTIVE_LOCATION is not set, fallback to prioritizing "home"
-        webhook.LAST_ACTIVE_LOCATION.pop(chat_id, None)
+        webhook_commands.LAST_ACTIVE_LOCATION.pop(chat_id, None)
         # Reset home tracking mode back to auto for testing fallback
         await repo.update_tracking_mode(chat_id=chat_id, tracking_mode="auto", name="home")
         
         mock_process.reset_mock()
-        await webhook.handle_lock_command(chat_id, "/lock D4")
+        await webhook_commands.handle_lock_command(chat_id, "/lock D4")
         
         loc_home = await repo.get_location(chat_id, "home")
         assert loc_home.tracking_mode == "manual"
@@ -220,7 +220,7 @@ async def test_webhook_lock_command_with_location_name(db_session):
         
         # 4. Unlock 'work' specifically
         mock_process.reset_mock()
-        await webhook.handle_unlock_command(chat_id, "/unlock work")
+        await webhook_commands.handle_unlock_command(chat_id, "/unlock work")
         
         loc_work = await repo.get_location(chat_id, "work")
         assert loc_work.tracking_mode == "auto"
@@ -259,17 +259,17 @@ async def test_webhook_grid_lock_scans_rendered_tracking_crop_cell(db_session):
     flow[rain_y, rain_x] = (1.0, 0.0)
     cache_data = ([frame], datetime.now(timezone.utc), 0, flow, "static_cache", 15.0, [0])
 
-    from app.routers import webhook
+    from app.routers import webhook_commands
 
-    with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
+    with patch("app.routers.webhook_commands.get_repo_context", return_value=mock_repo_context), \
          patch("app.services.weather_manager.WeatherManager") as MockWMClass, \
-         patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock) as mock_send, \
-         patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock):
+         patch("app.services.telegram.send_telegram_message", new_callable=AsyncMock) as mock_send, \
+         patch("app.routers.webhook_commands.process_telegram_location", new_callable=AsyncMock):
 
         mock_wm = MockWMClass.return_value
         mock_wm.load_persistent_cache_to_memory = AsyncMock(return_value=cache_data)
 
-        await webhook.handle_lock_command(chat_id, "/lock home G5")
+        await webhook_commands.handle_lock_command(chat_id, "/lock home G5")
 
         loc_home = await repo.get_location(chat_id, "home")
         assert loc_home.tracking_mode == "manual"
@@ -346,16 +346,16 @@ async def test_webhook_lock_uses_last_pinned_location(db_session):
     await repo.save_location(chat_id, 13.75, 100.5, "FOREVER", name="home")
     
     # Set LAST_PINNED_LOCATION
-    from app.routers import webhook
-    webhook.LAST_PINNED_LOCATION[chat_id] = (15.6, 103.9)
+    from app.routers import webhook_commands
+    webhook_commands.LAST_PINNED_LOCATION[chat_id] = (15.6, 103.9)
     
     mock_repo_context = MagicMock()
     mock_repo_context.__aenter__.return_value = repo
     
-    with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
+    with patch("app.routers.webhook_commands.get_repo_context", return_value=mock_repo_context), \
          patch("app.services.weather_manager.WeatherManager") as MockWMClass, \
-         patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock) as mock_send, \
-         patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock) as mock_process:
+         patch("app.services.telegram.send_telegram_message", new_callable=AsyncMock) as mock_send, \
+         patch("app.routers.webhook_commands.process_telegram_location", new_callable=AsyncMock) as mock_process:
          
         mock_wm = MockWMClass.return_value
         
@@ -379,7 +379,7 @@ async def test_webhook_lock_uses_last_pinned_location(db_session):
         mock_wm.load_persistent_cache_to_memory = AsyncMock(return_value=cache_data)
         
         # Execute lock command without location prefix (e.g. "/lock G5")
-        await webhook.handle_lock_command(chat_id, "/lock G5")
+        await webhook_commands.handle_lock_command(chat_id, "/lock G5")
         
         # Check that it upserted default row to pinned coordinates
         loc_default = await repo.get_location(chat_id, "default")
@@ -401,11 +401,12 @@ async def test_webhook_inline_lock_callback(db_session):
     mock_repo_context = MagicMock()
     mock_repo_context.__aenter__.return_value = repo
     
-    from app.routers import webhook
+    from app.routers import webhook_commands, webhook_callbacks
     
-    with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
-         patch("app.routers.webhook.WeatherManager") as MockWMClass, \
-         patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock) as mock_process:
+    with patch("app.routers.webhook_callbacks.get_repo_context", return_value=mock_repo_context), \
+         patch("app.routers.webhook_commands.get_repo_context", return_value=mock_repo_context), \
+         patch("app.services.weather_manager.WeatherManager") as MockWMClass, \
+         patch("app.routers.webhook_callbacks.process_telegram_location", new_callable=AsyncMock) as mock_process:
          
         mock_wm = MockWMClass.return_value
         mock_wm.predict_rain = AsyncMock(return_value={
@@ -422,7 +423,7 @@ async def test_webhook_inline_lock_callback(db_session):
             "message": {"message_id": 999}
         }
         
-        await webhook.handle_callback_query(callback_query)
+        await webhook_callbacks.handle_callback_query(callback_query)
         
         loc_default = await repo.get_location(chat_id, "default")
         assert loc_default is not None
@@ -446,11 +447,12 @@ async def test_webhook_inline_lock_callback_with_existing_location(db_session):
     mock_repo_context = MagicMock()
     mock_repo_context.__aenter__.return_value = repo
     
-    from app.routers import webhook
+    from app.routers import webhook_commands, webhook_callbacks
     
-    with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
-         patch("app.routers.webhook.WeatherManager") as MockWMClass, \
-         patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock) as mock_process:
+    with patch("app.routers.webhook_callbacks.get_repo_context", return_value=mock_repo_context), \
+         patch("app.routers.webhook_commands.get_repo_context", return_value=mock_repo_context), \
+         patch("app.services.weather_manager.WeatherManager") as MockWMClass, \
+         patch("app.routers.webhook_callbacks.process_telegram_location", new_callable=AsyncMock) as mock_process:
          
         mock_wm = MockWMClass.return_value
         mock_wm.predict_rain = AsyncMock(return_value={
@@ -467,7 +469,7 @@ async def test_webhook_inline_lock_callback_with_existing_location(db_session):
             "message": {"message_id": 999}
         }
         
-        await webhook.handle_callback_query(callback_query)
+        await webhook_callbacks.handle_callback_query(callback_query)
         
         loc_work = await repo.get_location(chat_id, "work")
         assert loc_work is not None
@@ -566,12 +568,12 @@ async def test_webhook_lock_command_with_cloud_label(db_session):
     mock_repo_context = MagicMock()
     mock_repo_context.__aenter__.return_value = repo
     
-    from app.routers import webhook
+    from app.routers import webhook_commands
     
-    with patch("app.routers.webhook.get_repo_context", return_value=mock_repo_context), \
+    with patch("app.routers.webhook_commands.get_repo_context", return_value=mock_repo_context), \
          patch("app.services.weather_manager.WeatherManager") as MockWMClass, \
-         patch("app.routers.webhook.send_telegram_message", new_callable=AsyncMock) as mock_send, \
-         patch("app.routers.webhook.process_telegram_location", new_callable=AsyncMock) as mock_process:
+         patch("app.services.telegram.send_telegram_message", new_callable=AsyncMock) as mock_send, \
+         patch("app.routers.webhook_commands.process_telegram_location", new_callable=AsyncMock) as mock_process:
          
         mock_wm = MockWMClass.return_value
         
@@ -589,7 +591,7 @@ async def test_webhook_lock_command_with_cloud_label(db_session):
             "all_rain_clusters": []
         })
         
-        await webhook.handle_lock_command(chat_id, "/lock A")
+        await webhook_commands.handle_lock_command(chat_id, "/lock A")
         
         loc_home = await repo.get_location(chat_id, "home")
         assert loc_home is not None

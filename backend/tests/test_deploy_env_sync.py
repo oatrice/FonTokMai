@@ -49,7 +49,8 @@ def test_deploy_env_sync():
         "GCP_LOCATION",
         "CLOUD_TASKS_QUEUE",
         "CLOUD_RUN_SERVICE_NAME",
-        "BUDGET_AMOUNT_THB" # ใช้ใน local / scheduler-based shutdown แยกต่างหาก
+        "BUDGET_AMOUNT_THB", # ใช้ใน local / scheduler-based shutdown แยกต่างหาก
+        "USE_SKN240_BACKUP"
     }
 
     # คีย์ที่จำเป็นต้องมีในสคริปต์

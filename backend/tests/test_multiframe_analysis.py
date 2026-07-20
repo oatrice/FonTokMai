@@ -265,3 +265,34 @@ def test_result_dict_has_multiframe_key():
         "radar_multiframe_bytes": None,  # NEW key
     }
     assert "radar_multiframe_bytes" in simulated_result
+
+
+def test_extrapolate_rain_prioritizes_approaching_storm_velocity():
+    from unittest.mock import MagicMock
+    # Setup dummy objects
+    processor = TMDRadarProcessor.__new__(TMDRadarProcessor)
+    
+    # We want a dummy frame and a dummy flow
+    # Local flow is pointing (1.0, 1.0)
+    flow = np.ones((10, 10, 2), dtype=np.float32)
+    frame = np.zeros((10, 10, 3), dtype=np.uint8)
+    
+    # Mock methods to isolate advection logic
+    processor.get_dbz_at_pixel = MagicMock(side_effect=lambda img, x, y: 40.0 if (x, y) == (2, 2) else 0.0)
+    processor.get_flow_vector_at = MagicMock(return_value=(1.0, 1.0))
+    
+    # If fallback is zero, it should use local flow (1.0, 1.0) -> src is (2, 2) which has 40 dBZ
+    dbz, sx, sy = processor.extrapolate_rain_at_pixel(
+        frame, flow, 5, 5, steps=3, radius=0, fallback_vx=0.0, fallback_vy=0.0
+    )
+    assert dbz == 40.0
+    assert (sx, sy) == (2, 2)
+    
+    # If fallback is non-zero (1.5, 0.0), it should prioritize fallback -> src is (2, 5)
+    processor.get_dbz_at_pixel = MagicMock(side_effect=lambda img, x, y: 40.0 if (x, y) == (2, 5) else 0.0)
+    dbz, sx, sy = processor.extrapolate_rain_at_pixel(
+        frame, flow, 5, 5, steps=2, radius=0, fallback_vx=1.5, fallback_vy=0.0
+    )
+    assert dbz == 40.0
+    assert (sx, sy) == (2, 5)
+

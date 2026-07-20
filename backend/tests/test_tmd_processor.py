@@ -43,7 +43,7 @@ async def test_fetch_loop_gif_and_extract_frames():
     
     # Mock httpx and imageio
     with patch('httpx.AsyncClient.get', new_callable=AsyncMock) as mock_get:
-        mock_response = AsyncMock()
+        mock_response = MagicMock()
         mock_response.content = b"GIF89a_fake_gif_bytes"
         mock_response.status_code = 200
         mock_get.return_value = mock_response
@@ -277,29 +277,30 @@ def test_find_approaching_clouds_returns_approaching_true():
     curr_frame = np.zeros((800, 800, 3), dtype=np.uint8)
     prev_frame = np.zeros((800, 800, 3), dtype=np.uint8)
     flow = np.zeros((800, 800, 2), dtype=np.float32)
-    
+
     # User at (400, 400)
     user_x, user_y = 400, 400
-    
-    # Mock get_dbz_at_pixel so it returns 40.0 for a block of pixels near (380, 380)
-    def mock_get_dbz(img, x, y):
-        if 378 <= x <= 382 and 378 <= y <= 382:
-            return 40.0
-        return 0.0
-        
-    # Flow is moving towards user: from (380, 380) to (400, 400) means vx=1, vy=1
+
+    # Paint a 9×9 block of red pixels (255,0,0) at (375-383, 375-383).
+    # Red = 50 dBZ in DBZ_COLOR_MAPPING, well above min_dbz=10.
+    # kkn120 valid crop: x in [80, 680), y in [40, 640) — this block is inside.
+    curr_frame[375:384, 375:384] = [255, 0, 0]  # RGB red
+    prev_frame[375:384, 375:384] = [255, 0, 0]
+
+    # Flow is moving towards user: vx=1, vy=1 → dot product with (to_user) is positive
     flow[:, :, 0] = 1.0
     flow[:, :, 1] = 1.0
-    
-    with patch.object(processor, 'get_dbz_at_pixel', side_effect=mock_get_dbz):
-        clouds = processor.find_approaching_clouds(
-            curr_frame, prev_frame, flow, user_x, user_y,
-            search_radius=20, min_dbz=10.0, cluster_dist=10, cluster_min=1, dot_threshold=0.5
-        )
-        
-        assert len(clouds) > 0, "Should find approaching cloud"
-        assert clouds[0].get("approaching") is True, "Cloud must have 'approaching' flag set to True"
-        assert len(clouds[0].get("pixels", [])) > 0, "Cloud must contain pixels"
+
+    clouds = processor.find_approaching_clouds(
+        curr_frame, prev_frame, flow, user_x, user_y,
+        search_radius=30, min_dbz=10.0, cluster_dist=10, cluster_min=1, dot_threshold=0.5
+    )
+
+    assert len(clouds) > 0, "Should find approaching cloud"
+    assert clouds[0].get("approaching") is True, "Cloud must have 'approaching' flag set to True"
+    assert len(clouds[0].get("pixels", [])) > 0, "Cloud must contain pixels"
+
+
 
 
 def test_generate_timeline_image():
@@ -327,4 +328,54 @@ def test_generate_timeline_image():
     assert img_bytes_thai is not None
     assert isinstance(img_bytes_thai, bytes)
     assert img_bytes_thai.startswith(b"\x89PNG")
+
+
+@pytest.mark.asyncio
+async def test_cloud_contour_wrapping():
+    """
+    Ensure contour-based wrapping handles cloud pixels correctly without raising errors.
+    """
+    processor = TMDRadarProcessor(station_code="kkn120")
+    img = np.zeros((800, 800, 3), dtype=np.uint8)
+    
+    # Mocking necessary parameters for draw_analysis_overlay
+    # Create cloud structure containing 'pixels' key representing an L-shaped cloud chunk
+    dummy_clouds = [
+        {
+            "cx": 400, "cy": 400,
+            "dbz_now": 35.0,
+            "predicted_dbz": 35.0,
+            "approaching": True,
+            "eta_min": 10.0,
+            "pixels": [
+                (400, 400), (401, 400), (402, 400),
+                (402, 401), (402, 402)
+            ]
+        }
+    ]
+    
+    # Run the overlay drawing function (or rather simulate the part where it renders)
+    # We can patch get_user_locations or just directly test draw_analysis_overlay
+    with patch('app.services.tmd_radar_processor.STATIONS') as mock_stations:
+        config = MagicMock()
+        config.bbox.lat_max = 20.0
+        config.bbox.lat_min = 10.0
+        config.bbox.lng_max = 110.0
+        config.bbox.lng_min = 100.0
+        config.loop_crop_x = 0
+        config.loop_crop_y = 0
+        config.loop_crop_width = 800
+        config.loop_crop_height = 800
+        mock_stations.__getitem__.return_value = config
+        
+        # Test drawing overlay directly
+        output_bytes = processor.generate_radar_tracking_image(
+            img, user_x=400, user_y=400,
+            clouds=dummy_clouds, all_rain_clusters=[]
+        )
+        
+        assert output_bytes is not None
+        assert isinstance(output_bytes, bytes)
+
+
 

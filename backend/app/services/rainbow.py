@@ -49,84 +49,85 @@ class RainbowService(BaseWeatherService):
                 "endpoint": endpoint_type
             }
 
-        async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers) as client:
-            try:
-                # Determine base API URL
-                base_url = "https://api.rainbow.ai/nowcast/v1/precip-global" if endpoint_type == "global" else "https://api.rainbow.ai/nowcast/v1/precip"
+        from app.dependencies import get_http_client
+        client = get_http_client()
+        try:
+            # Determine base API URL
+            base_url = "https://api.rainbow.ai/nowcast/v1/precip-global" if endpoint_type == "global" else "https://api.rainbow.ai/nowcast/v1/precip"
+            
+            # API expects longitude first, then latitude in the URL path
+            url = f"{base_url}/{lng}/{lat}"
+            response = await client.get(url, headers=self.headers, timeout=self.timeout)
+            response.raise_for_status()
+            data = response.json()
+            
+            forecast = data.get("forecast", [])
+            summary = data.get("summary", {})
+            
+            # Transform to our internal 'predictions' format
+            predictions = []
+            for item in forecast:
+                t_begin = item.get("timestampBegin", 0)
+                if t_begin > 0:
+                    dt = datetime.fromtimestamp(t_begin, timezone.utc)
+                    time_str = dt.isoformat().replace("+00:00", "Z")
+                else:
+                    time_str = ""
                 
-                # API expects longitude first, then latitude in the URL path
-                url = f"{base_url}/{lng}/{lat}"
-                response = await client.get(url)
-                response.raise_for_status()
-                data = response.json()
+                predictions.append({
+                    "time": time_str,
+                    "rain": item.get("precipRate", 0.0)
+                })
+            
+            # Calculate intensity and duration
+            intensity_text: str = "ไม่มีฝน (No Rain)"
+            duration_minutes: int = 0
+            
+            if forecast:
+                max_rain: float = 0.0
+                rain_start = None
+                rain_end = None
                 
-                forecast = data.get("forecast", [])
-                summary = data.get("summary", {})
-                
-                # Transform to our internal 'predictions' format
-                predictions = []
                 for item in forecast:
-                    t_begin = item.get("timestampBegin", 0)
-                    if t_begin > 0:
-                        dt = datetime.fromtimestamp(t_begin, timezone.utc)
-                        time_str = dt.isoformat().replace("+00:00", "Z")
+                    r = item.get("precipRate", 0.0)
+                    if r > 0:
+                        max_rain = max(max_rain, r)
+                        t_begin = item.get("timestampBegin")
+                        t_end = item.get("timestampEnd")
+                        if t_begin and t_end:
+                            if not rain_start:
+                                rain_start = t_begin
+                            rain_end = t_end
+                            
+                if max_rain > 0:
+                    api_intensity = summary.get("intensity", "").lower()
+                    if api_intensity == "light":
+                        intensity_text = "เบา (Light)"
+                    elif api_intensity == "moderate":
+                        intensity_text = "ปานกลาง (Moderate)"
+                    elif api_intensity in ("heavy", "extreme"):
+                        intensity_text = "หนัก (Heavy)"
                     else:
-                        time_str = ""
-                    
-                    predictions.append({
-                        "time": time_str,
-                        "rain": item.get("precipRate", 0.0)
-                    })
-                
-                # Calculate intensity and duration
-                intensity_text: str = "ไม่มีฝน (No Rain)"
-                duration_minutes: int = 0
-                
-                if forecast:
-                    max_rain: float = 0.0
-                    rain_start = None
-                    rain_end = None
-                    
-                    for item in forecast:
-                        r = item.get("precipRate", 0.0)
-                        if r > 0:
-                            max_rain = max(max_rain, r)
-                            t_begin = item.get("timestampBegin")
-                            t_end = item.get("timestampEnd")
-                            if t_begin and t_end:
-                                if not rain_start:
-                                    rain_start = t_begin
-                                rain_end = t_end
-                                
-                    if max_rain > 0:
-                        api_intensity = summary.get("intensity", "").lower()
-                        if api_intensity == "light":
+                        # Fallback calculation if summary is missing
+                        if max_rain < 2.5:
                             intensity_text = "เบา (Light)"
-                        elif api_intensity == "moderate":
+                        elif max_rain <= 10.0:
                             intensity_text = "ปานกลาง (Moderate)"
-                        elif api_intensity in ("heavy", "extreme"):
-                            intensity_text = "หนัก (Heavy)"
                         else:
-                            # Fallback calculation if summary is missing
-                            if max_rain < 2.5:
-                                intensity_text = "เบา (Light)"
-                            elif max_rain <= 10.0:
-                                intensity_text = "ปานกลาง (Moderate)"
-                            else:
-                                intensity_text = "หนัก (Heavy)"
-                                
-                        if rain_start and rain_end:
-                            diff = int((rain_end - rain_start) / 60)
-                            duration_minutes = diff
-                
-                return {
-                    "predictions": predictions,
-                    "intensity": intensity_text,
-                    "max_rain": max_rain if forecast else 0.0,
-                    "duration_minutes": duration_minutes,
-                    "endpoint": endpoint_type
-                }
-            except httpx.HTTPError as e:
+                            intensity_text = "หนัก (Heavy)"
+                            
+                    if rain_start and rain_end:
+                        diff = int((rain_end - rain_start) / 60)
+                        duration_minutes = diff
+            
+            return {
+                "predictions": predictions,
+                "intensity": intensity_text,
+                "max_rain": max_rain if forecast else 0.0,
+                "duration_minutes": duration_minutes,
+                "endpoint": endpoint_type
+            }
+        except httpx.HTTPError as e:
                 logger.error(f"Rainbow.ai API error: {e}")
                 if hasattr(e, 'response') and e.response is not None:
                     logger.error(f"Response status: {e.response.status_code}, content: {e.response.text}")

@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.55.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
+**v0.56.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
 ใช้ภาพเรดาร์ TMD + Optical Flow เพื่อคาดการณ์ฝนล่วงหน้า 15–90+ นาที
 
 ---
@@ -43,6 +43,10 @@
 | `/bypass_logout` | ออกจากระบบ Emergency Admin Bypass |
 | `/metrics [days]` | ส่งออกประวัติการรัน Cron metrics เป็นไฟล์ CSV |
 | `/setbudget <amount>` | ปรับเปลี่ยนวงเงินงบประมาณ GCP แบบ Dynamic |
+| `/job <pause/resume> <job_name>` | พักการทำงานหรือเปิดใช้งาน Cloud Scheduler Jobs ล่าสุด |
+| `/status` | ตรวจสอบข้อมูลสถานะระบบหลังบ้าน งบประมาณคงเหลือ และ Cloud Scheduler Jobs |
+| `/restore_public_access` | กู้คืนสิทธิ์ Public Access ให้กับ API ของ Cloud Run |
+| `/disable_public_access` | ยกเลิกสิทธิ์ Public Access ของ API ให้เป็นโหมด Private |
 | `/devmock help` | แสดงทุก command |
 | `/devmock rain` | จำลองฝนตกหนัก (Boost เมฆจริง) |
 | `/devmock storm` | จำลองพายุ (สร้างเมฆปลอม 5 ก้อน) |
@@ -91,7 +95,9 @@ WeatherManager.predict_rain()
 
 **Key Services:**
 - `backend/app/services/weather_manager.py` — Orchestrator, mock state handler, manual target tracking
-- `backend/app/services/tmd_radar_processor.py` — Image processing, optical flow, visualization, target indicators
+- `backend/app/services/tmd_radar/clustering.py` — OpenCV contours, rain cluster detection, circular masking
+- `backend/app/services/tmd_radar/tracking.py` — Optical flow wind vectors, cloud tracking, trajectory predictions
+- `backend/app/services/tmd_radar/processor.py` — Main orchestrator for TMD Radar processing
 - `backend/app/services/notification.py` — Abstract notification dispatcher (Telegram & LINE)
 - `backend/app/routers/webhook.py` — Telegram webhook entry point
 - `backend/app/routers/line_webhook.py` — LINE webhook entry point
@@ -104,6 +110,7 @@ WeatherManager.predict_rain()
 | Script | Description |
 |---|---|
 | `backend/scripts/check_public_access.sh` | Audit Cloud Run IAM public access |
+| `backend/scripts/disable_public_access.sh` | Disable API public access and configure private mode |
 | `backend/scripts/setup_iam_roles.sh` | Configure IAM roles for Cloud Run Service Account |
 | `backend/scripts/setup_schedulers.sh` | Apply Cloud Scheduler jobs from config |
 | `backend/scripts/sync_schedulers.py` | Sync scheduler config from GCP |
@@ -135,4 +142,4 @@ Key test files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.55.0** — เพิ่มระบบล็อคเป้าหมายกลุ่มเมฆฝนบนเรดาร์ด้วยตนเอง (Manual Target Tracking) พร้อมระบบแสดงพิกัดและเส้นสายตา (line-of-sight path) แบบไดนามิกบนภาพเรดาร์ และชุดคำสั่งผ่าน Webhook เพื่อความสะดวกในการติดตามกลุ่มฝนที่สนใจ
+Current: **v0.56.0** — ปรับปรุงสิทธิ์การเข้าถึงข้อมูลด้วยระบบ TelegramCommandRouter, เพิ่มชุดคำสั่งสำหรับ Admin/Developer บนบอทสำหรับการควบคุมระบบแบบไดนามิก และปรับปรุงการจัดกลุ่มฝน (Radar Clustering) ด้วย OpenCV Contours และเส้นเรืองแสงสไตล์นีออน

@@ -14,6 +14,8 @@ import os
 import subprocess
 from typing import Any
 
+import httpx
+
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
@@ -106,7 +108,6 @@ def _revoke_public_access() -> str:
     try:
         import google.auth
         from google.auth.transport.requests import Request as GoogleAuthRequest
-        import httpx
 
         # Get default credentials (works seamlessly on Cloud Run)
         credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
@@ -166,24 +167,23 @@ async def _send_telegram_alert(message: str) -> None:
         logger.warning("[BudgetAlert] Telegram not configured, skipping notification.")
         return
 
-    import httpx
-
     chat_ids = [cid.strip() for cid in chat_ids_str.split(",") if cid.strip()]
-    async with httpx.AsyncClient() as client:
-        for chat_id in chat_ids:
-            try:
-                await client.post(
-                    f"https://api.telegram.org/bot{token}/sendMessage",
-                    json={
-                        "chat_id": chat_id,
-                        "text": message,
-                        "parse_mode": "HTML",
-                        "disable_web_page_preview": True,
-                    },
-                    timeout=10,
-                )
-            except Exception as e:
-                logger.error(f"[BudgetAlert] Failed to send Telegram alert to {chat_id}: {e}")
+    from app.dependencies import get_http_client
+    client = get_http_client()
+    for chat_id in chat_ids:
+        try:
+            await client.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={
+                    "chat_id": chat_id,
+                    "text": message,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True,
+                },
+                timeout=10,
+            )
+        except Exception as e:
+            logger.error(f"[BudgetAlert] Failed to send Telegram alert to {chat_id}: {e}")
 
 
 # ─────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import httpx
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
 from .weather_base import BaseWeatherService
+from app.dependencies import get_http_client
 
 logger = logging.getLogger(__name__)
 
@@ -80,109 +81,113 @@ class XweatherService(BaseWeatherService):
             "filter": "minutelyprecip"
         }
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.get(self.MINUTECAST_API_URL, params=params)
-                
-                if response.status_code in [401, 403, 429]:
-                    logger.error(f"Xweather rate limit/auth hit: {response.status_code} - {response.text}")
-                    self._open_circuit(minutes=60)
-                    response.raise_for_status()
-                    
+        client = get_http_client()
+        try:
+            response = await client.get(self.MINUTECAST_API_URL, params=params, timeout=self.timeout)
+            
+            if response.status_code in [401, 403, 429]:
+                logger.error(f"Xweather rate limit/auth hit: {response.status_code} - {response.text}")
+                self._open_circuit(minutes=60)
                 response.raise_for_status()
-                data = response.json()
                 
-                predictions = []
-                max_rain = 0.0
-                rain_start = None
-                rain_end = None
-                wind_speed_sum = 0.0
-                wind_speed_count = 0
-                wind_dir_sum = 0.0
-                wind_dir_count = 0
+            response.raise_for_status()
+            data = response.json()
+            
+            predictions = []
+            max_rain = 0.0
+            rain_start = None
+            rain_end = None
+            wind_speed_sum = 0.0
+            wind_speed_count = 0
+            wind_dir_sum = 0.0
+            wind_dir_count = 0
+            
+            res_data = data.get("response", [])
+            periods = []
+            if isinstance(res_data, list) and res_data:
+                periods = res_data[0].get("periods", [])
+            elif isinstance(res_data, dict):
+                periods = res_data.get("periods", [])
                 
-                res_data = data.get("response", [])
-                periods = []
-                if isinstance(res_data, list) and res_data:
-                    periods = res_data[0].get("periods", [])
-                elif isinstance(res_data, dict):
-                    periods = res_data.get("periods", [])
-                    
-                for period in periods:
-                    time_str = period.get("dateTimeISO", "")
-                    precip = period.get("precipMM", 0.0)
-                    wind = period.get("windSpeedKPH", 0.0)
-                    wind_dir_deg = period.get("windDirDEG")
-                    
-                    predictions.append({
-                        "time": time_str,
-                        "rain": precip
-                    })
-                    
-                    if precip > 0:
-                        max_rain = max(max_rain, precip)
-                        try:
-                            dt = datetime.fromisoformat(time_str.replace("Z", "+00:00")).timestamp()
-                            if not rain_start:
-                                rain_start = dt
-                            rain_end = dt
-                        except ValueError:
-                            pass
+            for period in periods:
+                time_str = period.get("dateTimeISO", "")
+                precip = period.get("precipMM", 0.0)
+                
+                # Wind
+                wind_speed = period.get("windSpeedKPH", 0.0)
+                wind_dir = period.get("windDirDEG", 0.0)
+                
+                predictions.append({
+                    "time": time_str,
+                    "rain": precip
+                })
+                
+                if precip > 0:
+                    max_rain = max(max_rain, precip)
+                    try:
+                        dt = datetime.fromisoformat(time_str.replace("Z", "+00:00")).timestamp()
+                        if not rain_start:
+                            rain_start = dt
+                        rain_end = dt
+                    except Exception:
+                        pass
                         
-                        wind_speed_sum += wind
+                    if wind_speed:
+                        wind_speed_sum += wind_speed
                         wind_speed_count += 1
-                        
-                        if wind_dir_deg is not None:
-                            wind_dir_sum += wind_dir_deg
-                            wind_dir_count += 1
-                        
-                intensity_text = "ไม่มีฝน (No Rain)"
-                duration_minutes = 0
-                avg_wind_speed = 0.0
-                wind_dir_text = "ไม่ทราบ"
-                
-                if max_rain > 0:
-                    if max_rain < 2.5:
-                        intensity_text = "เบา (Light)"
-                    elif max_rain <= 10.0:
-                        intensity_text = "ปานกลาง (Moderate)"
-                    else:
-                        intensity_text = "หนัก (Heavy)"
-                        
-                    if rain_start and rain_end:
-                        duration_minutes = int((rain_end - rain_start) / 60)
-                        
-                    if wind_speed_count > 0:
-                        avg_wind_speed = wind_speed_sum / wind_speed_count
-                        
-                    if wind_dir_count > 0:
-                        avg_wind_dir = wind_dir_sum / wind_dir_count
-                        wind_dir_text = self.degrees_to_cardinal(avg_wind_dir)
-                        
-                return {
-                    "predictions": predictions,
-                    "intensity": intensity_text,
-                    "max_rain": max_rain,
-                    "duration_minutes": duration_minutes,
-                    "wind_speed_kmh": round(avg_wind_speed, 1),
-                    "wind_dir_text": wind_dir_text,
-                    "endpoint": "xweather"
-                }
+                    if wind_dir is not None:
+                        wind_dir_sum += wind_dir
+                        wind_dir_count += 1
 
-            except httpx.HTTPStatusError as e:
-                import re
-                err_str = str(e)
-                err_str = re.sub(r'client_id=[^&\s]+', 'client_id=***', err_str)
-                err_str = re.sub(r'client_secret=[^&\s]+', 'client_secret=***', err_str)
-                logger.error(f"Xweather HTTP error {e.response.status_code}: {err_str}")
-                raise Exception(err_str)
-            except Exception as e:
-                import re
-                err_str = str(e)
-                err_str = re.sub(r'client_id=[^&\s]+', 'client_id=***', err_str)
-                err_str = re.sub(r'client_secret=[^&\s]+', 'client_secret=***', err_str)
-                logger.error(f"Xweather Request failed: {err_str}")
-                raise Exception(err_str)
+            intensity_text = "ไม่มีฝน (No Rain)"
+            duration_minutes = 0
+            avg_wind_speed = 0.0
+            wind_dir_text = "ไม่ทราบ"
+            
+            if max_rain > 0:
+                if max_rain < 2.5:
+                    intensity_text = "เบา (Light)"
+                elif max_rain <= 10.0:
+                    intensity_text = "ปานกลาง (Moderate)"
+                else:
+                    intensity_text = "หนัก (Heavy)"
+                    
+                if rain_start and rain_end:
+                    duration_minutes = int((rain_end - rain_start) / 60)
+                    
+                if wind_speed_count > 0:
+                    avg_wind_speed = wind_speed_sum / wind_speed_count
+                    
+            wind_speed_kmh = avg_wind_speed
+            
+            if wind_dir_count > 0:
+                avg_wind_dir = wind_dir_sum / wind_dir_count
+                wind_dir_text = self.degrees_to_cardinal(avg_wind_dir)
+
+            return {
+                "predictions": predictions,
+                "intensity": intensity_text,
+                "max_rain": max_rain,
+                "duration_minutes": duration_minutes,
+                "wind_speed_kmh": round(wind_speed_kmh, 1),
+                "wind_dir_text": wind_dir_text,
+                "endpoint": "xweather"
+            }
+
+        except httpx.HTTPStatusError as e:
+            import re
+            err_str = str(e)
+            err_str = re.sub(r'client_id=[^&\s]+', 'client_id=***', err_str)
+            err_str = re.sub(r'client_secret=[^&\s]+', 'client_secret=***', err_str)
+            logger.error(f"Xweather HTTP error {e.response.status_code}: {err_str}")
+            raise Exception(err_str)
+        except Exception as e:
+            import re
+            err_str = str(e)
+            err_str = re.sub(r'client_id=[^&\s]+', 'client_id=***', err_str)
+            err_str = re.sub(r'client_secret=[^&\s]+', 'client_secret=***', err_str)
+            logger.error(f"Xweather Request failed: {err_str}")
+            raise Exception(err_str)
 
     async def get_advanced_alerts(self, lat: float, lng: float, mock_state: Optional[str] = None) -> Dict[str, Any]:
         """Fetch advanced alerts: advisories, lightning, stormcells."""
@@ -209,72 +214,73 @@ class XweatherService(BaseWeatherService):
         
         result = {"advisories": [], "lightning": None, "stormcell": None}
         
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            # 1. Advisories
+        from app.dependencies import get_http_client
+        client = get_http_client()
+        # 1. Advisories
+        try:
+            # Need to use radius for advisories, e.g., 5km
+            adv_params = {**params, "radius": "5km"}
+            response = await client.get(self.ADVISORIES_API_URL, params=adv_params, timeout=self.timeout)
+            if response.status_code == 200:
+                data = response.json()
+                res_list = data.get("response", [])
+                if isinstance(res_list, list) and res_list:
+                    for adv in res_list:
+                        details = adv.get("details", {})
+                        result["advisories"].append({
+                            "type": details.get("type", "Unknown"),
+                            "name": details.get("name", "Advisory"),
+                            "body": details.get("body", "")
+                        })
+            elif response.status_code in [401, 403, 429]:
+                self._open_circuit(60)
+                return result # Return empty immediately
+        except Exception as e:
+            logger.warning(f"Failed to fetch advisories: {e}")
+
+        # 2. Lightning (Closest within 10km)
+        if not self._is_circuit_open():
             try:
-                # Need to use radius for advisories, e.g., 5km
-                adv_params = {**params, "radius": "5km"}
-                response = await client.get(self.ADVISORIES_API_URL, params=adv_params)
+                light_params = {**params, "radius": "10km"}
+                response = await client.get(self.LIGHTNING_API_URL, params=light_params, timeout=self.timeout)
                 if response.status_code == 200:
                     data = response.json()
                     res_list = data.get("response", [])
                     if isinstance(res_list, list) and res_list:
-                        for adv in res_list:
-                            details = adv.get("details", {})
-                            result["advisories"].append({
-                                "type": details.get("type", "Unknown"),
-                                "name": details.get("name", "Advisory"),
-                                "body": details.get("body", "")
-                            })
+                        closest = res_list[0]
+                        dist_km = closest.get("relativeTo", {}).get("distanceKM")
+                        if dist_km is not None:
+                            result["lightning"] = {"distance_km": dist_km}
                 elif response.status_code in [401, 403, 429]:
                     self._open_circuit(60)
-                    return result # Return empty immediately
+                    return result
             except Exception as e:
-                logger.warning(f"Failed to fetch advisories: {e}")
+                logger.warning(f"Failed to fetch lightning: {e}")
 
-            # 2. Lightning (Closest within 10km)
-            if not self._is_circuit_open():
-                try:
-                    light_params = {**params, "radius": "10km"}
-                    response = await client.get(self.LIGHTNING_API_URL, params=light_params)
-                    if response.status_code == 200:
-                        data = response.json()
-                        res_list = data.get("response", [])
-                        if isinstance(res_list, list) and res_list:
-                            closest = res_list[0]
-                            dist_km = closest.get("relativeTo", {}).get("distanceKM")
-                            if dist_km is not None:
-                                result["lightning"] = {"distance_km": dist_km}
-                    elif response.status_code in [401, 403, 429]:
-                        self._open_circuit(60)
-                        return result
-                except Exception as e:
-                    logger.warning(f"Failed to fetch lightning: {e}")
-
-            # 3. Stormcells (Closest within 15km)
-            if not self._is_circuit_open():
-                try:
-                    storm_params = {**params, "radius": "15km"}
-                    response = await client.get(self.STORMCELLS_API_URL, params=storm_params)
-                    if response.status_code == 200:
-                        data = response.json()
-                        res_list = data.get("response", [])
-                        if isinstance(res_list, list) and res_list:
-                            cell = res_list[0]
-                            traits = cell.get("traits", {})
-                            movement = cell.get("movement", {})
-                            dist_km = cell.get("relativeTo", {}).get("distanceKM")
-                            result["stormcell"] = {
-                                "distance_km": dist_km,
-                                "direction": movement.get("directionTo", ""),
-                                "speed_kmh": movement.get("speedKPH", 0),
-                                "max_dbz": traits.get("dbz", 0)
-                            }
-                    elif response.status_code in [401, 403, 429]:
-                        self._open_circuit(60)
-                        return result
-                except Exception as e:
-                    logger.warning(f"Failed to fetch stormcells: {e}")
+        # 3. Stormcells (Closest within 15km)
+        if not self._is_circuit_open():
+            try:
+                storm_params = {**params, "radius": "15km"}
+                response = await client.get(self.STORMCELLS_API_URL, params=storm_params, timeout=self.timeout)
+                if response.status_code == 200:
+                    data = response.json()
+                    res_list = data.get("response", [])
+                    if isinstance(res_list, list) and res_list:
+                        cell = res_list[0]
+                        traits = cell.get("traits", {})
+                        movement = cell.get("movement", {})
+                        dist_km = cell.get("relativeTo", {}).get("distanceKM")
+                        result["stormcell"] = {
+                            "distance_km": dist_km,
+                            "direction": movement.get("directionTo", ""),
+                            "speed_kmh": movement.get("speedKPH", 0),
+                            "max_dbz": traits.get("dbz", 0)
+                        }
+                elif response.status_code in [401, 403, 429]:
+                    self._open_circuit(60)
+                    return result
+            except Exception as e:
+                logger.warning(f"Failed to fetch stormcells: {e}")
 
         return result
 
@@ -293,30 +299,31 @@ class XweatherService(BaseWeatherService):
         }
         
         events = []
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.get("https://data.api.xweather.com/tropicalcyclones", params=params)
-                if response.status_code == 200:
-                    data = response.json()
-                    res_list = data.get("response", [])
-                    if isinstance(res_list, list):
-                        for c in res_list:
-                            profile = c.get("profile", {})
-                            position = c.get("position", {})
-                            location = position.get("location", [0, 0])
-                            
-                            events.append({
-                                "id": c.get("id"),
-                                "name": profile.get("name", "Unknown Cyclone"),
-                                "category": profile.get("category", "TD"),
-                                "max_wind_kmh": position.get("windSpeedKPH", 0),
-                                "lat": location[1] if len(location) >= 2 else 0,
-                                "lng": location[0] if len(location) >= 2 else 0,
-                                "source": "Xweather"
-                            })
-                elif response.status_code in [401, 403, 429]:
-                    self._open_circuit(60)
-            except Exception as e:
+        from app.dependencies import get_http_client
+        client = get_http_client()
+        try:
+            response = await client.get("https://data.api.xweather.com/tropicalcyclones", params=params, timeout=self.timeout)
+            if response.status_code == 200:
+                data = response.json()
+                res_list = data.get("response", [])
+                if isinstance(res_list, list):
+                    for c in res_list:
+                        profile = c.get("profile", {})
+                        position = c.get("position", {})
+                        location = position.get("location", [0, 0])
+                        
+                        events.append({
+                            "id": c.get("id"),
+                            "name": profile.get("name", "Unknown Cyclone"),
+                            "category": profile.get("category", "TD"),
+                            "max_wind_kmh": position.get("windSpeedKPH", 0),
+                            "lat": location[1] if len(location) >= 2 else 0,
+                            "lng": location[0] if len(location) >= 2 else 0,
+                            "source": "Xweather"
+                        })
+            elif response.status_code in [401, 403, 429]:
+                self._open_circuit(60)
+        except Exception as e:
                 logger.warning(f"Failed to fetch tropical cyclones: {e}")
         return events
 
@@ -334,27 +341,28 @@ class XweatherService(BaseWeatherService):
         }
         
         events = []
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.get("https://data.api.xweather.com/fires", params=params)
-                if response.status_code == 200:
-                    data = response.json()
-                    res_list = data.get("response", [])
-                    if isinstance(res_list, list):
-                        for f in res_list:
-                            loc = f.get("loc", {})
-                            profile = f.get("profile", {})
-                            
-                            events.append({
-                                "id": f.get("id"),
-                                "name": profile.get("name") or profile.get("type", "Wildfire"),
-                                "confidence": profile.get("confidence", 0),
-                                "lat": loc.get("lat", 0),
-                                "lng": loc.get("long", 0), # Xweather usually uses 'long'
-                                "source": "Xweather"
-                            })
-                elif response.status_code in [401, 403, 429]:
-                    self._open_circuit(60)
-            except Exception as e:
+        from app.dependencies import get_http_client
+        client = get_http_client()
+        try:
+            response = await client.get("https://data.api.xweather.com/fires", params=params, timeout=self.timeout)
+            if response.status_code == 200:
+                data = response.json()
+                res_list = data.get("response", [])
+                if isinstance(res_list, list):
+                    for f in res_list:
+                        loc = f.get("loc", {})
+                        profile = f.get("profile", {})
+                        
+                        events.append({
+                            "id": f.get("id"),
+                            "name": profile.get("name") or profile.get("type", "Wildfire"),
+                            "confidence": profile.get("confidence", 0),
+                            "lat": loc.get("lat", 0),
+                            "lng": loc.get("long", 0), # Xweather usually uses 'long'
+                            "source": "Xweather"
+                        })
+            elif response.status_code in [401, 403, 429]:
+                self._open_circuit(60)
+        except Exception as e:
                 logger.warning(f"Failed to fetch active fires: {e}")
         return events

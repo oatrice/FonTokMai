@@ -21,7 +21,7 @@ def test_render_rain_summary_no_rain():
     assert "ยังไม่มีแนวโน้มฝนตก" in summary
     assert "~1 ชม. 15 นาที" in summary # max_time (90m) - time_offset_min (15m) = 75m = ~1 ชม. 15 นาที
 
-@patch("app.services.tmd_radar_processor.datetime")
+@patch("app.services.tmd_radar.tracking.datetime")
 def test_render_rain_summary_raining_now_stops(mock_datetime):
     # Freeze time to 23:00 BKK
     mock_datetime.now.return_value = datetime(2026, 6, 27, 23, 0, 0, tzinfo=timezone(timedelta(hours=7)))
@@ -36,7 +36,7 @@ def test_render_rain_summary_raining_now_stops(mock_datetime):
     assert "จะหยุดตกในอีก ~45 นาที" in summary
     assert "23:45 น." in summary
 
-@patch("app.services.tmd_radar_processor.datetime")
+@patch("app.services.tmd_radar.tracking.datetime")
 def test_render_rain_summary_raining_now_continuous(mock_datetime):
     # Freeze time to 23:00 BKK
     mock_datetime.now.return_value = datetime(2026, 6, 27, 23, 0, 0, tzinfo=timezone(timedelta(hours=7)))
@@ -51,7 +51,7 @@ def test_render_rain_summary_raining_now_continuous(mock_datetime):
     assert "จะตกต่อเนื่องถึงอย่างน้อย ~1 ชม. 30 นาที" in summary
     assert "00:30 น." in summary
 
-@patch("app.services.tmd_radar_processor.datetime")
+@patch("app.services.tmd_radar.tracking.datetime")
 def test_render_rain_summary_incoming_rain(mock_datetime):
     # Freeze time to 23:00 BKK
     mock_datetime.now.return_value = datetime(2026, 6, 27, 23, 0, 0, tzinfo=timezone(timedelta(hours=7)))
@@ -66,7 +66,7 @@ def test_render_rain_summary_incoming_rain(mock_datetime):
     assert "จะตกต่อเนื่องประมาณ 30 นาที" in summary
     assert "00:15 น." in summary
 
-@patch("app.services.tmd_radar_processor.datetime")
+@patch("app.services.tmd_radar.tracking.datetime")
 def test_render_rain_summary_incoming_rain_cache_delayed_raining_now(mock_datetime):
     # Freeze time to 23:00 BKK
     mock_datetime.now.return_value = datetime(2026, 6, 27, 23, 0, 0, tzinfo=timezone(timedelta(hours=7)))
@@ -81,7 +81,7 @@ def test_render_rain_summary_incoming_rain_cache_delayed_raining_now(mock_dateti
     assert "จะหยุดตกในอีก ~30 นาที" in summary
     assert "23:30 น." in summary
 
-@patch("app.services.tmd_radar_processor.datetime")
+@patch("app.services.tmd_radar.tracking.datetime")
 def test_render_rain_summary_with_heavy_spike(mock_datetime):
     # Freeze time to 23:00 BKK
     mock_datetime.now.return_value = datetime(2026, 6, 27, 23, 0, 0, tzinfo=timezone(timedelta(hours=7)))
@@ -105,7 +105,7 @@ def test_approaching_clouds_warning():
     assert "ยังไม่มีแนวโน้มฝนตก" in summary
     assert "หมายเหตุ: ตรวจพบกลุ่มฝน (35 dBZ)" in summary
     assert "1 ชม. 56 นาที" in summary
-@patch("app.services.tmd_radar_processor.datetime")
+@patch("app.services.tmd_radar.tracking.datetime")
 def test_approaching_clouds_warning_with_cache_delay(mock_datetime):
     # Freeze time to 23:00 BKK
     mock_datetime.now.return_value = datetime(2026, 6, 27, 23, 0, 0, tzinfo=timezone(timedelta(hours=7)))
@@ -124,7 +124,7 @@ def test_approaching_clouds_warning_with_cache_delay(mock_datetime):
     assert "1 ชม. 21 นาที" in summary
     assert "00:21 น." in summary
 
-@patch("app.services.tmd_radar_processor.datetime")
+@patch("app.services.tmd_radar.tracking.datetime")
 def test_approaching_clouds_warning_skip_if_already_raining(mock_datetime):
     mock_datetime.now.return_value = datetime(2026, 6, 27, 23, 0, 0, tzinfo=timezone(timedelta(hours=7)))
     

@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime, timezone
 
 from .weather_base import BaseWeatherService
+from app.dependencies import get_http_client
 
 logger = logging.getLogger(__name__)
 
@@ -58,96 +59,97 @@ class OpenMeteoService(BaseWeatherService):
         if active_model != "auto":
             params["models"] = active_model
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.get(self.API_URL, params=params)
-                response.raise_for_status()
-                data = response.json()
+        client = get_http_client()
+        try:
+            response = await client.get(self.API_URL, params=params, timeout=self.timeout)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Parse minutely precipitation (15-min intervals)
+            predictions = []
+            max_rain = 0.0
+            rain_start = None
+            rain_end = None
+            
+            minutely = data.get("minutely_15", {})
+            times = minutely.get("time", [])
+            precips = minutely.get("precipitation", [])
+            
+            now_utc = datetime.now(timezone.utc)
+            now_ts = now_utc.timestamp()
+            
+            start_idx = 0
+            for i, t_str in enumerate(times):
+                t_str_iso = t_str + "Z" if not t_str.endswith("Z") else t_str
+                try:
+                    dt = datetime.fromisoformat(t_str_iso.replace("Z", "+00:00"))
+                    if dt.timestamp() >= now_ts - 15 * 60:  # Include current 15-min window
+                        start_idx = i
+                        break
+                except ValueError:
+                    pass
+            
+            limit = min(len(times), len(precips), start_idx + 12)
+            for i in range(start_idx, limit):
+                # Replace string '2026-06-05T12:00' with valid ISO '2026-06-05T12:00Z'
+                time_str = times[i]
+                if not time_str.endswith("Z"):
+                    time_str += "Z"
+                    
+                p_val = precips[i] if precips[i] is not None else 0.0
                 
-                # Parse minutely precipitation (15-min intervals)
-                predictions = []
-                max_rain = 0.0
-                rain_start = None
-                rain_end = None
+                predictions.append({
+                    "time": time_str,
+                    "rain": p_val
+                })
                 
-                minutely = data.get("minutely_15", {})
-                times = minutely.get("time", [])
-                precips = minutely.get("precipitation", [])
-                
-                now_utc = datetime.now(timezone.utc)
-                now_ts = now_utc.timestamp()
-                
-                start_idx = 0
-                for i, t_str in enumerate(times):
-                    t_str_iso = t_str + "Z" if not t_str.endswith("Z") else t_str
+                if p_val > 0.0:
+                    max_rain = max(max_rain, p_val)
                     try:
-                        dt = datetime.fromisoformat(t_str_iso.replace("Z", "+00:00"))
-                        if dt.timestamp() >= now_ts - 15 * 60:  # Include current 15-min window
-                            start_idx = i
-                            break
+                        dt = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+                        if not rain_start:
+                            rain_start = dt.timestamp()
+                        rain_end = dt.timestamp()
                     except ValueError:
                         pass
-                
-                limit = min(len(times), len(precips), start_idx + 12)
-                for i in range(start_idx, limit):
-                    # Replace string '2026-06-05T12:00' with valid ISO '2026-06-05T12:00Z'
-                    time_str = times[i]
-                    if not time_str.endswith("Z"):
-                        time_str += "Z"
-                        
-                    p_val = precips[i] if precips[i] is not None else 0.0
-                    
-                    predictions.append({
-                        "time": time_str,
-                        "rain": p_val
-                    })
-                    
-                    if p_val > 0:
-                        max_rain = max(max_rain, p_val)
-                        try:
-                            dt = datetime.fromisoformat(time_str.replace("Z", "+00:00")).timestamp()
-                            if not rain_start:
-                                rain_start = dt
-                            rain_end = dt
-                        except ValueError:
-                            pass
-                            
-                # Get current wind
-                current_data = data.get("current", {})
-                current_wind_speed = current_data.get("wind_speed_10m", 0.0)
-                wind_dir = current_data.get("wind_direction_10m", None)
-                wind_dir_text = self.degrees_to_cardinal(wind_dir) if wind_dir is not None else "ไม่ทราบ"
-                
-                intensity_text = "ไม่มีฝน (No Rain)"
-                duration_minutes = 0
-                
-                if max_rain > 0:
-                    if max_rain < 2.5:
-                        intensity_text = "เบา (Light)"
-                    elif max_rain <= 10.0:
-                        intensity_text = "ปานกลาง (Moderate)"
-                    else:
-                        intensity_text = "หนัก (Heavy)"
-                        
-                    if rain_start and rain_end:
-                        duration_minutes = int((rain_end - rain_start) / 60)
-                        if duration_minutes == 0:
-                            duration_minutes = 15 # Minimum 15 mins block
-                
-                return {
-                    "predictions": predictions,
-                    "intensity": intensity_text,
-                    "max_rain": max_rain,
-                    "duration_minutes": duration_minutes,
-                    "wind_speed_kmh": current_wind_speed,
-                    "wind_dir_text": wind_dir_text,
-                    "endpoint": "open_meteo"
-                }
 
-            except Exception as e:
-                error_msg = str(e) if str(e) else repr(e)
-                logger.error(f"Open-Meteo Request failed: {error_msg}")
-                raise Exception(f"Open-Meteo Error: {error_msg}")
+            # Wind from current block
+            current = data.get("current", {})
+            current_wind_speed = current.get("wind_speed_10m", 0.0)
+            current_wind_dir = current.get("wind_direction_10m", 0)
+            wind_dir_text = self.degrees_to_cardinal(current_wind_dir)
+
+            # Calculate intensity and duration
+            intensity_text = "ไม่มีฝน (No Rain)"
+            duration_minutes = 0
+            
+            if max_rain > 0.0:
+                if max_rain < 2.5:
+                    intensity_text = "เบา (Light)"
+                elif max_rain <= 10.0:
+                    intensity_text = "ปานกลาง (Moderate)"
+                else:
+                    intensity_text = "หนัก (Heavy)"
+                    
+                if rain_start and rain_end:
+                    duration_minutes = int((rain_end - rain_start) / 60)
+                    if duration_minutes == 0:
+                        duration_minutes = 15 # Minimum 15 mins block
+            
+            return {
+                "predictions": predictions,
+                "intensity": intensity_text,
+                "max_rain": max_rain,
+                "duration_minutes": duration_minutes,
+                "wind_speed_kmh": current_wind_speed,
+                "wind_dir_text": wind_dir_text,
+                "endpoint": "open_meteo"
+            }
+
+        except Exception as e:
+            error_msg = str(e) if str(e) else repr(e)
+            logger.error(f"Open-Meteo Request failed: {error_msg}")
+            raise Exception(f"Open-Meteo Error: {error_msg}")
 
     async def get_wind_vector(self, lat: float, lng: float, mock_state: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -171,23 +173,24 @@ class OpenMeteoService(BaseWeatherService):
         if active_model != "auto":
             params["models"] = active_model
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.get(self.API_URL, params=params)
-                response.raise_for_status()
-                data = response.json()
-                
-                current = data.get("current", {})
-                speed = current.get("wind_speed_10m", 0.0)
-                direction = current.get("wind_direction_10m", 0)
-                
-                return {
-                    "speed_kmh": speed,
-                    "direction_deg": direction,
-                    "direction_cardinal": self.degrees_to_cardinal(direction),
-                    "source": "open_meteo"
-                }
-            except Exception as e:
-                error_msg = str(e) if str(e) else repr(e)
-                logger.error(f"Open-Meteo Wind Vector Request failed: {error_msg}")
-                raise Exception(f"Open-Meteo Error: {error_msg}")
+        from app.dependencies import get_http_client
+        client = get_http_client()
+        try:
+            response = await client.get(self.API_URL, params=params, timeout=self.timeout)
+            response.raise_for_status()
+            data = response.json()
+            
+            current = data.get("current", {})
+            speed = current.get("wind_speed_10m", 0.0)
+            direction = current.get("wind_direction_10m", 0)
+            
+            return {
+                "speed_kmh": speed,
+                "direction_deg": direction,
+                "direction_cardinal": self.degrees_to_cardinal(direction),
+                "source": "open_meteo"
+            }
+        except Exception as e:
+            error_msg = str(e) if str(e) else repr(e)
+            logger.error(f"Open-Meteo Wind Vector Request failed: {error_msg}")
+            raise Exception(f"Open-Meteo Error: {error_msg}")

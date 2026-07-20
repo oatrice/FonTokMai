@@ -1,5 +1,5 @@
 import asyncio
-from app.routers.webhook import handle_devmock_command
+from app.routers.webhook_devmock import handle_devmock_command
 
 async def test():
     print("Testing /devmock off")

@@ -56,7 +56,7 @@ def reply_to_line(reply_token: str, messages: list) -> bool:
     return True
 
 async def process_line_location(user_id: str, lat: float, lng: float, title: str, reply_token: str):
-    from app.routers.webhook import _build_forecast_text
+    from app.routers.webhook_utils import _build_forecast_text
     
     async with get_repo_context() as repo:
         # Save location in database with platform='line'
@@ -101,7 +101,7 @@ async def process_line_location(user_id: str, lat: float, lng: float, title: str
         await asyncio.to_thread(_reply)
 
 async def process_line_command(user_id: str, command: str, reply_token: str):
-    from app.routers.webhook import _build_forecast_text
+    from app.routers.webhook_utils import _build_forecast_text
     from app.services.notification import get_notification_service
     
     notifier = get_notification_service("line")

@@ -25,12 +25,24 @@ _DEV_CONFIG: dict = {
     "cluster_min":    3,      # min pixels to form a valid cloud cluster
     "search_radius":  80,     # px radius to scan for approaching clouds
     "min_dbz":        10.0,   # minimum dBZ to count as rain
-    "dot_threshold":  0.5,    # dot product threshold (how directly it must approach)
+    "dot_threshold":  0.6,    # dot product threshold (how directly it must approach)
     "flow_mode":      "average", # 'latest' or 'average'
-    "hit_radius":     8,      # radius around user to check for rain hits
-    "verbose":        False,  # Enable verbose debugging logs
+    "hit_radius":     7,      # radius around user to check for rain hits
+    "verbose":        False,  # Enable verbose debugging logs (DEBUG MODE — disable when done)
+    "draw_debug_grid": False, # Enable verbose 2x2 grid images layout
     "decay_enabled":  True,   # Whether to apply growth/decay rate to cloud extrapolation
-    "prediction_steps": 7,    # Number of steps to predict forward (each 15 mins)
+    "prediction_steps": 13,   # Number of steps to predict forward (each 15 mins)
+    "chaikin_iterations": 3,  # Chaikin corner-cutting iterations for smoothing radar contours
+    "enable_raster_smooth": True,      # Enable organic metaball-style smoothing on masks
+    "gaussian_kernel_size": 15,        # Gaussian blur size before thresholding
+    "raster_smooth_threshold": 80,     # Default threshold after blur to prevent thin clouds melting
+    "enable_hsv_mask":      False,     # Use HSV range thresholding for robust cloud detection (default False for cluster split compliance)
+    "use_skn240_backup":    False,     # Force using skn240 backup files for testing (adjustable via /devmock config)
+    "use_local_fixtures":   False,     # Force using local fixture files for testing (adjustable via /devmock config)
+    "min_ambient_dbz":      20.0,      # minimum dBZ for ambient clusters to be labeled/drawn
+    "min_ambient_size":     15,        # minimum size (pixels) for ambient clusters to be labeled/drawn
+    "show_trajectory":      True,      # Draw trajectory points and lines
+    "show_backward_trajectory": True,  # Draw historical backward trajectory line
 }
 
 
@@ -450,8 +462,97 @@ class WeatherManager:
         Loads the radar cache from Firestore, populates _GLOBAL_TMD_CACHE, 
         and returns the cached data tuple. Returns None if it fails or has no cache.
         """
-        async with get_repo_context() as repo:
-            cache = await repo.get_latest_radar_cache(station_code)
+        # Check if we should override with local fixture files for testing
+        import sys
+        is_testing = "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
+        is_local_fixtures_mode = (
+            os.getenv("USE_LOCAL_FIXTURES", "false").lower() == "true" or
+            _DEV_CONFIG.get("use_local_fixtures", False)
+        )
+        if is_local_fixtures_mode and not is_testing:
+            fixture_name = f"test_{station_code}_frames.npz"
+            fixture_path = os.path.join(os.path.dirname(__file__), "..", "tests", fixture_name)
+            if not os.path.exists(fixture_path):
+                fixture_path = os.path.join(os.path.dirname(__file__), "..", "..", "tests", fixture_name)
+            
+            if os.path.exists(fixture_path):
+                import numpy as np
+                import time
+                from datetime import datetime, timezone
+                import cv2
+                
+                logger.info(f"🛠️ [LOCAL FIXTURE MODE] Loading fixture from {fixture_path}...")
+                data = np.load(fixture_path, allow_pickle=True)
+                frame_arr = data["frames"]
+                frames = [cv2.cvtColor(np.array(frame_arr[i]), cv2.COLOR_BGR2RGB) for i in range(frame_arr.shape[0])]
+                flow = np.array(data["flow"])
+                meta = dict(data.get("meta", {}).item()) if "meta" in data else {}
+                frame_timestamps = meta.get("frame_timestamps", [])
+                frame_urls = meta.get("frame_urls", [])
+                
+                last_modified_dt = datetime.fromtimestamp(frame_timestamps[-1], timezone.utc) if frame_timestamps else datetime.now(timezone.utc)
+                data_gap_minutes = 15.0
+                if len(frame_timestamps) >= 2:
+                    data_gap_minutes = (frame_timestamps[-1] - frame_timestamps[-2]) / 60.0
+                
+                is_loop = frames[-1].shape[0] < 800 or frames[-1].shape[1] < 800
+                frame_source = "loop_gif" if is_loop else "static_cache"
+                
+                _GLOBAL_TMD_CACHE[station_code] = (
+                    frames, last_modified_dt, time.time(), flow,
+                    frame_source, data_gap_minutes, frame_timestamps, frame_urls,
+                )
+                logger.info(f"🛠️ [LOCAL FIXTURE MODE] Successfully loaded {len(frames)} frames from local fixture.")
+                return _GLOBAL_TMD_CACHE[station_code]
+
+        # Check if we should override with backup files for testing
+        is_backup_mode = (
+            os.getenv("USE_SKN240_BACKUP", "false").lower() == "true" or
+            _DEV_CONFIG.get("use_skn240_backup", False)
+        )
+        if station_code == "skn240" and is_backup_mode:
+            bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
+            from google.cloud import storage
+            client = storage.Client()
+            bucket = client.bucket(bucket_name)
+            
+            logger.info("🛠️ [SKN240 BACKUP MODE] Listing blobs in radar/skn240_backup/...")
+            try:
+                blobs = list(bucket.list_blobs(prefix="radar/skn240_backup/"))
+                backup_frames = []
+                for b in blobs:
+                    # e.g., radar/skn240_backup/skn240_1784212828.gif
+                    base_name = b.name.split("/")[-1]
+                    ts_str = base_name.replace("skn240_", "").replace(".gif", "")
+                    try:
+                        ts = int(ts_str)
+                        backup_frames.append({"url": b.name, "timestamp": ts})
+                    except ValueError:
+                        continue
+                
+                if backup_frames:
+                    backup_frames = sorted(backup_frames, key=lambda x: x["timestamp"])
+                    # Shift timestamps so the latest one matches the current time
+                    import time
+                    now_ts = int(time.time())
+                    original_latest_ts = backup_frames[-1]["timestamp"]
+                    for f in backup_frames:
+                        delta = original_latest_ts - f["timestamp"]
+                        f["timestamp"] = now_ts - delta
+                    
+                    cache = {"frames": backup_frames}
+                    logger.info(f"🛠️ [SKN240 BACKUP MODE] Successfully loaded {len(backup_frames)} frames from backup folder.")
+                else:
+                    logger.warning("🛠️ [SKN240 BACKUP MODE] No files found in radar/skn240_backup/! Falling back to DB cache.")
+                    async with get_repo_context() as repo:
+                        cache = await repo.get_latest_radar_cache(station_code)
+            except Exception as e_backup:
+                logger.error(f"🛠️ [SKN240 BACKUP MODE] Error loading backup files: {e_backup}. Falling back to DB cache.")
+                async with get_repo_context() as repo:
+                    cache = await repo.get_latest_radar_cache(station_code)
+        else:
+            async with get_repo_context() as repo:
+                cache = await repo.get_latest_radar_cache(station_code)
         
         if not cache or not (cache.get("frames") or (cache.get("url_t") and cache.get("url_t_minus_1"))):
             return None
@@ -524,9 +625,11 @@ class WeatherManager:
         )
         
         import time
+        # Collect frame URLs from the Firestore cache (for reproducibility)
+        frame_urls = [f["url"] for f in cache_frames[-6:]] if cache_frames else []
         _GLOBAL_TMD_CACHE[station_code] = (
             frames, last_modified_dt, time.time(), flow,
-            frame_source, data_gap_minutes, frame_timestamps,
+            frame_source, data_gap_minutes, frame_timestamps, frame_urls,
         )
         return _GLOBAL_TMD_CACHE[station_code]
 
@@ -586,6 +689,7 @@ class WeatherManager:
                         frame_source = cached_data[4] if len(cached_data) > 4 else "static_cache"
                         data_gap_minutes = cached_data[5] if len(cached_data) > 5 else 15.0
                         frame_timestamps = list(cached_data[6]) if len(cached_data) > 6 else []
+                        frame_urls = list(cached_data[7]) if len(cached_data) > 7 else []
                         age_s = int(time.time() - cached_data[2])
                         logger.info(
                             f"[{station_code}] 📦 IN-MEMORY cache HIT — "
@@ -615,6 +719,7 @@ class WeatherManager:
                             frame_source = cached_data[4]
                             data_gap_minutes = cached_data[5]
                             frame_timestamps = list(cached_data[6])
+                            frame_urls = list(cached_data[7]) if len(cached_data) > 7 else []
                         else:
                             frames = []
                             last_modified_dt = None
@@ -622,6 +727,7 @@ class WeatherManager:
                             frame_source = "static_cache"
                             frame_timestamps = []
                             data_gap_minutes = 15.0
+                            frame_urls = []
                         if not frames or len(frames) < 2:
                             fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
                             if len(fresh_frames) >= 2:
@@ -649,14 +755,10 @@ class WeatherManager:
                                     f"[{station_code}] 🌀 LIVE loop GIF fallback — "
                                     f"{len(frames)} frames fetched direct from TMD (Firestore cache was empty/stale)"
                                 )
-                                _GLOBAL_TMD_CACHE[station_code] = (
-                                    frames, last_modified_dt, time.time(), flow,
-                                    frame_source, data_gap_minutes, frame_timestamps,
-                                )
                                 # Also persist to Firestore so next call after in-memory expiry
                                 # uses Firestore instead of re-fetching loop GIF again.
+                                saved_frames = []
                                 try:
-                                    saved_frames = []
                                     for f_img, f_ts in zip(frames, frame_timestamps):
                                         # Resize to 800×800 so is_loop detection (frame.shape < 800)
                                         # returns False when reloaded — ensuring static pixel coords.
@@ -679,6 +781,12 @@ class WeatherManager:
                                         )
                                 except Exception as _e:
                                     logger.warning(f"[{station_code}] 🌀 GIF fallback: Firestore persist failed: {_e}")
+                                # Collect frame URLs from saved frames for reproducibility
+                                frame_urls = [sf["url"] for sf in saved_frames] if saved_frames else []
+                                _GLOBAL_TMD_CACHE[station_code] = (
+                                    frames, last_modified_dt, time.time(), flow,
+                                    frame_source, data_gap_minutes, frame_timestamps, frame_urls,
+                                )
                             else:
                                 continue
 
@@ -713,13 +821,21 @@ class WeatherManager:
                 if user_px is None or user_py is None:
                     continue
 
+                # Log frame identity for reproducibility (so offline test can match exact frames)
+                logger.info(
+                    f"[FRAME_ID] station={station_code}, source={frame_source}, "
+                    f"n_frames={len(frames)} (last_ts={frame_timestamps[-1] if frame_timestamps else '?'}), "
+                    f"timestamps={frame_timestamps}, shape={frames[-1].shape[:2]}, "
+                    f"urls={frame_urls}"
+                )
+
                 # Find all cloud clusters approaching the user (using dev-configurable thresholds)
                 _cfg = _DEV_CONFIG
                 clouds = processor.find_approaching_clouds(
                     curr_frame, prev_frame, flow, user_px, user_py,
                     search_radius=_cfg.get("search_radius", 80),
                     min_dbz=_cfg.get("min_dbz", 10.0),
-                    cluster_dist=20,
+                    cluster_dist=10,
                     hit_radius=_cfg.get("hit_radius", 20),
                     cluster_min=_cfg.get("cluster_min", 3),
                     dot_threshold=_cfg.get("dot_threshold", 0.5),
@@ -728,15 +844,35 @@ class WeatherManager:
                 all_rain_clusters = await asyncio.to_thread(
                     processor.get_all_rain_clusters,
                     curr_frame, flow, user_px, user_py,
-                    scan_radius=min(200, _cfg.get("search_radius", 80) * 2),
-                    min_dbz=0.1,  # Lower threshold so even light rain gets clustered and labeled
-                    cluster_dist=25,
+                    scan_radius=None,
+                    min_dbz=_cfg.get("min_dbz", 10.0),
+                    cluster_dist=6,
+                    min_size=5,
                 )
                 
-                # Label all_rain_clusters FIRST
                 if all_rain_clusters:
+                    min_amb_dbz = _cfg.get("min_ambient_dbz", 20.0)
+                    min_amb_size = _cfg.get("min_ambient_size", 15)
+                    filtered_clusters = []
+                    for c in all_rain_clusters:
+                        if len(c.get("pixels", [])) < 5:
+                            filtered_clusters.append(c)
+                            continue
+                        dbz = c.get("dbz_now", 0)
+                        size = len(c.get("pixels", []))
+                        if dbz >= min_amb_dbz and size >= min_amb_size:
+                            filtered_clusters.append(c)
+                        else:
+                            logger.info(
+                                f"[FILTER] Ambient cluster filtered out: centroid=({c.get('cx'):.1f}, {c.get('cy'):.1f}), "
+                                f"dbz={dbz:.1f}, size={size}px (thresholds: dbz>={min_amb_dbz}, size>={min_amb_size})"
+                            )
+                    all_rain_clusters = filtered_clusters
+
+                if all_rain_clusters:
+                    # Sort by dBZ descending first, then distance ascending so red/heavy rain clusters get labels A, B...
+                    all_rain_clusters.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), c.get("dist", 9999)))
                     for i, c in enumerate(all_rain_clusters):
-                        # Use A-Z, then AA-ZZ if needed (though usually < 26)
                         c["label"] = chr(ord('A') + min(i, 25))
                         
                 # Match labels from all_rain_clusters to clouds
@@ -757,6 +893,10 @@ class WeatherManager:
                         if matched_amb:
                             appr_c["cx"] = matched_amb["cx"]
                             appr_c["cy"] = matched_amb["cy"]
+                            if "peak_cx" in matched_amb:
+                                appr_c["peak_cx"] = matched_amb["peak_cx"]
+                            if "peak_cy" in matched_amb:
+                                appr_c["peak_cy"] = matched_amb["peak_cy"]
                             if "pixels" in matched_amb:
                                 appr_c["pixels"] = matched_amb["pixels"]
                                 
@@ -1157,10 +1297,12 @@ class WeatherManager:
                     tracking_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
-                        all_rain_clusters, predictions, True, True, time_offset_min,
+                        all_rain_clusters, predictions, True, _DEV_CONFIG.get("show_trajectory", True), time_offset_min,
                         locked_target_id,
                         locked_target_cx,
-                        locked_target_cy
+                        locked_target_cy,
+                        cluster_dist_approaching=10,
+                        cluster_dist_ambient=6
                     )
                     
                     # Create adjusted predictions for the timeline so it displays actual ETA from NOW
