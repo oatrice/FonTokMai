@@ -40,6 +40,8 @@ class StationConfig:
     radius_km: float = 0.0
     # dict mapping "lat,lng" to "pixel_x,pixel_y" for affine calibration
     calibration_points: Dict[Tuple[float, float], Tuple[float, float]] = None
+    min_area_km2: float = 10.0
+    legend_bboxes: list = None
 
 # Approximate bounding boxes for 120km radius.
 # 1 degree is roughly 111km. 120km is ~1.08 degrees.
@@ -86,7 +88,8 @@ STATIONS = {
         loop_crop_x=80,
         loop_crop_y=40,
         loop_crop_width=600,
-        loop_crop_height=600
+        loop_crop_height=600,
+        legend_bboxes=[(730, 100, 800, 750), (0, 740, 800, 800), (0, 0, 400, 60)]
     ),
     "kkn240": StationConfig(
         code="kkn240",
@@ -106,7 +109,8 @@ STATIONS = {
         loop_crop_x=80,
         loop_crop_y=40,
         loop_crop_width=720,
-        loop_crop_height=720
+        loop_crop_height=720,
+        legend_bboxes=[(730, 100, 800, 750), (0, 740, 800, 800), (0, 0, 400, 60)]
     ),
     "skn240": StationConfig(
         code="skn240",
@@ -126,7 +130,8 @@ STATIONS = {
         loop_crop_x=72,
         loop_crop_y=28,
         loop_crop_width=728,
-        loop_crop_height=728
+        loop_crop_height=728,
+        legend_bboxes=[(730, 100, 800, 750), (0, 740, 800, 800), (0, 0, 400, 60)]
     )
 }
 

@@ -60,8 +60,8 @@ def _load_thai_font(size: int) -> "ImageFont.FreeTypeFont":
 
 class TMDTrackingMixin:
 
-    @staticmethod
     def generate_radar_tracking_image(
+        self,
         frame: np.ndarray,
         user_x: int,
         user_y: int,
@@ -77,6 +77,14 @@ class TMDTrackingMixin:
         locked_target_cy: Optional[int] = None
     ) -> Optional[bytes]:
         import math
+
+        lon_diff = self.config.bbox.lng_max - self.config.bbox.lng_min
+        width_km = lon_diff * 111.0
+        km_per_pixel = width_km / max(1, self.config.loop_crop_width)
+        
+        min_area_km2 = getattr(self.config, "min_area_km2", 10.0)
+        min_area_px = min_area_km2 / (km_per_pixel ** 2)
+
 
         def _resolve_locked_cluster(clusters: list) -> Optional[dict]:
             """Pick the cluster that corresponds to the manually-locked target.
@@ -293,25 +301,32 @@ class TMDTrackingMixin:
                         if 0 <= px < mask_w and 0 <= py < mask_h:
                             mask[py, px] = 255
                             
-                    # Use a larger ellipse kernel to merge separate sub-polygons of the same cluster smoothly
-                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25))
+                    # Use a lighter ellipse kernel to remove single-pixel holes
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-                    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
                     
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     
-                    all_points = []
-                    for ctr in contours:
-                        all_points.extend(ctr)
-                        
                     global_contours = []
-                    if len(all_points) > 0:
-                        hull = cv2.convexHull(np.array(all_points))
-                        if cv2.contourArea(hull) >= 15:
-                            epsilon = 0.005 * cv2.arcLength(hull, True)
-                            approx = cv2.approxPolyDP(hull, epsilon, True)
+                    for ctr in contours:
+                        area = cv2.contourArea(ctr)
+                        if area >= min_area_px:
+                            hull = cv2.convexHull(ctr)
+                            hull_area = cv2.contourArea(hull)
+                            solidity = area / hull_area if hull_area > 0 else 1.0
+                            
+                            SOLIDITY_THRESHOLD = 0.85
+                            is_convex = (solidity > SOLIDITY_THRESHOLD) and (hull_area / max(1.0, area) <= 1.3)
+                            
+                            if is_convex:
+                                final_contour = hull
+                            else:
+                                final_contour = ctr
+                                
+                            epsilon = 0.008 * cv2.arcLength(final_contour, True)
+                            approx = cv2.approxPolyDP(final_contour, epsilon, True)
                             global_ctr = approx + np.array([[[x - margin, y - margin]]], dtype=np.int32)
-                            global_contours = [global_ctr]
+                            global_contours.append(global_ctr)
 
                     if len(global_contours) > 1:
                         areas = [int(cv2.contourArea(ctr)) for ctr in global_contours]
@@ -485,23 +500,32 @@ class TMDTrackingMixin:
                         if 0 <= px < mask_w and 0 <= py < mask_h:
                             mask[py, px] = 255
                             
-                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25))
+                    # Use a lighter ellipse kernel to remove single-pixel holes
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-                    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
                     
                     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     
-                    all_points = []
-                    for ctr in contours:
-                        all_points.extend(ctr)
-                        
                     global_contours = []
-                    if len(all_points) > 0:
-                        hull = cv2.convexHull(np.array(all_points))
-                        if cv2.contourArea(hull) >= 15:
-                            epsilon = 0.005 * cv2.arcLength(hull, True)
-                            approx = cv2.approxPolyDP(hull, epsilon, True)
-                            global_contours = [approx + np.array([[[bx - margin, by - margin]]], dtype=np.int32)]
+                    for ctr in contours:
+                        area = cv2.contourArea(ctr)
+                        if area >= min_area_px:
+                            hull = cv2.convexHull(ctr)
+                            hull_area = cv2.contourArea(hull)
+                            solidity = area / hull_area if hull_area > 0 else 1.0
+                            
+                            SOLIDITY_THRESHOLD = 0.85
+                            is_convex = (solidity > SOLIDITY_THRESHOLD) and (hull_area / max(1.0, area) <= 1.3)
+                            
+                            if is_convex:
+                                final_contour = hull
+                            else:
+                                final_contour = ctr
+                                
+                            epsilon = 0.008 * cv2.arcLength(final_contour, True)
+                            approx = cv2.approxPolyDP(final_contour, epsilon, True)
+                            global_ctr = approx + np.array([[[bx - margin, by - margin]]], dtype=np.int32)
+                            global_contours.append(global_ctr)
                             
                     if global_contours:
                         overlay = img.copy()

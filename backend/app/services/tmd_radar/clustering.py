@@ -164,10 +164,9 @@ class TMDClusteringMixin:
             wc_arr = np.array(wc, dtype=np.float32)
             dist = np.sqrt(np.sum((img_float - wc_arr)**2, axis=-1))
             weak_mask |= (dist < 15.0)
-            
         if np.any(weak_mask):
             # Dilate strong rain to find adjacent weak pixels
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (35, 35))
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
             dilated_strong = cv2.dilate(best_intensity, kernel)
             valid_weak = weak_mask & (dilated_strong > 0)
             best_intensity[valid_weak] = max(50, int(15.0 * 4))
@@ -184,7 +183,7 @@ class TMDClusteringMixin:
         user_x: int,
         user_y: int,
         search_radius: int = 80,
-        min_dbz: float = 20.0,
+        min_dbz: float = 10.0,
         cluster_dist: int = 20,
         hit_radius: int = 20,
         cluster_min: int = 3,
@@ -326,8 +325,8 @@ class TMDClusteringMixin:
         clusters.sort(key=lambda c: c["eta_min"])
         return clusters
 
-    @staticmethod
     def get_all_rain_clusters(
+        self,
         frame: np.ndarray,
         flow: np.ndarray,
         user_x: int,
@@ -350,6 +349,25 @@ class TMDClusteringMixin:
         # 2. Filter by min_dbz
         min_intensity = int(min_dbz * 4)
         rain_pixels = mask >= min_intensity
+        
+        # Circular Mask: Clip valid rain pixels to inside the radar's circular range ring
+        center_x = self.config.loop_crop_width / 2.0 + self.config.loop_crop_x
+        center_y = self.config.loop_crop_height / 2.0 + self.config.loop_crop_y
+        pixel_radius = self.config.loop_crop_width / 2.0
+        
+        Y, X = np.ogrid[:h, :w]
+        dist_from_center_sq = (X - center_x)**2 + (Y - center_y)**2
+        outside_circle = dist_from_center_sq > (pixel_radius - 2)**2
+        rain_pixels[outside_circle] = False
+        
+        # Zero out the legend/colorbar bounding boxes
+        if getattr(self.config, "legend_bboxes", None):
+            for (lx1, ly1, lx2, ly2) in self.config.legend_bboxes:
+                lx1_c = max(0, min(w, lx1))
+                ly1_c = max(0, min(h, ly1))
+                lx2_c = max(0, min(w, lx2))
+                ly2_c = max(0, min(h, ly2))
+                rain_pixels[ly1_c:ly2_c, lx1_c:lx2_c] = False
         
         if scan_radius is not None:
             roi_mask = np.zeros_like(mask)
