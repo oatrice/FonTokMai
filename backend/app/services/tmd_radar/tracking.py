@@ -338,8 +338,12 @@ class TMDTrackingMixin:
                             local_raw_closed = cv2.morphologyEx(local_raw, cv2.MORPH_CLOSE, small_kernel)
                             num_comp, _ = cv2.connectedComponents(local_raw_closed)
                             
-                            SOLIDITY_THRESHOLD = 0.85
-                            is_convex = (solidity > SOLIDITY_THRESHOLD) and (hull_area / max(1.0, area) <= 1.3)
+                            # 0.70 is more appropriate for natural cloud shapes which are
+                            # commonly concave (squall lines, irregular rain cells).
+                            # The old 0.85 was too strict, forcing raw contours for most clouds.
+                            # hull_area/area ratio relaxed to 1.5 for consistency.
+                            SOLIDITY_THRESHOLD = 0.70
+                            is_convex = (solidity > SOLIDITY_THRESHOLD) and (hull_area / max(1.0, area) <= 1.5)
                             if num_comp > 2:
                                 is_convex = False
                                 

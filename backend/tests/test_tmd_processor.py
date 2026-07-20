@@ -277,29 +277,30 @@ def test_find_approaching_clouds_returns_approaching_true():
     curr_frame = np.zeros((800, 800, 3), dtype=np.uint8)
     prev_frame = np.zeros((800, 800, 3), dtype=np.uint8)
     flow = np.zeros((800, 800, 2), dtype=np.float32)
-    
+
     # User at (400, 400)
     user_x, user_y = 400, 400
-    
-    # Mock get_dbz_at_pixel so it returns 40.0 for a block of pixels near (380, 380)
-    def mock_get_dbz(img, x, y):
-        if 378 <= x <= 382 and 378 <= y <= 382:
-            return 40.0
-        return 0.0
-        
-    # Flow is moving towards user: from (380, 380) to (400, 400) means vx=1, vy=1
+
+    # Paint a 9×9 block of red pixels (255,0,0) at (375-383, 375-383).
+    # Red = 50 dBZ in DBZ_COLOR_MAPPING, well above min_dbz=10.
+    # kkn120 valid crop: x in [80, 680), y in [40, 640) — this block is inside.
+    curr_frame[375:384, 375:384] = [255, 0, 0]  # RGB red
+    prev_frame[375:384, 375:384] = [255, 0, 0]
+
+    # Flow is moving towards user: vx=1, vy=1 → dot product with (to_user) is positive
     flow[:, :, 0] = 1.0
     flow[:, :, 1] = 1.0
-    
-    with patch.object(processor, 'get_dbz_at_pixel', side_effect=mock_get_dbz):
-        clouds = processor.find_approaching_clouds(
-            curr_frame, prev_frame, flow, user_x, user_y,
-            search_radius=20, min_dbz=10.0, cluster_dist=10, cluster_min=1, dot_threshold=0.5
-        )
-        
-        assert len(clouds) > 0, "Should find approaching cloud"
-        assert clouds[0].get("approaching") is True, "Cloud must have 'approaching' flag set to True"
-        assert len(clouds[0].get("pixels", [])) > 0, "Cloud must contain pixels"
+
+    clouds = processor.find_approaching_clouds(
+        curr_frame, prev_frame, flow, user_x, user_y,
+        search_radius=30, min_dbz=10.0, cluster_dist=10, cluster_min=1, dot_threshold=0.5
+    )
+
+    assert len(clouds) > 0, "Should find approaching cloud"
+    assert clouds[0].get("approaching") is True, "Cloud must have 'approaching' flag set to True"
+    assert len(clouds[0].get("pixels", [])) > 0, "Cloud must contain pixels"
+
+
 
 
 def test_generate_timeline_image():

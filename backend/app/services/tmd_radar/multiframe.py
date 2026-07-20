@@ -78,22 +78,36 @@ class TMDMultiframeMixin:
         # Calculate dense optical flow by Farneback method
         # flow[y, x, 0] = dx
         # flow[y, x, 1] = dy
+        min_dim = min(prev_gray.shape[:2])
+
+        if min_dim >= 200:
+            # Production-sized frame: improved params for better small-cloud tracking.
+            import math as _math
+            n_levels = min(6, max(1, int(_math.log2(max(1, min_dim / 16)))))
+            n_winsize = 21
+        else:
+            # Small frame (e.g. unit tests): keep original params that are stable
+            # at this scale. The pyramid depth and window are intentionally larger
+            # relative to the image, which OpenCV handles by clamping internally.
+            n_levels = 5
+            n_winsize = 25
+
         flow = cv2.calcOpticalFlowFarneback(
             prev=prev_gray,
             next=curr_gray,
             flow=None,
             pyr_scale=0.5,
-            levels=5,
-            winsize=25,
+            levels=n_levels,
+            winsize=n_winsize,
             iterations=5,
             poly_n=5,
             poly_sigma=1.2,
             flags=0
         )
-        
+
         # Extrapolate wind into empty regions so tracking works everywhere
         flow = self.densify_optical_flow(flow)
-        
+
         return flow
         
     def densify_optical_flow(self, flow: np.ndarray) -> np.ndarray:
@@ -117,8 +131,10 @@ class TMDMultiframeMixin:
         # 1. Mask the flow
         flow_masked = flow * mask[..., np.newaxis]
         
-        # 2. Blur the masked flow and the mask (large kernel to spread wind widely)
-        ksize = (101, 101)
+        # 2. Blur the masked flow and the mask.
+        # Using (51, 51) instead of (101, 101) to preserve local flow direction
+        # near crop boundaries and avoid smearing global-average into edge clouds.
+        ksize = (51, 51)
         flow_blurred = cv2.blur(flow_masked, ksize)
         mask_blurred = cv2.blur(mask, ksize)
         

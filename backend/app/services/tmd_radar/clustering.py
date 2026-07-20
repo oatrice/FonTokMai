@@ -129,8 +129,44 @@ class TMDClusteringMixin:
             return best_dbz
         return 0.0
 
+    def _extract_raw_dbz_map(self, img: np.ndarray) -> np.ndarray:
+        """Vectorized dBZ intensity map WITHOUT medianBlur.
+
+        Use this for per-pixel candidate detection (find_approaching_clouds)
+        where we need every individual rain pixel.
+        ``extract_rain_mask`` applies medianBlur which eliminates sparse/isolated
+        pixels and is intended only for optical-flow computation.
+        """
+        img_float = img.astype(np.float32)
+
+        min_dists = np.full(img.shape[:2], 25.0, dtype=np.float32)
+        best_intensity = np.zeros(img.shape[:2], dtype=np.uint8)
+
+        ignored_min_dists = np.full(img.shape[:2], float('inf'), dtype=np.float32)
+        for ic in IGNORED_COLORS:
+            ic_arr = np.array(ic, dtype=np.float32)
+            dist = np.sqrt(np.sum((img_float - ic_arr) ** 2, axis=-1))
+            better = dist < ignored_min_dists
+            ignored_min_dists[better] = dist[better]
+
+        for color, dbz in DBZ_COLOR_MAPPING.items():
+            c_arr = np.array(color, dtype=np.float32)
+            dist = np.sqrt(np.sum((img_float - c_arr) ** 2, axis=-1))
+            valid = dist < ignored_min_dists
+            better = (dist < min_dists) & valid
+            min_dists[better] = dist[better]
+            intensity = int(min(255, max(50, dbz * 4)))
+            best_intensity[better] = intensity
+
+        # Return raw intensity map (no medianBlur) — float32 dBZ approximation
+        return best_intensity.astype(np.float32) / 4.0
+
     def extract_rain_mask(self, img: np.ndarray) -> np.ndarray:
-        """Converts an RGB radar frame into a grayscale mask representing rain intensity."""
+        """Converts an RGB radar frame into a grayscale mask representing rain intensity.
+
+        Applies medianBlur to remove single-pixel noise — use this for optical flow.
+        For per-pixel candidate detection, use _extract_raw_dbz_map() instead.
+        """
         img_float = img.astype(np.float32)
         
         min_dists = np.full(img.shape[:2], 25.0, dtype=np.float32)
@@ -165,8 +201,10 @@ class TMDClusteringMixin:
             dist = np.sqrt(np.sum((img_float - wc_arr)**2, axis=-1))
             weak_mask |= (dist < 15.0)
         if np.any(weak_mask):
-            # Dilate strong rain to find adjacent weak pixels
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+            # Dilate strong rain to find adjacent weak pixels.
+            # (7,7) is intentionally smaller than before to keep edge mask tight
+            # so that optical flow from Farneback can see clean cloud boundaries.
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
             dilated_strong = cv2.dilate(best_intensity, kernel)
             valid_weak = weak_mask & (dilated_strong > 0)
             best_intensity[valid_weak] = max(50, int(15.0 * 4))
@@ -207,49 +245,121 @@ class TMDClusteringMixin:
         valid_y_min = crop_y0
         valid_y_max = crop_y0 + crop_h
 
-        candidates = []
-        dbz_pass = 0
-        dot_pass = 0
-        total_scanned = 0
-        for dy in range(-search_radius, search_radius + 1, 2):
-            for dx in range(-search_radius, search_radius + 1, 2):
-                total_scanned += 1
-                sx = user_x + dx
-                sy = user_y + dy
-                # Skip pixels outside the valid radar area (legend, borders)
-                if not (valid_x_min <= sx < valid_x_max and valid_y_min <= sy < valid_y_max):
-                    continue
-                if not (0 <= sx < curr_frame.shape[1] and 0 <= sy < curr_frame.shape[0]):
-                    continue
-                d = self.get_dbz_at_pixel(curr_frame, sx, sy)
-                if d < min_dbz:
-                    continue
-                dbz_pass += 1
-                cvx, cvy = self.get_flow_vector_at(flow, sx, sy)
-                to_x = user_x - sx
-                to_y = user_y - sy
-                dist = math.sqrt(to_x ** 2 + to_y ** 2)
-                if dist == 0:
-                    continue
-                dot = (cvx * to_x + cvy * to_y) / dist
-                # Only keep pixels whose flow APPROACHES the user (dot > dot_threshold)
-                if dot <= dot_threshold:
-                    continue
-                dot_pass += 1
-                
-                v_mag = math.sqrt(cvx ** 2 + cvy ** 2)
-                if v_mag < 0.1:
-                    continue # Not moving enough to predict
-                    
-                # Perpendicular distance (Cross Track Error)
-                perp_dist = abs(to_x * cvy - to_y * cvx) / v_mag
-                if perp_dist > hit_radius:
-                    continue
-                # Previous DBZ at the backward-traced position
-                prev_x = int(round(sx - cvx))
-                prev_y = int(round(sy - cvy))
-                d_prev = self.get_dbz_at_pixel(prev_frame, prev_x, prev_y) if prev_frame is not None else d
-                candidates.append((sx, sy, cvx, cvy, d, d_prev, dist, dot))
+        H, W = curr_frame.shape[:2]
+
+        # ── Vectorized candidate extraction ──────────────────────────────────
+        # Build a grid of all (sx, sy) offsets inside search_radius, step=1.
+        # Step 1 (vs old step 2) gives finer coverage with no extra Python loop.
+        ys_off = np.arange(-search_radius, search_radius + 1, dtype=np.int32)
+        xs_off = np.arange(-search_radius, search_radius + 1, dtype=np.int32)
+        grid_dy, grid_dx = np.meshgrid(ys_off, xs_off, indexing="ij")
+
+        sx_all = user_x + grid_dx            # shape (2R+1, 2R+1)
+        sy_all = user_y + grid_dy
+
+        # Mask 1: within frame bounds
+        in_frame = (sx_all >= 0) & (sx_all < W) & (sy_all >= 0) & (sy_all < H)
+        # Mask 2: within valid crop area
+        in_crop = (
+            (sx_all >= valid_x_min) & (sx_all < valid_x_max) &
+            (sy_all >= valid_y_min) & (sy_all < valid_y_max)
+        )
+        valid_mask = in_frame & in_crop
+
+        # Use raw dBZ map (no medianBlur) so isolated rain pixels are not erased.
+        # extract_rain_mask() applies medianBlur which is correct for optical flow
+        # but would eliminate sparse candidate pixels before clustering.
+        dbz_full = self._extract_raw_dbz_map(curr_frame)   # float32 dBZ per pixel
+
+        # Safe clamped indices for array lookup — out-of-bounds pixels are
+        # excluded by valid_mask already, but numpy requires non-negative indices.
+        sx_safe = np.clip(sx_all, 0, W - 1)
+        sy_safe = np.clip(sy_all, 0, H - 1)
+        dbz_at_grid = dbz_full[sy_safe, sx_safe]          # safe everywhere; invalid pixels filtered by valid_mask
+        dbz_mask = valid_mask & (dbz_at_grid >= min_dbz)
+
+        # Extract flow vectors at all candidate pixels (vectorized)
+        sx_cands = sx_all[dbz_mask]
+        sy_cands = sy_all[dbz_mask]
+        dbz_cands = dbz_at_grid[dbz_mask]
+
+        # Flow at candidate positions
+        cvx_arr = flow[sy_cands, sx_cands, 0]
+        cvy_arr = flow[sy_cands, sx_cands, 1]
+
+        # Vector from pixel to user
+        to_x_arr = (user_x - sx_cands).astype(np.float32)
+        to_y_arr = (user_y - sy_cands).astype(np.float32)
+        dist_arr = np.sqrt(to_x_arr ** 2 + to_y_arr ** 2)
+
+        # Avoid division by zero
+        nonzero = dist_arr > 0
+        sx_cands  = sx_cands[nonzero]
+        sy_cands  = sy_cands[nonzero]
+        dbz_cands = dbz_cands[nonzero]
+        cvx_arr   = cvx_arr[nonzero]
+        cvy_arr   = cvy_arr[nonzero]
+        to_x_arr  = to_x_arr[nonzero]
+        to_y_arr  = to_y_arr[nonzero]
+        dist_arr  = dist_arr[nonzero]
+
+        # Dot product filter: flow must point TOWARD user
+        dot_arr = (cvx_arr * to_x_arr + cvy_arr * to_y_arr) / dist_arr
+        approach_mask = dot_arr > dot_threshold
+        sx_cands  = sx_cands[approach_mask]
+        sy_cands  = sy_cands[approach_mask]
+        dbz_cands = dbz_cands[approach_mask]
+        cvx_arr   = cvx_arr[approach_mask]
+        cvy_arr   = cvy_arr[approach_mask]
+        to_x_arr  = to_x_arr[approach_mask]
+        to_y_arr  = to_y_arr[approach_mask]
+        dist_arr  = dist_arr[approach_mask]
+        dot_arr   = dot_arr[approach_mask]
+
+        # Speed filter: must be moving
+        v_mag_arr = np.sqrt(cvx_arr ** 2 + cvy_arr ** 2)
+        moving_mask = v_mag_arr >= 0.1
+        sx_cands  = sx_cands[moving_mask]
+        sy_cands  = sy_cands[moving_mask]
+        dbz_cands = dbz_cands[moving_mask]
+        cvx_arr   = cvx_arr[moving_mask]
+        cvy_arr   = cvy_arr[moving_mask]
+        to_x_arr  = to_x_arr[moving_mask]
+        to_y_arr  = to_y_arr[moving_mask]
+        dist_arr  = dist_arr[moving_mask]
+        dot_arr   = dot_arr[moving_mask]
+        v_mag_arr = v_mag_arr[moving_mask]
+
+        # Cross-track error filter (perpendicular distance)
+        perp_arr = np.abs(to_x_arr * cvy_arr - to_y_arr * cvx_arr) / v_mag_arr
+        hit_mask = perp_arr <= hit_radius
+        sx_cands  = sx_cands[hit_mask]
+        sy_cands  = sy_cands[hit_mask]
+        dbz_cands = dbz_cands[hit_mask]
+        cvx_arr   = cvx_arr[hit_mask]
+        cvy_arr   = cvy_arr[hit_mask]
+        dist_arr  = dist_arr[hit_mask]
+        dot_arr   = dot_arr[hit_mask]
+
+        # Prev-frame dBZ (still per-candidate, but candidates are now few)
+        prev_dbz_full = self._extract_raw_dbz_map(prev_frame) if prev_frame is not None else None
+        if prev_dbz_full is not None:
+            prev_sx = np.clip(np.round(sx_cands - cvx_arr).astype(np.int32), 0, W - 1)
+            prev_sy = np.clip(np.round(sy_cands - cvy_arr).astype(np.int32), 0, H - 1)
+            dbz_prev_arr = prev_dbz_full[prev_sy, prev_sx]
+        else:
+            dbz_prev_arr = dbz_cands.copy()
+
+        total_scanned = (2 * search_radius + 1) ** 2
+        dbz_pass  = int(np.count_nonzero(dbz_at_grid[valid_mask] >= min_dbz))
+        dot_pass  = len(sx_cands)
+        candidates = list(zip(
+            sx_cands.tolist(), sy_cands.tolist(),
+            cvx_arr.tolist(), cvy_arr.tolist(),
+            dbz_cands.tolist(), dbz_prev_arr.tolist(),
+            dist_arr.tolist(), dot_arr.tolist(),
+        ))
+        # ─────────────────────────────────────────────────────────────────────
 
         logger.info(
             f"[DEBUG_APPROACH] user_x={user_x}, user_y={user_y}, min_dbz={min_dbz}, "
