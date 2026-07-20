@@ -692,12 +692,12 @@ class TMDMultiframeMixin:
         if steps == 0:
             return self.get_dbz_at_pixel(img, px, py), px, py
             
-        # Get the flow vector at the target pixel
-        vx, vy = self.get_flow_vector_at(flow, px, py)
-        
-        # If local flow is zero/very small, fallback to the velocity of the approaching storm
-        if math.hypot(vx, vy) < 0.5 and (fallback_vx != 0.0 or fallback_vy != 0.0):
+        # Prioritize the velocity of the approaching storm (fallback_vx, fallback_vy) if available,
+        # because the local flow at a target pixel might be zero/noisy/inaccurate.
+        if (fallback_vx != 0.0 or fallback_vy != 0.0):
             vx, vy = fallback_vx, fallback_vy
+        else:
+            vx, vy = self.get_flow_vector_at(flow, px, py)
             
         # Calculate source pixel (backward tracking)
         # Assuming linear constant velocity over the steps

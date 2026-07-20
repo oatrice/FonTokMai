@@ -79,3 +79,14 @@ USE_SKN240_BACKUP=true
   ```
   *(เมื่ออัปเดตแล้ว ในการรันรอบถัดไปสคริปต์จะใช้ Fixture ท้องถิ่นนี้รันทันทีโดยไม่ต้องโหลดจากอินเทอร์เน็ต)*
 
+* **การสลับใช้งานไฟล์ Fixture อื่นๆ ผ่าน `FIXTURE_PATH`:**
+  หากมีการ copy หรือแยกสำรองไฟล์ `.npz` ไว้ (เพื่อไม่ให้โดนเซฟทับ) สามารถส่งตัวแปรสภาพแวดล้อม `FIXTURE_PATH` เพื่อสลับไปดึงข้อมูลจากไฟล์ดังกล่าวได้:
+  ```bash
+  FIXTURE_PATH=backend/tests/test_kkn240_frames_backup.npz PYTHONPATH=backend ./backend/.venv/bin/python backend/tests/test_kkn240_run.py
+  ```
+
+* **การเจาะจงรูปภาพเรดาร์และคัดลอกลง Backup อัตโนมัติ (`TEST_FRAME_URLS`):**
+  คุณสามารถระบุรายการ URL ภาพเรดาร์ที่ต้องการให้ระบบนำมาสร้างเป็น Fixture ได้โดยตรง ผ่านตัวแปรสภาพแวดล้อม `TEST_FRAME_URLS` โดยเมื่อดาวน์โหลดมาแล้ว ระบบจะช่วย**อัปโหลดสำเนาไปยังโฟลเดอร์ backup บน Firebase Storage** ให้โดยอัตโนมัติหากยังไม่มีการเก็บสำรองไว้:
+  ```bash
+  UPDATE_FIXTURE=true TEST_FRAME_URLS="radar/kkn240/kkn240_1784568338.gif,radar/kkn240/kkn240_1784569137.gif,radar/kkn240/kkn240_1784570148.gif,radar/kkn240/kkn240_1784570879.gif,radar/kkn240/kkn240_1784571811.gif,radar/kkn240/kkn240_1784572996.gif" PYTHONPATH=backend ./backend/.venv/bin/python backend/tests/test_kkn240_run.py
+  ```

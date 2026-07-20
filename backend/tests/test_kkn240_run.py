@@ -197,9 +197,9 @@ async def main():
 
     async with TestingSessionLocal() as session:
         repo = SQLiteLocationRepository(session)
-        # Register user target location: 17.4956, 102.5056
+        # Register user target location: 17.4126, 102.1664
         chat_id = "test_user_6346467495"
-        await repo.save_location(chat_id, 17.4956, 102.5056, "FOREVER", name="default")
+        await repo.save_location(chat_id, 17.4126, 102.1664, "FOREVER", name="default")
 
         # 2. Initialize TMDRadarProcessor and fetch frames
         processor = TMDRadarProcessor(station_code)
@@ -311,8 +311,8 @@ async def main():
         )
 
         # 4. Find user pixel coordinates (is_loop=True: frames come from the loop GIF)
-        user_x, user_y = processor.latlng_to_pixel(17.4956, 102.5056, is_loop=True)
-        print(f"User location: 17.4956, 102.5056 -> Pixel coordinate (X={user_x}, Y={user_y})")
+        user_x, user_y = processor.latlng_to_pixel(17.4126, 102.1664, is_loop=True)
+        print(f"User location: 17.4126, 102.1664 -> Pixel coordinate (X={user_x}, Y={user_y})")
 
         # 5a. Find approaching clouds - identical to production (weather_manager.py lines 689-726)
         curr_frame = frames[-1].copy()
@@ -328,7 +328,7 @@ async def main():
             curr_frame, prev_frame, flow, user_x, user_y,
             search_radius=_cfg.get("search_radius", 80),
             min_dbz=_cfg.get("min_dbz", 10.0),
-            cluster_dist=20,
+            cluster_dist=10,
             hit_radius=_cfg.get("hit_radius", 20),
             cluster_min=_cfg.get("cluster_min", 3),
             dot_threshold=_cfg.get("dot_threshold", 0.5),
@@ -343,7 +343,7 @@ async def main():
             user_y=user_y,
             scan_radius=None,
             min_dbz=_cfg.get("min_dbz", 10.0),
-            cluster_dist=12,
+            cluster_dist=6,
             min_size=5
         )
 
@@ -407,11 +407,25 @@ async def main():
         if not clouds:
             print("(none)")
         for c in clouds:
+            dbz_now = c.get('dbz_now', 0.0)
+            dbz_prev = c.get('dbz_prev', 0.0)
+            growth_rate = c.get('growth_rate', 0.0)
+            eta_min = c.get('eta_min', 0.0)
+            eta_steps = max(0.0, eta_min / 15.0)
             print(
-                f"Cloud [{c.get('label', '?')}]: Centroid=({c.get('cx')}, {c.get('cy')}), "
-                f"ETA={c.get('eta_min')}min, PredictedDBZ={c.get('predicted_dbz')}, "
-                f"Approaching={c.get('approaching')}, Pixels={len(c.get('pixels', []))}"
+                f"Cloud [{c.get('label', '?')}]:\n"
+                f"  Centroid       : ({c.get('cx')}, {c.get('cy')})\n"
+                f"  dbz_now        : {dbz_now:.1f}\n"
+                f"  dbz_prev       : {dbz_prev:.1f}\n"
+                f"  growth_rate    : {growth_rate:+.4f} ({growth_rate*100.0:+.1f}% per 15m)\n"
+                f"  ETA            : {eta_min:.1f} min ({eta_steps:.2f} steps)\n"
+                f"  Predicted DBZ  : {c.get('predicted_dbz'):.1f} (at ETA step)\n"
+                f"  Pixels         : {len(c.get('pixels', []))}"
             )
+            print("  Future Step Predictions:")
+            for step in [1, 2, 3, 4, 8, 11, 12]:
+                pred = max(0.0, min(75.0, dbz_now * ((1.0 + growth_rate) ** step)))
+                print(f"    Step {step:02d} (+{step*15:03d}m): dbz={pred:.1f}")
 
         # 6. Generate visual tracking image
         out_image_bytes = processor.generate_radar_tracking_image(
