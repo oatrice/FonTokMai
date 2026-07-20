@@ -10,13 +10,16 @@ def test_get_all_rain_clusters_peak_detection():
     
     # Place a cloud cluster: a line of pixels at y=300, from x=200 to 240
     # The brightest pixel (highest dBZ) will be at x=230 (Red pixel)
-    for x in range(200, 241, 1):
-        if x == 230:
-            frame[300, x] = [255, 0, 0] # Peak dBZ (Red)
-        elif 221 <= x <= 228:
-            frame[300, x] = [255, 255, 0] # Medium dBZ (Yellow)
-        else:
-            frame[300, x] = [0, 255, 0] # Lower dBZ (Green)
+    # We draw it 3 pixels thick to survive the median blur in extract_rain_mask.
+    # The peak (Red) is also 3 pixels wide (229-231) to survive median blur.
+    for y in range(299, 302):
+        for x in range(200, 241, 1):
+            if 229 <= x <= 231:
+                frame[y, x] = [255, 0, 0] # Peak dBZ (Red)
+            elif 221 <= x <= 228:
+                frame[y, x] = [255, 255, 0] # Medium dBZ (Yellow)
+            else:
+                frame[y, x] = [0, 255, 0] # Lower dBZ (Green)
 
     user_x, user_y = 300, 300
     
@@ -40,8 +43,8 @@ def test_get_all_rain_clusters_peak_detection():
     # Peak cx/cy must be exactly at x=230, y=300 (the brightest point)
     assert "peak_cx" in c, "peak_cx missing from cluster info"
     assert "peak_cy" in c, "peak_cy missing from cluster info"
-    assert c["peak_cx"] == 230, f"Expected peak_cx=230, got {c['peak_cx']}"
-    assert c["peak_cy"] == 300, f"Expected peak_cy=300, got {c['peak_cy']}"
+    assert c["peak_cx"] in [229, 230, 231], f"Expected peak_cx near 230, got {c['peak_cx']}"
+    assert c["peak_cy"] in [299, 300, 301], f"Expected peak_cy near 300, got {c['peak_cy']}"
     
     print("PEAK DETECTION TEST PASSED SUCCESSFULLY!")
 

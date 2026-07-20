@@ -315,8 +315,30 @@ class TMDTrackingMixin:
                             hull_area = cv2.contourArea(hull)
                             solidity = area / hull_area if hull_area > 0 else 1.0
                             
+                            # Check connected components in raw mask under this contour
+                            cx_crop, cy_crop, cw_crop, ch_crop = cv2.boundingRect(ctr)
+                            local_raw = mask[cy_crop:cy_crop+ch_crop, cx_crop:cx_crop+cw_crop].copy()
+                            local_ctr_mask = np.zeros_like(local_raw)
+                            local_ctr = ctr - np.array([[[cx_crop, cy_crop]]], dtype=np.int32)
+                            cv2.fillPoly(local_ctr_mask, [local_ctr], 255)
+                            local_raw = cv2.bitwise_and(local_raw, local_ctr_mask)
+                            
+                            small_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                            local_raw_closed = cv2.morphologyEx(local_raw, cv2.MORPH_CLOSE, small_kernel)
+                            num_comp, _ = cv2.connectedComponents(local_raw_closed)
+                            
                             SOLIDITY_THRESHOLD = 0.85
                             is_convex = (solidity > SOLIDITY_THRESHOLD) and (hull_area / max(1.0, area) <= 1.3)
+                            if num_comp > 2:
+                                is_convex = False
+                                
+                            from app.services.weather_manager import _DEV_CONFIG
+                            if _DEV_CONFIG.get("verbose"):
+                                print(
+                                    f"[DEBUG_SOLIDITY] Approaching cloud: area={area}, hull_area={hull_area}, "
+                                    f"solidity={solidity:.4f}, ratio={hull_area/max(1.0, area):.4f}, "
+                                    f"num_comp={num_comp}, is_convex={is_convex}"
+                                )
                             
                             if is_convex:
                                 final_contour = hull
@@ -514,8 +536,30 @@ class TMDTrackingMixin:
                             hull_area = cv2.contourArea(hull)
                             solidity = area / hull_area if hull_area > 0 else 1.0
                             
+                            # Check connected components in raw mask under this contour
+                            cx_crop, cy_crop, cw_crop, ch_crop = cv2.boundingRect(ctr)
+                            local_raw = mask[cy_crop:cy_crop+ch_crop, cx_crop:cx_crop+cw_crop].copy()
+                            local_ctr_mask = np.zeros_like(local_raw)
+                            local_ctr = ctr - np.array([[[cx_crop, cy_crop]]], dtype=np.int32)
+                            cv2.fillPoly(local_ctr_mask, [local_ctr], 255)
+                            local_raw = cv2.bitwise_and(local_raw, local_ctr_mask)
+                            
+                            small_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                            local_raw_closed = cv2.morphologyEx(local_raw, cv2.MORPH_CLOSE, small_kernel)
+                            num_comp, _ = cv2.connectedComponents(local_raw_closed)
+                            
                             SOLIDITY_THRESHOLD = 0.85
                             is_convex = (solidity > SOLIDITY_THRESHOLD) and (hull_area / max(1.0, area) <= 1.3)
+                            if num_comp > 2:
+                                is_convex = False
+                                
+                            from app.services.weather_manager import _DEV_CONFIG
+                            if _DEV_CONFIG.get("verbose"):
+                                print(
+                                    f"[DEBUG_SOLIDITY] Ambient cloud: area={area}, hull_area={hull_area}, "
+                                    f"solidity={solidity:.4f}, ratio={hull_area/max(1.0, area):.4f}, "
+                                    f"num_comp={num_comp}, is_convex={is_convex}"
+                                )
                             
                             if is_convex:
                                 final_contour = hull
@@ -1160,7 +1204,7 @@ class TMDTrackingMixin:
         cv2.addWeighted(overlay, 0.6, img, 0.4, 0, img)
 
     @staticmethod
-    def _resolve_label_collisions(labels, obstacles, img_w, img_h, iterations=30):
+    def _resolve_label_collisions(labels, obstacles, img_w, img_h, iterations=60):
         import math
         
         def get_overlap(c1x, c1y, w1, h1, c2x, c2y, w2, h2):
@@ -1201,8 +1245,8 @@ class TMDTrackingMixin:
                         dist = math.hypot(dx, dy)
                         if dist == 0:
                             dx, dy, dist = 1.0, 1.0, 1.414
-                        fx += (dx / dist) * (ovx + ovy) * 0.8
-                        fy += (dy / dist) * (ovx + ovy) * 0.8
+                        fx += (dx / dist) * (ovx + ovy) * 1.0
+                        fy += (dy / dist) * (ovx + ovy) * 1.0
                 
                 for j, other in enumerate(labels):
                     if i == j: continue
@@ -1215,11 +1259,53 @@ class TMDTrackingMixin:
                         dist = math.hypot(dx, dy)
                         if dist == 0:
                             dx, dy, dist = 1.0, 1.0, 1.414
-                        fx += (dx / dist) * (ovx + ovy) * 0.5
-                        fy += (dy / dist) * (ovx + ovy) * 0.5
+                        fx += (dx / dist) * (ovx + ovy) * 0.8
+                        fy += (dy / dist) * (ovx + ovy) * 0.8
                 
                 lbl['cx'] += fx
                 lbl['cy'] += fy
                 
                 lbl['cx'] = max(lbl['w']/2 + 5, min(img_w - lbl['w']/2 - 5, lbl['cx']))
                 lbl['cy'] = max(lbl['h']/2 + 5, min(img_h - lbl['h']/2 - 5, lbl['cy']))
+
+        # Post-process: If any labels still overlap, hide the lower priority one.
+        def get_priority(lbl_item):
+            p_val = 0
+            if "LOCKED" in lbl_item.get('text', ''):
+                p_val += 10000
+            
+            l_type = lbl_item.get('type', '')
+            if l_type == 'approaching':
+                p_val += 5000
+            elif l_type == 'trajectory':
+                p_val += 3000
+            elif l_type == 'ambient':
+                p_val += 1000
+            
+            try:
+                parts = lbl_item['text'].split(':')
+                if len(parts) > 1:
+                    dbz_val = int(parts[1].replace('?', '').strip())
+                    p_val += dbz_val
+            except Exception:
+                pass
+            return p_val
+
+        sorted_indices = sorted(range(len(labels)), key=lambda idx: get_priority(labels[idx]), reverse=True)
+        for idx_i in range(len(sorted_indices)):
+            i = sorted_indices[idx_i]
+            lbl_i = labels[i]
+            if lbl_i.get('hidden'):
+                continue
+            for idx_j in range(idx_i + 1, len(sorted_indices)):
+                j = sorted_indices[idx_j]
+                lbl_j = labels[j]
+                if lbl_j.get('hidden'):
+                    continue
+                margin = 4
+                ovx, ovy, _, _ = get_overlap(
+                    lbl_i['cx'], lbl_i['cy'], lbl_i['w'] + margin, lbl_i['h'] + margin,
+                    lbl_j['cx'], lbl_j['cy'], lbl_j['w'] + margin, lbl_j['h'] + margin
+                )
+                if ovx > 0 and ovy > 0:
+                    lbl_j['hidden'] = True

@@ -776,7 +776,7 @@ class WeatherManager:
                     curr_frame, prev_frame, flow, user_px, user_py,
                     search_radius=_cfg.get("search_radius", 80),
                     min_dbz=_cfg.get("min_dbz", 10.0),
-                    cluster_dist=20,
+                    cluster_dist=10,
                     hit_radius=_cfg.get("hit_radius", 20),
                     cluster_min=_cfg.get("cluster_min", 3),
                     dot_threshold=_cfg.get("dot_threshold", 0.5),
@@ -787,7 +787,7 @@ class WeatherManager:
                     curr_frame, flow, user_px, user_py,
                     scan_radius=None,
                     min_dbz=_cfg.get("min_dbz", 10.0),
-                    cluster_dist=12,
+                    cluster_dist=6,
                     min_size=5,
                 )
                 

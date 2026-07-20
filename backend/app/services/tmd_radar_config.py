@@ -131,7 +131,7 @@ STATIONS = {
         loop_crop_y=28,
         loop_crop_width=728,
         loop_crop_height=728,
-        legend_bboxes=[(730, 100, 800, 750), (0, 740, 800, 800), (0, 0, 400, 60)]
+        legend_bboxes=[(50, 100, 75, 650), (0, 740, 800, 800), (0, 0, 400, 60)]
     )
 }
 

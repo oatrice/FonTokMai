@@ -388,6 +388,16 @@ class TMDClusteringMixin:
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize))
         closed_mask = cv2.morphologyEx(bin_mask, cv2.MORPH_CLOSE, kernel)
         
+        # Check connected components before and after MORPH_CLOSE
+        from app.services.weather_manager import _DEV_CONFIG
+        if _DEV_CONFIG.get("verbose"):
+            num_labels_before, _ = cv2.connectedComponents(bin_mask)
+            num_labels_after, _ = cv2.connectedComponents(closed_mask)
+            print(
+                f"[DEBUG_CLUSTERING] get_all_rain_clusters: cluster_dist={cluster_dist}, "
+                f"connected components before={num_labels_before}, after={num_labels_after}"
+            )
+        
         # 4. Find contours
         contours, _ = cv2.findContours(closed_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
