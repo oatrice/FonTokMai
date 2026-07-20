@@ -310,7 +310,7 @@ class TMDTrackingMixin:
             show_backward = _DEV_CONFIG.get("show_backward_trajectory", True)
             pts = []
             for p in predictions:
-                if not show_backward and p.get("time_offset", 0) < time_offset_min:
+                if not show_backward and p.get("time_offset", 0) > time_offset_min:
                     continue
                 px_pred = p["src_x"]
                 py_pred = p["src_y"]

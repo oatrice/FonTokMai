@@ -38,6 +38,7 @@ _DEV_CONFIG: dict = {
     "raster_smooth_threshold": 80,     # Default threshold after blur to prevent thin clouds melting
     "enable_hsv_mask":      False,     # Use HSV range thresholding for robust cloud detection (default False for cluster split compliance)
     "use_skn240_backup":    False,     # Force using skn240 backup files for testing (adjustable via /devmock config)
+    "use_local_fixtures":   False,     # Force using local fixture files for testing (adjustable via /devmock config)
     "min_ambient_dbz":      20.0,      # minimum dBZ for ambient clusters to be labeled/drawn
     "min_ambient_size":     15,        # minimum size (pixels) for ambient clusters to be labeled/drawn
     "show_trajectory":      True,      # Draw trajectory points and lines
@@ -461,8 +462,55 @@ class WeatherManager:
         Loads the radar cache from Firestore, populates _GLOBAL_TMD_CACHE, 
         and returns the cached data tuple. Returns None if it fails or has no cache.
         """
+        # Check if we should override with local fixture files for testing
+        import sys
+        is_testing = "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
+        is_local_fixtures_mode = (
+            os.getenv("USE_LOCAL_FIXTURES", "false").lower() == "true" or
+            _DEV_CONFIG.get("use_local_fixtures", False)
+        )
+        if is_local_fixtures_mode and not is_testing:
+            fixture_name = f"test_{station_code}_frames.npz"
+            fixture_path = os.path.join(os.path.dirname(__file__), "..", "tests", fixture_name)
+            if not os.path.exists(fixture_path):
+                fixture_path = os.path.join(os.path.dirname(__file__), "..", "..", "tests", fixture_name)
+            
+            if os.path.exists(fixture_path):
+                import numpy as np
+                import time
+                from datetime import datetime, timezone
+                import cv2
+                
+                logger.info(f"🛠️ [LOCAL FIXTURE MODE] Loading fixture from {fixture_path}...")
+                data = np.load(fixture_path, allow_pickle=True)
+                frame_arr = data["frames"]
+                frames = [cv2.cvtColor(np.array(frame_arr[i]), cv2.COLOR_BGR2RGB) for i in range(frame_arr.shape[0])]
+                flow = np.array(data["flow"])
+                meta = dict(data.get("meta", {}).item()) if "meta" in data else {}
+                frame_timestamps = meta.get("frame_timestamps", [])
+                frame_urls = meta.get("frame_urls", [])
+                
+                last_modified_dt = datetime.fromtimestamp(frame_timestamps[-1], timezone.utc) if frame_timestamps else datetime.now(timezone.utc)
+                data_gap_minutes = 15.0
+                if len(frame_timestamps) >= 2:
+                    data_gap_minutes = (frame_timestamps[-1] - frame_timestamps[-2]) / 60.0
+                
+                is_loop = frames[-1].shape[0] < 800 or frames[-1].shape[1] < 800
+                frame_source = "loop_gif" if is_loop else "static_cache"
+                
+                _GLOBAL_TMD_CACHE[station_code] = (
+                    frames, last_modified_dt, time.time(), flow,
+                    frame_source, data_gap_minutes, frame_timestamps, frame_urls,
+                )
+                logger.info(f"🛠️ [LOCAL FIXTURE MODE] Successfully loaded {len(frames)} frames from local fixture.")
+                return _GLOBAL_TMD_CACHE[station_code]
+
         # Check if we should override with backup files for testing
-        if station_code == "skn240" and os.getenv("USE_SKN240_BACKUP", "false").lower() == "true":
+        is_backup_mode = (
+            os.getenv("USE_SKN240_BACKUP", "false").lower() == "true" or
+            _DEV_CONFIG.get("use_skn240_backup", False)
+        )
+        if station_code == "skn240" and is_backup_mode:
             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
             from google.cloud import storage
             client = storage.Client()

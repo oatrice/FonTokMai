@@ -427,15 +427,47 @@ async def main():
                 pred = max(0.0, min(75.0, dbz_now * ((1.0 + growth_rate) ** step)))
                 print(f"    Step {step:02d} (+{step*15:03d}m): dbz={pred:.1f}")
 
-        # 6. Generate visual tracking image
+        # 6. Generate visual tracking image with trajectory drawing for the closest approaching cloud (like Dev Bot)
+        predictions = []
+        fallback_vx, fallback_vy = 0.0, 0.0
+        rate = 0.0
+        if clouds:
+            closest_c = min(clouds, key=lambda c: c.get("dist", 9999))
+            fallback_vx = closest_c.get("vx", 0.0)
+            fallback_vy = closest_c.get("vy", 0.0)
+            rate = closest_c.get("growth_rate", 0.0)
+            
+        for steps in range(_cfg.get("prediction_steps", 7)):
+            dbz, src_x, src_y = processor.extrapolate_rain_at_pixel(
+                curr_frame,
+                flow,
+                user_x,
+                user_y,
+                steps=steps,
+                rate=rate,
+                radius=_cfg.get("hit_radius", 8),
+                fallback_vx=fallback_vx,
+                fallback_vy=fallback_vy
+            )
+            predictions.append({
+                "time_offset": steps * 15,
+                "dbz": float(dbz),
+                "src_x": int(src_x),
+                "src_y": int(src_y)
+            })
+
         out_image_bytes = processor.generate_radar_tracking_image(
             frame=frames[-1],
             user_x=user_x,
             user_y=user_y,
             clouds=clouds,
             all_rain_clusters=clusters,
-            time_utc=datetime.fromtimestamp(1784219585, timezone.utc),
-            locked_target_id=None
+            time_utc=datetime.fromtimestamp(fixture_frame_timestamps[-1] if fixture_frame_timestamps else 1784219585, timezone.utc),
+            predictions=predictions,
+            show_trajectory=True,
+            locked_target_id=None,
+            locked_target_cx=None,
+            locked_target_cy=None
         )
 
         tests_dir = os.path.dirname(__file__)
