@@ -33,7 +33,8 @@ _DEV_CONFIG: dict = {
     "prediction_steps": 13,   # Number of steps to predict forward (each 15 mins)
     "chaikin_iterations": 3,  # Chaikin corner-cutting iterations for smoothing radar contours
     "enable_raster_smooth": True,      # Enable organic metaball-style smoothing on masks
-    "gaussian_kernel_size": 25,        # Gaussian blur size before thresholding
+    "gaussian_kernel_size": 15,        # Gaussian blur size before thresholding
+    "raster_smooth_threshold": 80,     # Default threshold after blur to prevent thin clouds melting
     "enable_hsv_mask":      False,     # Use HSV range thresholding for robust cloud detection (default False for cluster split compliance)
 }
 

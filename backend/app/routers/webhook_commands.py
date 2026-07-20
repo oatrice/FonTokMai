@@ -192,7 +192,11 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
         frame_h = processor.config.static_crop_height
         
         if cache_data:
-            frames, _, _, flow, _, _, _ = cache_data
+            # Flexible unpacking to support both 7 and 8 return values (fixes unit test mock compatibility)
+            if len(cache_data) >= 8:
+                frames, _, _, flow, _, _, _, _ = cache_data[:8]
+            else:
+                frames, _, _, flow, _, _, _ = cache_data[:7]
             latest_frame = frames[-1]
             h, w = latest_frame.shape[:2]
             frame_w, frame_h = w, h

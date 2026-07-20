@@ -441,16 +441,35 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                 _DEV_CONFIG["verbose"]       = False
                 _DEV_CONFIG["decay_enabled"] = True
                 _DEV_CONFIG["prediction_steps"] = 7
+                _DEV_CONFIG["enable_raster_smooth"] = True
+                _DEV_CONFIG["gaussian_kernel_size"] = 15
+                _DEV_CONFIG["raster_smooth_threshold"] = 80
+                _DEV_CONFIG["draw_all_ambient_polygons"] = False
+                _DEV_CONFIG["enable_hsv_mask"] = False
                 await repo.set_global_dev_config(_DEV_CONFIG)
                 await telegram.send_telegram_message(chat_id, "🛠️ Dev Config รีเซ็ตเป็นค่า default แล้วครับ ✅")
                 return
 
             import re as _re
             changed = []
+            
+            # Supported new settings keys with their default type mappings for auto-registration
+            dynamic_defaults = {
+                "enable_raster_smooth": True,
+                "gaussian_kernel_size": 15,
+                "raster_smooth_threshold": 80,
+                "draw_all_ambient_polygons": False,
+                "enable_hsv_mask": False
+            }
+            
             for pair in _re.findall(r'(\w+)\s*:\s*([a-zA-Z0-9_.-]+)', args):
                 key, raw_val = pair
                 if key not in _DEV_CONFIG:
-                    continue
+                    if key in dynamic_defaults:
+                        # Dynamically register key with fallback type structure
+                        _DEV_CONFIG[key] = dynamic_defaults[key]
+                    else:
+                        continue
                 try:
                     cur = _DEV_CONFIG[key]
                     if isinstance(cur, bool):

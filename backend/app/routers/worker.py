@@ -142,7 +142,7 @@ async def worker_handle_rain(payload: CommandPayload):
         return {"status": "error", "message": str(e)}
 
 @router.post("/handle-devmock")
-async def worker_handle_devmock(payload: CommandPayload):
+async def worker_handle_devmock(payload: AdminCommandPayload):
     try:
         from app.routers.webhook import handle_devmock_command
         await handle_devmock_command(payload.chat_id, payload.command, payload.username, payload.message_id_to_edit)
