@@ -302,7 +302,8 @@ async def main():
         # 5a. Find approaching clouds - identical to production (weather_manager.py lines 689-726)
         curr_frame = frames[-1].copy()
         prev_frame = frames[-2].copy()
-        _cfg = _DEV_CONFIG
+        _DEV_CONFIG["verbose"] = True
+        _cfg = _DEV_CONFIG.copy()
         clouds = processor.find_approaching_clouds(
             curr_frame, prev_frame, flow, user_x, user_y,
             search_radius=_cfg.get("search_radius", 80),
@@ -321,8 +322,8 @@ async def main():
             user_x=user_x,
             user_y=user_y,
             scan_radius=min(200, _cfg.get("search_radius", 80) + 20),
-            min_dbz=0.1,  # Lower threshold so even light rain gets clustered and labeled
-            cluster_dist=25,
+            min_dbz=0.1,  # Keep lower threshold for light rain
+            cluster_dist=12,  # Reduced from 25 to 12 to split separate groups
             min_size=5
         )
 
@@ -393,6 +394,7 @@ async def main():
             user_y=user_y,
             clouds=clouds,
             all_rain_clusters=clusters,
+            time_utc=datetime.fromtimestamp(1784219585, timezone.utc),
             locked_target_id=None
         )
 

@@ -24,13 +24,13 @@ from app.dependencies import get_repo_context
 _DEV_CONFIG: dict = {
     "cluster_min":    3,      # min pixels to form a valid cloud cluster
     "search_radius":  80,     # px radius to scan for approaching clouds
-    "min_dbz":        5.0,    # minimum dBZ to count as rain
-    "dot_threshold":  0.5,    # dot product threshold (how directly it must approach)
+    "min_dbz":        10.0,   # minimum dBZ to count as rain
+    "dot_threshold":  0.6,    # dot product threshold (how directly it must approach)
     "flow_mode":      "average", # 'latest' or 'average'
-    "hit_radius":     8,      # radius around user to check for rain hits
-    "verbose":        True,   # Enable verbose debugging logs (DEBUG MODE — disable when done)
+    "hit_radius":     7,      # radius around user to check for rain hits
+    "verbose":        False,  # Enable verbose debugging logs (DEBUG MODE — disable when done)
     "decay_enabled":  True,   # Whether to apply growth/decay rate to cloud extrapolation
-    "prediction_steps": 7,    # Number of steps to predict forward (each 15 mins)
+    "prediction_steps": 13,   # Number of steps to predict forward (each 15 mins)
 }
 
 
@@ -787,7 +787,7 @@ class WeatherManager:
                     curr_frame, flow, user_px, user_py,
                     scan_radius=min(200, _cfg.get("search_radius", 80) + 20),
                     min_dbz=0.1,  # Lower threshold so even light rain gets clustered and labeled
-                    cluster_dist=25,
+                    cluster_dist=12,  # Reduced from 25 to 12 to match human visual clustering
                     min_size=5,
                 )
                 

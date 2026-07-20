@@ -315,9 +315,13 @@ class TMDTrackingMixin:
 
                     if len(global_contours) > 1:
                         areas = [int(cv2.contourArea(ctr)) for ctr in global_contours]
+                        contour_infos = []
+                        for c_idx, ctr in enumerate(global_contours):
+                            cx_val, cy_val, cw_val, ch_val = cv2.boundingRect(ctr)
+                            contour_infos.append(f"#{c_idx}: rect=({cx_val},{cy_val},{cw_val},{ch_val}) area={areas[c_idx]}")
                         logger.info(
                             f"[TRACKING_IMG] incoming cloud '{c_orig.get('label', '?')}' rendered as "
-                            f"{len(global_contours)} polygons (sizes={areas} px, total_pixels={len(c_orig['pixels'])})"
+                            f"{len(global_contours)} polygons (sizes={areas} px, total_pixels={len(c_orig['pixels'])}). Details: {'; '.join(contour_infos[:15])}"
                         )
 
                     overlay = img.copy()
@@ -497,6 +501,7 @@ class TMDTrackingMixin:
                             _bx2 = max(p[0] for p in _px_screen)
                             _by2 = max(p[1] for p in _px_screen)
                             cv2.rectangle(img, (_bx1, _by1), (_bx2, _by2), (255, 255, 255), max(1, int(scale * 0.5)))
+                            logger.info(f"[TRACKING_IMG] Debug white box drawn for label '{_lbl_d}' at x1={_bx1}, y1={_by1}, x2={_bx2}, y2={_by2} (w={_bx2-_bx1}, h={_by2-_by1})")
                     # Small label near centroid: "C cent" and near peak: "C peak"
                     _fs = max(0.3, 0.32 * scale)
                     cv2.putText(img, f"{_lbl_d}cent", (cx+int(3*scale), cy-int(5*scale)),
@@ -535,12 +540,12 @@ class TMDTrackingMixin:
                             else:
                                 cv2.line(img, (cx, cy), proj_pts[0], (0, 0, 255), int(1 * scale))
 
-                # Velocity arrow from centroid (direction/speed computation uses centroid)
+                # Velocity arrow from PEAK (so it aligns with the dashed circle)
                 vx_s = int(vx * scale * 2.5)
                 vy_s = int(vy * scale * 2.5)
                 v_mag = math.hypot(vx_s, vy_s)
                 if v_mag > 2:
-                    cv2.arrowedLine(img, (cx, cy), (cx + vx_s, cy + vy_s), (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
+                    cv2.arrowedLine(img, (pcx, pcy), (pcx + vx_s, pcy + vy_s), (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
                     
                 lbl = c_orig.get("label", "")
                 if is_locked:
@@ -627,8 +632,23 @@ class TMDTrackingMixin:
         for c_idx in range(8):
             label_x = chr(ord('A') + c_idx)
             tx = int((c_idx + 0.5) * cell_w - 6 * scale)
-            cv2.putText(img, label_x, (tx, int(15 * scale)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, bg_color, max(1, int(font_scale * 4)))
-            cv2.putText(img, label_x, (tx, int(15 * scale)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, max(1, int(font_scale * 1.5)))
+            
+            # Draw at top only if it doesn't overlap with the estimated timestamp area (E, F, G, H area)
+            skip_top = False
+            if time_utc:
+                ts_w = int(120 * scale)
+                ts_x = img.shape[1] - ts_w - int(8 * scale)
+                if tx >= ts_x - int(10 * scale):
+                    skip_top = True
+            
+            if not skip_top:
+                cv2.putText(img, label_x, (tx, int(15 * scale)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, bg_color, max(1, int(font_scale * 4)))
+                cv2.putText(img, label_x, (tx, int(15 * scale)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, max(1, int(font_scale * 1.5)))
+                
+            # Draw at bottom so it's always readable
+            ty_bottom = img.shape[0] - int(8 * scale)
+            cv2.putText(img, label_x, (tx, ty_bottom), cv2.FONT_HERSHEY_SIMPLEX, font_scale, bg_color, max(1, int(font_scale * 4)))
+            cv2.putText(img, label_x, (tx, ty_bottom), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, max(1, int(font_scale * 1.5)))
             
         for r_idx in range(8):
             label_y = str(r_idx + 1)
@@ -663,6 +683,8 @@ class TMDTrackingMixin:
             tx = int(lbl['cx'] - lbl['w']/2)
             ty = int(lbl['cy'] + lbl['h']/2)
             
+            logger.info(f"[TRACKING_IMG] Label '{lbl['text']}' ({lbl['type']}) drawn at x={tx}, y={ty} (w={lbl['w']}, h={lbl['h']})")
+            
             dist_to_anchor = math.hypot(lbl['cx'] - lbl['anchor_x'], lbl['cy'] - lbl['anchor_y'])
             if dist_to_anchor > 12 * scale:
                 cv2.line(img, (lbl['anchor_x'], lbl['anchor_y']), (int(lbl['cx']), int(lbl['cy'])), (150, 150, 150), max(2, int(scale * 1.0)))
@@ -693,6 +715,7 @@ class TMDTrackingMixin:
 
                 draw.rectangle([x_pos-pad, y_pos-pad, x_pos+text_w+pad, y_pos+text_h+pad], fill=(0, 0, 0, 200))
                 draw.text((x_pos, y_pos), time_str_idc, fill=(255, 255, 255, 255), font=fnt)
+                logger.info(f"[TRACKING_IMG] Timestamp '{time_str_idc}' drawn at x={x_pos}, y={y_pos} (w={text_w}, h={text_h})")
                 img = np.array(img_pil.convert("RGB"))
             except Exception as e:
                 print("PIL ERROR:", e)
@@ -1100,6 +1123,11 @@ class TMDTrackingMixin:
                     )
                     
                     if ovx > 0 and ovy > 0:
+                        # Specific override for top-right timestamp box to push labels DOWN or LEFT
+                        if oy == 24:
+                            fy += ovy * 1.5
+                            fx -= ovx * 0.5
+                            continue
                         dist = math.hypot(dx, dy)
                         if dist == 0:
                             dx, dy, dist = 1.0, 1.0, 1.414
