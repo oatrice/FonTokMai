@@ -22,3 +22,6 @@ google-cloud-tasks==2.16.2
 google-cloud-monitoring==2.31.0
 google-cloud-billing-budgets==1.21.0
 line-bot-sdk==3.25.0
+
+# Standalone radar bot (radar_bot.py)
+python-telegram-bot[job-queue]>=20.0
