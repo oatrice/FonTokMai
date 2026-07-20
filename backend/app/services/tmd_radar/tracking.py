@@ -9,7 +9,7 @@ import cv2
 import httpx
 import numpy as np
 from datetime import datetime, timezone, timedelta
-from PIL import Image, ImageDraw, ImageFont, ImageSequence
+from PIL import Image, ImageDraw, ImageFont, ImageSequence, ImageFilter
 from zoneinfo import ZoneInfo
 from typing import List, Tuple, Optional
 from app.dependencies import get_repo_context
@@ -56,6 +56,74 @@ def _load_thai_font(size: int) -> "ImageFont.FreeTypeFont":
             except Exception:
                 continue
     return ImageFont.load_default()
+
+
+def _chaikin_smooth(points: np.ndarray, iterations: int = 3) -> np.ndarray:
+    """Chaikin's Corner-Cutting algorithm to smooth radar contours."""
+    pts = points.reshape(-1, 2).astype(np.float32)
+    if len(pts) < 3:
+        return points
+    for _ in range(iterations):
+        new_pts = []
+        n = len(pts)
+        for i in range(n):
+            p0 = pts[i]
+            p1 = pts[(i + 1) % n]
+            new_pts.append(0.75 * p0 + 0.25 * p1)
+            new_pts.append(0.25 * p0 + 0.75 * p1)
+        pts = np.array(new_pts, dtype=np.float32)
+    return pts.reshape(-1, 1, 2).astype(np.int32)
+
+
+def _draw_neon_contours(img_rgba: Image.Image, contours_list: List[np.ndarray], color_rgb: Tuple[int, int, int], line_width: int = 3, alpha_fill: int = 40) -> Image.Image:
+    """Draw smooth transparent fills and multi-pass neon glowing borders on an RGBA PIL image."""
+    layer = Image.new("RGBA", img_rgba.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    for ctr in contours_list:
+        pts = [tuple(p[0]) for p in ctr]
+        if len(pts) < 3:
+            continue
+        draw.polygon(pts, fill=(*color_rgb, alpha_fill))
+
+    glow = Image.new("RGBA", img_rgba.size, (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow)
+    for ctr in contours_list:
+        pts = [tuple(p[0]) for p in ctr]
+        if len(pts) < 3:
+            continue
+        # Multi-pass glow effect
+        for width in [line_width * 4, line_width * 2, line_width]:
+            glow_draw.line(pts + [pts[0]], fill=(*color_rgb, 80), width=width)
+    glow = glow.filter(ImageFilter.GaussianBlur(radius=max(1.0, line_width * 1.2)))
+
+    # Draw the sharp inner border
+    for ctr in contours_list:
+        pts = [tuple(p[0]) for p in ctr]
+        if len(pts) < 3:
+            continue
+        draw.line(pts + [pts[0]], fill=(*color_rgb, 255), width=max(1, line_width))
+
+    result = Image.alpha_composite(img_rgba, glow)
+    result = Image.alpha_composite(result, layer)
+    return result
+
+
+def _contour_proximity_km(contours_list: List[np.ndarray], ux: int, uy: int, km_per_pixel: float) -> Tuple[bool, float]:
+    """Calculate if the user is inside any storm contour, or get the minimum distance to the closest storm edge in km."""
+    min_dist_px = float('inf')
+    is_inside = False
+    for ctr in contours_list:
+        if len(ctr) < 3:
+            continue
+        # pointPolygonTest returns positive inside, 0 on edge, negative outside
+        dist = cv2.pointPolygonTest(ctr, (float(ux), float(uy)), measureDist=True)
+        if dist >= 0:
+            is_inside = True
+            return True, 0.0
+        abs_dist = abs(dist)
+        if abs_dist < min_dist_px:
+            min_dist_px = abs_dist
+    return is_inside, (min_dist_px * km_per_pixel if min_dist_px != float('inf') else 999.0)
 
 
 class TMDTrackingMixin:
@@ -200,12 +268,35 @@ class TMDTrackingMixin:
         ux = int((user_x - x1) * scale)
         uy = int((user_y - y1) * scale)
         
+        # 23 levels standard TMD radar color scale (RGB)
+        DBZ_SCALE_ORDERED = [
+            (10.5, (0, 236, 236)),
+            (13.5, (1, 160, 246)),
+            (15.5, (0, 0, 246)),
+            (19.0, (0, 100, 0)),
+            (22.0, (0, 128, 0)),
+            (25.0, (0, 198, 0)),
+            (28.0, (0, 226, 0)),
+            (31.0, (1, 255, 0)),
+            (34.0, (3, 231, 0)),
+            (37.0, (255, 255, 0)),
+            (40.0, (231, 192, 0)),
+            (43.0, (255, 144, 0)),
+            (46.0, (255, 0, 0)),
+            (49.0, (214, 0, 0)),
+            (52.0, (192, 0, 0)),
+            (55.0, (255, 0, 255)),
+            (58.0, (153, 85, 201)),
+            (61.0, (255, 255, 255)),
+            (64.0, (0, 255, 255)),
+            (66.5, (255, 255, 255)),
+        ]
+
         def _dbz_color(dbz):
-            if dbz >= 60: return (155, 89, 182)
-            elif dbz >= 50: return (231, 76, 60)
-            elif dbz >= 40: return (243, 156, 18)
-            elif dbz >= 30: return (241, 196, 15)
-            else: return (46, 204, 113)
+            for threshold, color in reversed(DBZ_SCALE_ORDERED):
+                if dbz >= threshold:
+                    return color
+            return (100, 100, 100)
 
         obstacles = []
         labels = []
@@ -362,7 +453,12 @@ class TMDTrackingMixin:
                                 
                             epsilon = 0.006 * cv2.arcLength(final_contour, True)
                             approx = cv2.approxPolyDP(final_contour, epsilon, True)
-                            global_ctr = approx + np.array([[[x - margin, y - margin]]], dtype=np.int32)
+                            
+                            from app.services.weather_manager import _DEV_CONFIG
+                            chaikin_iters = _DEV_CONFIG.get("chaikin_iterations", 3)
+                            smoothed = _chaikin_smooth(approx, chaikin_iters)
+                            
+                            global_ctr = smoothed + np.array([[[x - margin, y - margin]]], dtype=np.int32)
                             global_contours.append(global_ctr)
 
                     if len(global_contours) > 1:
@@ -376,10 +472,17 @@ class TMDTrackingMixin:
                             f"{len(global_contours)} polygons (sizes={areas} px, total_pixels={len(c_orig['pixels'])}). Details: {'; '.join(contour_infos[:15])}"
                         )
 
-                    overlay = img.copy()
-                    cv2.fillPoly(overlay, global_contours, color)
-                    cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
-                    cv2.polylines(img, global_contours, True, color, max(1, int(2.0 * scale)))
+                    if global_contours:
+                        # Draw transparent neon glow fills and borders on PIL
+                        img_rgba = Image.fromarray(img).convert("RGBA")
+                        img_rgba = _draw_neon_contours(img_rgba, global_contours, color, line_width=max(1, int(2.0 * scale)))
+                        img = np.array(img_rgba.convert("RGB"))
+                        
+                        # Calculate and store real proximity km from user location
+                        is_inside, dist_km = _contour_proximity_km(global_contours, ux, uy, km_per_pixel)
+                        c_orig["real_proximity_km"] = dist_km
+                        c_orig["real_is_inside"] = is_inside
+                        
                     hull_rect = (x, y, w, h)
                     obstacles.append((x - 5, y - 5, w + 10, h + 10))
                 else:
@@ -592,14 +695,24 @@ class TMDTrackingMixin:
                                 
                             epsilon = 0.006 * cv2.arcLength(final_contour, True)
                             approx = cv2.approxPolyDP(final_contour, epsilon, True)
-                            global_ctr = approx + np.array([[[bx - margin, by - margin]]], dtype=np.int32)
+                            
+                            from app.services.weather_manager import _DEV_CONFIG
+                            chaikin_iters = _DEV_CONFIG.get("chaikin_iterations", 3)
+                            smoothed = _chaikin_smooth(approx, chaikin_iters)
+                            
+                            global_ctr = smoothed + np.array([[[bx - margin, by - margin]]], dtype=np.int32)
                             global_contours.append(global_ctr)
                             
                     if global_contours:
-                        overlay = img.copy()
-                        cv2.fillPoly(overlay, global_contours, color)
-                        cv2.addWeighted(overlay, 0.3, img, 0.7, 0, img)
-                        cv2.polylines(img, global_contours, True, color, max(1, int(2.0 * scale)))
+                        img_rgba = Image.fromarray(img).convert("RGBA")
+                        img_rgba = _draw_neon_contours(img_rgba, global_contours, color, line_width=max(1, int(2.0 * scale)))
+                        img = np.array(img_rgba.convert("RGB"))
+                        
+                        # Calculate and store real proximity km from user location
+                        is_inside, dist_km = _contour_proximity_km(global_contours, ux, uy, km_per_pixel)
+                        c_orig["real_proximity_km"] = dist_km
+                        c_orig["real_is_inside"] = is_inside
+                        
                 # Draw dashed circle at PEAK (brightest pixel) position
                 for angle_deg in range(0, 360, 30):
                     a1 = math.radians(angle_deg)
@@ -842,7 +955,6 @@ class TMDTrackingMixin:
 
         if time_utc:
             try:
-                from PIL import Image, ImageFont, ImageDraw
                 img_pil = Image.fromarray(img).convert("RGBA")
                 time_str_idc = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
                 try:
@@ -879,6 +991,20 @@ class TMDTrackingMixin:
         """
         warning = "\n⚠️ ข้อมูลขาดช่วง (ความแม่นยำต่ำ)" if confidence_score < 1.0 else ""
         
+        # Calculate real proximity from smoothed contours to closest storm edge
+        min_prox = float('inf')
+        search_sources = (all_rain_clusters or []) + (approaching_clouds or [])
+        for c in search_sources:
+            if "real_proximity_km" in c:
+                min_prox = min(min_prox, c["real_proximity_km"])
+
+        prox_msg = ""
+        if min_prox != float('inf'):
+            if min_prox == 0.0:
+                prox_msg = "\n🌧️ ขณะนี้คุณอยู่ในพื้นที่กลุ่มฝน"
+            else:
+                prox_msg = f"\n📏 กลุ่มฝน/พายุที่ใกล้ที่สุดอยู่ห่างออกไปประมาณ {min_prox:.1f} กม."
+
         def fmt_eta(minutes: float) -> str:
             m = int(round(minutes - time_offset_min))
             if m < 0:
@@ -904,7 +1030,7 @@ class TMDTrackingMixin:
             return target.strftime('%H:%M น.')
 
         if not predictions:
-            return f"ℹ️ ไม่สามารถพยากรณ์ล่วงหน้าได้{warning}"
+            return f"ℹ️ ไม่สามารถพยากรณ์ล่วงหน้าได้{prox_msg}{warning}"
 
         rain_events = []
         in_rain = False
@@ -1030,7 +1156,7 @@ class TMDTrackingMixin:
                     lbl_suffix = f"กลุ่มฝน [{soonest_lbl}] " if soonest_lbl else "กลุ่มฝน "
                     text += f"\n☁️ หมายเหตุ: ตรวจพบ{lbl_suffix}({int(soonest.get('dbz_now', 0))} dBZ) กำลังเคลื่อนมา อาจจะถึงในอีก {time_str} (เวลาประมาณ {fmt_clock_time(float(soonest['eta_min']))})"
             
-            return text + warning
+            return text + prox_msg + warning
 
         start_idx = active_event["start_idx"]
         stop_idx = active_event["stop_idx"]
@@ -1080,20 +1206,16 @@ class TMDTrackingMixin:
             return (
                 f"{msg_start}\n"
                 f"⚡ และจะตกหนักขึ้นใน {fmt_eta(max_time)} ({int(max_dbz)} dBZ — {lbl_max})\n"
-                f"{msg_duration}{warning}"
+                f"{msg_duration}{prox_msg}{warning}"
             )
         else:
-            return f"{msg_start}\n{msg_duration}{warning}"
+            return f"{msg_start}\n{msg_duration}{prox_msg}{warning}"
 
     @staticmethod
     def generate_timeline_image(predictions: list, location_name: str = None) -> Optional[bytes]:
         if not predictions:
             return None
-        try:
-            import io
-            from PIL import Image, ImageDraw, ImageFont
-        except ImportError:
-            return None
+        import io
             
         width, height = 800, 430
         img = Image.new("RGBA", (width, height), (30, 30, 30, 255))

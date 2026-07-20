@@ -31,6 +31,7 @@ _DEV_CONFIG: dict = {
     "verbose":        False,  # Enable verbose debugging logs (DEBUG MODE — disable when done)
     "decay_enabled":  True,   # Whether to apply growth/decay rate to cloud extrapolation
     "prediction_steps": 13,   # Number of steps to predict forward (each 15 mins)
+    "chaikin_iterations": 3,  # Chaikin corner-cutting iterations for smoothing radar contours
 }
 
 
