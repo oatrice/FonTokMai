@@ -8,7 +8,7 @@ from app.services.weather_manager import _DEV_CONFIG
 
 def _load_fixture() -> tuple:
     tests_dir = os.path.dirname(__file__)
-    fixture_path = os.path.join(tests_dir, "test_kkn240_frames.npz")
+    fixture_path = os.path.join(tests_dir, "test_skn240_frames.npz")
     if not os.path.exists(fixture_path):
         return None, None, None, None
     data = np.load(fixture_path, allow_pickle=True)
@@ -21,7 +21,7 @@ def _load_fixture() -> tuple:
 @pytest.mark.asyncio
 async def test_skn240_visual_fixes():
     frames, flow, flow_mode, meta = _load_fixture()
-    assert frames is not None, "Fixture test_kkn240_frames.npz not found!"
+    assert frames is not None, "Fixture test_skn240_frames.npz not found!"
     
     # 1. Initialize Processor for skn240
     processor = TMDRadarProcessor("skn240")

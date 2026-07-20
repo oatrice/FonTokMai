@@ -16,7 +16,8 @@ from app.repositories.sqlite import SQLiteLocationRepository
 from app.models import Base
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
-_FIXTURE_PATH = os.path.join(os.path.dirname(__file__), "test_kkn240_frames.npz")
+station_code = os.getenv("STATION", "kkn240")
+_FIXTURE_PATH = os.path.join(os.path.dirname(__file__), f"test_{station_code}_frames.npz")
 
 
 def _load_fixture() -> tuple:
@@ -55,7 +56,7 @@ def _save_fixture(frames: list, flow: np.ndarray, flow_mode: str,
         "last_modified_dt": str(last_modified_dt) if last_modified_dt else "",
         "frame_timestamps": frame_timestamps,
         "frame_urls": frame_urls or [],
-        "station": "skn240",
+        "station": station_code,
     }
     np.savez_compressed(
         _FIXTURE_PATH,
@@ -89,34 +90,34 @@ async def _download_frames_from_urls(frame_urls: list, last_modified_dt=None) ->
             img_bytes = await asyncio.to_thread(blob.download_as_bytes)
             return img_bytes
         except Exception as e:
-            print(f"Failed to download {url}: {e}")
+            print(f"Error downloading blob {url}: {e}")
             return None
 
-    # Download all frames in parallel
-    results = await asyncio.gather(*[_fetch_blob(url) for url in frame_urls])
-    valid = [(b, int(url.split("_")[-1].split(".")[0]) if "_" in url else 0)
-             for b, url in zip(results, frame_urls) if b is not None]
+    tasks = [_fetch_blob(url) for url in frame_urls]
+    results = await asyncio.gather(*tasks)
 
-    if len(valid) < 2:
-        print("ERROR: Fewer than 2 frames could be downloaded from URLs.")
+    frames = []
+    frame_timestamps = []
+    for url, img_bytes in zip(frame_urls, results):
+        if not img_bytes:
+            continue
+        try:
+            # Decode gif bytes
+            nparr = np.frombuffer(img_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is not None:
+                frames.append(img)
+                # Extract timestamp from url like radar/kkn240/kkn240_1784566790.gif
+                # or radar/kkn240_backup/kkn240_1784566790.gif
+                base_name = url.split("/")[-1]
+                ts_part = base_name.split("_")[-1].replace(".gif", "")
+                frame_timestamps.append(int(ts_part))
+        except Exception as e:
+            print(f"Error decoding image {url}: {e}")
+
+    if not frames:
         return None, None, None, None
 
-    valid.sort(key=lambda x: x[1])
-
-    # Decode frames
-    frames = []
-    target_shape = None
-    for f_bytes, ts in valid[-6:]:
-        t_np = np.frombuffer(f_bytes, np.uint8)
-        frame = cv2.imdecode(t_np, cv2.IMREAD_COLOR)
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        if target_shape is None:
-            target_shape = frame.shape[:2]
-        elif frame.shape[:2] != target_shape:
-            frame = cv2.resize(frame, (target_shape[1], target_shape[0]), interpolation=cv2.INTER_NEAREST)
-        frames.append(frame)
-
-    frame_timestamps = [ts for _, ts in valid[-6:]]
     if not last_modified_dt:
         last_modified_dt = datetime.fromtimestamp(frame_timestamps[-1], tz=timezone.utc)
 
@@ -124,19 +125,20 @@ async def _download_frames_from_urls(frame_urls: list, last_modified_dt=None) ->
     return frames, last_modified_dt, frame_timestamps, frame_urls
 
 async def _fetch_from_backup_and_save_fixture(processor) -> tuple:
-    """List and download the latest 6 frames from GCS radar/skn240_backup/ and save as fixture."""
+    """List and download the latest 6 frames from GCS radar/{station}_backup/ and save as fixture."""
     bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
     from google.cloud import storage
     client = storage.Client()
     bucket = client.bucket(bucket_name)
 
-    print("Listing blobs in radar/skn240_backup/...")
+    prefix = f"radar/{processor.station_code}_backup/"
+    print(f"Listing blobs in {prefix}...")
     try:
-        blobs = list(bucket.list_blobs(prefix="radar/skn240_backup/"))
+        blobs = list(bucket.list_blobs(prefix=prefix))
         backup_frames = []
         for b in blobs:
             base_name = b.name.split("/")[-1]
-            ts_str = base_name.replace("skn240_", "").replace(".gif", "")
+            ts_str = base_name.replace(f"{processor.station_code}_", "").replace(".gif", "")
             try:
                 ts = int(ts_str)
                 backup_frames.append({"url": b.name, "timestamp": ts})
@@ -144,7 +146,7 @@ async def _fetch_from_backup_and_save_fixture(processor) -> tuple:
                 continue
 
         if not backup_frames:
-            print("ERROR: No files found in radar/skn240_backup/")
+            print(f"ERROR: No files found in {prefix}")
             return None, None, None, None
 
         # Sort and take latest 6
@@ -186,12 +188,12 @@ async def main():
 
     async with TestingSessionLocal() as session:
         repo = SQLiteLocationRepository(session)
-        # Register user target location: 17.1712, 104.4594
+        # Register user target location: 17.4956, 102.5056
         chat_id = "test_user_6346467495"
-        await repo.save_location(chat_id, 17.1712, 104.4594, "FOREVER", name="default")
+        await repo.save_location(chat_id, 17.4956, 102.5056, "FOREVER", name="default")
 
         # 2. Initialize TMDRadarProcessor and fetch frames
-        processor = TMDRadarProcessor("skn240")
+        processor = TMDRadarProcessor(station_code)
 
         # 2a. Check if we want to force update from backup, or if fixture is missing
         force_update = os.getenv("UPDATE_FIXTURE", "false").lower() == "true"
@@ -201,103 +203,107 @@ async def main():
             frames, flow, flow_mode, meta = _load_fixture()
 
         using_fixture = frames is not None
+        fixture_frame_timestamps = []
+        fixture_frame_urls = []
 
         if using_fixture:
             fixture_frame_timestamps = meta.get("frame_timestamps", [])
             fixture_frame_urls = meta.get("frame_urls", [])
             print(f"Replaying from fixture ({len(frames)} frames, {len(fixture_frame_urls)} URLs).")
-        else:
-            print("Fixture missing or UPDATE_FIXTURE=true. Attempting to fetch from GCS backup...")
-            frames, flow, flow_mode, meta = await _fetch_from_backup_and_save_fixture(processor)
-            if frames is not None:
-                using_fixture = True
-                fixture_frame_timestamps = meta.get("frame_timestamps", [])
-                fixture_frame_urls = meta.get("frame_urls", [])
-            else:
-                # Try downloading from saved URLs first (if provided via env or from a prior [FRAME_ID] log)
-                # Set TEST_FRAME_URLS env var to a comma-separated list of Firebase Storage URLs
-                env_urls = os.getenv("TEST_FRAME_URLS", "")
-                if env_urls:
-                    url_list = [u.strip() for u in env_urls.split(",") if u.strip()]
-                    print(f"Attempting to download {len(url_list)} frames from URLs...")
-                    frames, last_modified_dt, fixture_frame_timestamps, frame_urls = (
-                        await _download_frames_from_urls(url_list))
-                    if frames is not None:
-                        print(f"Downloaded {len(frames)} frames from URLs.")
-                        _save_fixture(frames, None, None, last_modified_dt,
-                                      fixture_frame_timestamps, frame_urls=frame_urls)
-                        # Recompute flow after saving fixture
-                        flow_mode = _DEV_CONFIG.get("flow_mode", "latest")
-                        if flow_mode == "average":
-                            flow = processor.calculate_average_optical_flow(frames)
-                        else:
-                            flow = processor.calculate_optical_flow(frames)
-                        print(f"Optical flow computed (flow_mode={flow_mode}).")
-                        frames, flow, flow_mode, meta = _load_fixture()
-                        using_fixture = True
-                        fixture_frame_urls = meta.get("frame_urls", [])
-                        print(f"Replaying from URL-downloaded fixture ({len(frames)} frames).")
-                    else:
-                        print("URL download failed, falling back to loop GIF...")
-                        env_urls = ""  # Reset to fall through to loop GIF
 
-                if not env_urls:
-                    print("Fetching loop GIF frames from TMD (production method)...")
-                    frames, last_modified_dt, loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
-                    print(f"Extracted {len(frames)} frames (last_modified={last_modified_dt}).")
-
-                    if len(frames) < 2:
-                        print("ERROR: Fewer than 2 frames extracted from loop GIF. "
-                              "Cannot compute optical flow. Aborting.")
-                        return
-
-                    # Keep only the last 6 frames and normalize shapes (weather_manager.py lines 628-632)
-                    frames = frames[-6:]
-                    target_shape = frames[-1].shape[:2]
-                    for i in range(len(frames) - 1):
-                        if frames[i].shape[:2] != target_shape:
-                            frames[i] = cv2.resize(frames[i], (target_shape[1], target_shape[0]),
-                                                   interpolation=cv2.INTER_NEAREST)
-                    print(f"Using last {len(frames)} frames, shape={target_shape}.")
-
-                    # Compute optical flow like production
+        if not using_fixture:
+            env_urls = os.getenv("TEST_FRAME_URLS", "")
+            if env_urls:
+                url_list = [u.strip() for u in env_urls.split(",") if u.strip()]
+                print(f"Attempting to download {len(url_list)} frames from URLs...")
+                frames, last_modified_dt, fixture_frame_timestamps, frame_urls = (
+                    await _download_frames_from_urls(url_list))
+                if frames is not None:
+                    print(f"Downloaded {len(frames)} frames from URLs.")
+                    _save_fixture(frames, None, None, last_modified_dt,
+                                  fixture_frame_timestamps, frame_urls=frame_urls)
+                    # Recompute flow after saving fixture
                     flow_mode = _DEV_CONFIG.get("flow_mode", "latest")
                     if flow_mode == "average":
                         flow = processor.calculate_average_optical_flow(frames)
                     else:
                         flow = processor.calculate_optical_flow(frames)
                     print(f"Optical flow computed (flow_mode={flow_mode}).")
-
-                    # Generate frame timestamps like production (weather_manager.py lines 634-639)
-                    fixture_frame_timestamps = []
-                    if last_modified_dt:
-                        latest_ts = int(last_modified_dt.timestamp())
-                        fixture_frame_timestamps = [
-                            latest_ts - (len(frames) - 1 - i) * 900
-                            for i in range(len(frames))
-                        ]
-
-                    # No Firebase URLs for loop GIF path
-                    frame_urls = []
-                    # Save to fixture for deterministic replay
                     _save_fixture(frames, flow, flow_mode, last_modified_dt,
                                   fixture_frame_timestamps, frame_urls=frame_urls)
-                    fixture_frame_urls = []
+                    frames, flow, flow_mode, meta = _load_fixture()
+                    using_fixture = True
+                    fixture_frame_urls = meta.get("frame_urls", [])
+                    print(f"Replaying from URL-downloaded fixture ({len(frames)} frames).")
+                else:
+                    print("URL download failed, falling back to backup...")
+                    env_urls = ""
+
+            if not using_fixture:
+                print("Fixture missing or UPDATE_FIXTURE=true. Attempting to fetch from GCS backup...")
+                frames, flow, flow_mode, meta = await _fetch_from_backup_and_save_fixture(processor)
+                if frames is not None:
+                    using_fixture = True
+                    fixture_frame_timestamps = meta.get("frame_timestamps", [])
+                    fixture_frame_urls = meta.get("frame_urls", [])
+            
+            if not using_fixture:
+                print("Fetching loop GIF frames from TMD (production method)...")
+                frames, last_modified_dt, loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
+                print(f"Extracted {len(frames)} frames (last_modified={last_modified_dt}).")
+
+                if len(frames) < 2:
+                    print("ERROR: Fewer than 2 frames extracted from loop GIF. "
+                          "Cannot compute optical flow. Aborting.")
+                    return
+
+                # Keep only the last 6 frames and normalize shapes (weather_manager.py lines 628-632)
+                frames = frames[-6:]
+                target_shape = frames[-1].shape[:2]
+                for i in range(len(frames) - 1):
+                    if frames[i].shape[:2] != target_shape:
+                        frames[i] = cv2.resize(frames[i], (target_shape[1], target_shape[0]),
+                                               interpolation=cv2.INTER_NEAREST)
+                print(f"Using last {len(frames)} frames, shape={target_shape}.")
+
+                # Compute optical flow like production
+                flow_mode = _DEV_CONFIG.get("flow_mode", "latest")
+                if flow_mode == "average":
+                    flow = processor.calculate_average_optical_flow(frames)
+                else:
+                    flow = processor.calculate_optical_flow(frames)
+                print(f"Optical flow computed (flow_mode={flow_mode}).")
+
+                # Generate frame timestamps like production (weather_manager.py lines 634-639)
+                fixture_frame_timestamps = []
+                if last_modified_dt:
+                    latest_ts = int(last_modified_dt.timestamp())
+                    fixture_frame_timestamps = [
+                        latest_ts - (len(frames) - 1 - i) * 900
+                        for i in range(len(frames))
+                    ]
+
+                # No Firebase URLs for loop GIF path
+                frame_urls = []
+                # Save to fixture for deterministic replay
+                _save_fixture(frames, flow, flow_mode, last_modified_dt,
+                              fixture_frame_timestamps, frame_urls=frame_urls)
+                fixture_frame_urls = []
 
         # Retrieve frame_urls from fixture metadata (may be empty for test-generated fixtures)
         fixture_frame_urls = meta.get("frame_urls", []) if using_fixture else []
 
         # Print frame identity like production [FRAME_ID] log
         print(
-            f"[FRAME_ID] station=skn240, source={'fixture' if using_fixture else 'loop_gif'}, "
+            f"[FRAME_ID] station={processor.station_code}, source={'fixture' if using_fixture else 'loop_gif'}, "
             f"n_frames={len(frames)} (last_ts={fixture_frame_timestamps[-1] if fixture_frame_timestamps else '?'}), "
             f"timestamps={fixture_frame_timestamps}, shape={frames[-1].shape[:2]}, "
             f"urls={fixture_frame_urls}"
         )
 
         # 4. Find user pixel coordinates (is_loop=True: frames come from the loop GIF)
-        user_x, user_y = processor.latlng_to_pixel(17.1712, 104.4594, is_loop=True)
-        print(f"User location: 17.1712, 104.4594 -> Pixel coordinate (X={user_x}, Y={user_y})")
+        user_x, user_y = processor.latlng_to_pixel(17.4956, 102.5056, is_loop=True)
+        print(f"User location: 17.4956, 102.5056 -> Pixel coordinate (X={user_x}, Y={user_y})")
 
         # 5a. Find approaching clouds - identical to production (weather_manager.py lines 689-726)
         curr_frame = frames[-1].copy()
