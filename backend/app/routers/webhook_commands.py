@@ -493,6 +493,8 @@ async def handle_radar_command(chat_id: int):
         await telegram.send_telegram_message(chat_id, text, reply_markup=reply_markup)
 
 
+@cmd_router.bind("/tracking", task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
+@cmd_router.bind("/nowcast", task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
 @cmd_router.bind("/rain_pro", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", show_advanced=True)
 @cmd_router.bind("/rain", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
 @cmd_router.bind("/check", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", command_override="/rain tmd-radar")
