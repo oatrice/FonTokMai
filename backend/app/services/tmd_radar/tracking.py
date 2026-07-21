@@ -405,6 +405,13 @@ class TMDTrackingMixin:
             # sits outside the locked grid cell but whose body overlaps it).
             _extra = [c for c in (all_rain_clusters or []) if c not in all_cloud_refs]
             locked_cluster = _resolve_locked_cluster(all_cloud_refs + _extra)
+            logger.info(
+                f"[TRACKING_IMG][RESOLVE] locked_target_id={locked_target_id!r} -> "
+                f"locked_cluster={locked_cluster.get('label') if locked_cluster else None!r} "
+                f"(cx={locked_cluster.get('cx') if locked_cluster else 'N/A'}, "
+                f"cy={locked_cluster.get('cy') if locked_cluster else 'N/A'}) "
+                f"in_extra={locked_cluster in _extra if locked_cluster else False}"
+            )
 
             # If the resolved cluster came from all_rain_clusters (not the normal
             # display list), inject it into ambient_clouds so the ambient draw loop
@@ -413,6 +420,7 @@ class TMDTrackingMixin:
                 ambient_clouds.append(locked_cluster)
                 all_cloud_refs.append(locked_cluster)
                 logger.info(f"[TRACKING_IMG] Injected locked cluster '{locked_cluster.get('label')}' from all_rain_clusters into ambient display list")
+
 
 
             if locked_cluster is None and locked_target_id and locked_target_cx is not None and locked_target_cy is not None:
@@ -679,11 +687,19 @@ class TMDTrackingMixin:
             for c in ambient_clouds:
                 cx_orig, cy_orig = c["cx"], c["cy"]
                 is_locked = locked_cluster is not None and c is locked_cluster
-                if not (cx_orig < x1 - 15 or cx_orig > x2 + 15 or cy_orig < y1 - 15 or cy_orig > y2 + 15):
+                # Always include the locked cluster regardless of whether its centroid
+                # falls inside the crop window — an elongated cluster can have its
+                # centroid outside the crop while its pixels overlap the locked cell.
+                outside_crop = (
+                    cx_orig < x1 - 15 or cx_orig > x2 + 15
+                    or cy_orig < y1 - 15 or cy_orig > y2 + 15
+                )
+                if is_locked or not outside_crop:
                     dbz_val = c.get("predicted_dbz", c.get("dbz_now", 20))
                     pixels_count = len(c.get("pixels", []))
                     if is_locked or (dbz_val >= min_amb_dbz and pixels_count >= min_amb_size):
                         visible_ambient_clouds.append(c)
+
 
             # Sort and build list of ambient clouds to render, prioritizing higher dBZ first, then closer distance
             visible_ambient_clouds.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), -c.get("size", len(c.get("pixels", []))), c.get("dist", 9999)))
@@ -732,10 +748,54 @@ class TMDTrackingMixin:
                 pcx = int((peak_cx_orig - x1) * scale)
                 pcy = int((peak_cy_orig - y1) * scale)
 
+                # For a locked ambient cluster whose centroid/peak may lie outside the
+                # crop window (e.g. a large elongated cluster), compute the best anchor:
+                #   - Grid-cell lock: centroid of B's pixels that actually fall inside the
+                #     named cell (e.g. C5).  This puts the pin at "where the rain is in C5",
+                #     which is always on-screen and semantically correct.
+                #   - Other locks: fall back to the stored locked_target_cx/cy.
+                _is_locked_cluster = locked_cluster is not None and c_orig is locked_cluster
+                if _is_locked_cluster and locked_target_cx is not None and locked_target_cy is not None:
+                    anchor_orig_x, anchor_orig_y = locked_target_cx, locked_target_cy  # default fallback
+
+                    # Try to compute cell-constrained centroid for grid-cell locks
+                    if locked_target_id:
+                        import re as _re
+                        _m = _re.match(r"^([a-hA-H])[-_]?([1-8])$", locked_target_id)
+                        if _m and "pixels" in c_orig and c_orig["pixels"]:
+                            _col = ord(_m.group(1).upper()) - ord('A')
+                            _row = int(_m.group(2)) - 1
+                            _cell_w = (x2 - x1) / 8.0
+                            _cell_h = (y2 - y1) / 8.0
+                            _cx_min = x1 + _col * _cell_w - 5.0
+                            _cx_max = x1 + (_col + 1) * _cell_w + 5.0
+                            _cy_min = y1 + _row * _cell_h - 5.0
+                            _cy_max = y1 + (_row + 1) * _cell_h + 5.0
+                            _in_cell = [
+                                (px_i, py_i)
+                                for px_i, py_i in c_orig["pixels"]
+                                if _cx_min <= px_i <= _cx_max and _cy_min <= py_i <= _cy_max
+                            ]
+                            if _in_cell:
+                                anchor_orig_x = int(sum(p[0] for p in _in_cell) / len(_in_cell))
+                                anchor_orig_y = int(sum(p[1] for p in _in_cell) / len(_in_cell))
+
+                    locked_screen_cx = int((anchor_orig_x - x1) * scale)
+                    locked_screen_cy = int((anchor_orig_y - y1) * scale)
+                    # Only override if the anchor is actually within the image canvas
+                    if 0 <= locked_screen_cx < img.shape[1] and 0 <= locked_screen_cy < img.shape[0]:
+                        pcx = locked_screen_cx
+                        pcy = locked_screen_cy
+                        cx = locked_screen_cx
+                        cy = locked_screen_cy
+
+
+
                 dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
                 vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
 
                 color = (180, 180, 180) if dbz < 20.0 else _dbz_color(dbz)
+
                 
                 # Draw polygon outline & fill for ambient clouds (similar to approaching clouds)
                 if "pixels" in c_orig and len(c_orig["pixels"]) > 2:

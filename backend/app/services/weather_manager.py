@@ -995,19 +995,19 @@ class WeatherManager:
                                 chat_id=chat_id,
                                 tracking_mode="manual",
                                 locked_target_id=locked_target_id,
-                                locked_target_cx=matched_target["cx"],
-                                locked_target_cy=matched_target["cy"],
+                                # Grid-cell locks: preserve the original cell-center pixel in DB
+                                # so the lock icon always appears at the named cell, not at the
+                                # matched cluster's centroid (which may be outside the crop window).
+                                # Label-based locks: follow the cluster as it drifts.
+                                locked_target_cx=locked_target_cx if is_grid_cell else matched_target["cx"],
+                                locked_target_cy=locked_target_cy if is_grid_cell else matched_target["cy"],
                                 name=location_name or "default"
                             )
-                        if is_grid_cell:
-                            # For grid-cell locks: keep original cell pixel for the
-                            # tracking renderer so the lock icon appears at the correct
-                            # grid position (locked_target_cx/cy unchanged).
-                            pass
-                        else:
+                        if not is_grid_cell:
                             # For label-based locks: follow the cluster as it moves.
                             locked_target_cx = matched_target["cx"]
                             locked_target_cy = matched_target["cy"]
+
                     else:
                         logger.warning(f"[DEBUG_LOCK] matched_target NOT FOUND: locked_cx={locked_target_cx}, locked_cy={locked_target_cy}, n_clusters={len(all_rain_clusters)}, closest_dist={min_dist:.1f}")
 
