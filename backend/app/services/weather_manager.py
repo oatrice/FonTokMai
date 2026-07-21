@@ -873,7 +873,9 @@ class WeatherManager:
                     # Sort by dBZ descending first, then distance ascending so red/heavy rain clusters get labels A, B...
                     all_rain_clusters.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), c.get("dist", 9999)))
                     for i, c in enumerate(all_rain_clusters):
-                        c["label"] = chr(ord('A') + min(i, 25))
+                        # Only label the first 26 clusters (A-Z). Clusters beyond that get None
+                        # to avoid all of them collapsing to 'Z'.
+                        c["label"] = chr(ord('A') + i) if i < 26 else None
                         
                 # Match labels from all_rain_clusters to clouds
                 if all_rain_clusters and clouds:
@@ -1170,13 +1172,26 @@ class WeatherManager:
                     cluster_label = None
                     if dbz >= 10.0 and all_rain_clusters:
                         min_dist = 9999
+                        # Primary pass: within bbox + 20px margin
                         for c in all_rain_clusters:
+                            if c.get("label") is None:
+                                continue
                             dx = max(c.get("xmin", c["cx"]) - src_x, 0, src_x - c.get("xmax", c["cx"]))
                             dy = max(c.get("ymin", c["cy"]) - src_y, 0, src_y - c.get("ymax", c["cy"]))
                             d = math.hypot(dx, dy)
                             if d <= 20 and d < min_dist:
                                 min_dist = d
                                 cluster_label = c.get("label")
+                        # Fallback pass: use nearest labelled cluster centroid within 80px
+                        # (future prediction steps shift src away from the cluster bbox)
+                        if cluster_label is None:
+                            for c in all_rain_clusters:
+                                if c.get("label") is None:
+                                    continue
+                                d = math.hypot(c["cx"] - src_x, c["cy"] - src_y)
+                                if d <= 80 and d < min_dist:
+                                    min_dist = d
+                                    cluster_label = c.get("label")
                                     
                     if mock_state == "rain":
                         dbz = max(dbz, 40.0)
