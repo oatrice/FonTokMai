@@ -16,7 +16,9 @@ Whenever you introduce, modify, or delete environment variables in the backend c
 Whenever asked to create an issue card (e.g. "สร้างการ์ด issue", "create issue"):
 1. **DO NOT IMPLEMENT CODE:** Your sole objective is to create the issue card. Do not modify files, run tests, or start implementation.
 2. **English Only:** You **MUST ALWAYS** write the issue title and description in **English** (translate from Thai if necessary).
-3. **Use Skill:** Follow the format and procedure in `.agents/skills/create-gitlab-issue/SKILL.md`.
+3. **Attach Provided Images:** If the user attached image(s) or screenshot(s) in the prompt, you **MUST** upload them to GitLab (via GitLab API `/uploads`) and embed the uploaded image markdown into the issue description or issue note.
+4. **Use Skill:** Follow the format and procedure in `.agents/skills/create-gitlab-issue/SKILL.md`.
+
 
 
 # 🚀 Telegram Webhook Latency Rule

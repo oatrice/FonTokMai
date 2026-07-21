@@ -29,7 +29,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ## Synced From GitHub
 ### Issue #181 - Add /tracking and /nowcast commands to Telegram Bot command menu
 - **GitHub:** [#181](https://gitlab.com/oatricedev/FonMaYang/-/issues/181)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.57.0)
 
 ### Issue #180 - Optimize Artifact Registry storage costs and lifecycle policies
 - **GitHub:** [#180](https://gitlab.com/oatricedev/FonMaYang/-/issues/180)
@@ -734,4 +734,8 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ### Issue # - Adjust cloud polygon drawing area to cover each cloud chunk specifically
 - **State:** opened
 - ✅ **Done** (0.56.0)
+
+### Issue # - Fix /tracking and /nowcast Telegram commands not executing processing logic
+- **State:** opened
+- ✅ **Done** (0.57.0)
 

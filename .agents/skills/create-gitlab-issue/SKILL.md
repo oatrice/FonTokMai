@@ -45,12 +45,14 @@ When this skill is triggered, your **ONLY** job is to create the GitLab issue ca
 ## 🛠️ Step-by-Step Execution Procedure
 
 1. **Synthesize Details**: Gather the issue requirements from the user's prompt or current context. Translate details to English if needed.
-2. **Prepare Markdown File**: Write the issue description into a temporary file (e.g., `/tmp/issue_desc.md`) to avoid multi-line escaping errors in terminal commands.
-3. **Execute `glab issue create`**:
+2. **Check for Attached Images**: If the user provided image(s) in their prompt, locate the saved media file in the conversation brain directory (or `/Users/oatrice/.gemini/antigravity/brain/<conv_id>/media_*.jpg`). Upload each file using the GitLab uploads API endpoint (`POST /api/v4/projects/<project_id>/uploads` with Bearer token from `glab` config) to obtain the image markdown URL (e.g. `![alt](/uploads/.../image.jpg)`). Append the markdown to the description or add a note/comment via `glab issue note`.
+3. **Prepare Markdown File**: Write the issue description into a temporary file (e.g., `/tmp/issue_desc.md`) to avoid multi-line escaping errors in terminal commands.
+4. **Execute `glab issue create`**:
    Run the `glab` CLI command via shell:
    ```bash
    glab issue create --title "<Title in English>" --description-filename "/tmp/issue_desc.md"
    ```
    *(Optionally add labels like `--label "bug"` or `--label "enhancement"` if obvious from context).*
-4. **Clean up**: Remove the temporary file `/tmp/issue_desc.md`.
-5. **Notify User & STOP**: Return the issue link/ID to the user and state clearly that the issue has been created, and wait for further instructions before taking any implementation action.
+5. **Clean up**: Remove the temporary file `/tmp/issue_desc.md`.
+6. **Notify User & STOP**: Return the issue link/ID to the user and state clearly that the issue has been created, and wait for further instructions before taking any implementation action.
+

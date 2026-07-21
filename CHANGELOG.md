@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.57.0] - 2026-07-21
+
+### Added
+- เพิ่มคำสั่ง `/tracking` และ `/nowcast` ใน Telegram Bot command set เพื่อให้ผู้ใช้สามารถเรียกดูกราฟิกติดตามกลุ่มฝนและ GIF พยากรณ์ฝนได้โดยตรง
+- เพิ่มระบบ GitLab Issue Generation Skill และ Workflow Rules ภายใต้โฟลเดอร์ `.agents/`
+
+### Changed
+- ปรับปรุงประสิทธิภาพและลดการใช้ Bandwidth โดยจำกัดการอัปโหลดภาพเรดาร์เสริม (Auxiliary Radar Images) ให้ทำงานเฉพาะในสภาพแวดล้อม Development
+- เพิ่มระบบ Retry และการจัดการ Exception สำหรับการสร้างและส่งภาพ Telegram เพื่อความเสถียรยิ่งขึ้น
+
+### Fixed
+- แก้ไขการกำหนด Label กลุ่มฝนให้จำกัดอยู่ที่ A-Z พร้อมเพิ่มระบบ Proximity Fallback สำหรับการระบุ Label เมฆในอนาคต
+- ปรับปรุงการล็อคตำแหน่งกลุ่มฝน (Cluster Locking) ให้แสดงผลและปักหมุดตำแหน่งที่ถูกต้อง แม้จุด Centroid ของกลุ่มเมฆจะหลุดออกนอกพื้นที่ Crop Window
+
 ## [0.56.0] - 2026-07-21
 
 ### Added

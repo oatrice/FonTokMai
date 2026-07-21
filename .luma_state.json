@@ -27,26 +27,49 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
         "agents/AGENTS.md",
         "agents/skills/create-gitlab-issue/SKILL.md",
+        "backend/app/dependencies.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/webhook_commands.py",
+        "backend/app/routers/webhook_location.py",
+        "backend/app/scheduler_tasks.py",
         "backend/app/services/telegram.py",
+        "backend/app/services/tmd_radar/tracking.py",
+        "backend/app/services/weather_manager.py",
+        "backend/tests/test_kkn240_run.py",
+        "backend/tests/test_manual_targeting.py",
         "backend/tests/test_telegram_commands.py",
+        "backend/tests/test_tracking_nowcast_commands.py",
         "docs/ROADMAP.md",
         "gitignore",
+        "luma/prompts/prompt_20260721_142546_ba3dd86a.md",
+        "luma/prompts/prompt_20260721_142548_2970310a.md",
         "luma_state.json"
       ],
       "meaningful_files": [
+        "backend/app/dependencies.py",
+        "backend/app/repositories/firestore.py",
+        "backend/app/repositories/sqlite.py",
+        "backend/app/routers/webhook_commands.py",
+        "backend/app/routers/webhook_location.py",
+        "backend/app/scheduler_tasks.py",
         "backend/app/services/telegram.py",
+        "backend/app/services/tmd_radar/tracking.py",
+        "backend/app/services/weather_manager.py",
         "gitignore",
         "luma_state.json"
       ],
@@ -122,5 +145,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-21T21:15:59.932870"
+  "last_updated": "2026-07-21T21:26:25.573669"
 }

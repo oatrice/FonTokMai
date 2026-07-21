@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.56.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
+**v0.57.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
 ใช้ภาพเรดาร์ TMD + Optical Flow เพื่อคาดการณ์ฝนล่วงหน้า 15–90+ นาที
 
 ---
@@ -135,6 +135,7 @@ Key test files:
 - `tests/test_async_enqueue_task.py` — Async tasks enqueue verification tests
 - `tests/test_decay_logic.py` — Cloud decay toggle and prediction steps verification tests
 - `tests/test_manual_targeting.py` — Manual target tracking, override logic, and visual indicators tests
+- `tests/test_tracking_nowcast_commands.py` — Telegram `/tracking` and `/nowcast` command router & dispatch execution tests
 
 ---
 
@@ -142,4 +143,4 @@ Key test files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.56.0** — ปรับปรุงสิทธิ์การเข้าถึงข้อมูลด้วยระบบ TelegramCommandRouter, เพิ่มชุดคำสั่งสำหรับ Admin/Developer บนบอทสำหรับการควบคุมระบบแบบไดนามิก และปรับปรุงการจัดกลุ่มฝน (Radar Clustering) ด้วย OpenCV Contours และเส้นเรืองแสงสไตล์นีออน
+Current: **v0.57.0** — เพิ่มคำสั่ง `/tracking` และ `/nowcast` สำหรับ Telegram Bot, ปรับปรุงการล็อกตำแหน่งกลุ่มฝน (Cluster Locking) และระบบจัดการ Label A-Z
