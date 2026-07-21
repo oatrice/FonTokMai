@@ -31,6 +31,9 @@ async def test_setup_telegram_commands_production():
         assert "check" in command_names
         assert "radar" in command_names
         assert "mylocation" in command_names
+        assert "tracking" in command_names
+        assert "nowcast" in command_names
+
         
         # Admin / Dev commands should NOT be in the production list
         assert "lock" not in command_names
@@ -69,14 +72,16 @@ async def test_setup_telegram_commands_development():
         commands = payload_data["commands"]
         command_names = [c["command"] for c in commands]
         
-        # Should have rain, check, lock AND devmock and others
         assert "rain" in command_names
         assert "check" in command_names
-        assert "lock" in command_names
         assert "radar" in command_names
+        assert "tracking" in command_names
+        assert "nowcast" in command_names
+        assert "lock" in command_names
         assert "mylocation" in command_names
         assert "unlock" in command_names
         assert "devmock" in command_names
+
 
 @respx.mock
 @pytest.mark.asyncio

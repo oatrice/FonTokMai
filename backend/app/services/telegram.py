@@ -243,8 +243,11 @@ async def setup_telegram_commands() -> bool:
         {"command": "rain", "description": "เช็คพิกัดกลุ่มฝนล่าสุด"},
         {"command": "check", "description": "เช็คพิกัดเรดาร์ฝน (Shorthand)"},
         {"command": "radar", "description": "แสดงแหล่งข้อมูลเรดาร์ฝนภายนอก"},
+        {"command": "tracking", "description": "ดูภาพวิเคราะห์ทิศทางกลุ่มฝน"},
+        {"command": "nowcast", "description": "ดูภาพเคลื่อนไหวพยากรณ์ฝน (GIF)"},
         {"command": "mylocation", "description": "แสดงรายการพิกัดพื้นที่ทั้งหมดของคุณ"},
     ]
+
     
     if is_dev:
         commands.extend([
