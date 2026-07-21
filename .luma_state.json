@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 181,
@@ -56,8 +56,7 @@
         "backend/tests/test_tracking_nowcast_commands.py",
         "docs/ROADMAP.md",
         "gitignore",
-        "luma/prompts/prompt_20260721_142546_ba3dd86a.md",
-        "luma/prompts/prompt_20260721_142548_2970310a.md",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "meaningful_files": [
@@ -71,6 +70,7 @@
         "backend/app/services/tmd_radar/tracking.py",
         "backend/app/services/weather_manager.py",
         "gitignore",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -143,7 +143,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/61",
   "pr_number": null,
-  "last_updated": "2026-07-21T21:26:25.573669"
+  "last_updated": "2026-07-21T21:30:46.981603"
 }
