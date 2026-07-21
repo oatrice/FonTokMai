@@ -1,4 +1,5 @@
 import httpx
+import asyncio
 from app.dependencies import get_http_client
 import os
 import logging
@@ -103,10 +104,6 @@ async def send_telegram_message_return_id(chat_id: int, text: str, parse_mode: O
     except Exception as e:
         logger.error(f"Failed to send telegram loading message to {chat_id}: {type(e).__name__} - {e}")
         return None
-
-
-
-import asyncio
 
 async def send_telegram_document(chat_id: int, file_data: bytes, filename: str) -> bool:
     """

@@ -733,6 +733,9 @@ class TMDTrackingMixin:
                     f"pixels={_npx} dbz={_dbz:.1f} dist_to_user={_dist:.1f}"
                 )
 
+            # Precompute forecast label set for ambient cloud label formatting
+            _forecast_label_set = set(c.get("label") for c in display_clouds) | set(p.get("cluster") for p in (predictions or []) if p.get("cluster"))
+
             for c_orig in rendered_ambient:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
 
@@ -760,8 +763,7 @@ class TMDTrackingMixin:
 
                     # Try to compute cell-constrained centroid for grid-cell locks
                     if locked_target_id:
-                        import re as _re
-                        _m = _re.match(r"^([a-hA-H])[-_]?([1-8])$", locked_target_id)
+                        _m = re.match(r"^([a-hA-H])[-_]?([1-8])$", locked_target_id)
                         if _m and "pixels" in c_orig and c_orig["pixels"]:
                             _col = ord(_m.group(1).upper()) - ord('A')
                             _row = int(_m.group(2)) - 1
@@ -984,9 +986,8 @@ class TMDTrackingMixin:
                 if v_mag > 2:
                     cv2.arrowedLine(img, (pcx, pcy), (pcx + vx_s, pcy + vy_s), (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
                     
-                forecast_label_set = set(c.get("label") for c in display_clouds) | set(p.get("cluster") for p in (predictions or []) if p.get("cluster"))
                 lbl = c_orig.get("label", "")
-                is_forecast_target = lbl in forecast_label_set
+                is_forecast_target = lbl in _forecast_label_set
                 
                 if is_locked:
                     lbl = f"LOCKED[{locked_target_id}]"

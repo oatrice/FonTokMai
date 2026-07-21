@@ -67,3 +67,6 @@ docs/features/
 
 # gitlab-ci-local
 .gitlab-ci-local/
+
+# Luma State
+.luma_state.json

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "coding",
+  "phase": "reviewing",
   "active_issues": [
     {
       "number": 181,
@@ -24,7 +24,11 @@
   ],
   "active_branch": "feat/181-add-/tracking-and-/nowcast-com",
   "started_at": "2026-07-21T16:08:06.541176",
-  "checklist": {},
+  "checklist": {
+    "step_planning": true,
+    "step_coding": true,
+    "step_review": true
+  },
   "context": {
     "pending_doc_updates": {
       "pending": [
@@ -39,7 +43,6 @@
         "backend/tests/test_telegram_commands.py",
         "docs/ROADMAP.md",
         "gitignore",
-        "luma/prompts/prompt_20260721_090759_a84c5a86.md",
         "luma_state.json"
       ],
       "meaningful_files": [
@@ -49,11 +52,75 @@
       ],
       "version_file": "VERSION",
       "has_meaningful_changes": true
-    }
+    },
+    "target_planning_repos": [
+      {
+        "name": "FonMaYang",
+        "path": "/Users/oatrice/Software Project/FonMaYang",
+        "repo": "oatricedev/FonMaYang",
+        "slug": "fonmayang",
+        "kanban_number": 1,
+        "kanban_id": "",
+        "platform": "gitlab",
+        "status_workflow": {
+          "selectable_statuses": [
+            "Ready",
+            "In Progress",
+            "Todo"
+          ],
+          "selection_order": [
+            "In Progress",
+            "Ready",
+            "Todo"
+          ],
+          "active_statuses": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review"
+          ],
+          "active_sort_order": [
+            "In Progress",
+            "Ready",
+            "Todo",
+            "In Review",
+            "Backlog"
+          ],
+          "board_order": [
+            "Backlog",
+            "Ready",
+            "Todo",
+            "In Progress",
+            "In Review",
+            "Done",
+            "Closed"
+          ],
+          "done_statuses": [
+            "Done",
+            "Closed"
+          ],
+          "status_icons": {
+            "Backlog": "📥 ",
+            "Ready": "✅ ",
+            "Todo": "📝 ",
+            "In Progress": "🔥 ",
+            "In Review": "👀 ",
+            "Done": "✅ ",
+            "Closed": "✅ "
+          },
+          "action_status_map": {
+            "select_issue": "In Progress",
+            "create_pr": "In Review",
+            "pr_merged": "Done"
+          }
+        }
+      }
+    ]
   },
   "checkpoint_data": {},
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-21T16:11:06.458910"
+  "last_updated": "2026-07-21T21:15:59.932870"
 }
