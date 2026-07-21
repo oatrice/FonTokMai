@@ -11,13 +11,14 @@ class SQLiteLocationRepository(LocationRepository):
         self.session = session
 
     async def get_location(self, chat_id: Union[str, int], name: str = "default") -> Optional[UserLocation]:
-        from sqlalchemy import or_
+        from sqlalchemy import or_, func
         chat_id_str = str(chat_id)
+        name_lower = (name or "default").lower()
         conditions = [UserLocation.chat_id == chat_id_str]
-        if name == "default":
-            conditions.append(or_(UserLocation.name == name, UserLocation.name.is_(None)))
+        if name_lower == "default":
+            conditions.append(or_(func.lower(UserLocation.name) == "default", UserLocation.name.is_(None)))
         else:
-            conditions.append(UserLocation.name == name)
+            conditions.append(func.lower(UserLocation.name) == name_lower)
             
         result = await self.session.execute(
             select(UserLocation).where(*conditions)
@@ -440,6 +441,8 @@ class SQLiteLocationRepository(LocationRepository):
     ) -> None:
         chat_id_str = str(chat_id)
         loc = await self.get_location(chat_id_str, name)
+        if not loc and name != "default":
+            loc = await self.get_location(chat_id_str, "default")
         if loc:
             loc.tracking_mode = tracking_mode
             loc.locked_target_id = locked_target_id

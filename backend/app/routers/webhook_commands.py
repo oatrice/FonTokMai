@@ -55,21 +55,24 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
                 target_str = " ".join(args[1:])
             else:
                 loc = None
-                # If there's a recently pinned Telegram location, always prioritize it!
-                pinned = LAST_PINNED_LOCATION.get(chat_id)
-                if pinned:
-                    pinned_lat, pinned_lng = pinned
-                    loc = await repo.save_location(
-                        chat_id, pinned_lat, pinned_lng, "FOREVER", name="default"
-                    )
-                    LAST_ACTIVE_LOCATION[chat_id] = "default"
-                else:
-                    active_loc_name = LAST_ACTIVE_LOCATION.get(chat_id)
-                    if active_loc_name:
-                        for l in locs:
-                            if l.name.lower() == active_loc_name.lower():
-                                loc = l
-                                break
+                # Check active location first (e.g. from recent /rain_pro <loc>)
+                active_loc_name = LAST_ACTIVE_LOCATION.get(chat_id)
+                if active_loc_name:
+                    for l in locs:
+                        if l.name.lower() == active_loc_name.lower():
+                            loc = l
+                            break
+                            
+                # Fallback to pinned location if no active location matched
+                if not loc:
+                    pinned = LAST_PINNED_LOCATION.get(chat_id)
+                    if pinned:
+                        pinned_lat, pinned_lng = pinned
+                        loc = await repo.save_location(
+                            chat_id, pinned_lat, pinned_lng, "FOREVER", name="default"
+                        )
+                        LAST_ACTIVE_LOCATION[chat_id] = "default"
+                        
                 if not loc:
                     for name_to_find in ["home", "default", "work"]:
                         for l in locs:
@@ -276,7 +279,7 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
                                 peak_x, peak_y = x_p, y_p
                                 
                 if has_cloud:
-                    cx, cy = peak_x, peak_y
+                    # Preserve exact requested cx, cy for manual coordinate/pixel locks
                     vx = float(flow[peak_y, peak_x, 0])
                     vy = float(flow[peak_y, peak_x, 1])
         elif is_grid_lock:

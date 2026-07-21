@@ -17,12 +17,22 @@ class FirestoreLocationRepository(LocationRepository):
 
     async def get_location(self, chat_id: Union[str, int], name: str = "default") -> Optional[UserLocation]:
         chat_id_str = str(chat_id)
+        name_lower = (name or "default").lower()
+        
         doc_ref = self.collection.document(f"{chat_id_str}_{name}")
         doc = await doc_ref.get()
-        if not doc.exists and name == "default":
-            # Check legacy document ID format
-            doc_ref = self.collection.document(chat_id_str)
+        if not doc.exists and name != name_lower:
+            doc_ref = self.collection.document(f"{chat_id_str}_{name_lower}")
             doc = await doc_ref.get()
+            
+        if not doc.exists:
+            locs = await self.get_user_locations(chat_id)
+            for l in locs:
+                if (l.name or "").lower() == name_lower:
+                    return l
+                if name_lower == "default" and (not l.name or l.name.lower() == "default"):
+                    return l
+            return None
             
         if doc.exists:
             data = doc.to_dict()
@@ -464,13 +474,22 @@ class FirestoreLocationRepository(LocationRepository):
         name: str = "default"
     ) -> None:
         chat_id_str = str(chat_id)
-        doc_ref = self.collection.document(f"{chat_id_str}_{name}")
-        doc = await doc_ref.get()
-        if doc.exists:
-            update_data = {
-                "tracking_mode": tracking_mode,
-                "locked_target_id": locked_target_id,
-                "locked_target_cx": locked_target_cx,
-                "locked_target_cy": locked_target_cy
-            }
-            await doc_ref.update(update_data)
+        loc = await self.get_location(chat_id_str, name)
+        if not loc and name != "default":
+            loc = await self.get_location(chat_id_str, "default")
+        if loc:
+            doc_id = f"{chat_id_str}_{loc.name}"
+            doc_ref = self.collection.document(doc_id)
+            doc = await doc_ref.get()
+            if not doc.exists and loc.name == "default":
+                doc_ref = self.collection.document(chat_id_str)
+                doc = await doc_ref.get()
+                
+            if doc.exists:
+                update_data = {
+                    "tracking_mode": tracking_mode,
+                    "locked_target_id": locked_target_id,
+                    "locked_target_cx": locked_target_cx,
+                    "locked_target_cy": locked_target_cy
+                }
+                await doc_ref.update(update_data)

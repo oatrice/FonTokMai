@@ -197,9 +197,9 @@ async def main():
 
     async with TestingSessionLocal() as session:
         repo = SQLiteLocationRepository(session)
-        # Register user target location: 17.4126, 102.1664
+        # Register user target location: 17.8392, 102.5734
         chat_id = "test_user_6346467495"
-        await repo.save_location(chat_id, 17.4126, 102.1664, "FOREVER", name="default")
+        await repo.save_location(chat_id, 17.8392, 102.5734, "FOREVER", name="default")
 
         # 2. Initialize TMDRadarProcessor and fetch frames
         processor = TMDRadarProcessor(station_code)
@@ -311,8 +311,8 @@ async def main():
         )
 
         # 4. Find user pixel coordinates (is_loop=True: frames come from the loop GIF)
-        user_x, user_y = processor.latlng_to_pixel(17.4126, 102.1664, is_loop=True)
-        print(f"User location: 17.4126, 102.1664 -> Pixel coordinate (X={user_x}, Y={user_y})")
+        user_x, user_y = processor.latlng_to_pixel(17.8392, 102.5734, is_loop=True)
+        print(f"User location: 17.8392, 102.5734 -> Pixel coordinate (X={user_x}, Y={user_y})")
 
         # 5a. Find approaching clouds - identical to production (weather_manager.py lines 689-726)
         curr_frame = frames[-1].copy()

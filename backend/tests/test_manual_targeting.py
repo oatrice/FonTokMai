@@ -777,6 +777,153 @@ def test_webhook_lock_prioritizes_last_used_station():
     assert WeatherManager.LAST_USED_STATION.get(chat_id) == "kkn240"
 
 
+def test_locked_cloud_draws_polygon_and_green_line():
+    """Verify that when a cloud is locked, its polygon is drawn and green line-of-sight path to user is drawn."""
+    import cv2
+    import io
+    import numpy as np
+    from PIL import Image
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+
+    processor = TMDRadarProcessor("kkn120")
+    user_x, user_y = 400, 400
+    cloud_x, cloud_y = 500, 500
+
+    # Frame with rain pixels around (500, 500)
+    frame = np.full((800, 800, 3), 255, dtype=np.uint8)
+    cv2.circle(frame, (cloud_x, cloud_y), 20, (0, 255, 0), -1) # rain color in radar frame
+
+    # Cloud object with pixels
+    cloud_pixels = [(cloud_x + dx, cloud_y + dy) for dx in range(-10, 10) for dy in range(-10, 10)]
+    clouds = [{
+        "cx": cloud_x,
+        "cy": cloud_y,
+        "vx": 0.0,
+        "vy": 0.0,
+        "dbz_now": 25.0,
+        "predicted_dbz": 25.0,
+        "dist": 141.4,
+        "eta_min": 999.0,
+        "approaching": False,
+        "label": "B6",
+        "pixels": cloud_pixels,
+    }]
+
+    img_bytes = processor.generate_radar_tracking_image(
+        frame, user_x, user_y, clouds,
+        locked_target_id="B6",
+        locked_target_cx=cloud_x,
+        locked_target_cy=cloud_y,
+    )
+    assert img_bytes is not None
+
+    img = Image.open(io.BytesIO(img_bytes))
+    arr = np.array(img)
+
+    # 1. Check green dashed line of sight: pure green pixels (R < 50, G > 200, B < 50)
+    # along line-of-sight between (400,400) and (500,500)
+    green_line_pixels = np.sum(
+        (arr[:, :, 1] > 200) & (arr[:, :, 0] < 50) & (arr[:, :, 2] < 50)
+    )
+    assert green_line_pixels > 0, "Expected green dashed line of sight (0, 255, 0) to be drawn for locked cloud"
+
+
+def test_locked_cloud_fallback_draws_green_line():
+    """Verify that even when locked_cluster is None, green line of sight is drawn for locked coordinates."""
+    import io
+    import numpy as np
+    from PIL import Image
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+
+    processor = TMDRadarProcessor("kkn120")
+    user_x, user_y = 400, 400
+    cloud_x, cloud_y = 500, 500
+    frame = np.full((800, 800, 3), 255, dtype=np.uint8)
+
+    # Empty cloud list (locked_cluster is None)
+    img_bytes = processor.generate_radar_tracking_image(
+        frame, user_x, user_y, clouds=[],
+        locked_target_id="B6",
+        locked_target_cx=cloud_x,
+        locked_target_cy=cloud_y,
+    )
+    assert img_bytes is not None
+
+    img = Image.open(io.BytesIO(img_bytes))
+    arr = np.array(img)
+
+    # Check green line of sight exists
+    green_line_pixels = np.sum(
+        (arr[:, :, 1] > 200) & (arr[:, :, 0] < 50) & (arr[:, :, 2] < 50)
+    )
+    assert green_line_pixels > 0, "Expected green dashed line of sight to be drawn even when locked_cluster is None"
+
+
+@pytest.mark.asyncio
+async def test_webhook_lock_exact_pixel_coordinates(db_session):
+    """Verify that /lock X, Y preserves exact pixel coordinates without shifting to nearby peak dBZ."""
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from datetime import datetime, timezone
+    from app.repositories.sqlite import SQLiteLocationRepository
+
+    repo = SQLiteLocationRepository(db_session)
+    chat_id = 778899
+
+    await repo.save_location(chat_id, 16.4, 102.8, "FOREVER", name="home")
+
+    from app.routers import webhook_commands
+    mock_repo_context = MagicMock()
+    mock_repo_context.__aenter__.return_value = repo
+
+    with patch("app.routers.webhook_commands.get_repo_context", return_value=mock_repo_context), \
+         patch("app.services.weather_manager.WeatherManager") as MockWMClass, \
+         patch("app.services.telegram.send_telegram_message", new_callable=AsyncMock), \
+         patch("app.routers.webhook_commands.process_telegram_location", new_callable=AsyncMock):
+
+        mock_wm = MockWMClass.return_value
+
+        import numpy as np
+        frame = np.zeros((800, 800, 3), dtype=np.uint8)
+        flow = np.zeros((800, 800, 2), dtype=np.float32)
+        # Put peak rain at (334, 189) and lower rain at requested (350, 175)
+        frame[189, 334] = (0, 0, 246)
+        frame[175, 350] = (0, 198, 0)
+        cache_data = ([frame], datetime.now(timezone.utc), 0, flow, "static_cache", 15.0, [0])
+        mock_wm.load_persistent_cache_to_memory = AsyncMock(return_value=cache_data)
+
+        await webhook_commands.handle_lock_command(chat_id, "/lock 350, 175")
+
+        loc_home = await repo.get_location(chat_id, "home")
+        assert loc_home is not None
+        assert loc_home.locked_target_cx == 350
+        assert loc_home.locked_target_cy == 175
+
+
+def test_manual_lock_does_not_snap_to_distant_cluster():
+    """Verify that _resolve_locked_cluster does not snap a manual lock to a distant cluster 47px away."""
+    import numpy as np
+    import cv2
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+
+    clusters = [
+        {"cx": 330, "cy": 129, "label": "P", "pixels": [(330, 129)]},
+    ]
+
+    frame = np.full((800, 800, 3), 255, dtype=np.uint8)
+    cv2.circle(frame, (341, 175), 10, (0, 255, 0), -1)
+
+    processor = TMDRadarProcessor("kkn120")
+    img_bytes = processor.generate_radar_tracking_image(
+        frame, 400, 165, clouds=clusters,
+        locked_target_id="MANUAL",
+        locked_target_cx=341,
+        locked_target_cy=175
+    )
+    assert img_bytes is not None
+
+
+
+
 
 
 

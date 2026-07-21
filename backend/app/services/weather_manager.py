@@ -918,12 +918,15 @@ class WeatherManager:
                 
                 if chat_id:
                     async with get_repo_context() as repo:
-                        loc_record = await repo.get_location(chat_id, location_name or "default")
+                        loc_record = await repo.get_location(chat_id, location_name) if location_name else None
+                        if not loc_record:
+                            loc_record = await repo.get_location(chat_id, "default")
                         if loc_record:
                             tracking_mode = getattr(loc_record, "tracking_mode", "auto")
                             locked_target_id = getattr(loc_record, "locked_target_id", None)
                             locked_target_cx = getattr(loc_record, "locked_target_cx", None)
                             locked_target_cy = getattr(loc_record, "locked_target_cy", None)
+                            logger.info(f"[DEBUG_LOCK] DB read: loc_name={getattr(loc_record, 'name', '?')}, tracking_mode={tracking_mode}, locked_target_id={locked_target_id}, cx={locked_target_cx}, cy={locked_target_cy}")
                             
                 if tracking_mode == "manual" and locked_target_cx is not None and locked_target_cy is not None:
                     min_dist = 9999
@@ -968,10 +971,25 @@ class WeatherManager:
                             min_dist = dist
                             matched_target = cluster
 
+                    # Fallback: if grid-cell constraint filtered out everything, search
+                    # for a cluster that has at least one rain pixel physically inside
+                    # the target grid cell. This catches large clusters whose centroid
+                    # sits outside the cell but whose body overlaps it.
+                    if matched_target is None and is_grid_cell:
+                        logger.info(f"[DEBUG_LOCK] Grid-cell search found nothing — checking pixel overlap (locked_cx={locked_target_cx}, locked_cy={locked_target_cy})")
+                        for cluster in all_rain_clusters:
+                            pixels = cluster.get("pixels", [])
+                            for px_coord, py_coord in pixels:
+                                if cell_x_min <= px_coord <= cell_x_max and cell_y_min <= py_coord <= cell_y_max:
+                                    dist = math.hypot(cluster["cx"] - locked_target_cx, cluster["cy"] - locked_target_cy)
+                                    if dist < min_dist:
+                                        min_dist = dist
+                                        matched_target = cluster
+                                    break
+
                     if matched_target:
-                        # Track the target cloud's movement by updating its pixel
-                        # coordinates, but preserve the user-facing lock label
-                        # (e.g. "G5" or the original cluster label from lock).
+                        logger.info(f"[DEBUG_LOCK] matched_target FOUND: label={matched_target.get('label')}, cx={matched_target['cx']}, cy={matched_target['cy']}, dist={min_dist:.1f}")
+                        # Update DB so future predict_rain calls track from cluster centroid.
                         async with get_repo_context() as repo:
                             await repo.update_tracking_mode(
                                 chat_id=chat_id,
@@ -981,8 +999,17 @@ class WeatherManager:
                                 locked_target_cy=matched_target["cy"],
                                 name=location_name or "default"
                             )
-                        locked_target_cx = matched_target["cx"]
-                        locked_target_cy = matched_target["cy"]
+                        if is_grid_cell:
+                            # For grid-cell locks: keep original cell pixel for the
+                            # tracking renderer so the lock icon appears at the correct
+                            # grid position (locked_target_cx/cy unchanged).
+                            pass
+                        else:
+                            # For label-based locks: follow the cluster as it moves.
+                            locked_target_cx = matched_target["cx"]
+                            locked_target_cy = matched_target["cy"]
+                    else:
+                        logger.warning(f"[DEBUG_LOCK] matched_target NOT FOUND: locked_cx={locked_target_cx}, locked_cy={locked_target_cy}, n_clusters={len(all_rain_clusters)}, closest_dist={min_dist:.1f}")
 
                 # ── Parametric scenario mock (JSON mock_state) ────────────────────
                 if mock_state and mock_state.startswith("{"):
@@ -1121,8 +1148,22 @@ class WeatherManager:
                     
                     if tracking_mode == "manual":
                         if matched_target:
-                            if math.hypot(src_x - matched_target["cx"], src_y - matched_target["cy"]) > 40.0:
-                                dbz = 0.0
+                            # Check if the rain found at src_x,src_y belongs to the locked
+                            # cluster. Use pixel-set proximity (50px to nearest cluster pixel)
+                            # rather than centroid proximity so that large/elongated clusters
+                            # whose body extends toward home are not falsely zeroed out.
+                            pixels = matched_target.get("pixels", [])
+                            if pixels:
+                                min_px_dist = min(
+                                    math.hypot(px_c - src_x, py_c - src_y)
+                                    for px_c, py_c in pixels
+                                )
+                                if min_px_dist > 50.0:
+                                    dbz = 0.0
+                            else:
+                                # No pixel list — fall back to centroid check with wider threshold
+                                if math.hypot(src_x - matched_target["cx"], src_y - matched_target["cy"]) > 80.0:
+                                    dbz = 0.0
                         else:
                             dbz = 0.0
                     
