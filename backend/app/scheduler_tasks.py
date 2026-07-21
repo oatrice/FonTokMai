@@ -263,14 +263,22 @@ async def _send_combined_alerts(chat_id, eval_results, repo, now):
             static_bytes = result.get("radar_static_bytes")
             tracking_bytes = result.get("radar_tracking_bytes")
             timeline_bytes = result.get("rain_timeline_bytes")
+            multiframe_bytes = result.get("radar_multiframe_bytes")
+            
+            is_dev = os.getenv("ENVIRONMENT", "production").lower() == "development"
             
             if platform == "telegram":
                 try:
                     chat_id_val = int(chat_id)
-                    if static_bytes: await send_telegram_photo(chat_id_val, static_bytes, f"radar_latest_{loc.name}.png")
-                    if timeline_bytes: await send_telegram_photo(chat_id_val, timeline_bytes, f"rain_timeline_{loc.name}.png")
-                    if tracking_bytes: await send_telegram_photo(chat_id_val, tracking_bytes, f"radar_tracking_{loc.name}.png")
-                    if gif_bytes: await send_telegram_document(chat_id_val, gif_bytes, f"radar_nowcast_{loc.name}.gif")
+                    if tracking_bytes:
+                        await send_telegram_photo(chat_id_val, tracking_bytes, f"radar_tracking_{loc.name}.png")
+                    
+                    # Send additional detail images on Dev server to save Production traffic
+                    if is_dev:
+                        if static_bytes: await send_telegram_photo(chat_id_val, static_bytes, f"radar_latest_{loc.name}.png")
+                        if timeline_bytes: await send_telegram_photo(chat_id_val, timeline_bytes, f"rain_timeline_{loc.name}.png")
+                        if multiframe_bytes: await send_telegram_photo(chat_id_val, multiframe_bytes, f"radar_multiframe_{loc.name}.png")
+                        if gif_bytes: await send_telegram_document(chat_id_val, gif_bytes, f"radar_nowcast_{loc.name}.gif")
                 except Exception as e:
                     logger.error(f"Failed to send images for {loc.name} of chat_id {chat_id} on {platform}: {e}")
                     errors += 1
