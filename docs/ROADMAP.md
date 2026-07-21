@@ -27,6 +27,30 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #181 - Add /tracking and /nowcast commands to Telegram Bot command menu
+- **GitHub:** [#181](https://gitlab.com/oatricedev/FonMaYang/-/issues/181)
+    - ✅ **Done** (0.57.0)
+
+### Issue #180 - Optimize Artifact Registry storage costs and lifecycle policies
+- **GitHub:** [#180](https://gitlab.com/oatricedev/FonMaYang/-/issues/180)
+- **Status:** 🟢 **Ready**
+
+### Issue #179 - Analyze radar color decoding and false growth prediction for station kkn240
+- **GitHub:** [#179](https://gitlab.com/oatricedev/FonMaYang/-/issues/179)
+- **Status:** 🟢 **Ready**
+
+### Issue #178 - Implement Morphological Filtering (Opening) on TMD Radar images to remove thin boundaries, grid lines, and text labels
+- **GitHub:** [#178](https://gitlab.com/oatricedev/FonMaYang/-/issues/178)
+- **Status:** 🟢 **Ready**
+
+### Issue #177 - Add command to convert current and locked coordinates to Latitude/Longitude
+- **GitHub:** [#177](https://gitlab.com/oatricedev/FonMaYang/-/issues/177)
+- **Status:** 🟢 **Ready**
+
+### Issue #176 - Add ETA calculation feature when moving/driving by entering speed in chat
+- **GitHub:** [#176](https://gitlab.com/oatricedev/FonMaYang/-/issues/176)
+- **Status:** 🟢 **Ready**
+
 ### Issue #173 - สร้างปุ่มเลือกส่งข้อมูลเพิ่มเติมผ่าน LINE Rich Menu เพื่อความสะดวก
 - **GitHub:** [#173](https://gitlab.com/oatricedev/FonMaYang/-/issues/173)
 - **Status:** 🟢 **Ready**
@@ -710,4 +734,8 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ### Issue # - Adjust cloud polygon drawing area to cover each cloud chunk specifically
 - **State:** opened
 - ✅ **Done** (0.56.0)
+
+### Issue # - Fix /tracking and /nowcast Telegram commands not executing processing logic
+- **State:** opened
+- ✅ **Done** (0.57.0)
 

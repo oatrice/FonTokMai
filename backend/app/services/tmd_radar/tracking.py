@@ -200,6 +200,9 @@ class TMDTrackingMixin:
                         cell_y_max = crop_y1 + (grid_row_idx + 1) * cell_h + 5.0
 
                 for c in clusters:
+                    if "pixels" in c and (locked_target_cx, locked_target_cy) in c.get("pixels", []):
+                        return c
+
                     dist = math.hypot(c["cx"] - locked_target_cx, c["cy"] - locked_target_cy)
                     
                     if is_grid_cell and (cell_x_min <= locked_target_cx <= cell_x_max and cell_y_min <= locked_target_cy <= cell_y_max):
@@ -209,12 +212,32 @@ class TMDTrackingMixin:
                     if dist < best_dist:
                         best_dist = dist
                         best = c
-                # 60px in the full frame is generous enough to follow a moving
-                # cloud between frames, but tight enough to avoid snapping to
-                # a different nearby cluster in dense areas (~3x the crop scale).
-                if best and best_dist <= 60:
+                
+                max_match_dist = 25.0 if not is_grid_cell else 60.0
+                if best and best_dist <= max_match_dist:
                     return best
+                
+                # Fallback: if grid-cell constraint found nothing, check whether any
+                # cluster has at least one pixel physically inside the target grid cell.
+                # This catches large clusters whose centroid sits outside the cell but
+                # whose body overlaps it.
+                if is_grid_cell and (best is None or best_dist > max_match_dist):
+                    best2: Optional[dict] = None
+                    best2_dist = float("inf")
+                    for c in clusters:
+                        pixels = c.get("pixels", [])
+                        for px_coord, py_coord in pixels:
+                            if cell_x_min <= px_coord <= cell_x_max and cell_y_min <= py_coord <= cell_y_max:
+                                dist = math.hypot(c["cx"] - locked_target_cx, c["cy"] - locked_target_cy)
+                                if dist < best2_dist:
+                                    best2_dist = dist
+                                    best2 = c
+                                break
+                    if best2:
+                        return best2
+                
                 return None
+
             # Legacy fallback for locks that only stored a cluster label.
             for c in clusters:
                 if c.get("label") == locked_target_id:
@@ -233,7 +256,8 @@ class TMDTrackingMixin:
             if c.get("approaching", False) and -120 <= c.get("eta_min", 9999) <= 180
         ]
         _incoming_pre.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
-        _drawn_clouds = _incoming_pre[:3]  # The up-to-3 clouds rendered with full contour/circle
+        # Render up to 10 approaching clouds (so clouds mentioned in text & timeline like 'K' or 'N' are fully drawn)
+        _drawn_clouds = _incoming_pre[:10]
 
         ambient_clouds = [
             c for c in (all_rain_clusters or [])
@@ -251,7 +275,7 @@ class TMDTrackingMixin:
         if _DEV_CONFIG.get("verbose"):
             logger.info(f"[TRACKING_IMG] display_clouds={len(display_clouds)}, ambient_clouds={len(ambient_clouds)}")
         
-        if frame is None or (not display_clouds and not ambient_clouds):
+        if frame is None or (not display_clouds and not ambient_clouds and not locked_target_id):
             return None
 
         crop_r = 120
@@ -375,7 +399,70 @@ class TMDTrackingMixin:
             incoming = _incoming_pre
 
             all_cloud_refs = list(incoming[:3]) + list(ambient_clouds)
-            locked_cluster = _resolve_locked_cluster(all_cloud_refs)
+            # Include all_rain_clusters in the resolution pool so the pixel-overlap
+            # fallback inside _resolve_locked_cluster can find clusters that were
+            # filtered out of the display list (e.g. a large cluster whose centroid
+            # sits outside the locked grid cell but whose body overlaps it).
+            _extra = [c for c in (all_rain_clusters or []) if c not in all_cloud_refs]
+            locked_cluster = _resolve_locked_cluster(all_cloud_refs + _extra)
+            logger.info(
+                f"[TRACKING_IMG][RESOLVE] locked_target_id={locked_target_id!r} -> "
+                f"locked_cluster={locked_cluster.get('label') if locked_cluster else None!r} "
+                f"(cx={locked_cluster.get('cx') if locked_cluster else 'N/A'}, "
+                f"cy={locked_cluster.get('cy') if locked_cluster else 'N/A'}) "
+                f"in_extra={locked_cluster in _extra if locked_cluster else False}"
+            )
+
+            # If the resolved cluster came from all_rain_clusters (not the normal
+            # display list), inject it into ambient_clouds so the ambient draw loop
+            # can render it with the LOCKED visual style.
+            if locked_cluster is not None and locked_cluster in _extra:
+                ambient_clouds.append(locked_cluster)
+                all_cloud_refs.append(locked_cluster)
+                logger.info(f"[TRACKING_IMG] Injected locked cluster '{locked_cluster.get('label')}' from all_rain_clusters into ambient display list")
+
+
+
+            if locked_cluster is None and locked_target_id and locked_target_cx is not None and locked_target_cy is not None:
+                from app.services.tmd_radar.clustering import TMDClusteringMixin
+                box_r = 30
+                bx1 = max(0, locked_target_cx - box_r)
+                by1 = max(0, locked_target_cy - box_r)
+                bx2 = min(frame.shape[1], locked_target_cx + box_r)
+                by2 = min(frame.shape[0], locked_target_cy + box_r)
+                locked_px = []
+                max_dbz_val = 0.0
+                for py_idx in range(by1, by2):
+                    for px_idx in range(bx1, bx2):
+                        if math.hypot(px_idx - locked_target_cx, py_idx - locked_target_cy) <= box_r:
+                            dbz_val = TMDClusteringMixin._get_dbz_at_pixel_static(frame, px_idx, py_idx)
+                            if dbz_val >= 10.0:
+                                locked_px.append((px_idx, py_idx))
+                                if dbz_val > max_dbz_val:
+                                    max_dbz_val = dbz_val
+                
+                # If no rain pixels >= 10 dBZ exist, create a small 5x5 box of target pixels
+                if not locked_px:
+                    for py_idx in range(max(0, locked_target_cy - 2), min(frame.shape[0], locked_target_cy + 3)):
+                        for px_idx in range(max(0, locked_target_cx - 2), min(frame.shape[1], locked_target_cx + 3)):
+                            locked_px.append((px_idx, py_idx))
+
+                synthetic_cluster = {
+                    "cx": locked_target_cx,
+                    "cy": locked_target_cy,
+                    "vx": 0.0, "vy": 0.0,
+                    "dbz_now": max_dbz_val,
+                    "predicted_dbz": max_dbz_val,
+                    "dist": math.hypot(user_x - locked_target_cx, user_y - locked_target_cy),
+                    "eta_min": 999.0,
+                    "approaching": False,
+                    "label": f"LOCKED[{locked_target_id}]",
+                    "pixels": locked_px,
+                }
+                locked_cluster = synthetic_cluster
+                ambient_clouds.append(synthetic_cluster)
+                all_cloud_refs.append(synthetic_cluster)
+
 
             for c_orig in incoming:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
@@ -514,6 +601,7 @@ class TMDTrackingMixin:
 
                 is_locked = locked_cluster is not None and c_orig is locked_cluster
                 if is_locked:
+                    logger.info(f"[TRACKING_IMG] ✅ Drawn LOCKED target '{locked_target_id}' (approaching cloud '{c_orig.get('label')}') at screen px=({cx},{cy})")
                     cv2.circle(img, (cx, cy), int(22 * scale), (0, 0, 255), int(2 * scale))
                     cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(30 * scale), int(2 * scale))
                     
@@ -599,11 +687,19 @@ class TMDTrackingMixin:
             for c in ambient_clouds:
                 cx_orig, cy_orig = c["cx"], c["cy"]
                 is_locked = locked_cluster is not None and c is locked_cluster
-                if not (cx_orig < x1 - 15 or cx_orig > x2 + 15 or cy_orig < y1 - 15 or cy_orig > y2 + 15):
+                # Always include the locked cluster regardless of whether its centroid
+                # falls inside the crop window — an elongated cluster can have its
+                # centroid outside the crop while its pixels overlap the locked cell.
+                outside_crop = (
+                    cx_orig < x1 - 15 or cx_orig > x2 + 15
+                    or cy_orig < y1 - 15 or cy_orig > y2 + 15
+                )
+                if is_locked or not outside_crop:
                     dbz_val = c.get("predicted_dbz", c.get("dbz_now", 20))
                     pixels_count = len(c.get("pixels", []))
                     if is_locked or (dbz_val >= min_amb_dbz and pixels_count >= min_amb_size):
                         visible_ambient_clouds.append(c)
+
 
             # Sort and build list of ambient clouds to render, prioritizing higher dBZ first, then closer distance
             visible_ambient_clouds.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), -c.get("size", len(c.get("pixels", []))), c.get("dist", 9999)))
@@ -613,7 +709,7 @@ class TMDTrackingMixin:
             else:
                 if locked_cluster is not None and locked_cluster in visible_ambient_clouds:
                     rendered_ambient.append(locked_cluster)
-                max_ambient = 10 if _DEV_CONFIG.get("verbose") else 6
+                max_ambient = 12 if _DEV_CONFIG.get("verbose") else 10
                 for c in visible_ambient_clouds:
                     if len(rendered_ambient) >= max_ambient:
                         break
@@ -637,6 +733,9 @@ class TMDTrackingMixin:
                     f"pixels={_npx} dbz={_dbz:.1f} dist_to_user={_dist:.1f}"
                 )
 
+            # Precompute forecast label set for ambient cloud label formatting
+            _forecast_label_set = set(c.get("label") for c in display_clouds) | set(p.get("cluster") for p in (predictions or []) if p.get("cluster"))
+
             for c_orig in rendered_ambient:
                 cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
 
@@ -652,10 +751,53 @@ class TMDTrackingMixin:
                 pcx = int((peak_cx_orig - x1) * scale)
                 pcy = int((peak_cy_orig - y1) * scale)
 
+                # For a locked ambient cluster whose centroid/peak may lie outside the
+                # crop window (e.g. a large elongated cluster), compute the best anchor:
+                #   - Grid-cell lock: centroid of B's pixels that actually fall inside the
+                #     named cell (e.g. C5).  This puts the pin at "where the rain is in C5",
+                #     which is always on-screen and semantically correct.
+                #   - Other locks: fall back to the stored locked_target_cx/cy.
+                _is_locked_cluster = locked_cluster is not None and c_orig is locked_cluster
+                if _is_locked_cluster and locked_target_cx is not None and locked_target_cy is not None:
+                    anchor_orig_x, anchor_orig_y = locked_target_cx, locked_target_cy  # default fallback
+
+                    # Try to compute cell-constrained centroid for grid-cell locks
+                    if locked_target_id:
+                        _m = re.match(r"^([a-hA-H])[-_]?([1-8])$", locked_target_id)
+                        if _m and "pixels" in c_orig and c_orig["pixels"]:
+                            _col = ord(_m.group(1).upper()) - ord('A')
+                            _row = int(_m.group(2)) - 1
+                            _cell_w = (x2 - x1) / 8.0
+                            _cell_h = (y2 - y1) / 8.0
+                            _cx_min = x1 + _col * _cell_w - 5.0
+                            _cx_max = x1 + (_col + 1) * _cell_w + 5.0
+                            _cy_min = y1 + _row * _cell_h - 5.0
+                            _cy_max = y1 + (_row + 1) * _cell_h + 5.0
+                            _in_cell = [
+                                (px_i, py_i)
+                                for px_i, py_i in c_orig["pixels"]
+                                if _cx_min <= px_i <= _cx_max and _cy_min <= py_i <= _cy_max
+                            ]
+                            if _in_cell:
+                                anchor_orig_x = int(sum(p[0] for p in _in_cell) / len(_in_cell))
+                                anchor_orig_y = int(sum(p[1] for p in _in_cell) / len(_in_cell))
+
+                    locked_screen_cx = int((anchor_orig_x - x1) * scale)
+                    locked_screen_cy = int((anchor_orig_y - y1) * scale)
+                    # Only override if the anchor is actually within the image canvas
+                    if 0 <= locked_screen_cx < img.shape[1] and 0 <= locked_screen_cy < img.shape[0]:
+                        pcx = locked_screen_cx
+                        pcy = locked_screen_cy
+                        cx = locked_screen_cx
+                        cy = locked_screen_cy
+
+
+
                 dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
                 vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
 
                 color = (180, 180, 180) if dbz < 20.0 else _dbz_color(dbz)
+
                 
                 # Draw polygon outline & fill for ambient clouds (similar to approaching clouds)
                 if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
@@ -722,8 +864,8 @@ class TMDTrackingMixin:
                             local_raw_closed = cv2.morphologyEx(local_raw, cv2.MORPH_CLOSE, small_kernel)
                             num_comp, _ = cv2.connectedComponents(local_raw_closed)
                             
-                            SOLIDITY_THRESHOLD = 0.85
-                            is_convex = (solidity > SOLIDITY_THRESHOLD) and (hull_area / max(1.0, area) <= 1.3)
+                            SOLIDITY_THRESHOLD = 0.70
+                            is_convex = (solidity > SOLIDITY_THRESHOLD) and (hull_area / max(1.0, area) <= 1.5)
                             if num_comp > 2:
                                 is_convex = False
                                 
@@ -752,7 +894,7 @@ class TMDTrackingMixin:
                             
                     if global_contours:
                         img_rgba = Image.fromarray(img).convert("RGBA")
-                        img_rgba = _draw_neon_contours(img_rgba, global_contours, color, line_width=max(1, int(2.0 * scale)))
+                        img_rgba = _draw_neon_contours(img_rgba, global_contours, color, line_width=max(1, int(1.5 * scale)))
                         img = np.array(img_rgba.convert("RGB"))
                         
                         # Calculate and store real proximity km from user location
@@ -807,6 +949,7 @@ class TMDTrackingMixin:
 
                 is_locked = locked_cluster is not None and c_orig is locked_cluster
                 if is_locked:
+                    logger.info(f"[TRACKING_IMG] ✅ Drawn LOCKED target '{locked_target_id}' (ambient cloud '{c_orig.get('label')}') at peak px=({pcx},{pcy}), centroid px=({cx},{cy})")
                     cv2.circle(img, (pcx, pcy), int(20 * scale), (0, 0, 255), int(2 * scale))
                     cv2.drawMarker(img, (pcx, pcy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(25 * scale), int(2 * scale))
                     
@@ -844,19 +987,21 @@ class TMDTrackingMixin:
                     cv2.arrowedLine(img, (pcx, pcy), (pcx + vx_s, pcy + vy_s), (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
                     
                 lbl = c_orig.get("label", "")
+                is_forecast_target = lbl in _forecast_label_set
+                
                 if is_locked:
                     lbl = f"LOCKED[{locked_target_id}]"
-                elif dbz < 20.0:
+                elif dbz < 20.0 and not is_forecast_target:
                     lbl = f"{lbl}?"
                 txt = f"{lbl}: {int(dbz)}"
-                tw, th = int(55 * scale) if is_locked else int(45 * scale), int(12 * scale)
+                tw, th = int(45 * scale) if (is_locked or is_forecast_target) else int(32 * scale), int(10 * scale)
                 # Label positioned above the PEAK marker (so text sits on the bright spot)
                 tx = pcx - int(tw / 2)
-                ty = pcy - int(16 * scale) - th
+                ty = pcy - int(12 * scale) - th
                 
                 labels.append({
                     'text': txt,
-                    'type': 'ambient',
+                    'type': 'approaching' if (is_locked or is_forecast_target) else 'ambient',
                     'margin': 0,
                     'w': tw, 'h': th,
                     'cx': tx + tw/2,
@@ -865,9 +1010,9 @@ class TMDTrackingMixin:
                     'ideal_cy': ty - th/2,
                     'anchor_x': pcx,   # anchor line drawn to peak
                     'anchor_y': pcy,
-                    'scale': 0.4 * scale,
-                    'fg': (0, 0, 255) if is_locked else (200, 200, 200),
-                    'bg': (255, 255, 255) if is_locked else (0, 0, 0)
+                    'scale': 0.4 * scale if is_forecast_target else 0.3 * scale,
+                    'fg': (0, 255, 0) if is_forecast_target else ((0, 0, 255) if is_locked else (200, 200, 200)),
+                    'bg': (0, 0, 0) if is_forecast_target else ((255, 255, 255) if is_locked else (0, 0, 0))
                 })
 
         # Draw the manual target lock marker at the exact locked coordinates if no cluster was matched
@@ -875,8 +1020,19 @@ class TMDTrackingMixin:
             cx = int((locked_target_cx - x1) * scale)
             cy = int((locked_target_cy - y1) * scale)
             if 0 <= cx < img.shape[1] and 0 <= cy < img.shape[0]:
+                logger.info(f"[TRACKING_IMG] ✅ Drawn fallback LOCKED marker '{locked_target_id}' at screen px=({cx},{cy})")
                 cv2.circle(img, (cx, cy), int(20 * scale), (0, 0, 255), int(2 * scale))
                 cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(25 * scale), int(2 * scale))
+
+                # Draw green dashed line-of-sight path from locked point (cx, cy) to user (ux, uy)
+                dist_to_user = math.hypot(ux - cx, uy - cy)
+                if dist_to_user > 10:
+                    num_dots = int(dist_to_user / 8)
+                    for d_idx in range(1, num_dots):
+                        t = d_idx / num_dots
+                        dot_x = int(cx + (ux - cx) * t)
+                        dot_y = int(cy + (uy - cy) * t)
+                        cv2.circle(img, (dot_x, dot_y), max(1, int(1.5 * scale)), (0, 255, 0), -1)
                 
                 txt = f"LOCKED[{locked_target_id}]"
                 tw, th = int(65 * scale), int(15 * scale)

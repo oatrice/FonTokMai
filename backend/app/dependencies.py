@@ -10,21 +10,24 @@ import asyncio
 
 _http_client: httpx.AsyncClient | None = None
 _http_client_loop: asyncio.AbstractEventLoop | None = None
+_http_client_pid: int | None = None
 
 def get_http_client() -> httpx.AsyncClient:
-    global _http_client, _http_client_loop
+    global _http_client, _http_client_loop, _http_client_pid
     try:
         current_loop = asyncio.get_running_loop()
     except RuntimeError:
         current_loop = None
+    current_pid = os.getpid()
 
-    if _http_client is None or _http_client.is_closed or _http_client_loop != current_loop:
+    if _http_client is None or _http_client.is_closed or _http_client_loop != current_loop or _http_client_pid != current_pid:
         _http_client = httpx.AsyncClient(timeout=30.0)
         _http_client_loop = current_loop
+        _http_client_pid = current_pid
     return _http_client
 
 async def close_http_client() -> None:
-    global _http_client, _http_client_loop
+    global _http_client, _http_client_loop, _http_client_pid
     if _http_client is not None and not _http_client.is_closed:
         try:
             current_loop = asyncio.get_running_loop()
@@ -34,6 +37,7 @@ async def close_http_client() -> None:
             pass
     _http_client = None
     _http_client_loop = None
+    _http_client_pid = None
 
 def get_firestore_repo():
     from app.repositories.firestore import FirestoreLocationRepository

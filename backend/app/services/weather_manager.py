@@ -873,7 +873,9 @@ class WeatherManager:
                     # Sort by dBZ descending first, then distance ascending so red/heavy rain clusters get labels A, B...
                     all_rain_clusters.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), c.get("dist", 9999)))
                     for i, c in enumerate(all_rain_clusters):
-                        c["label"] = chr(ord('A') + min(i, 25))
+                        # Only label the first 26 clusters (A-Z). Clusters beyond that get None
+                        # to avoid all of them collapsing to 'Z'.
+                        c["label"] = chr(ord('A') + i) if i < 26 else None
                         
                 # Match labels from all_rain_clusters to clouds
                 if all_rain_clusters and clouds:
@@ -918,12 +920,15 @@ class WeatherManager:
                 
                 if chat_id:
                     async with get_repo_context() as repo:
-                        loc_record = await repo.get_location(chat_id, location_name or "default")
+                        loc_record = await repo.get_location(chat_id, location_name) if location_name else None
+                        if not loc_record:
+                            loc_record = await repo.get_location(chat_id, "default")
                         if loc_record:
                             tracking_mode = getattr(loc_record, "tracking_mode", "auto")
                             locked_target_id = getattr(loc_record, "locked_target_id", None)
                             locked_target_cx = getattr(loc_record, "locked_target_cx", None)
                             locked_target_cy = getattr(loc_record, "locked_target_cy", None)
+                            logger.info(f"[DEBUG_LOCK] DB read: loc_name={getattr(loc_record, 'name', '?')}, tracking_mode={tracking_mode}, locked_target_id={locked_target_id}, cx={locked_target_cx}, cy={locked_target_cy}")
                             
                 if tracking_mode == "manual" and locked_target_cx is not None and locked_target_cy is not None:
                     min_dist = 9999
@@ -968,21 +973,45 @@ class WeatherManager:
                             min_dist = dist
                             matched_target = cluster
 
+                    # Fallback: if grid-cell constraint filtered out everything, search
+                    # for a cluster that has at least one rain pixel physically inside
+                    # the target grid cell. This catches large clusters whose centroid
+                    # sits outside the cell but whose body overlaps it.
+                    if matched_target is None and is_grid_cell:
+                        logger.info(f"[DEBUG_LOCK] Grid-cell search found nothing — checking pixel overlap (locked_cx={locked_target_cx}, locked_cy={locked_target_cy})")
+                        for cluster in all_rain_clusters:
+                            pixels = cluster.get("pixels", [])
+                            for px_coord, py_coord in pixels:
+                                if cell_x_min <= px_coord <= cell_x_max and cell_y_min <= py_coord <= cell_y_max:
+                                    dist = math.hypot(cluster["cx"] - locked_target_cx, cluster["cy"] - locked_target_cy)
+                                    if dist < min_dist:
+                                        min_dist = dist
+                                        matched_target = cluster
+                                    break
+
                     if matched_target:
-                        # Track the target cloud's movement by updating its pixel
-                        # coordinates, but preserve the user-facing lock label
-                        # (e.g. "G5" or the original cluster label from lock).
+                        logger.info(f"[DEBUG_LOCK] matched_target FOUND: label={matched_target.get('label')}, cx={matched_target['cx']}, cy={matched_target['cy']}, dist={min_dist:.1f}")
+                        # Update DB so future predict_rain calls track from cluster centroid.
                         async with get_repo_context() as repo:
                             await repo.update_tracking_mode(
                                 chat_id=chat_id,
                                 tracking_mode="manual",
                                 locked_target_id=locked_target_id,
-                                locked_target_cx=matched_target["cx"],
-                                locked_target_cy=matched_target["cy"],
+                                # Grid-cell locks: preserve the original cell-center pixel in DB
+                                # so the lock icon always appears at the named cell, not at the
+                                # matched cluster's centroid (which may be outside the crop window).
+                                # Label-based locks: follow the cluster as it drifts.
+                                locked_target_cx=locked_target_cx if is_grid_cell else matched_target["cx"],
+                                locked_target_cy=locked_target_cy if is_grid_cell else matched_target["cy"],
                                 name=location_name or "default"
                             )
-                        locked_target_cx = matched_target["cx"]
-                        locked_target_cy = matched_target["cy"]
+                        if not is_grid_cell:
+                            # For label-based locks: follow the cluster as it moves.
+                            locked_target_cx = matched_target["cx"]
+                            locked_target_cy = matched_target["cy"]
+
+                    else:
+                        logger.warning(f"[DEBUG_LOCK] matched_target NOT FOUND: locked_cx={locked_target_cx}, locked_cy={locked_target_cy}, n_clusters={len(all_rain_clusters)}, closest_dist={min_dist:.1f}")
 
                 # ── Parametric scenario mock (JSON mock_state) ────────────────────
                 if mock_state and mock_state.startswith("{"):
@@ -1121,21 +1150,48 @@ class WeatherManager:
                     
                     if tracking_mode == "manual":
                         if matched_target:
-                            if math.hypot(src_x - matched_target["cx"], src_y - matched_target["cy"]) > 40.0:
-                                dbz = 0.0
+                            # Check if the rain found at src_x,src_y belongs to the locked
+                            # cluster. Use pixel-set proximity (50px to nearest cluster pixel)
+                            # rather than centroid proximity so that large/elongated clusters
+                            # whose body extends toward home are not falsely zeroed out.
+                            pixels = matched_target.get("pixels", [])
+                            if pixels:
+                                min_px_dist = min(
+                                    math.hypot(px_c - src_x, py_c - src_y)
+                                    for px_c, py_c in pixels
+                                )
+                                if min_px_dist > 50.0:
+                                    dbz = 0.0
+                            else:
+                                # No pixel list — fall back to centroid check with wider threshold
+                                if math.hypot(src_x - matched_target["cx"], src_y - matched_target["cy"]) > 80.0:
+                                    dbz = 0.0
                         else:
                             dbz = 0.0
                     
                     cluster_label = None
                     if dbz >= 10.0 and all_rain_clusters:
                         min_dist = 9999
+                        # Primary pass: within bbox + 20px margin
                         for c in all_rain_clusters:
+                            if c.get("label") is None:
+                                continue
                             dx = max(c.get("xmin", c["cx"]) - src_x, 0, src_x - c.get("xmax", c["cx"]))
                             dy = max(c.get("ymin", c["cy"]) - src_y, 0, src_y - c.get("ymax", c["cy"]))
                             d = math.hypot(dx, dy)
                             if d <= 20 and d < min_dist:
                                 min_dist = d
                                 cluster_label = c.get("label")
+                        # Fallback pass: use nearest labelled cluster centroid within 80px
+                        # (future prediction steps shift src away from the cluster bbox)
+                        if cluster_label is None:
+                            for c in all_rain_clusters:
+                                if c.get("label") is None:
+                                    continue
+                                d = math.hypot(c["cx"] - src_x, c["cy"] - src_y)
+                                if d <= 80 and d < min_dist:
+                                    min_dist = d
+                                    cluster_label = c.get("label")
                                     
                     if mock_state == "rain":
                         dbz = max(dbz, 40.0)
@@ -1294,6 +1350,10 @@ class WeatherManager:
                 multiframe_bytes = None
                 try:
                     static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor)
+                except Exception as e:
+                    logger.error(f"Failed to generate static PNG: {e}")
+
+                try:
                     tracking_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
@@ -1304,7 +1364,10 @@ class WeatherManager:
                         cluster_dist_approaching=10,
                         cluster_dist_ambient=6
                     )
+                except Exception as e:
+                    logger.error(f"Failed to generate tracking PNG: {e}")
                     
+                try:
                     # Create adjusted predictions for the timeline so it displays actual ETA from NOW
                     adjusted_predictions = []
                     for p in predictions:
@@ -1313,15 +1376,18 @@ class WeatherManager:
                         adjusted_predictions.append(adj_p)
                         
                     timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, adjusted_predictions, location_name)
+                except Exception as e:
+                    logger.error(f"Failed to generate timeline PNG: {e}")
                     
-                    if len(frames) >= 2:
+                if len(frames) >= 2:
+                    try:
                         multiframe_bytes = await asyncio.to_thread(
                             processor.generate_multiframe_analysis_image,
                             frames, flow, user_px, user_py, clouds, processor, now_utc,
                             gap_min, frame_timestamps,
                         )
-                except Exception as e:
-                    logger.error(f"Failed to generate radar PNGs: {e}")
+                    except Exception as e:
+                        logger.error(f"Failed to generate multiframe PNG: {e}")
                 
                 return {
                     "predictions":       predictions,
