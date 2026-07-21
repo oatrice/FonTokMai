@@ -106,56 +106,73 @@ async def send_telegram_message_return_id(chat_id: int, text: str, parse_mode: O
 
 
 
+import asyncio
+
 async def send_telegram_document(chat_id: int, file_data: bytes, filename: str) -> bool:
     """
     Sends a document/animation to a specific Telegram chat_id.
     """
-    try:
-        client = get_http_client()
-        files = {"animation": (filename, file_data, "image/gif")}
-        data = {"chat_id": chat_id}
-        response = await client.post(TELEGRAM_SEND_ANIMATION_URL, data=data, files=files, timeout=60.0)
-        if response.status_code != 200:
-            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-            return False
-        return True
-    except Exception as e:
-        logger.error(f"Failed to send telegram animation to {chat_id}: {e}")
-        return False
+    for attempt in range(3):
+        try:
+            logger.info(f"[TELEGRAM] Sending animation '{filename}' ({len(file_data)} bytes) to chat_id={chat_id} (attempt {attempt+1}/3)")
+            async with httpx.AsyncClient(http2=False, timeout=httpx.Timeout(60.0)) as client:
+                files = {"animation": (filename, file_data, "image/gif")}
+                data = {"chat_id": chat_id}
+                headers = {"Connection": "close"}
+                response = await client.post(TELEGRAM_SEND_ANIMATION_URL, data=data, files=files, headers=headers)
+                if response.status_code == 200:
+                    logger.info(f"[TELEGRAM] Successfully sent animation '{filename}' to chat_id={chat_id} (attempt {attempt+1})")
+                    return True
+                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+        except Exception as e:
+            logger.error(f"Failed to send telegram animation to {chat_id} (attempt {attempt+1}/3): {type(e).__name__} - {e}")
+            if attempt < 2:
+                await asyncio.sleep(0.5)
+    return False
 
 async def send_telegram_raw_document(chat_id: int, file_data: bytes, filename: str) -> bool:
     """
     Sends a file as an uncompressed document to a specific Telegram chat_id.
     """
-    try:
-        client = get_http_client()
-        files = {"document": (filename, file_data, "image/gif")}
-        data = {"chat_id": chat_id}
-        response = await client.post(TELEGRAM_SEND_DOC_URL, data=data, files=files, timeout=60.0)
-        if response.status_code != 200:
-            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-            return False
-        return True
-    except Exception as e:
-        logger.error(f"Failed to send telegram raw document to {chat_id}: {e}")
-        return False
+    for attempt in range(3):
+        try:
+            logger.info(f"[TELEGRAM] Sending raw document '{filename}' ({len(file_data)} bytes) to chat_id={chat_id} (attempt {attempt+1}/3)")
+            async with httpx.AsyncClient(http2=False, timeout=httpx.Timeout(60.0)) as client:
+                files = {"document": (filename, file_data, "image/gif")}
+                data = {"chat_id": chat_id}
+                headers = {"Connection": "close"}
+                response = await client.post(TELEGRAM_SEND_DOC_URL, data=data, files=files, headers=headers)
+                if response.status_code == 200:
+                    logger.info(f"[TELEGRAM] Successfully sent raw document '{filename}' to chat_id={chat_id} (attempt {attempt+1})")
+                    return True
+                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+        except Exception as e:
+            logger.error(f"Failed to send telegram raw document to {chat_id} (attempt {attempt+1}/3): {type(e).__name__} - {e}")
+            if attempt < 2:
+                await asyncio.sleep(0.5)
+    return False
 
 async def send_telegram_photo(chat_id: int, photo_data: bytes, filename: str) -> bool:
     """
     Sends a photo to a specific Telegram chat_id.
     """
-    try:
-        client = get_http_client()
-        files = {"photo": (filename, photo_data, "image/png")}
-        data = {"chat_id": chat_id}
-        response = await client.post(TELEGRAM_SEND_PHOTO_URL, data=data, files=files, timeout=30.0)
-        if response.status_code != 200:
-            logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
-            return False
-        return True
-    except Exception as e:
-        logger.error(f"Failed to send telegram photo to {chat_id}: {type(e).__name__} - {e}")
-        return False
+    for attempt in range(3):
+        try:
+            logger.info(f"[TELEGRAM] Sending photo '{filename}' ({len(photo_data)} bytes) to chat_id={chat_id} (attempt {attempt+1}/3)")
+            async with httpx.AsyncClient(http2=False, timeout=httpx.Timeout(60.0)) as client:
+                files = {"photo": (filename, photo_data, "image/png")}
+                data = {"chat_id": chat_id}
+                headers = {"Connection": "close"}
+                response = await client.post(TELEGRAM_SEND_PHOTO_URL, data=data, files=files, headers=headers)
+                if response.status_code == 200:
+                    logger.info(f"[TELEGRAM] Successfully sent photo '{filename}' to chat_id={chat_id} (attempt {attempt+1})")
+                    return True
+                logger.warning(f"Telegram API responded with {response.status_code}: {response.text}")
+        except Exception as e:
+            logger.error(f"Failed to send telegram photo to {chat_id} (attempt {attempt+1}/3): {type(e).__name__} - {e}")
+            if attempt < 2:
+                await asyncio.sleep(0.5)
+    return False
 
 def get_radar_inline_keyboard(lat: float, lng: float, is_developer: bool = False) -> dict:
     """Returns a Telegram inline keyboard markup with multi-source radar links."""
@@ -241,6 +258,7 @@ async def setup_telegram_commands() -> bool:
     # Public commands suggested to all users
     commands = [
         {"command": "rain", "description": "เช็คพิกัดกลุ่มฝนล่าสุด"},
+        {"command": "rain_pro", "description": "เช็คพิกัดและภาพวิเคราะห์เรดาร์ฝนระดับสูง (Pro)"},
         {"command": "check", "description": "เช็คพิกัดเรดาร์ฝน (Shorthand)"},
         {"command": "radar", "description": "แสดงแหล่งข้อมูลเรดาร์ฝนภายนอก"},
         {"command": "tracking", "description": "ดูภาพวิเคราะห์ทิศทางกลุ่มฝน"},

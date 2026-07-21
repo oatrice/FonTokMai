@@ -1294,6 +1294,10 @@ class WeatherManager:
                 multiframe_bytes = None
                 try:
                     static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor)
+                except Exception as e:
+                    logger.error(f"Failed to generate static PNG: {e}")
+
+                try:
                     tracking_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
@@ -1304,7 +1308,10 @@ class WeatherManager:
                         cluster_dist_approaching=10,
                         cluster_dist_ambient=6
                     )
+                except Exception as e:
+                    logger.error(f"Failed to generate tracking PNG: {e}")
                     
+                try:
                     # Create adjusted predictions for the timeline so it displays actual ETA from NOW
                     adjusted_predictions = []
                     for p in predictions:
@@ -1313,15 +1320,18 @@ class WeatherManager:
                         adjusted_predictions.append(adj_p)
                         
                     timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, adjusted_predictions, location_name)
+                except Exception as e:
+                    logger.error(f"Failed to generate timeline PNG: {e}")
                     
-                    if len(frames) >= 2:
+                if len(frames) >= 2:
+                    try:
                         multiframe_bytes = await asyncio.to_thread(
                             processor.generate_multiframe_analysis_image,
                             frames, flow, user_px, user_py, clouds, processor, now_utc,
                             gap_min, frame_timestamps,
                         )
-                except Exception as e:
-                    logger.error(f"Failed to generate radar PNGs: {e}")
+                    except Exception as e:
+                        logger.error(f"Failed to generate multiframe PNG: {e}")
                 
                 return {
                     "predictions":       predictions,
