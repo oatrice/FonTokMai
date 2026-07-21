@@ -62,7 +62,6 @@ fonmayang.db
 firebase-debug.log
 
 # AI Agent Artifacts
-.agents/
 docs/features/
 .aider*
 
