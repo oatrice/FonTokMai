@@ -11,25 +11,25 @@ Implement issues #190 to #198 as part of the Gamified Financial Transparency Sys
   - [x] Implement GCP Cloud Billing & AWS Cost Explorer API integration.
   - [x] Setup cost aggregation pipeline (Baseline vs Variable metrics).
 
-### [ ] Phase 2: Zero-PII Stripe Payment Webhook (MR 2)
+### [x] Phase 2: Zero-PII Stripe Payment Webhook (MR 2)
 - **Issues**: #192
 - **Tasks**:
-  - [ ] Create Stripe webhook listener.
-  - [ ] Extract and store `Stripe_Customer_ID` and `Transaction_ID` with zero PII.
+  - [x] Create Stripe webhook listener.
+  - [x] Extract and store `Stripe_Customer_ID` and `Transaction_ID` with zero PII.
 
-### [ ] Phase 3: Anonymous Auth & Recovery Flow (MR 3)
+### [x] Phase 3: Anonymous Auth & Recovery Flow (MR 3)
 - **Issues**: #193, #194
 - **Tasks**:
-  - [ ] Generate `Fon-XXXX-XXXX` tokens on donation event from MR 2.
-  - [ ] Implement magic link token auth with Local Storage.
-  - [ ] Implement 3-point recovery API (Transaction ID Hash, Timestamp, Amount).
+  - [x] Generate `Fon-XXXX-XXXX` tokens on donation event from MR 2.
+  - [x] Implement magic link token auth with Local Storage.
+  - [x] Implement 3-point recovery API (Transaction ID Hash, Timestamp, Amount).
 
-### [ ] Phase 4: Budget Jars & Runway Engine (MR 4)
+### [x] Phase 4: Budget Jars & Runway Engine (MR 4)
 - **Issues**: #191, #195
 - **Tasks**:
-  - [ ] Implement Budget Jars state machine and allocation split based on MR 2 incoming payments.
-  - [ ] Build Runway countdown engine math using MR 1 cost metrics.
-  - [ ] Setup SSE/WebSockets broadcast for runway updates.
+  - [x] Implement Budget Jars state machine and allocation split based on MR 2 incoming payments.
+  - [x] Build Runway countdown engine math using MR 1 cost metrics.
+  - [x] Setup SSE/WebSockets broadcast for runway updates.
 
 ### [ ] Phase 5: Resiliency & Feature Controls (MR 5)
 - **Issues**: #196, #197
@@ -80,3 +80,33 @@ Implement Pseudonymous Authentication & Magic Link Token Generator (#193) and Tw
 - Push branch `feat/193-194-anon-auth-recovery`.
 - Compose MR description embedding the markdown files.
 - Submit MR & Call `notify_pending_review` and `notify_task_complete`.
+
+---
+
+# Task Plan for MR 4 (Issues #191, #195)
+
+## Issue 195: [Backend] Budget Jars State Machine & Allocation Strategy
+1. **Model/Data Structure**: Define the `BudgetJar` and `AllocationStrategy`.
+   - Jars: Dev Salary, Infrastructure, API.
+   - Percentages for each jar.
+2. **Transaction Handler**: Split incoming donations (e.g. from Stripe) into respective jars.
+3. **Time Decay / Deductions**: Implement daily deduction routines (e.g., daily salary jar reductions).
+4. **Unit Tests**:
+   - Verify state machine routes donations correctly.
+   - Verify daily time-decay cost deductions compute correctly.
+
+## Issue 191: [Architecture] Dynamic Runway Countdown Engine
+1. **Runway Engine**: Implement formula: `Remaining Days = Current Budget / (Fixed Daily Cost + Variable Usage Cost)`.
+2. **Cost Aggregator Integration**: Connect engine to GCP/AWS cost data (or mock/interfaces if not fully implemented).
+3. **Real-time Endpoint**: Build SSE or WebSocket endpoint for live runway updates.
+4. **Unit Tests**:
+   - Verify formula under various scenarios.
+   - Verify SSE/WebSocket endpoint functions and streams updates.
+
+## Execution (TDD)
+- [x] Write failing tests for 195.
+- [x] Implement 195.
+- [x] Refactor 195.
+- [x] Write failing tests for 191.
+- [x] Implement 191.
+- [x] Refactor 191.
