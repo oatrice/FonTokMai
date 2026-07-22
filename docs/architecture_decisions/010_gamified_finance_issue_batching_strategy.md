@@ -107,23 +107,25 @@ To ensure smooth inter-module communication across MR releases:
 sequenceDiagram
     autonumber
     actor Donator as 💚 Donator
-    participant Webhook as 💳 Stripe Webhook (MR 2)
-    participant Auth as 🔑 Anon Auth (MR 3)
-    participant Jars as 🏺 Budget Jars & Runway (MR 4)
-    participant Cloud as ☁️ GCP/AWS Billing (MR 1)
-    participant Breaker as ⚡ Circuit Breaker (MR 5)
+    participant WebApp as 🌐 Frontend WebApp<br/>(Next.js / Firebase Hosting)
+    participant Stripe as 💳 Stripe Hosted Checkout<br/>(External Payment Gateway)
+    participant Backend as ⚡ FastAPI Backend API<br/>(GCP Cloud Run Serverless)
+    participant DB as 💾 Database & Cache<br/>(Firestore & Redis)
+    participant BillingAPI as ☁️ Billing APIs<br/>(GCP Billing & AWS Cost Explorer)
     actor User as 🌧️ End User
 
-    Cloud->>Jars: 1. Send daily aggregated infrastructure costs (Baseline & Variable)
-    Donator->>Webhook: 2. Donate via Stripe (Zero-PII Checkout)
-    Webhook->>Auth: 3. Trigger pseudonymous token generation (Fon-XXXX-XXXX)
-    Webhook->>Jars: 4. Deposit funds & split across budget jars
-    Jars->>User: 5. Broadcast live runway countdown updates (SSE/WebSocket)
-    Breaker->>Jars: 6. Check Jar.HP before external API requests
+    BillingAPI->>Backend: 1. Fetch daily/hourly aggregated infrastructure costs (MR 1)
+    Backend->>DB: Save aggregated Baseline & Variable costs
+    Donator->>Stripe: 2. Checkout & Donate (Zero-PII)
+    Stripe->>Backend: 3. Webhook Event Callback (MR 2)
+    Backend->>Auth: 4. Generate pseudonymous token (Fon-XXXX-XXXX) (MR 3)
+    Backend->>DB: 5. Deposit funds & update Budget Jars state (MR 4)
+    Backend-->>WebApp: 6. Stream live Runway Countdown updates (SSE/WebSocket) (MR 4)
+    Backend->>DB: 7. Check Jar.HP before external API requests (MR 5)
     alt Jar.HP > 0
-        Breaker->>User: Serve premium weather radar data
+        Backend->>User: Serve premium weather radar data
     else Jar.HP <= 0
-        Breaker->>User: Fallback to free weather provider (Open-Meteo)
+        Backend->>User: Fallback to free weather provider (Open-Meteo) (MR 5)
     end
 ```
 
