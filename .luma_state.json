@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "reviewing",
+  "phase": "pr_pending",
   "active_issues": [
     {
       "number": 190,
@@ -38,15 +38,14 @@
         "docs/multi_issue_mr_batching_guide.md",
         "docs/web_app_architecture_and_sitemap.md",
         "findings.md",
-        "luma/prompts/prompt_20260722_053030_155fb79d.md.response.md",
-        "luma/prompts/prompt_20260722_061246_ccfab5a0.md",
-        "luma/prompts/prompt_20260722_061250_238d9e7d.md",
+        "luma_metrics.json",
         "luma_state.json",
         "progress.md",
         "task_plan.md"
       ],
       "meaningful_files": [
         "backend/app/services/billing_service.py",
+        "luma_metrics.json",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -119,7 +118,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": null,
+  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/62",
   "pr_number": null,
-  "last_updated": "2026-07-22T13:13:12.639774"
+  "last_updated": "2026-07-22T13:18:13.511072"
 }
