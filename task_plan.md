@@ -42,3 +42,41 @@ Implement issues #190 to #198 as part of the Gamified Financial Transparency Sys
 - **Tasks**:
   - [ ] Build progress bar UI and data endpoints.
   - [ ] Implement donation lock kill-switch.
+
+---
+
+# Task Plan for MR 3 (Issues #193, #194)
+
+## Overview
+Implement Pseudonymous Authentication & Magic Link Token Generator (#193) and Two-Factor Financial Account Recovery Flow (#194).
+
+## 1. BA Agent Role (Completed)
+- Read issues #193 and #194.
+- Created `task_plan.md`.
+
+## 2. Developer Agent Role
+### Issue #193: Anon Auth & Recovery (Auth generation)
+- Generate a cryptographically random token upon a successful donation.
+- The token will be used as a "Magic Link" parameter and stored in Local Storage on the client.
+- **Backend changes**:
+  - Add auth token field to user/donor model.
+  - Create a new router for authentication (`backend/app/routers/auth.py`).
+  - Implement token generation logic (e.g., `Fon-{random}`).
+  - Add tests in `backend/tests/test_auth.py` (TDD: Red-Green-Refactor).
+
+### Issue #194: Two-Factor Financial Account Recovery Flow
+- Recovery via `Transaction_ID`, `Timestamp` of donation, and `Exact Amount`.
+- **Backend changes**:
+  - Store `Transaction_ID` securely (hashed). Update schema/model in `backend/app/models.py`.
+  - Add a recovery API endpoint to verify transaction data.
+  - Implement hashing/verification logic.
+  - Add tests in `backend/tests/test_recovery.py` (TDD: Red-Green-Refactor).
+
+## 3. QA Agent Role
+- Run `pytest backend/tests/ -v`.
+- Document walkthrough and validation in `walkthrough.md` and `manual_verification.md`.
+
+## 4. MR Manager Agent Role
+- Push branch `feat/193-194-anon-auth-recovery`.
+- Compose MR description embedding the markdown files.
+- Submit MR & Call `notify_pending_review` and `notify_task_complete`.
