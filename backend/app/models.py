@@ -88,3 +88,13 @@ class AdminBypass(Base):
 
     chat_id = Column(String, primary_key=True, index=True)
     expires_at = Column(DateTime, nullable=False)
+
+class Donor(Base):
+    __tablename__ = "donors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String, unique=True, index=True, nullable=False)
+    hashed_transaction_id = Column(String, unique=True, nullable=False)
+    amount = Column(Float, nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+
