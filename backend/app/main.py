@@ -146,7 +146,7 @@ async def telegram_webhook_audit_middleware(request: Request, call_next):
             
     return await call_next(request)
 
-from app.routers import weather, webhook, scheduler, metrics, worker, budget_webhook, line_webhook, auth, runway
+from app.routers import weather, webhook, scheduler, metrics, worker, budget_webhook, line_webhook, auth, runway, stripe_webhook
 
 app.include_router(weather.router)
 app.include_router(webhook.router)
@@ -157,6 +157,7 @@ app.include_router(budget_webhook.router)
 app.include_router(line_webhook.router)
 app.include_router(auth.router)
 app.include_router(runway.router)
+app.include_router(stripe_webhook.router)
 from app.routers import internal
 app.include_router(internal.router)
  

@@ -45,6 +45,32 @@ Implement issues #190 to #198 as part of the Gamified Financial Transparency Sys
 
 ---
 
+# Task Plan: MR 2 - Zero-PII Stripe Webhook Listener & Transaction Logger (Issue #192)
+
+## Overview
+Implement a secure Stripe webhook listener that processes payment and subscription events while storing zero PII (Personally Identifiable Information).
+
+## Acceptance Criteria
+- [x] **Signature Validation:** Webhook receiver successfully validates the signature of incoming Stripe webhooks using the configured webhook secret.
+- [x] **Event Processing:** Checkout session events (one-time & subscription) such as `checkout.session.completed` are successfully processed.
+- [x] **Data Extraction:** Extracts only necessary, pseudonymous fields: `Stripe_Customer_ID` (customer), `Transaction_ID` (payment_intent / subscription), and donation amount (amount_total).
+- [x] **Zero PII Storage:** Database record saves ONLY the extracted non-PII fields. Billing names, emails, addresses, and payment card details MUST NOT be stored.
+- [x] **Tests:** Webhook handler is thoroughly tested with invalid signatures, missing payloads, and valid zero-PII extraction scenarios.
+
+## Developer Tasks (TDD)
+1. Write a failing test for Stripe webhook signature validation (400 Bad Request on invalid signature).
+2. Write a failing test for a valid webhook payload ensuring only `Stripe_Customer_ID`, `Transaction_ID`, and amount are saved to the database.
+3. Implement the Stripe webhook endpoint (e.g., `/api/webhooks/stripe`).
+4. Implement the service/repository to save transaction data.
+5. Make tests pass and refactor.
+6. Verify no PII is logged or passed to the database layer.
+
+## QA Tasks
+1. Run all tests with `pytest tests/ -v`.
+2. Generate `walkthrough.md` and `manual_verification.md` reflecting the testing and verification process.
+
+---
+
 # Task Plan for MR 3 (Issues #193, #194)
 
 ## Overview

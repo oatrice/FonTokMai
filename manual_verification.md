@@ -1,4 +1,33 @@
-# Manual Verification Steps (MR 3)
+# Manual Verification Steps (MR 2: Zero-PII Stripe Webhook Listener)
+
+## Pre-requisites
+- Ensure the backend is running.
+- Set a dummy `STRIPE_WEBHOOK_SECRET` in your `.env` file (e.g., `whsec_test_secret`).
+- Install `stripe-cli` if not already installed.
+
+## Verification Steps
+1. **Start the backend server:**
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+
+2. **Trigger a test event using Stripe CLI:**
+   ```bash
+   stripe trigger checkout.session.completed
+   ```
+
+3. **Verify Application Logs:**
+   - Look for the log: `Saving zero-PII transaction: pi_... for customer cus_... with amount ...`
+   - Verify that NO emails, names, or addresses are printed in the log.
+   
+4. **Invalid Signature Test:**
+   - Send a raw POST request to `/api/webhooks/stripe` using Postman or cURL.
+   - Include a fake `Stripe-Signature: invalid` header.
+   - Assert that the response is `400 Bad Request`.
+
+---
+
+# Manual Verification Steps (MR 3: Anon Auth & Recovery)
 
 1. Start the API locally (`uvicorn app.main:app --reload`).
 2. Make a POST request to `/auth/generate-token` with the following body:
@@ -23,7 +52,7 @@
 
 ---
 
-# Manual Verification Instructions (MR 4)
+# Manual Verification Instructions (MR 4: Budget Jars & Runway Engine)
 
 1. **Start the API Server**:
    ```bash
