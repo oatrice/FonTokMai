@@ -30,10 +30,20 @@ class CostAggregation(BaseModel):
     updated_at: datetime.datetime | None = None
 
 class BillingService:
-    def __init__(self):
-        self.client = budgets_v1.BudgetServiceClient()
+    def __init__(self, client=None):
+        self._client = client
         self.billing_account_id = os.getenv("GCP_BILLING_ACCOUNT_ID")
         self.budget_display_name = os.getenv("GCP_BUDGET_DISPLAY_NAME", "fontokmai-api-monthly-budget")
+
+    @property
+    def client(self):
+        if self._client is None:
+            self._client = budgets_v1.BudgetServiceClient()
+        return self._client
+
+    @client.setter
+    def client(self, value):
+        self._client = value
 
     async def update_budget(self, amount: float) -> bool:
         if not self.billing_account_id:

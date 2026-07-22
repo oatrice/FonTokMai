@@ -4,7 +4,8 @@ from app.services.billing_service import BillingService, CostAggregation
 
 @pytest.fixture
 def billing_service():
-    return BillingService()
+    with patch("app.services.billing_service.budgets_v1.BudgetServiceClient"):
+        return BillingService()
 
 @pytest.mark.asyncio
 async def test_fetch_gcp_costs_success(billing_service):
