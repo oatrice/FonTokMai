@@ -5,91 +5,97 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.58.0] - 2026-07-22
+
+### Added
+- Added infrastructure cost aggregation pipeline for GCP Cloud Billing and AWS Cost Explorer (`BillingService.aggregate_costs`), categorizing Baseline and Variable Costs (Issue #190).
+- Added unit test suite for verifying cost aggregation logic (`tests/test_billing_service.py`).
+- Added Gamified Financial Transparency System architecture documentation (ADR 010), including Web App Site Map and End-to-End Workflow Diagrams (`docs/architecture_decisions/010_gamified_finance_issue_batching_strategy.md` and `docs/web_app_architecture_and_sitemap.md`).
+
 ## [0.57.0] - 2026-07-21
 
 ### Added
-- เพิ่มคำสั่ง `/tracking` และ `/nowcast` ใน Telegram Bot command set เพื่อให้ผู้ใช้สามารถเรียกดูกราฟิกติดตามกลุ่มฝนและ GIF พยากรณ์ฝนได้โดยตรง
-- เพิ่มระบบ GitLab Issue Generation Skill และ Workflow Rules ภายใต้โฟลเดอร์ `.agents/`
+- Added `/tracking` and `/nowcast` commands to Telegram Bot command set, allowing users to request rain tracking graphics and nowcast GIFs directly.
+- Added GitLab Issue Generation Skill and Workflow Rules under `.agents/` directory.
 
 ### Changed
-- ปรับปรุงประสิทธิภาพและลดการใช้ Bandwidth โดยจำกัดการอัปโหลดภาพเรดาร์เสริม (Auxiliary Radar Images) ให้ทำงานเฉพาะในสภาพแวดล้อม Development
-- เพิ่มระบบ Retry และการจัดการ Exception สำหรับการสร้างและส่งภาพ Telegram เพื่อความเสถียรยิ่งขึ้น
+- Improved bandwidth efficiency by restricting auxiliary radar image uploads to Development environments.
+- Added retry mechanism and exception handling for Telegram image rendering and dispatch for higher stability.
 
 ### Fixed
-- แก้ไขการกำหนด Label กลุ่มฝนให้จำกัดอยู่ที่ A-Z พร้อมเพิ่มระบบ Proximity Fallback สำหรับการระบุ Label เมฆในอนาคต
-- ปรับปรุงการล็อคตำแหน่งกลุ่มฝน (Cluster Locking) ให้แสดงผลและปักหมุดตำแหน่งที่ถูกต้อง แม้จุด Centroid ของกลุ่มเมฆจะหลุดออกนอกพื้นที่ Crop Window
+- Fixed rain cloud label allocation to restrict to A-Z with proximity fallback for future cloud labeling.
+- Enhanced rain cluster locking display to pin correct positions even when centroid falls outside the crop window.
 
 ## [0.56.0] - 2026-07-21
 
 ### Added
-- เพิ่มระบบจัดกลุ่มฝน (Radar Clustering) ด้วย OpenCV Contour Processing และแบบจำลองข้อมูล dBZ เพื่อคัดกรองสัญญาณรบกวน (Noise Filter) แทนการใช้ Convex Hull แบบเดิม
-- เพิ่มความสามารถในการแสดงผลภาพเรดาร์ด้วยเส้นขอบขัดเรียบ Chaikin (Chaikin Corner-Cutting Smoothing) และเส้นเรืองแสงสไตล์นีออน (Neon Contour Rendering)
-- เพิ่มระบบลงทะเบียนเมนูคำสั่งของ Telegram Bot แบบไดนามิกตามสภาพแวดล้อม (Dynamic Command Menu Setup) ในโหมดพัฒนาและโหมดใช้งานจริง
-- เพิ่มกลุ่มคำสั่งควบคุมและตรวจสอบสถานะสำหรับแอดมิน (Admin/Developer Webhook Commands)
-  - `/bypass` และ `/bypass_logout` สำหรับเข้า/ออกจากระบบจำลองแอดมินชั่วคราว
-  - `/status` สำหรับตรวจสอบสถานะระบบหลังบ้าน, สิทธิ์ Public Access, และสถานะ Cloud Scheduler Jobs
-  - `/metrics` สำหรับดาวน์โหลดไฟล์รายงานประวัติการทำงานในรูปแบบ CSV
-  - `/setbudget` สำหรับการตั้งค่างบประมาณของระบบแบบไดนามิก
-  - `/job` สำหรับหยุดชั่วคราวหรือเปิดใช้งาน Cloud Scheduler รายงานฝนรายตัว
-  - `/restore_public_access` และ `/disable_public_access` สำหรับควบคุมสิทธิ์การเข้าถึง API สาธารณะ
+- Added OpenCV Contour Processing and dBZ model-based radar clustering (Noise Filter) to replace Convex Hull logic.
+- Added Chaikin corner-cutting smoothing and neon contour rendering for enhanced radar visualization.
+- Added dynamic command menu setup for Telegram Bot environment modes.
+- Added Admin/Developer Webhook Commands:
+  - `/bypass` and `/bypass_logout` for temporary admin mode access/exit.
+  - `/status` to audit backend health, public access status, and Cloud Scheduler Jobs.
+  - `/metrics` to export cron execution logs as CSV files.
+  - `/setbudget` to dynamically adjust system GCP budget limits.
+  - `/job` to pause or resume individual Cloud Scheduler jobs.
+  - `/restore_public_access` and `/disable_public_access` for Cloud Run API access control.
 
 ### Changed
-- ปรับปรุงกระบวนการคัดกรองขอบเขตเมฆฝน (Cloud Mask Morphology) ด้วย Gaussian Blur, HSV Thresholding, และการกรองสีขอบทางภูมิศาสตร์เพื่อความแม่นยำยิ่งขึ้น
-- ปรับโครงสร้างสิทธิ์การเข้าถึงคำสั่งแอดมินโดยใช้งานผ่าน TelegramCommandRouter ที่ควบคุมด้วยระบบ Cloud Tasks
+- Improved cloud mask morphology processing using Gaussian Blur, HSV Thresholding, and geographic boundary color filtering.
+- Refactored admin command authorization structure via `TelegramCommandRouter` dispatched through Cloud Tasks.
 
 ### Fixed
-- แก้ไขปัญหาการส่งการแจ้งเตือนความคืบหน้าฝนที่ทับซ้อนและขัดแย้งกันเอง (ETA notification collision avoidance) โดยเพิ่มสถานะการล็อคคำอธิบายเมฆฝน
-- ปรับปรุงการตรวจสอบข้อมูลและการกู้คืนเฟรมภาพกรณีข้อมูลขาดหาย (Backup frame loading mode)
+- Fixed overlapping ETA notification collisions by maintaining cloud label lock states.
+- Enhanced stale data validation and backup frame loading mode during image missing events.
 
 ## [0.55.0] - 2026-07-14
 
 ### Added
-- เพิ่มระบบล็อคเป้าหมายกลุ่มเมฆฝนบนเรดาร์ด้วยตนเอง (Manual Target Tracking) พร้อมการระบุตำแหน่งอ้างอิงตามช่องตารางกริด (Grid-based coordinate)
-- เพิ่มสัญลักษณ์บอกตำแหน่งเป้าหมายที่ถูกล็อค (Target Lock Indicators & Crosshairs) บนภาพเรดาร์
-- เพิ่มการขีดเส้นบอกระยะสายตา (Line-of-sight path) จากกลุ่มเมฆที่ถูกล็อคเป้าพุ่งตรงมายังพิกัดที่ใช้งานอยู่
-- เพิ่มชุดคำสั่งผ่าน Webhook ให้สามารถล็อคหรือยกเลิกการล็อคเมฆเป้าหมายได้
-- เพิ่มโครงสร้างแบบทดสอบ (`test_manual_targeting.py`) เพื่อตรวจสอบการทำงานของระบบล็อคเป้าแบบแมนนวล
+- Added manual target tracking for rain cloud clusters on radar with grid-based coordinate mapping.
+- Added target lock indicators, crosshairs, and line-of-sight path overlays pointing from cloud targets to current user location.
+- Added webhook commands for locking and unlocking target rain clouds.
+- Added test suite (`test_manual_targeting.py`) for manual target tracking verification.
 
 ### Changed
-- ปรับปรุงหน้าจอวิเคราะห์เรดาร์ (TMD Radar) ให้รองรับการแสดงผลกลุ่มฝนที่ผู้ใช้กำหนดให้ติดตามอย่างเจาะจง
-- เปลี่ยนแปลงการทำงานของ `WeatherManager` เพื่อให้เมื่อมีการล็อคเป้าหมาย ระบบจะวิเคราะห์และให้ความสำคัญกับกลุ่มฝนนั้น ๆ ตามที่ตั้งไว้ในฐานข้อมูล (Firestore)
+- Enhanced TMD Radar analysis view to prioritize user-selected tracked rain clouds.
+- Updated `WeatherManager` to prioritize target-locked rain clouds saved in Firestore.
 
 ## [0.54.0] - 2026-07-13
 
 ### Added
-- เพิ่มการตั้งค่าระดับนักพัฒนาสำหรับกำหนดการคำนวณอัตราสลายตัวของเมฆฝน (`decay_enabled`) และกำหนดจำนวนขั้นในการคาดการณ์เวลาล่วงหน้า (`prediction_steps`) ลงใน `_DEV_CONFIG`
-- เพิ่มฟังก์ชันและโครงสร้างชุดทดสอบ `test_decay_logic.py` เพื่อตรวจสอบและยืนยันการทำงานของโหมดการคำนวณสลายตัว
-- รองรับการป้อนคำสั่งและปรับแต่งแบบมีเว้นวรรค (เช่น `/devmock config prediction_steps: 13`) เพื่ออำนวยความสะดวกในการใช้งานผ่านแชตบอท
+- Added developer configuration options for cloud decay rate calculation (`decay_enabled`) and custom prediction steps (`prediction_steps`) in `_DEV_CONFIG`.
+- Added test suite (`test_decay_logic.py`) to verify decay calculation mode.
+- Added support for space-separated chatbot commands (e.g. `/devmock config prediction_steps: 13`).
 
 ### Changed
-- ปรับปรุงกระบวนการพยากรณ์ฝน (`predict_rain`) ให้นำค่าอัตราการสลายตัว/การเติบโตมาประยุกต์ใช้ในการคำนวณ dBZ เมื่อเปิดโหมดสลายตัว หรือคงขนาดและค่า dBZ คงเดิมตลอดการพยากรณ์เมื่อปิดโหมด
-- ปรับแต่งฟังก์ชันวิเคราะห์กลุ่มฝนเคลื่อนที่เข้าใกล้ (`find_approaching_clouds`) ให้คำนวณค่า `predicted_dbz` โดยอ้างอิงตามสถานะเปิด-ปิดตัวแปร `decay_enabled`
-- เปลี่ยนแปลงลูปการพยากรณ์ฝนให้ใช้จำนวนก้าว `prediction_steps` แทนการฟิกซ์ค่าแบบคงตัวที่ 7 ก้าว (90 นาที) เพื่อการคำนวณที่มีความยืดหยุ่นสูงขึ้นกรณีพายุก่อตัวขนาดใหญ่
+- Enhanced rain forecasting (`predict_rain`) to apply decay/growth rates to dBZ calculations when decay mode is enabled.
+- Adjusted approaching cloud analysis (`find_approaching_clouds`) to compute `predicted_dbz` according to `decay_enabled`.
+- Replaced fixed 7-step (90-min) prediction loop with configurable `prediction_steps` for flexible forecasting.
 
 ## [0.53.0] - 2026-07-13
 
 ### Added
-- เพิ่มชุดทดสอบการทำงานระบบดึงข้อมูลเรดาร์ Polling & Sync (`test_tmd_polling_sync.py`) เพื่อทดสอบความถูกต้องของการใส่ cache-busting parameter และการทำ live update เมื่อข้อมูล cache ขาดช่วง (stale)
+- Added test suite (`test_tmd_polling_sync.py`) for radar polling & sync cache-busting verification.
 
 ### Changed
-- ปรับปรุงและจัดโครงสร้างสถาปัตยกรรมระบบดึงข้อมูลเรดาร์ใหม่ โดยย้ายและรวมศูนย์ตรรกะการดึง/บันทึก/ตรวจสอบข้อมูลเรดาร์ (TMD Radar Cache) ไปไว้ใน `TMDRadarProcessor.update_radar_cache` เพื่อความเรียบร้อยและไม่ซ้ำซ้อนของโค้ด
-- ปรับปรุงการตรวจสอบความสดใหม่ของ Cache ภาพเรดาร์ (Stale checking) ใน `WeatherManager` ให้ทำการดึงภาพเรดาร์ล่าสุดจากเซิร์ฟเวอร์ TMD แบบสดทันทีเมื่อตรวจพบว่า Cache เก่าเกิน 20 นาที ซึ่งช่วยแก้ไขปัญหารอบ Manual Check ดึงข้อมูลล่าช้ากว่ารอบแจ้งเตือนอัตโนมัติบน Production (Issue #167)
-- ปรับความถี่และรอบเวลาการทำงานของระบบดึงข้อมูลภาพเรดาร์ (Polling Schedule) ใน `schedulers.json` ให้เปลี่ยนมาเป็นทุกๆ 15 นาที (นาทีที่ 10, 25, 40, 55 ของชั่วโมง) เพื่อประหยัดการทำ HTTP Request และสัมพันธ์กับช่วงการโพสต์ภาพจริงของเซิร์ฟเวอร์กรมอุตุนิยมวิทยา (Issue #171)
-- เพิ่ม Cache-Busting Parameter (`?t=<timestamp>`) ในการเรียกข้อมูลจาก TMD เพื่อป้องกันการได้รับข้อมูลเก่าค้างจากพร็อกซีหรือ CDN
-- ปรับแต่งข้อมูลดิบที่เป็น raw bytes (เช่น รูปภาพเรดาร์) ในผลลัพธ์ของ `compare_all_apis` ให้ถูกล้างออก (เซ็ตเป็น `None`) เพื่อป้องกันความล้มเหลว `UnicodeDecodeError` ในช่วงการทำ JSON Serialization ของ FastAPI Endpoint `/compare`
+- Centralized TMD Radar Cache fetching/logging/verification in `TMDRadarProcessor.update_radar_cache`.
+- Fixed stale cache checking in `WeatherManager` to fetch live TMD radar images immediately when cache is older than 20 minutes (Issue #167).
+- Adjusted polling schedule in `schedulers.json` to 15-minute intervals (at :10, :25, :40, :55) to align with TMD publishing schedule (Issue #171).
+- Added cache-busting query parameter (`?t=<timestamp>`) to prevent stale proxy/CDN responses.
+- Cleared raw byte fields in `compare_all_apis` results to prevent `UnicodeDecodeError` during JSON serialization on `/compare`.
 
 ## [0.52.0] - 2026-07-13
 
 ### Added
-- เพิ่มคำสั่งแชทใหม่สำหรับ LINE OA: `/radar`, `/tracking`, `/timeline`, และ `/nowcast` เพื่อให้ผู้ใช้สามารถขอดึงเฉพาะชิ้นส่วนภาพพยากรณ์และเรดาร์ที่ต้องการได้ทีละส่วน
-- เพิ่มข้อความแนะนำท้ายการเตือนฝนเชิงรุกบน LINE แนะนำให้ผู้ใช้แชทเพื่อขอข้อมูลรูปภาพเพิ่มเติมผ่านระบบตอบกลับที่เป็นโควต้าฟรี
-- เพิ่มตัวแปรสิ่งแวดล้อม `DEV_TELEGRAM_BOT_TOKEN` ใน `.env.example` และ `deploy_cloudrun.sh` เพื่อรองรับการสลับส่งแจ้งเตือนเตือนภัยงบประมาณเข้าห้องแชทของบอททดสอบ (Dev Bot) แทนบอทจริง
+- Added LINE OA chat commands: `/radar`, `/tracking`, `/timeline`, and `/nowcast`.
+- Added guidance footer in proactive LINE alerts suggesting free quota image requests.
+- Added `DEV_TELEGRAM_BOT_TOKEN` in `.env.example` and `deploy_cloudrun.sh`.
 
 ### Changed
-- ปรับเปลี่ยนสถาปัตยกรรมการตอบกลับคำสั่งแชทบน LINE OA (เช่น `/rain`, `/mylocation`, `/devmock`) จากเดิมที่ยิงผ่าน Push API มาเป็นส่งกล่องข้อความควบรวมผ่าน **Reply API** ซึ่งช่วยประหยัดโควต้าส่งข้อความ (ฟรี 100%)
-- ปรับแต่งระบบแจ้งเตือนฝนตกเชิงรุก (Proactive Alert) ฝั่ง LINE ให้ตัดการส่งภาพเรดาร์ รูปภาพไทม์ไลน์ และคำเตือนขั้นสูงออกจากการส่งเชิงรุก เพื่อเซฟปริมาณการใช้ Push Message
-- ปรับการเชื่อมต่อ LINE Bot Credentials (Token/Secret) ใน `LineNotificationService` ให้ดึงค่าแบบไดนามิก (Dynamic Property) ทุกครั้งที่มีการใช้งาน ป้องกันการแคชค่า Mock เดิมตอนเริ่มต้นระบบ
-- ปรับปรุงการเตือนภัยงบประมาณ (Budget Alert) ใน `budget_webhook.py` ให้ทำงานในลักษณะ Stateful โดยเช็กผ่านแฟล็ก `budget_alert_80_sent` เพื่อตัดสถิติการส่งแจ้งเตือนเตือนภัยงบประมาณซ้ำซ้อน และเคลียร์สถานะเมื่อค่าใช้จ่ายลดต่ำกว่า 80%
+- Refactored LINE OA command response to use **Reply API** (100% free quota) instead of Push API.
+- Optimized proactive LINE alerts by omitting heavy radar images to conserve Push Message quota.
+- Updated `LineNotificationService` to dynamically load credentials per request.
+- Refactored budget alert webhook (`budget_webhook.py`) to be stateful (`budget_alert_80_sent` flag).
 
 ## [0.51.0] - 2026-07-08
 

@@ -18,24 +18,29 @@
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true
+    "step_review": true,
+    "step_docs": true,
+    "step_roadmap": true,
+    "step_archive": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [
+      "pending": [],
+      "changed_files": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION"
-      ],
-      "changed_files": [
+        "VERSION",
         "backend/app/services/billing_service.py",
         "backend/requirements.txt",
         "backend/tests/test_billing_service.py",
         "docs/ROADMAP.md",
         "docs/architecture_decisions/010_gamified_finance_issue_batching_strategy.md",
         "docs/multi_issue_mr_batching_guide.md",
+        "docs/web_app_architecture_and_sitemap.md",
         "findings.md",
-        "luma/prompts/prompt_20260722_052959_afaefb49.md",
+        "luma/prompts/prompt_20260722_053030_155fb79d.md.response.md",
+        "luma/prompts/prompt_20260722_061246_ccfab5a0.md",
+        "luma/prompts/prompt_20260722_061250_238d9e7d.md",
         "luma_state.json",
         "progress.md",
         "task_plan.md"
@@ -116,5 +121,5 @@
   "last_headless_action": null,
   "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-22T12:30:30.735256"
+  "last_updated": "2026-07-22T13:13:12.639774"
 }

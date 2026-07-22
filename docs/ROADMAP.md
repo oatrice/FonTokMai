@@ -61,7 +61,7 @@ This document outlines the strategic goals, planned features, and upcoming miles
 
 ### Issue #190 - [DevOps] GCP/AWS Billing API Integration & Cost Aggregator
 - **GitHub:** [#190](https://gitlab.com/oatricedev/FonMaYang/-/issues/190)
-- **Status:** 🟢 **Ready**
+    - ✅ **Done** (0.58.0)
 
 ### Issue #189 - Update Debug Grid Visualization to 2 Panels
 - **GitHub:** [#189](https://gitlab.com/oatricedev/FonMaYang/-/issues/189)
