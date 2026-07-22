@@ -27,3 +27,10 @@ Whenever you introduce a new Telegram command handler or inline button callback 
 2. If the operation is heavy or network-bound (e.g. fetching radar, database ops), offload it using `CloudTasksService().enqueue_task()`.
 3. Provide immediate visual feedback to the user (e.g., `send_telegram_message_return_id` with "กำลังประมวลผล...") before enqueuing, and pass `message_id_to_edit` to the worker so it can edit that loading message when done.
 4. **DO NOT** use `background_tasks.add_task` directly for heavy operations unless as a strict fallback when `enqueue_task` fails.
+
+# 🌿 Git Branching Strategy Rule
+When creating a new branch or submitting a Merge Request (MR) in a multi-agent or team environment, you MUST follow this structure:
+1. Feature branches must be named `feat/<issue-id>-<short-desc>`.
+2. All feature branches MUST be branched off from and merged into the active integration branch (e.g. `develop` or specific `epic/feature` branch). DO NOT target `main` directly unless explicitly told to do so.
+3. When using `glab mr create`, always specify the target branch explicitly using `--target-branch <branch_name>`.
+4. Prior to pushing, ALWAYS ensure your branch is up-to-date with the integration branch using the `epic-branch-workflow` skill.
