@@ -101,6 +101,33 @@ To ensure smooth inter-module communication across MR releases:
 
 ---
 
+## Persona & System Perspectives
+
+To align system design with business and user value:
+
+1. **Donator (ผู้บริจาค)**:
+   - **Zero-PII Payments (#192)**: Donates via Stripe with 0 personal data stored in DB.
+   - **Pseudonymous Tokens (#193)**: Receives a unique token (e.g. `Fon-8x9J-K2pL`) via magic link to access personal milestone dashboard without username/password.
+   - **2FA Recovery (#194)**: Recovers lost token via 3-point verification (Hashed Transaction ID + Timestamp + Amount).
+   - **Gamified Badges (#198)**: Views anonymized milestone progress and public impact.
+
+2. **End User (ผู้ใช้ทั่วไป / คนดูเรดาร์)**:
+   - **Live Runway Countdown (#191)**: Sees live server lifespan countdown via SSE/WebSocket ("Server runway: 42 days").
+   - **Graceful Fallbacks (#196)**: Keeps receiving radar services seamlessly even when budget jars deplete (`Jar.HP <= 0`), falling back to free APIs.
+   - **Crisis Guarantee (#197)**: Emergency Overdrive guarantees 100% premium service during severe storm events.
+
+3. **BA / Product Owner**:
+   - **Budget Jar Allocation (#195)**: Configures allocation percentages (Server, API, Dev salary) and tracks time decay.
+   - **Emergency Overdrive Toggle (#197)**: System-wide override toggle for disaster response periods.
+   - **Donation Lock & Kill-Switch (#198)**: Security kill-switch to mask leaderboards and divert traffic to waiting lists during security incidents.
+
+4. **SA / DevOps**:
+   - **Automated Cost Aggregation (#190)**: Integrates GCP/AWS billing APIs to calculate real Baseline vs Variable infrastructure costs.
+   - **Circuit Breaker Middleware (#196)**: Intercepts API calls to fallback to free tier APIs upon jar exhaustion without system crashes.
+   - **Zero-PII Data Hardening (#192, #194)**: Ensures database stores only hashed transaction markers and anonymous IDs.
+
+---
+
 ## Consequences
 - **Reviewability**: Each MR targets less than 300-500 lines of code changes (except for schema definitions), facilitating fast PR cycle times.
 - **Verification**: Developers can write targeted mock tests for each MR context.

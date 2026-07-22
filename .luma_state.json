@@ -1,76 +1,47 @@
 {
   "version": "1.0",
   "project_key": "18",
-  "phase": "pr_pending",
+  "phase": "reviewing",
   "active_issues": [
     {
-      "number": 181,
-      "title": "Add /tracking and /nowcast commands to Telegram Bot command menu",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/181",
+      "number": 190,
+      "title": "[DevOps] GCP/AWS Billing API Integration & Cost Aggregator",
+      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/190",
       "body": null,
-      "project_item_id": "GLAB_181",
-      "project_id": null,
-      "repository": "oatricedev/FonMaYang"
-    },
-    {
-      "number": 182,
-      "title": "Fix /tracking and /nowcast Telegram commands not executing processing logic",
-      "html_url": "https://gitlab.com/oatricedev/FonMaYang/-/issues/182",
-      "body": null,
-      "project_item_id": "GLAB_182",
+      "project_item_id": "GLAB_190",
       "project_id": null,
       "repository": "oatricedev/FonMaYang"
     }
   ],
-  "active_branch": "feat/181-add-/tracking-and-/nowcast-com",
-  "started_at": "2026-07-21T16:08:06.541176",
+  "active_branch": "feat/190-devops-gcp/aws-billing-api-int",
+  "started_at": "2026-07-22T12:30:01.519102",
   "checklist": {
     "step_planning": true,
     "step_coding": true,
-    "step_review": true,
-    "step_docs": true,
-    "step_roadmap": true,
-    "step_archive": true
+    "step_review": true
   },
   "context": {
     "pending_doc_updates": {
-      "pending": [],
-      "changed_files": [
+      "pending": [
         "CHANGELOG.md",
         "README.md",
-        "VERSION",
-        "agents/AGENTS.md",
-        "agents/skills/create-gitlab-issue/SKILL.md",
-        "backend/app/dependencies.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/webhook_commands.py",
-        "backend/app/routers/webhook_location.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/telegram.py",
-        "backend/app/services/tmd_radar/tracking.py",
-        "backend/app/services/weather_manager.py",
-        "backend/tests/test_kkn240_run.py",
-        "backend/tests/test_manual_targeting.py",
-        "backend/tests/test_telegram_commands.py",
-        "backend/tests/test_tracking_nowcast_commands.py",
+        "VERSION"
+      ],
+      "changed_files": [
+        "backend/app/services/billing_service.py",
+        "backend/requirements.txt",
+        "backend/tests/test_billing_service.py",
         "docs/ROADMAP.md",
-        "gitignore",
-        "luma_metrics.json",
-        "luma_state.json"
+        "docs/architecture_decisions/010_gamified_finance_issue_batching_strategy.md",
+        "docs/multi_issue_mr_batching_guide.md",
+        "findings.md",
+        "luma/prompts/prompt_20260722_052959_afaefb49.md",
+        "luma_state.json",
+        "progress.md",
+        "task_plan.md"
       ],
       "meaningful_files": [
-        "backend/app/dependencies.py",
-        "backend/app/repositories/firestore.py",
-        "backend/app/repositories/sqlite.py",
-        "backend/app/routers/webhook_commands.py",
-        "backend/app/routers/webhook_location.py",
-        "backend/app/scheduler_tasks.py",
-        "backend/app/services/telegram.py",
-        "backend/app/services/tmd_radar/tracking.py",
-        "backend/app/services/weather_manager.py",
-        "gitignore",
-        "luma_metrics.json",
+        "backend/app/services/billing_service.py",
         "luma_state.json"
       ],
       "version_file": "VERSION",
@@ -143,7 +114,7 @@
   },
   "checkpoint_data": {},
   "last_headless_action": null,
-  "pr_url": "https://gitlab.com/oatricedev/FonMaYang/-/merge_requests/61",
+  "pr_url": null,
   "pr_number": null,
-  "last_updated": "2026-07-21T21:30:46.981603"
+  "last_updated": "2026-07-22T12:30:30.735256"
 }
