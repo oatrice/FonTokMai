@@ -31,11 +31,11 @@ Implement issues #190 to #198 as part of the Gamified Financial Transparency Sys
   - [x] Build Runway countdown engine math using MR 1 cost metrics.
   - [x] Setup SSE/WebSockets broadcast for runway updates.
 
-### [ ] Phase 5: Resiliency & Feature Controls (MR 5)
+### [x] Phase 5: Resiliency & Feature Controls (MR 5)
 - **Issues**: #196, #197
 - **Tasks**:
-  - [ ] Build Dynamic Circuit Breaker middleware (downgrade on Jar.HP <= 0).
-  - [ ] Implement Emergency Overdrive toggle (Invincible Mode).
+  - [x] Build Dynamic Circuit Breaker middleware (downgrade on Jar.HP <= 0).
+  - [x] Implement Emergency Overdrive toggle (Invincible Mode).
 
 ### [ ] Phase 6: Milestone Presentation & Security Lock (MR 6)
 - **Issues**: #198
@@ -136,3 +136,30 @@ Implement Pseudonymous Authentication & Magic Link Token Generator (#193) and Tw
 - [x] Write failing tests for 191.
 - [x] Implement 191.
 - [x] Refactor 191.
+
+---
+
+# Task Plan for MR 5 (Issues #196, #197: Resiliency & Feature Controls)
+
+## Issue 196: Dynamic Feature Flag & Circuit Breaker System
+**Acceptance Criteria:**
+- [ ] Circuit breaker correctly triggers fallback when Jar HP is <= 0.
+- [ ] Middleware handles fallback transitions seamlessly without crashing the bot/application.
+- [ ] System automatically recovers the paid features once the jar is funded again.
+
+**Implementation Steps:**
+- Create a `CircuitBreaker` class or middleware logic in `backend/app/services` or `backend/app/middleware`.
+- Add logic to check a Jar's HP (balance).
+- Wrap external API calls (e.g., weather API) with the Circuit Breaker.
+- Provide a fallback response when the Circuit Breaker is triggered.
+
+## Issue 197: Emergency Overdrive Mode (Free Period Bypass)
+**Acceptance Criteria:**
+- [ ] Admin command or flag successfully activates Emergency Overdrive.
+- [ ] When active, circuit breakers are bypassed and paid features are forced on.
+- [ ] Countdown UI displays appropriate emergency status/invincible indicator.
+
+**Implementation Steps:**
+- Add an `emergency_overdrive` flag to the system configuration (e.g., in a settings table or config).
+- Update the Circuit Breaker logic to bypass the `Jar.HP <= 0` check if `emergency_overdrive` is true.
+- Ensure that the runway decay is frozen when the flag is active.
