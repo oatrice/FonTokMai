@@ -101,6 +101,34 @@ To ensure smooth inter-module communication across MR releases:
 
 ---
 
+## End-to-End Workflow Diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Donator as 💚 Donator
+    participant Webhook as 💳 Stripe Webhook (MR 2)
+    participant Auth as 🔑 Anon Auth (MR 3)
+    participant Jars as 🏺 Budget Jars & Runway (MR 4)
+    participant Cloud as ☁️ GCP/AWS Billing (MR 1)
+    participant Breaker as ⚡ Circuit Breaker (MR 5)
+    actor User as 🌧️ End User
+
+    Cloud->>Jars: 1. Send daily aggregated infrastructure costs (Baseline & Variable)
+    Donator->>Webhook: 2. Donate via Stripe (Zero-PII Checkout)
+    Webhook->>Auth: 3. Trigger pseudonymous token generation (Fon-XXXX-XXXX)
+    Webhook->>Jars: 4. Deposit funds & split across budget jars
+    Jars->>User: 5. Broadcast live runway countdown updates (SSE/WebSocket)
+    Breaker->>Jars: 6. Check Jar.HP before external API requests
+    alt Jar.HP > 0
+        Breaker->>User: Serve premium weather radar data
+    else Jar.HP <= 0
+        Breaker->>User: Fallback to free weather provider (Open-Meteo)
+    end
+```
+
+---
+
 ## Persona & System Perspectives
 
 To align system design with business and user value:
