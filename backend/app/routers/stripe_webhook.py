@@ -27,9 +27,9 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None, 
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
         
-        customer_id = session.get('customer')
-        transaction_id = session.get('payment_intent') or session.get('subscription')
-        amount_total = session.get('amount_total')
+        customer_id = getattr(session, 'customer', None)
+        transaction_id = getattr(session, 'payment_intent', None) or getattr(session, 'subscription', None)
+        amount_total = getattr(session, 'amount_total', None)
         
         # Zero PII: Do not extract names, emails, addresses
         await transaction_service.save_stripe_transaction(
