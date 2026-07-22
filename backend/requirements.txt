@@ -25,3 +25,6 @@ line-bot-sdk==3.25.0
 
 # Standalone radar bot (radar_bot.py)
 python-telegram-bot[job-queue]>=20.0
+
+google-cloud-billing==2.15.1
+boto3==1.36.0

@@ -77,6 +77,30 @@ graph TD
 
 ---
 
+## Data Flow & Integration Points
+
+To ensure smooth inter-module communication across MR releases:
+
+1. **MR 1 → MR 4 (Cost Metrics Flow)**:
+   - MR 1 stores aggregated daily/hourly costs (`baseline_cost`, `variable_cost`) in DB/Redis.
+   - MR 4 reads these cost metrics to compute remaining runway: `Days = Total Budget / (Baseline + Variable)`.
+
+2. **MR 2 → MR 3 & MR 4 (Payment Processing & Allocation Flow)**:
+   - MR 2 receives Stripe Webhook events and logs Zero-PII records (`Stripe_Customer_ID`, `Transaction_ID`, `Amount`).
+   - MR 3 registers event hooks to issue pseudonymous tokens (`Fon-XXXX-XXXX`) upon successful donation events logged by MR 2.
+   - MR 4 listens to payment confirmation events to split incoming funds across budget jars according to allocation percentages.
+
+3. **MR 4 → MR 5 (Jar Health & Circuit Breaker Interception)**:
+   - MR 4 updates `Jar.HP` and calculates live runway updates.
+   - MR 5 middleware checks `Jar.HP` on each external API request. If `Jar.HP <= 0`, it triggers fallback options (e.g., Open-Meteo).
+   - MR 5 Emergency Overdrive flag bypasses `Jar.HP` checks and freezes runway decay.
+
+4. **MR 3 & MR 4 & MR 5 → MR 6 (Public Presentation & Lock Controls)**:
+   - MR 6 queries anonymized milestone totals (from MR 4) and user badges (from MR 3).
+   - MR 6 Security Lock kill-switch immediately masks public leaderboards and overrides public endpoints.
+
+---
+
 ## Consequences
 - **Reviewability**: Each MR targets less than 300-500 lines of code changes (except for schema definitions), facilitating fast PR cycle times.
 - **Verification**: Developers can write targeted mock tests for each MR context.
