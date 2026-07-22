@@ -31,7 +31,7 @@ def test_stripe_webhook_valid_payload_saves_zero_pii(mocker):
 
     # Mock the database/service save call
     # We will implement this in a service
-    mock_save = mocker.patch("app.routers.stripe_webhook.save_stripe_transaction")
+    mock_save = mocker.patch("app.routers.stripe_webhook.transaction_service.save_stripe_transaction")
 
     response = client.post(
         "/api/webhooks/stripe",
