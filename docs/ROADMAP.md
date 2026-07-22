@@ -27,6 +27,66 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
 ## Synced From GitHub
+### Issue #198 - [Feature] Anonymized Milestone Funding & Donation Lock Mechanism
+- **GitHub:** [#198](https://gitlab.com/oatricedev/FonMaYang/-/issues/198)
+- **Status:** 🟢 **Ready**
+
+### Issue #197 - [Feature] Emergency Overdrive Mode (Free Period Bypass)
+- **GitHub:** [#197](https://gitlab.com/oatricedev/FonMaYang/-/issues/197)
+- **Status:** 🟢 **Ready**
+
+### Issue #196 - [Architecture] Dynamic Feature Flag & Circuit Breaker System
+- **GitHub:** [#196](https://gitlab.com/oatricedev/FonMaYang/-/issues/196)
+- **Status:** 🟢 **Ready**
+
+### Issue #195 - [Backend] Budget Jars State Machine & Allocation Strategy
+- **GitHub:** [#195](https://gitlab.com/oatricedev/FonMaYang/-/issues/195)
+- **Status:** 🟢 **Ready**
+
+### Issue #194 - [Security] Two-Factor Financial Account Recovery Flow
+- **GitHub:** [#194](https://gitlab.com/oatricedev/FonMaYang/-/issues/194)
+- **Status:** 🟢 **Ready**
+
+### Issue #193 - [Feature] Pseudonymous Authentication & Magic Link Token Generator
+- **GitHub:** [#193](https://gitlab.com/oatricedev/FonMaYang/-/issues/193)
+- **Status:** 🟢 **Ready**
+
+### Issue #192 - [Security] Zero-PII Stripe Webhook Listener & Transaction Logger
+- **GitHub:** [#192](https://gitlab.com/oatricedev/FonMaYang/-/issues/192)
+- **Status:** 🟢 **Ready**
+
+### Issue #191 - [Architecture] Dynamic Runway Countdown Engine
+- **GitHub:** [#191](https://gitlab.com/oatricedev/FonMaYang/-/issues/191)
+- **Status:** 🟢 **Ready**
+
+### Issue #190 - [DevOps] GCP/AWS Billing API Integration & Cost Aggregator
+- **GitHub:** [#190](https://gitlab.com/oatricedev/FonMaYang/-/issues/190)
+    - ✅ **Done** (0.58.0)
+
+### Issue #189 - Update Debug Grid Visualization to 2 Panels
+- **GitHub:** [#189](https://gitlab.com/oatricedev/FonMaYang/-/issues/189)
+- **Status:** 🟢 **Ready**
+
+### Issue #188 - Web App Feature: Cloud Cluster Hover Trajectory Preview
+- **GitHub:** [#188](https://gitlab.com/oatricedev/FonMaYang/-/issues/188)
+- **Status:** 🟢 **Ready**
+
+### Issue #187 - Web App for Visualizing Rain Direction and Warning Boundary Configuration
+- **GitHub:** [#187](https://gitlab.com/oatricedev/FonMaYang/-/issues/187)
+- **Status:** 🟢 **Ready**
+
+### Issue #185 - Refactor: Unify shared message and media processing logic for Telegram and LINE webhooks
+- **GitHub:** [#185](https://gitlab.com/oatricedev/FonMaYang/-/issues/185)
+- **Status:** 🟢 **Ready**
+
+### Issue #184 - Filter out radial/stripe pattern noise artifacts from radar images
+- **GitHub:** [#184](https://gitlab.com/oatricedev/FonMaYang/-/issues/184)
+- **Status:** 🟢 **Ready**
+
+### Issue #183 - Investigate Non-Deterministic Trajectory Results When Using Fixed Fixture Data
+- **GitHub:** [#183](https://gitlab.com/oatricedev/FonMaYang/-/issues/183)
+- **Status:** 🟢 **Ready**
+
 ### Issue #181 - Add /tracking and /nowcast commands to Telegram Bot command menu
 - **GitHub:** [#181](https://gitlab.com/oatricedev/FonMaYang/-/issues/181)
     - ✅ **Done** (0.57.0)

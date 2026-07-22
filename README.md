@@ -1,20 +1,20 @@
 # FonMaYang 🌧️
 
-**v0.57.0** — ระบบพยากรณ์ฝนแบบ Real-Time สำหรับพื้นที่ภาคอีสาน ประเทศไทย  
-ใช้ภาพเรดาร์ TMD + Optical Flow เพื่อคาดการณ์ฝนล่วงหน้า 15–90+ นาที
+**v0.58.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
+Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical Flow Cloud Tracking.
 
 ---
 
 ## Features
 
-- **TMD Radar Processing** — ดาวน์โหลดและประมวลผลภาพเรดาร์ TMD (kkn120, kkn240, skn240) ด้วย Optical Flow
-- **Rain Prediction** — คาดการณ์เวลาฝนจะมาถึง (ETA) และความเข้ม (dBZ) ล่วงหน้าสูงสุด 90+ นาที
-- **Manual Target Locking** — เลือกล็อคเป้าหมายกลุ่มฝนที่สนใจเพื่อดูทิศทางและระยะทางเคลื่อนที่บนภาพเรดาร์ได้แบบเจาะจง
-- **Multi-Provider Fallback** — รองรับ Tomorrow.io, Rainbow API, Xweather, Open-Meteo เป็น fallback
-- **Telegram Bot** — แจ้งเตือนผ่าน Telegram พร้อมภาพเรดาร์ tracking, timeline, และ multi-frame analysis
-- **LINE Bot** — แจ้งเตือนและรับส่งพิกัด/คำสั่งทาง LINE OA พร้อมส่งภาพเรดาร์ล่าสุด และแผนภูมิวิเคราะห์กลุ่มฝน
-- **Multi-Frame Radar Analysis** — ภาพ strip แสดงสูงสุด 6 frames เรียงตามเวลา พร้อม trajectory overlay และ growth/decay % ต่อ frame
-- **Scheduler** — Cloud Scheduler ส่งแจ้งเตือนอัตโนมัติทุก 15 นาที
+- **TMD Radar Processing** — Downloads and processes TMD radar images (kkn120, kkn240, skn240) using Optical Flow.
+- **Rain Prediction** — Forecasts rain arrival time (ETA) and intensity (dBZ) up to 90+ minutes in advance.
+- **Manual Target Locking** — Select and lock specific rain cloud targets to track their precise direction and distance on radar images.
+- **Multi-Provider Fallback** — Fallback support for Tomorrow.io, Rainbow API, Xweather, and Open-Meteo.
+- **Telegram Bot** — Automated alerts via Telegram with tracking radar images, timeline graphs, and multi-frame analysis.
+- **LINE Bot** — Alerts and location/command processing via LINE Official Account with latest radar images and cloud analysis charts.
+- **Multi-Frame Radar Analysis** — Multi-frame strip images (up to 6 frames) ordered chronologically with trajectory overlays and per-frame growth/decay %.
+- **Scheduler** — Cloud Scheduler triggers automated polling and alerts every 15 minutes.
 
 ---
 
@@ -25,50 +25,50 @@
 ### User Commands
 | Command | Description |
 |---|---|
-| (ส่ง Location) | พยากรณ์ฝน ณ ตำแหน่งนั้น และบันทึกเพื่อสมัครรับแจ้งเตือน |
-| `/rain` | ดูสภาพอากาศตำแหน่งล่าสุด |
-| `/rain tmd-radar` | บังคับใช้ TMD Radar endpoint |
-| `/rain <location_name>` | ดูสภาพอากาศตำแหน่งที่บันทึกไว้ |
-| `/radar` | ดูภาพเรดาร์ล่าสุด (Static Radar) สำหรับพิกัดล่าสุด |
-| `/tracking` | ดูภาพวิเคราะห์ทิศทางกลุ่มฝน (Tracking Radar) สำหรับพิกัดล่าสุด |
-| `/timeline` | ดูภาพกราฟไทม์ไลน์ระยะเวลาฝน (Timeline Graph) สำหรับพิกัดล่าสุด |
-| `/nowcast` | ดูภาพเคลื่อนไหวพยากรณ์ฝน (GIF Nowcast) สำหรับพิกัดล่าสุด |
-| `/lock <grid>` | ล็อคเป้าหมายกลุ่มฝนตามช่องตาราง (เช่น `/lock C4`) หรือตำแหน่งแมนนวล |
-| `/unlock` | ยกเลิกการล็อคเป้าหมายกลุ่มฝน |
+| (Send Location) | Forecast rain at the sent location and save it for proactive notifications |
+| `/rain` | View weather for the most recent location |
+| `/rain tmd-radar` | Force use of TMD Radar endpoint |
+| `/rain <location_name>` | View weather for a saved location |
+| `/radar` | View latest static radar image for the most recent location |
+| `/tracking` | View tracking radar image with storm vectors for the most recent location |
+| `/timeline` | View rain duration timeline graph for the most recent location |
+| `/nowcast` | View animated nowcast GIF for the most recent location |
+| `/lock <grid>` | Lock a rain cloud target by grid square (e.g. `/lock C4`) or manual position |
+| `/unlock` | Unlock the currently tracked rain cloud target |
 
 ### Developer Commands (DEVELOPER_CHAT_IDS only)
 | Command | Description |
 |---|---|
-| `/bypass <password>` | ยืนยันรหัสผ่านเพื่อเปิดใช้งาน Emergency Admin Bypass (1 ชั่วโมง) |
-| `/bypass_logout` | ออกจากระบบ Emergency Admin Bypass |
-| `/metrics [days]` | ส่งออกประวัติการรัน Cron metrics เป็นไฟล์ CSV |
-| `/setbudget <amount>` | ปรับเปลี่ยนวงเงินงบประมาณ GCP แบบ Dynamic |
-| `/job <pause/resume> <job_name>` | พักการทำงานหรือเปิดใช้งาน Cloud Scheduler Jobs ล่าสุด |
-| `/status` | ตรวจสอบข้อมูลสถานะระบบหลังบ้าน งบประมาณคงเหลือ และ Cloud Scheduler Jobs |
-| `/restore_public_access` | กู้คืนสิทธิ์ Public Access ให้กับ API ของ Cloud Run |
-| `/disable_public_access` | ยกเลิกสิทธิ์ Public Access ของ API ให้เป็นโหมด Private |
-| `/devmock help` | แสดงทุก command |
-| `/devmock rain` | จำลองฝนตกหนัก (Boost เมฆจริง) |
-| `/devmock storm` | จำลองพายุ (สร้างเมฆปลอม 5 ก้อน) |
-| `/devmock clear` | จำลองท้องฟ้าแจ่มใส |
-| `/devmock error` | จำลอง API ล้มเหลวทั้งหมด |
-| `/devmock off` | ปิด mock mode |
-| `/devmock config` | ดูและปรับการตั้งค่าการวิเคราะห์ (รวมถึง decay_enabled และ prediction_steps) |
-| `/devmock scenario <params>` | **จำลองสถานการณ์ฝนแบบ Parametric** (ดูด้านล่าง) |
+| `/bypass <password>` | Verify password to activate Emergency Admin Bypass (1 hour) |
+| `/bypass_logout` | Log out from Emergency Admin Bypass |
+| `/metrics [days]` | Export Cron metrics history as a CSV file |
+| `/setbudget <amount>` | Dynamically adjust GCP budget limit |
+| `/job <pause/resume> <job_name>` | Pause or resume specific Cloud Scheduler Jobs |
+| `/status` | Check backend system status, remaining budget, and Cloud Scheduler Jobs |
+| `/restore_public_access` | Restore Public Access permission for Cloud Run API |
+| `/disable_public_access` | Revoke Public Access permission for Cloud Run API (Private mode) |
+| `/devmock help` | Show all devmock commands |
+| `/devmock rain` | Simulate heavy rain (Boost real clouds) |
+| `/devmock storm` | Simulate storm (Create 5 mock clouds) |
+| `/devmock clear` | Simulate clear sky |
+| `/devmock error` | Simulate all APIs failing |
+| `/devmock off` | Turn off mock mode |
+| `/devmock config` | View and adjust analysis settings (including decay_enabled and prediction_steps) |
+| `/devmock scenario <params>` | **Simulate parametric rain scenarios** (see below) |
 
 #### `/devmock scenario` Parameters
 ```
-rain_in:N        ฝนจะมา in N นาที
-rain_stopping:N  ฝนจะหยุดใน N นาที
-no_rain          ไม่มีฝน (ทดสอบลมอย่างเดียว)
-dbz:N            ความเข้มฝน dBZ (15–75, default 35)
-wind:N           ความเร็วลม km/h (default 20)
-wind_dir:X       ทิศลม: N/NE/E/SE/S/SW/W/NW (16 จุด)
-growth:N         อัตราการเติบโต ±0.0–1.0
-clusters:N       จำนวนก้อนเมฆ 1–5 (default 1)
+rain_in:N        Rain will arrive in N minutes
+rain_stopping:N  Rain will stop in N minutes
+no_rain          No rain (Test wind only)
+dbz:N            Rain intensity dBZ (15–75, default 35)
+wind:N           Wind speed km/h (default 20)
+wind_dir:X       Wind direction: N/NE/E/SE/S/SW/W/NW (16 points)
+growth:N         Growth rate ±0.0–1.0
+clusters:N       Number of cloud clusters 1–5 (default 1)
 ```
 
-**ตัวอย่าง:**
+**Examples:**
 ```
 /devmock scenario rain_in:20 dbz:40 wind:60 wind_dir:N
 /devmock scenario rain_stopping:10 dbz:30
@@ -95,6 +95,7 @@ WeatherManager.predict_rain()
 
 **Key Services:**
 - `backend/app/services/weather_manager.py` — Orchestrator, mock state handler, manual target tracking
+- `backend/app/services/billing_service.py` — GCP/AWS Billing and cost aggregation pipeline
 - `backend/app/services/tmd_radar/clustering.py` — OpenCV contours, rain cluster detection, circular masking
 - `backend/app/services/tmd_radar/tracking.py` — Optical flow wind vectors, cloud tracking, trajectory predictions
 - `backend/app/services/tmd_radar/processor.py` — Main orchestrator for TMD Radar processing
@@ -127,6 +128,7 @@ python -m pytest tests/ -v
 ```
 
 Key test files:
+- `tests/test_billing_service.py` — GCP and AWS cost aggregation and billing tests
 - `tests/test_tmd_radar_e2e.py` — End-to-end TMD radar processing
 - `tests/test_e2e_mock_scenario.py` — Parametric mock scenario (33 tests)
 - `tests/test_multiframe_analysis.py` — Multi-frame visualization (16 tests)
@@ -143,4 +145,4 @@ Key test files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.57.0** — เพิ่มคำสั่ง `/tracking` และ `/nowcast` สำหรับ Telegram Bot, ปรับปรุงการล็อกตำแหน่งกลุ่มฝน (Cluster Locking) และระบบจัดการ Label A-Z
+Current: **v0.58.0** — Added GCP/AWS infrastructure cost aggregator (`BillingService`) and financial transparency system architecture docs (ADR 010).
