@@ -25,10 +25,10 @@ async def test_fetch_gcp_costs_success(billing_service):
 
 @pytest.mark.asyncio
 async def test_fetch_aws_costs_success(billing_service):
-    with patch("app.services.billing_service.boto3.client") as mock_boto:
+    with patch("app.services.billing_service.boto3") as mock_boto:
         # Mocking basic successful response
         mock_ce = MagicMock()
-        mock_boto.return_value = mock_ce
+        mock_boto.client.return_value = mock_ce
         mock_ce.get_cost_and_usage.return_value = {
             "ResultsByTime": [
                 {
