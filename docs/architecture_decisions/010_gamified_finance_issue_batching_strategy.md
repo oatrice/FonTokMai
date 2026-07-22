@@ -162,3 +162,4 @@ To align system design with business and user value:
 - **Reviewability**: Each MR targets less than 300-500 lines of code changes (except for schema definitions), facilitating fast PR cycle times.
 - **Verification**: Developers can write targeted mock tests for each MR context.
 - **Dependency Flow**: Subsequent MRs can be built on top of the schemas and endpoints defined in earlier MRs.
+- **Parallel Worktree Execution**: MR 2, MR 3, and MR 4 can be developed concurrently in isolated Git Worktrees (`../fonmayang-worktrees/mrX`) using specialized 4-role Agent Squad Teams (BA, Dev, QA, MR Manager) without code collision, allowing human reviewers to verify each MR independently before merging into `main`.
