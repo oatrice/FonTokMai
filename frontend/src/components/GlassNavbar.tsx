@@ -13,6 +13,7 @@ import {
   BarChart3,
   Cpu
 } from "lucide-react";
+import Link from "next/link";
 import { GlassButton } from "./ui/GlassButton";
 import { GlassBadge } from "./ui/GlassBadge";
 
@@ -44,6 +45,10 @@ export function GlassNavbar() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
+            <Link href="/dashboard" className="px-3.5 py-2 text-sm font-semibold text-cyan-400 hover:text-cyan-300 rounded-xl hover:bg-cyan-500/10 transition-all flex items-center gap-1.5">
+              <Activity className="h-4 w-4" />
+              <span>Dashboard</span>
+            </Link>
             <a href="#overview" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
               Overview
             </a>
@@ -60,10 +65,12 @@ export function GlassNavbar() {
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <GlassButton variant="secondary" size="sm">
-              <ShieldAlert className="h-4 w-4 text-amber-400" />
-              <span>Status OK</span>
-            </GlassButton>
+            <Link href="/dashboard">
+              <GlassButton variant="secondary" size="sm">
+                <Activity className="h-4 w-4 text-cyan-400" />
+                <span>Live Dashboard</span>
+              </GlassButton>
+            </Link>
             <GlassButton variant="primary" size="sm">
               <HeartHandshake className="h-4 w-4" />
               <span>Donate</span>

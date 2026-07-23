@@ -15,10 +15,13 @@ export function Header() {
           </div>
         </Link>
         <nav className="flex items-center gap-6 text-sm">
-          <Link href="/dashboard" className="text-cyan-400 font-medium flex items-center gap-1.5 hover:text-cyan-300 transition-colors">
+          <Link href="/" className="text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5 font-medium">
+            <span>← Home</span>
+          </Link>
+          <span className="text-cyan-400 font-semibold flex items-center gap-1.5 bg-cyan-500/10 px-3 py-1 rounded-lg border border-cyan-500/20">
             <Activity className="w-4 h-4" />
             Dashboard
-          </Link>
+          </span>
           <a href="https://t.me/FonMaYangBot" target="_blank" rel="noreferrer" className="text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5">
             <Flame className="w-4 h-4 text-amber-400" />
             Telegram Bot
