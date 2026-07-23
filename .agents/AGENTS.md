@@ -29,8 +29,23 @@ Whenever you introduce a new Telegram command handler or inline button callback 
 4. **DO NOT** use `background_tasks.add_task` directly for heavy operations unless as a strict fallback when `enqueue_task` fails.
 
 # 🌿 Git Branching Strategy Rule
-When creating a new branch or submitting a Merge Request (MR) in a multi-agent or team environment, you MUST follow this structure:
-1. Feature branches must be named `feat/<issue-id>-<short-desc>`.
-2. All feature branches MUST be branched off from and merged into the active integration branch (e.g. `develop` or specific `epic/feature` branch). DO NOT target `main` directly unless explicitly told to do so.
-3. When using `glab mr create`, always specify the target branch explicitly using `--target-branch <branch_name>`.
-4. Prior to pushing, ALWAYS ensure your branch is up-to-date with the integration branch using the `epic-branch-workflow` skill.
+When creating a new branch or submitting a Merge Request (MR) in a multi-agent or team environment, you MUST follow this strict structure:
+1. **No Direct Sub-task MR to `main`**: You are strictly **FORBIDDEN** from creating an MR/PR from `subtask/*` or individual task branches directly targeting `main`.
+2. **Sub-task Integration Workflow**: You **MUST** switch to the parent feature branch (`git checkout feat/<parent-feature>`), merge the sub-task branch (`git merge subtask/<task-id>`), and run automated tests (`pytest`) until all pass before integrating into the main integration branch.
+3. **Target Integration Branch**: Feature branches must be named `feat/<issue-id>-<short-desc>` and MUST target the active integration branch (e.g., `develop` or epic branch). DO NOT target `main` directly unless explicitly instructed.
+4. **MR Command Strictness**: When using `glab mr create`, always specify `--target-branch <branch_name>` explicitly.
+5. **Skill Compliance**: Use `.agents/skills/subtask-branch-integrator/SKILL.md` for sub-task merges and `epic-branch-workflow` for integration branch rebasing prior to pushing.
+
+# 📋 Manual Verification Artifact Rule
+Whenever an Agent Squad or Subagent finishes implementing a feature or completing an MR (Merge Request), you **MUST ALWAYS** generate a `manual_verification.md` file in the worktree/project directory following `.agents/skills/create-manual-verification/SKILL.md`.
+1. **Document Verification Steps:** List clear steps, curl/CLI commands, prerequisites, and expected outcomes for happy path and edge cases.
+2. **Include in MR Description:** When creating or updating a Merge Request, copy the contents of `manual_verification.md` directly into the MR description body so reviewers have clear steps for manual verification.
+
+# 📝 Documentation & Version Sync Rule (Luma Pattern)
+Whenever completing a feature release or significant MR, you **MUST** ensure documentation and version files are synchronized following `.agents/skills/doc-version-updater/SKILL.md`:
+1. **Isolated Per-MR Updates**: **DO NOT** update documentation for multiple MRs/branches in a single commit. Each MR/PR branch MUST modify `CHANGELOG.md`, `README.md`, and `VERSION` exclusively for the scope of **that specific MR**.
+2. **Changelog Entry**: Add structured entries in `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format (`Added`, `Changed`, `Fixed`, `Security`).
+3. **Version Synchronization**: Ensure the version string in `VERSION` (or `package.json`/`pyproject.toml`) strictly matches the latest version header in `CHANGELOG.md`. Release versions MUST move forward incrementally per MR without collisions.
+4. **README Alignment**: If new API endpoints, environment variables, or CLI options are added, update `README.md` to reflect the changes.
+
+
