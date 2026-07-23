@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
   // Try fetching backend API first
   try {
-    const res = await fetch("http://localhost:8000/api/milestones", { cache: "no-store" });
+    const res = await fetch(`${backendUrl}/api/milestones`, { cache: "no-store" });
     if (res.ok) {
       const data = await res.json();
       return NextResponse.json(data);

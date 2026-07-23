@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
   try {
-    const res = await fetch("http://localhost:8000/api/runway", { cache: "no-store" });
+    const res = await fetch(`${backendUrl}/api/runway`, { cache: "no-store" });
     if (res.ok) {
       const data = await res.json();
       return NextResponse.json(data);
