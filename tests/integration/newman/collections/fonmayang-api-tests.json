@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "8f88921a-1234-4567-89ab-cdef01234567",
 		"name": "FonMaYang API Integration Tests",
-		"description": "Comprehensive integration test suite covering Happy Path & Failure Cases for Runway Engine, Milestones, Anonymous Auth, and Zero-PII Stripe Webhooks.",
+		"description": "Comprehensive integration test suite covering Happy Path, Failure Cases, Edge Cases, and State Changes for Runway Engine, Milestones, Anonymous Auth, and Zero-PII Stripe Webhooks.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -39,6 +39,48 @@
 					"path": [
 						"api",
 						"runway"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "1b. Public Runway Engine API - Emergency Overdrive Mode (200 OK)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Status code is 200 OK', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"pm.test('Returns emergency_overdrive = true state', function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.emergency_overdrive).to.eql(true);",
+							"    pm.expect(jsonData.days_remaining).to.eql(-1);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{BASE_URL}}/api/runway?emergency_overdrive=true",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"runway"
+					],
+					"query": [
+						{
+							"key": "emergency_overdrive",
+							"value": "true"
+						}
 					]
 				}
 			},

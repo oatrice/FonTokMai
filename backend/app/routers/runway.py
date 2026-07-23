@@ -37,22 +37,24 @@ async def stream_runway(emergency_overdrive: bool = False):
     )
 
 @public_router.get("/runway")
-async def get_runway():
+async def get_runway(emergency_overdrive: bool = False):
     engine = RunwayEngine()
     current_budget = 5140.0
     fixed_daily_cost = 80.0
     variable_daily_cost = 40.0
-    remaining_days = engine.calculate_remaining_days(current_budget, fixed_daily_cost, variable_daily_cost)
-    seconds_remaining = int(remaining_days * 86400)
+    remaining_days = engine.calculate_remaining_days(
+        current_budget, fixed_daily_cost, variable_daily_cost, emergency_overdrive=emergency_overdrive
+    )
+    is_overdrive = emergency_overdrive or remaining_days == float('inf')
     
     return {
-        "days_remaining": int(remaining_days),
-        "hours_remaining": int((remaining_days % 1) * 24),
-        "seconds_remaining": seconds_remaining,
+        "days_remaining": -1 if is_overdrive else int(remaining_days),
+        "hours_remaining": -1 if is_overdrive else int((remaining_days % 1) * 24),
+        "seconds_remaining": -1 if is_overdrive else int(remaining_days * 86400),
         "burn_rate_per_day": fixed_daily_cost + variable_daily_cost,
         "total_balance_thb": current_budget,
         "circuit_breaker_active": False,
-        "emergency_overdrive": False,
+        "emergency_overdrive": emergency_overdrive,
         "budget_jars": [
             {
                 "name": "Cloud Run Infrastructure",
