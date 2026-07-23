@@ -128,14 +128,18 @@
 			"response": []
 		},
 		{
-			"name": "4. Zero-PII Stripe Webhook Listener",
+			"name": "4a. Zero-PII Stripe Webhook - Invalid Signature Verification (400)",
 			"event": [
 				{
 					"listen": "test",
 					"script": {
 						"exec": [
-							"pm.test('Status code is 200 or 400 (Signature Validated)', function () {",
-							"    pm.expect(pm.response.code).to.be.oneOf([200, 400]);",
+							"pm.test('Status code is 400 Bad Request', function () {",
+							"    pm.response.to.have.status(400);",
+							"});",
+							"pm.test('Returns Invalid signature error message', function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.detail).to.eql('Invalid signature');",
 							"});"
 						],
 						"type": "text/javascript"
@@ -151,12 +155,76 @@
 					},
 					{
 						"key": "Stripe-Signature",
-						"value": "t=1721660000,v1=test_sig"
+						"value": "t=1721660000,v1=invalid_signature_hash"
 					}
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"id\": \"evt_test_123\",\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"cs_test_session_123\",\n      \"amount_total\": 1000,\n      \"currency\": \"thb\"\n    }\n  }\n}"
+					"raw": "{\"id\":\"evt_test_invalid_123\",\"object\":\"event\",\"type\":\"checkout.session.completed\",\"data\":{\"object\":{\"id\":\"cs_test_session_123\",\"amount_total\":1000}}}"
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/api/webhooks/stripe",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"webhooks",
+						"stripe"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "4b. Zero-PII Stripe Webhook - Valid Signed Event (200 OK)",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"var CryptoJS = require('crypto-js');",
+							"var secret = pm.environment.get('STRIPE_WEBHOOK_SECRET') || 'whsec_650bb99cccd0e13b302dd78e415ff759cda70f28a840607ca72351aeb8b76647';",
+							"var timestamp = Math.floor(Date.now() / 1000).toString();",
+							"var payload = '{\"id\":\"evt_test_valid_123\",\"object\":\"event\",\"type\":\"checkout.session.completed\",\"data\":{\"object\":{\"id\":\"cs_test_session_valid\",\"amount_total\":1000}}}';",
+							"var signaturePayload = timestamp + '.' + payload;",
+							"var hash = CryptoJS.HmacSHA256(signaturePayload, secret).toString(CryptoJS.enc.Hex);",
+							"pm.environment.set('STRIPE_SIG', 't=' + timestamp + ',v1=' + hash);"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Status code is 200 OK', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"pm.test('Returns success status', function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.status).to.eql('success');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Stripe-Signature",
+						"value": "{{STRIPE_SIG}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"id\":\"evt_test_valid_123\",\"object\":\"event\",\"type\":\"checkout.session.completed\",\"data\":{\"object\":{\"id\":\"cs_test_session_valid\",\"amount_total\":1000}}}"
 				},
 				"url": {
 					"raw": "{{BASE_URL}}/api/webhooks/stripe",
