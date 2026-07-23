@@ -6,6 +6,7 @@ import json
 from app.services.runway_engine import RunwayEngine
 
 router = APIRouter(prefix="/api/v1/runway", tags=["Runway Engine"])
+public_router = APIRouter(prefix="/api", tags=["Runway & Milestones Public API"])
 
 async def runway_event_generator(emergency_overdrive: bool = False):
     engine = RunwayEngine()
@@ -34,3 +35,63 @@ async def stream_runway(emergency_overdrive: bool = False):
         runway_event_generator(emergency_overdrive=emergency_overdrive),
         media_type="text/event-stream"
     )
+
+@public_router.get("/runway")
+async def get_runway():
+    engine = RunwayEngine()
+    current_budget = 5140.0
+    fixed_daily_cost = 80.0
+    variable_daily_cost = 40.0
+    remaining_days = engine.calculate_remaining_days(current_budget, fixed_daily_cost, variable_daily_cost)
+    seconds_remaining = int(remaining_days * 86400)
+    
+    return {
+        "days_remaining": int(remaining_days),
+        "hours_remaining": int((remaining_days % 1) * 24),
+        "seconds_remaining": seconds_remaining,
+        "burn_rate_per_day": fixed_daily_cost + variable_daily_cost,
+        "total_balance_thb": current_budget,
+        "circuit_breaker_active": False,
+        "emergency_overdrive": False,
+        "budget_jars": [
+            {
+                "name": "Cloud Run Infrastructure",
+                "percentage": 50,
+                "allocated_thb": 2570,
+                "description": "Backend API instances & async workers",
+                "color": "from-blue-500 to-cyan-500",
+            },
+            {
+                "name": "TMD Radar & Weather APIs",
+                "percentage": 30,
+                "allocated_thb": 1542,
+                "description": "Radar image processing & storage",
+                "color": "from-purple-500 to-indigo-500",
+            },
+            {
+                "name": "Emergency Reserve Jar",
+                "percentage": 20,
+                "allocated_thb": 1028,
+                "description": "Locked buffer for unexpected spikes",
+                "color": "from-emerald-500 to-teal-500",
+            },
+        ],
+    }
+
+@public_router.get("/milestones")
+async def get_milestones():
+    return {
+        "target_thb": 10000,
+        "current_thb": 5140,
+        "is_locked": False,
+        "lock_reason": None,
+        "milestones": [
+            {
+                "id": 1,
+                "title": "Milestone 1: 90-Day Server Fund",
+                "target_thb": 10000,
+                "current_thb": 5140,
+                "completed": False,
+            }
+        ],
+    }
