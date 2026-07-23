@@ -71,8 +71,6 @@ docs/features/
 # Luma State
 .luma_state.json
 
+.worktrees/
 results/
-
-
 scratch/
-
