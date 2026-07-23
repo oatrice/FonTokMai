@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.61.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
+**v0.62.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
 Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical Flow Cloud Tracking.
 
 ---
@@ -107,10 +107,12 @@ WeatherManager.predict_rain()
 
 ---
 
-## DevOps Scripts
+## DevOps & QA Scripts
 
 | Script | Description |
 |---|---|
+| `scripts/run_all_production_qa_tests.sh` | Run complete 6-suite Production QA & Full-Stack Playwright E2E test suite |
+| `scripts/generate_qa_report.py` | Generate standalone HTML QA report with embedded authentic screenshots |
 | `backend/scripts/check_public_access.sh` | Audit Cloud Run IAM public access |
 | `backend/scripts/disable_public_access.sh` | Disable API public access and configure private mode |
 | `backend/scripts/setup_iam_roles.sh` | Configure IAM roles for Cloud Run Service Account |
@@ -122,23 +124,27 @@ WeatherManager.predict_rain()
 
 ## Running Tests
 
+### Backend Unit Tests
 ```bash
 cd backend
 source .venv/bin/activate
 python -m pytest tests/ -v
 ```
 
-Key test files:
-- `tests/test_billing_service.py` — GCP and AWS cost aggregation and billing tests
-- `tests/test_tmd_radar_e2e.py` — End-to-end TMD radar processing
-- `tests/test_e2e_mock_scenario.py` — Parametric mock scenario (33 tests)
-- `tests/test_multiframe_analysis.py` — Multi-frame visualization (16 tests)
-- `tests/test_line_integration.py` — LINE integration, commands, and webhook handling
-- `tests/test_grpc_fork_config.py` — gRPC fork configuration and lazy tasks client tests
-- `tests/test_async_enqueue_task.py` — Async tasks enqueue verification tests
-- `tests/test_decay_logic.py` — Cloud decay toggle and prediction steps verification tests
-- `tests/test_manual_targeting.py` — Manual target tracking, override logic, and visual indicators tests
-- `tests/test_tracking_nowcast_commands.py` — Telegram `/tracking` and `/nowcast` command router & dispatch execution tests
+### Full-Stack Playwright E2E & Production QA Test Suite
+```bash
+./scripts/run_all_production_qa_tests.sh
+```
+
+Key test suites & files:
+- `scripts/run_all_production_qa_tests.sh` — 6-Suite Full-Stack E2E test runner (Runway, Budget Jars, Circuit Breaker, Stripe, Webhooks, A11y)
+- `tests/e2e/test_suite_1_runway_overdrive.py` — Live Runway Engine & Emergency Overdrive tests
+- `tests/e2e/test_suite_2_budget_jars.py` — Budget Jars 50/30/20 & zero-balance safety tests
+- `tests/e2e/test_suite_3_circuit_breaker.py` — Circuit Breaker active danger badge tests
+- `tests/e2e/test_suite_4_stripe_auto_refresh.py` — Stripe webhook auto-balance update tests (5,140 → 7,640 THB)
+- `tests/e2e/test_suite_5_serverless_webhooks.py` — Serverless Telegram webhook fast response contract (< 200ms)
+- `tests/e2e/test_suite_6_theme_a11y.py` — Dark Glassmorphic Theme & Keyboard Accessibility tests
+- `tests/e2e/test_navigation.py` — Breadcrumbs navigation hierarchy tests
 
 ---
 
@@ -146,4 +152,4 @@ Key test files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.58.0** — Added GCP/AWS infrastructure cost aggregator (`BillingService`) and financial transparency system architecture docs (ADR 010).
+Current: **v0.62.0** — Full-Stack Financial Transparency Dashboard, SWR Polling, Stripe Webhook Balance Fix, UX Breadcrumb Navigation, and 6-Suite Production QA Playwright Test Suite.
