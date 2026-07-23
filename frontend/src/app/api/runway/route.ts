@@ -2,14 +2,21 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+  console.log("🌐 [Next.js Route Handler] Fetching from:", `${backendUrl}/api/runway`);
+  
   try {
     const res = await fetch(`${backendUrl}/api/runway`, { cache: "no-store" });
+    console.log("📡 [Next.js Route Handler] Response Status:", res.status, res.statusText);
+    
     if (res.ok) {
       const data = await res.json();
+      console.log("✅ [Next.js Route Handler] Live Data Received from Backend! seconds_remaining:", data.seconds_remaining);
       return NextResponse.json(data);
+    } else {
+      console.warn("⚠️ [Next.js Route Handler] Backend returned non-200 status:", res.status);
     }
   } catch (e) {
-    // Fallback if backend is offline
+    console.error("❌ [Next.js Route Handler] Fetch Error (Falling back to static data):", e);
   }
 
   return NextResponse.json({
