@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.62.0] - 2026-07-23
+
+### Added
+- Added Complete 6-Suite Production QA & Full-Stack E2E Playwright Test Runner (`scripts/run_all_production_qa_tests.sh`) covering Live Runway, Budget Jars, Circuit Breaker, Stripe Auto-Update, Telegram Webhook, and Dark Glassmorphism Accessibility (Issues #182, #191-#197, #201-#203).
+- Added Automated Professional HTML QA Report Generator (`scripts/generate_qa_report.py`).
+
+### Fixed
+- Fixed Stripe Webhook zero-PII transaction balance update (`stripe_webhook.py`) by switching to absolute DB path resolution and robust `StripeObject` dict-style key access.
+- Fixed UX Navigation in Dashboard Header (`Header.tsx` & `GlassNavbar.tsx`), introducing Breadcrumb hierarchy (`FonMaYang` › `System Dashboard`) and bidirectional navigation links between root (`/`) and dashboard (`/dashboard`).
+- Fixed Test Suite 6 assertions to validate actual Dark Glassmorphism background color and keyboard `Tab` navigation.
+
 ## [0.61.0] - 2026-07-23
 
 ### Added
