@@ -14,6 +14,20 @@ Use this skill to keep your active feature branch up-to-date with a shared integ
 
 ## Steps
 
+### 0. Creating a New Branch (Feature / Fix / Subtask)
+Before starting work on a new feature or fix, **ALWAYS** update `main` first and branch off from it:
+```bash
+# 1. Switch to base branch
+git checkout main
+
+# 2. Pull latest upstream changes
+git pull origin main
+
+# 3. Create your new branch
+git checkout -b feat/<issue-id>-<short-desc>
+# Or for bugfixes: git checkout -b fix/<issue-id>-<short-desc>
+```
+
 ### 1. Identify the Integration Branch
 Determine which branch you are targeting for your MR. If unsure, check the user's instructions or the current epic definition. Example: `develop`.
 

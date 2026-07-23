@@ -19,8 +19,6 @@ Whenever asked to create an issue card (e.g. "สร้างการ์ด iss
 3. **Attach Provided Images:** If the user attached image(s) or screenshot(s) in the prompt, you **MUST** upload them to GitLab (via GitLab API `/uploads`) and embed the uploaded image markdown into the issue description or issue note.
 4. **Use Skill:** Follow the format and procedure in `.agents/skills/create-gitlab-issue/SKILL.md`.
 
-
-
 # 🚀 Telegram Webhook Latency Rule
 Whenever you introduce a new Telegram command handler or inline button callback in `webhook.py`, you **MUST**:
 1. Return a `200 OK` (via `{"status": "ok"}`) almost instantly.
@@ -30,11 +28,13 @@ Whenever you introduce a new Telegram command handler or inline button callback 
 
 # 🌿 Git Branching Strategy Rule
 When creating a new branch or submitting a Merge Request (MR) in a multi-agent or team environment, you MUST follow this strict structure:
-1. **No Direct Sub-task MR to `main`**: You are strictly **FORBIDDEN** from creating an MR/PR from `subtask/*` or individual task branches directly targeting `main`.
-2. **Sub-task Integration Workflow**: You **MUST** switch to the parent feature branch (`git checkout feat/<parent-feature>`), merge the sub-task branch (`git merge subtask/<task-id>`), and run automated tests (`pytest`) until all pass before integrating into the main integration branch.
-3. **Target Integration Branch**: Feature branches must be named `feat/<issue-id>-<short-desc>` and MUST target the active integration branch (e.g., `develop` or epic branch). DO NOT target `main` directly unless explicitly instructed.
-4. **MR Command Strictness**: When using `glab mr create`, always specify `--target-branch <branch_name>` explicitly.
-5. **Skill Compliance**: Use `.agents/skills/subtask-branch-integrator/SKILL.md` for sub-task merges and `epic-branch-workflow` for integration branch rebasing prior to pushing.
+1. **Fresh Base Branch (Mandatory Pull)**: Before creating ANY new branch for a feature (`feat/*`), bugfix (`fix/*`), or subtask (`subtask/*`), you **MUST** first switch to the base target branch (e.g., `main`), pull the latest changes (`git checkout main && git pull origin main`), and then create your new branch off of it.
+2. **Feature Branch Naming & Base**: Feature branches must be named `feat/<issue-id>-<short-desc>` (or `fix/<issue-id>-<short-desc>`).
+3. **No Direct Sub-task MR to `main`**: You are strictly **FORBIDDEN** from creating an MR/PR from `subtask/*` or individual task branches directly targeting `main`.
+4. **Sub-task Integration Workflow**: You **MUST** switch to the parent feature branch (`git checkout feat/<parent-feature>`), merge the sub-task branch (`git merge subtask/<task-id>`), and run automated tests (`pytest`) until all pass before integrating into the main integration branch.
+5. **Target Integration Branch**: All MRs MUST target the active integration branch (e.g., `develop` or epic branch). DO NOT target `main` directly unless explicitly instructed.
+6. **MR Command Strictness**: When using `glab mr create`, always specify `--target-branch <branch_name>` explicitly.
+7. **Skill Compliance**: Use `.agents/skills/subtask-branch-integrator/SKILL.md` for sub-task merges and `epic-branch-workflow` for integration branch rebasing prior to pushing.
 
 # 📋 Manual Verification Artifact Rule
 Whenever an Agent Squad or Subagent finishes implementing a feature or completing an MR (Merge Request), you **MUST ALWAYS** generate a `manual_verification.md` file in the worktree/project directory following `.agents/skills/create-manual-verification/SKILL.md`.
@@ -47,5 +47,3 @@ Whenever completing a feature release or significant MR, you **MUST** ensure doc
 2. **Changelog Entry**: Add structured entries in `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format (`Added`, `Changed`, `Fixed`, `Security`).
 3. **Version Synchronization**: Ensure the version string in `VERSION` (or `package.json`/`pyproject.toml`) strictly matches the latest version header in `CHANGELOG.md`. Release versions MUST move forward incrementally per MR without collisions.
 4. **README Alignment**: If new API endpoints, environment variables, or CLI options are added, update `README.md` to reflect the changes.
-
-
