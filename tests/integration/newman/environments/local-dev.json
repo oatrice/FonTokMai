@@ -1,0 +1,22 @@
+{
+	"id": "e9876543-210a-4b98-8765-43210fedcba9",
+	"name": "Local Dev Environment",
+	"values": [
+		{
+			"key": "BASE_URL",
+			"value": "http://localhost:8000",
+			"enabled": true
+		},
+		{
+			"key": "ANON_TOKEN",
+			"value": "",
+			"enabled": true
+		},
+		{
+			"key": "RECOVERY_KEY",
+			"value": "",
+			"enabled": true
+		}
+	],
+	"_postman_variable_scope": "environment"
+}

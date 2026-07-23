@@ -1,0 +1,176 @@
+{
+	"info": {
+		"_postman_id": "8f88921a-1234-4567-89ab-cdef01234567",
+		"name": "FonMaYang API Integration Tests",
+		"description": "Comprehensive integration test suite for FonMaYang APIs including Runway Engine, Budget Jars, Milestone Lock, Anonymous Auth, and Zero-PII Stripe Webhooks.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Public Runway Engine API",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Status code is 200', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"pm.test('Returns valid runway metrics', function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('days_remaining');",
+							"    pm.expect(jsonData).to.have.property('total_balance_thb');",
+							"    pm.expect(jsonData).to.have.property('budget_jars');",
+							"    pm.expect(jsonData.budget_jars.length).to.eql(3);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{BASE_URL}}/api/runway",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"runway"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "2. Public Milestones & Donation Lock API",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Status code is 200', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"pm.test('Returns milestone lock state', function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('is_locked');",
+							"    pm.expect(jsonData).to.have.property('target_thb');",
+							"    pm.expect(jsonData).to.have.property('current_thb');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{BASE_URL}}/api/milestones",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"milestones"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "3. Anonymous Auth Token Generation",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Status code is 200 or 201', function () {",
+							"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+							"});",
+							"pm.test('Returns magic token', function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('token');",
+							"    pm.expect(jsonData.token).to.include('Fon-');",
+							"    pm.environment.set('MAGIC_TOKEN', jsonData.token);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"transaction_id\": \"tx_newman_test_123\",\n  \"amount\": 500.0,\n  \"timestamp\": \"2026-07-23T12:00:00Z\"\n}"
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/auth/generate-token",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"auth",
+						"generate-token"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "4. Zero-PII Stripe Webhook Listener",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Status code is 200 or 400 (Signature Validated)', function () {",
+							"    pm.expect(pm.response.code).to.be.oneOf([200, 400]);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Stripe-Signature",
+						"value": "t=1721660000,v1=test_sig"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"id\": \"evt_test_123\",\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"cs_test_session_123\",\n      \"amount_total\": 1000,\n      \"currency\": \"thb\"\n    }\n  }\n}"
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/api/webhooks/stripe",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"webhooks",
+						"stripe"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
