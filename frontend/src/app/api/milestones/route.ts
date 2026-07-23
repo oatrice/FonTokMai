@@ -9,8 +9,9 @@ export async function GET() {
       const data = await res.json();
       return NextResponse.json(data);
     }
+    console.warn(`⚠️ [API Proxy /api/milestones] Backend returned non-200 status: ${res.status} ${res.statusText}`);
   } catch (e) {
-    // Fallback if backend is offline
+    console.error("❌ [API Proxy /api/milestones] Failed to connect to Backend URL:", backendUrl, e);
   }
 
   return NextResponse.json({
