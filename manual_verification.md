@@ -1,80 +1,73 @@
-# Manual Verification Plan - MR 5: Resiliency & Circuit Breaker
+# Manual Verification Plan - MR 6: Milestone Progress Bar & Donation Lock
 
-- **Branch**: `feat/196-197-resiliency`
-- **MR / Issue ID**: Issue #196, #197
+- **Branch**: `feat/198-milestone-lock`
+- **MR / Issue ID**: Issue #198
 - **Date**: 2026-07-23
 
 ---
 
 ## 📌 Prerequisites & Environment Setup
-1. Ensure Python virtual environment dependencies are installed (`poetry install` or `pip install -r requirements.txt`).
+1. Ensure database migrations are applied or SQLite test database is populated.
 2. Start the local backend server:
    ```bash
    poetry run uvicorn backend.app.main:app --reload --port 8000
    ```
-3. Set environment variable or config state if testing specific API keys (TMD / LINE).
 
 ---
 
 ## 🧪 Verification Scenarios
 
-### Scenario 1: Verify Dynamic Circuit Breaker State & API Fallback (Issue #196)
-- **Goal**: Confirm that when an external service (e.g. TMD API) hits failure threshold or Jar HP <= 0, `CircuitBreaker` trips open and routes to the free fallback routine gracefully.
+### Scenario 1: Unlocked Milestone State & Progress Bar Details
+- **Goal**: Verify `GET /api/milestones` when `milestone_lock` is `False` or not set in `SystemConfig`.
 - **Steps**:
-  1. Run the Python `CircuitBreaker` service test suite directly:
+  1. Send GET request to endpoint:
      ```bash
-     pytest backend/tests/test_circuit_breaker.py -k "test_circuit_breaker_failure_threshold_and_recovery" -v
-     ```
-  2. Or invoke `CircuitBreaker` in a Python shell / worker routine:
-     ```python
-     from app.services.circuit_breaker import CircuitBreaker
-
-     breaker = CircuitBreaker(failure_threshold=2)
-     # Simulate 2 API failures to trip circuit
-     breaker.execute_with_fallback(10.0, False, failing_api, fallback_api, service_name="tmd")
-     breaker.execute_with_fallback(10.0, False, failing_api, fallback_api, service_name="tmd")
-     # Verify fallback behavior
-     assert breaker.is_api_allowed(10.0, False, service_name="tmd") == False
+     curl -X GET "http://localhost:8000/api/milestones"
      ```
 - **Expected Outcome**:
-  - `CircuitBreaker` trips to `OPEN` state after failure threshold is met.
-  - Automatically routes to free fallback function without throwing exceptions or crashing.
+  - HTTP Status: `200 OK`
+  - Response Body:
+    ```json
+    {"total_amount": 0.0, "is_locked": false, "waiting_list": false, "recent_donations": []}
+    ```
 
 ---
 
-### Scenario 2: Emergency Overdrive & Infinite Runway Mode (Issue #197)
-- **Goal**: Verify that setting `emergency_overdrive=True` puts the Runway engine in `INVINCIBLE` status and bypasses rate limits/circuit breakers.
-- **Steps**:
-  1. Connect to SSE stream or check runway status endpoint:
+### Scenario 2: Locked Milestone & Donation Lock Behavior
+- **Goal**: Verify `GET /api/milestones` when `milestone_lock` is set to `{"locked": true}` in `SystemConfig`.
+- **Method A (via `pytest` - Recommended)**:
+  - Run the specific locked state test:
+    ```bash
+    pytest tests/test_milestone_lock.py -k "test_milestone_locked_state" -v
+    ```
+- **Method B (via SQLite CLI / Python)**:
+  1. Insert/Update `SystemConfig` key `milestone_lock` in SQLite database (`fonmayang.db`):
      ```bash
-     curl -N "http://localhost:8000/api/v1/runway/stream?emergency_overdrive=true"
+     sqlite3 fonmayang.db "INSERT OR REPLACE INTO system_config (key, value_json) VALUES ('milestone_lock', '{\"locked\": true}');"
+     ```
+  2. Send request to endpoint:
+     ```bash
+     curl -X GET "http://localhost:8000/api/milestones"
      ```
 - **Expected Outcome**:
-  - Response status stream outputs:
+  - HTTP Status: `200 OK`
+  - Response Body (Verified Output):
     ```json
-    {
-      "status": "INVINCIBLE",
-      "runway_seconds": "Infinity",
-      "decay_frozen": true
-    }
+    {"total_amount": 0.0, "is_locked": true, "waiting_list": true, "recent_donations": []}
     ```
-  - Runway decay timer remains frozen and does not deplete HP.
 
 ---
 
 ## 📸 Proof of Verification (Artifacts & Logs)
-- **Circuit Breaker Threshold Test Output**:
+- **Milestone Locked Test Output**:
   ```text
-  tests/test_circuit_breaker.py::test_circuit_breaker_failure_threshold_and_recovery PASSED [100%]
-  1 passed, 5 deselected in 0.01s
-  ```
-- **Emergency Overdrive SSE Stream (`curl -N`)**:
-  ```text
-  data: {"remaining_days": "Infinity", "budget": 500.0, "daily_burn": 15.0, "emergency_overdrive": true, "status": "INVINCIBLE"}
+  tests/test_milestone_lock.py::test_milestone_locked_state PASSED [100%]
+  1 passed, 1 deselected, 2 warnings in 1.16s
   ```
 - **Automated Verification Summary**:
   ```text
-  pytest tests/test_circuit_breaker.py tests/test_runway_engine.py
-  ====== 10 passed in 0.02s ======
-  Full backend suite: 288 passed, 4 skipped
+  pytest tests/test_milestone_lock.py
+  tests/test_milestone_lock.py .. [100%]
+  2 passed, 2 warnings in 1.30s
+  Full backend suite: 282 passed, 4 skipped
   ```
