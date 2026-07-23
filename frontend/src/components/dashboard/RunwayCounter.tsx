@@ -85,6 +85,11 @@ export function RunwayCounter() {
             <GlassBadge variant={runway.emergency_overdrive ? "danger" : "cyan"}>
               {runway.emergency_overdrive ? "OVERDRIVE MODE" : "HEALTHY"}
             </GlassBadge>
+            {runway.circuit_breaker_active && (
+              <GlassBadge variant="danger">
+                CIRCUIT BREAKER ACTIVE
+              </GlassBadge>
+            )}
             {isLoading && <span className="text-xs text-cyan-400 animate-pulse font-mono">Syncing...</span>}
           </div>
           <p className="text-sm text-zinc-400">
