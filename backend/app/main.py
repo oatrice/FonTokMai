@@ -109,6 +109,26 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://*.vercel.app",
+]
+
+# Allow custom Vercel origin via env var if configured
+if os.getenv("ALLOWED_ORIGIN"):
+    allowed_origins.append(os.getenv("ALLOWED_ORIGIN"))
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all for API rewrites and cross-origin fetch
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 from fastapi import Request
 import json
 from app.routers.webhook_utils import log_audit_event
