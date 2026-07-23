@@ -157,6 +157,7 @@ app.include_router(budget_webhook.router)
 app.include_router(line_webhook.router)
 app.include_router(auth.router)
 app.include_router(runway.router)
+app.include_router(runway.public_router)
 app.include_router(stripe_webhook.router)
 app.include_router(milestones.router)
 from app.routers import internal

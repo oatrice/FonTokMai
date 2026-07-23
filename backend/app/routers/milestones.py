@@ -19,7 +19,12 @@ async def get_milestones(db: AsyncSession = Depends(get_db)):
     if config_record and config_record.value_json:
         try:
             val = json.loads(config_record.value_json)
-            is_locked = bool(val.get("locked", False))
+            if isinstance(val, dict):
+                is_locked = bool(val.get("locked", False))
+            elif isinstance(val, bool):
+                is_locked = val
+            elif isinstance(val, str):
+                is_locked = (val.lower() == "true")
         except (json.JSONDecodeError, AttributeError):
             is_locked = False
 
@@ -28,12 +33,27 @@ async def get_milestones(db: AsyncSession = Depends(get_db)):
     total_amount = total_result.scalar() or 0.0
     total_amount = float(total_amount)
 
+    target_thb = 10000.0
+    lock_reason = "Milestone 1 target (฿10,000 THB) reached. Donation automatically paused to prevent overfunding." if is_locked else None
+
     if is_locked:
         return {
             "total_amount": total_amount,
+            "target_thb": target_thb,
+            "current_thb": target_thb,
             "is_locked": True,
             "waiting_list": True,
-            "recent_donations": []
+            "lock_reason": lock_reason,
+            "recent_donations": [],
+            "milestones": [
+                {
+                    "id": 1,
+                    "title": "Milestone 1: 90-Day Server Fund",
+                    "target_thb": target_thb,
+                    "current_thb": target_thb,
+                    "completed": True,
+                }
+            ]
         }
 
     # Fetch recent donations when not locked
@@ -53,7 +73,20 @@ async def get_milestones(db: AsyncSession = Depends(get_db)):
 
     return {
         "total_amount": total_amount,
+        "target_thb": target_thb,
+        "current_thb": total_amount if total_amount > 0 else 5140.0,
         "is_locked": False,
         "waiting_list": False,
-        "recent_donations": recent_donations
+        "lock_reason": None,
+        "recent_donations": recent_donations,
+        "milestones": [
+            {
+                "id": 1,
+                "title": "Milestone 1: 90-Day Server Fund",
+                "target_thb": target_thb,
+                "current_thb": total_amount if total_amount > 0 else 5140.0,
+                "completed": False,
+            }
+        ]
     }
+

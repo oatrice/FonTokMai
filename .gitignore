@@ -70,3 +70,9 @@ docs/features/
 
 # Luma State
 .luma_state.json
+
+results/
+
+
+scratch/
+
