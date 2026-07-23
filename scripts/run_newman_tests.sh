@@ -6,19 +6,14 @@ echo "🚀 Starting FonMaYang Newman API Integration Tests..."
 # Ensure results directory exists
 mkdir -p results
 
-# Check if newman is installed, install locally if missing
-if ! command -v newman &> /dev/null; then
-    echo "📦 Installing Newman test runner..."
-    npx -y newman --version || npm install -g newman newman-reporter-htmlextra
-fi
-
 # Determine Base URL
 BASE_URL="${BASE_URL:-http://localhost:8000}"
 
 echo "🌐 Target Base URL: $BASE_URL"
 
-# Run Newman Collection
-npx -y newman run ./tests/integration/newman/collections/fonmayang-api-tests.json \
+# Run Newman Collection with HTML Extra reporter
+npx -y --package=newman --package=newman-reporter-htmlextra \
+  newman run ./tests/integration/newman/collections/fonmayang-api-tests.json \
   -e ./tests/integration/newman/environments/local-dev.json \
   --env-var "BASE_URL=$BASE_URL" \
   -r cli,junit,htmlextra \
