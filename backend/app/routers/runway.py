@@ -80,18 +80,35 @@ async def get_runway():
 
 @public_router.get("/milestones")
 async def get_milestones():
+    is_locked = False
+    try:
+        import sqlite3, json, os
+        db_path = "fonmayang.db"
+        if not os.path.exists(db_path) and os.path.exists("../fonmayang.db"):
+            db_path = "../fonmayang.db"
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT value_json FROM system_config WHERE key = 'milestone_lock'")
+        row = cursor.fetchone()
+        if row:
+            val = json.loads(row[0])
+            is_locked = (val == "true" or val is True)
+        conn.close()
+    except Exception:
+        pass
+
     return {
         "target_thb": 10000,
-        "current_thb": 5140,
-        "is_locked": False,
-        "lock_reason": None,
+        "current_thb": 10000 if is_locked else 5140,
+        "is_locked": is_locked,
+        "lock_reason": "Milestone 1 target (฿10,000 THB) reached. Donation automatically paused to prevent overfunding." if is_locked else None,
         "milestones": [
             {
                 "id": 1,
                 "title": "Milestone 1: 90-Day Server Fund",
                 "target_thb": 10000,
-                "current_thb": 5140,
-                "completed": False,
+                "current_thb": 10000 if is_locked else 5140,
+                "completed": is_locked,
             }
         ],
     }

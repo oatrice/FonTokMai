@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const data = {
+  try {
+    const res = await fetch("http://localhost:8000/api/runway", { cache: "no-store" });
+    if (res.ok) {
+      const data = await res.json();
+      return NextResponse.json(data);
+    }
+  } catch (e) {
+    // Fallback if backend is offline
+  }
+
+  return NextResponse.json({
     days_remaining: 42,
     hours_remaining: 18,
     seconds_remaining: 3693600,
@@ -32,7 +42,5 @@ export async function GET() {
         color: "from-emerald-500 to-teal-500",
       },
     ],
-  };
-
-  return NextResponse.json(data);
+  });
 }
