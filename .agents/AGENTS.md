@@ -17,7 +17,8 @@ Whenever asked to create an issue card (e.g. "สร้างการ์ด iss
 1. **DO NOT IMPLEMENT CODE:** Your sole objective is to create the issue card. Do not modify files, run tests, or start implementation.
 2. **English Only:** You **MUST ALWAYS** write the issue title and description in **English** (translate from Thai if necessary).
 3. **Attach Provided Images:** If the user attached image(s) or screenshot(s) in the prompt, you **MUST** upload them to GitLab (via GitLab API `/uploads`) and embed the uploaded image markdown into the issue description or issue note.
-4. **Use Skill:** Follow the format and procedure in `.agents/skills/create-gitlab-issue/SKILL.md`.
+4. **Granular Atomic Sub-tasks:** Prefer creating highly focused, atomic sub-tasks per specific client platform & feature pair (e.g. `Web + Stripe`, `Telegram + PromptPay`) instead of monolithic umbrella tasks. This keeps Merge Requests (MRs) small, isolated, and easy to review.
+5. **Use Skill:** Follow the format and procedure in `.agents/skills/create-gitlab-issue/SKILL.md`.
 
 # 🚀 Telegram Webhook Latency Rule
 Whenever you introduce a new Telegram command handler or inline button callback in `webhook.py`, you **MUST**:

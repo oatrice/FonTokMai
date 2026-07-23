@@ -19,7 +19,8 @@ When this skill is triggered, your **ONLY** job is to create the GitLab issue ca
 ## 📋 Issue Language & Format Guidelines
 
 1. **Title & Description Language**: Must be strictly in **English** (translate if provided in Thai).
-2. **Issue Format Standard**:
+2. **Granular Atomic Sub-tasks**: Break complex features down into small, atomic issues per specific client platform & channel pair (e.g. `Web + Stripe`, `Telegram + PromptPay`) rather than creating monolithic umbrella issues.
+3. **Issue Format Standard**:
 
 ```markdown
 ## Overview
