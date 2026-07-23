@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.62.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
+**v0.63.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
 Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical Flow Cloud Tracking.
 
 ---
@@ -152,4 +152,4 @@ Key test suites & files:
 
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-Current: **v0.62.0** — Full-Stack Financial Transparency Dashboard, SWR Polling, Stripe Webhook Balance Fix, UX Breadcrumb Navigation, and 6-Suite Production QA Playwright Test Suite.
+Current: **v0.63.0** — Dynamic Next.js API Rewrites for Vercel Deployment to Cloud Run Backend (`BACKEND_URL`) & FastAPI CORS Middleware configuration.

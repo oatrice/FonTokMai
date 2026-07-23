@@ -1,30 +1,44 @@
-# Manual Verification Document - FonMaYang Frontend /dashboard
+# 🧪 Manual Verification Artifact: Issue #207 (Vercel Cloud Run API Connection)
 
-## 📋 Overview
-This document outlines manual verification steps and test scenarios for verifying the FonMaYang Frontend Web Application `/dashboard` page and its associated components.
+## Feature Overview
+Dynamic configuration of Next.js API rewrites in `frontend/next.config.ts` using `process.env.BACKEND_URL` for Vercel production deployment and CORS Middleware in FastAPI backend.
 
 ---
 
-## 🧪 Verification Scenarios
+## 📋 Verification Checklist
 
-### Scenario 1: Dark Glassmorphism Layout & Responsive UI
-- **URL**: `http://localhost:3000/dashboard`
-- **Steps**:
-  1. Open browser to `/dashboard`.
-  2. Verify dark backdrop with frosted glass effect (`backdrop-blur-md`, subtle border glow).
-  3. Resize viewport to mobile view (375px width).
-  4. Verify layout gracefully collapses into single column grid.
-- **Expected Outcome**: UI is crisp, responsive, visually appealing with modern dark glass aesthetic.
+### Happy Path 1: Local Development Fallback
+- **Pre-requisite**: Do NOT set `BACKEND_URL` in environment.
+- **Command**:
+  ```bash
+  cd frontend
+  npm run dev
+  ```
+- **Verification Step**:
+  Open `http://localhost:3000/dashboard` in browser.
+- **Expected Outcome**:
+  Next.js proxies `/api/runway` to `http://localhost:8000/api/runway`. Runway counter data loads successfully.
 
-### Scenario 2: Live Runway Counter & Budget Jars
-- **Steps**:
-  1. Inspect network tab to verify SWR polling request to `/api/runway` every 10-15 seconds.
-  2. Observe live counter ticking down smoothly with client-side interpolation.
-  3. Verify Budget Jars allocation percentages match total runway balance.
-- **Expected Outcome**: Polling runs efficiently without memory leaks or excessive re-renders.
+### Happy Path 2: Production Vercel Deployment Backend Override
+- **Pre-requisite**: Set `BACKEND_URL` environment variable.
+- **Command**:
+  ```bash
+  export BACKEND_URL="https://fonmayang-backend-xyz.a.run.app"
+  node -e "
+  const fs = require('fs');
+  const content = fs.readFileSync('frontend/next.config.ts', 'utf-8');
+  console.log('Verified process.env.BACKEND_URL present:', content.includes('process.env.BACKEND_URL'));
+  "
+  ```
+- **Expected Outcome**:
+  Next.js API rewrite destination resolves dynamically to `https://fonmayang-backend-xyz.a.run.app/api/:path*`.
 
-### Scenario 3: Milestone Progress & Donation Lock Kill-Switch
-- **Steps**:
-  1. Check Milestone Progress bar showing target funding vs current balance.
-  2. When donation lock status is active (`is_locked: true`), verify "DONATION LOCKED" warning banner and disabled donation actions.
-- **Expected Outcome**: Donation lock status is clearly communicated to users.
+### Happy Path 3: CORS Validation in FastAPI Backend
+- **Command**:
+  ```bash
+  curl -I -X OPTIONS http://localhost:8000/api/runway \
+    -H "Origin: https://fonmayang.vercel.app" \
+    -H "Access-Control-Request-Method: GET"
+  ```
+- **Expected Outcome**:
+  HTTP Response headers contain `Access-Control-Allow-Origin: *` or `Access-Control-Allow-Origin: https://fonmayang.vercel.app`.
