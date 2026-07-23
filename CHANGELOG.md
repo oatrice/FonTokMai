@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.61.0] - 2026-07-23
+
+### Added
+- Added Milestone Progress Bar & Donation Lock Endpoint (`GET /api/milestones`) (Issue #198).
+- Added `SystemConfig` key `milestone_lock` to dynamically toggle donation lock state and anonymized recent donor lists.
+- Added test suite `test_milestone_lock.py` for verifying milestone locked and unlocked states.
+
+## [0.60.0] - 2026-07-23
+
+### Added
+- Added `CircuitBreaker` service (`backend/app/services/circuit_breaker.py`) supporting sync/async fallback execution for external APIs (Issue #196).
+- Added Emergency Overdrive Mode (`INVINCIBLE` status) to `RunwayEngine` and SSE stream endpoint (`/api/v1/runway/stream?emergency_overdrive=true`) (Issue #197).
+- Added test suite `test_circuit_breaker.py` for verifying failure thresholds and recovery.
+
+## [0.59.0] - 2026-07-22
+
+### Added
+- Added Anonymous Authentication (`POST /api/v1/auth/anonymous`) and Account Recovery Key System (Issue #193, #194).
+- Added Runway Engine (`backend/app/services/runway_engine.py`) and Budget Jars (`backend/app/services/budget_jars.py`) for real-time runway decay and jar allocation tracking (Issue #191, #195).
+- Added Zero-PII Stripe Webhook Listener (`backend/app/routers/stripe_webhook.py`) with transaction hashing and event signature validation (Issue #192).
+- Added test suites for Auth Recovery (`test_auth_recovery.py`), Budget Jars (`test_budget_jars.py`), Runway Engine (`test_runway_engine.py`), and Stripe Webhook (`test_stripe_webhook.py`).
+
 ## [0.58.0] - 2026-07-22
 
 ### Added

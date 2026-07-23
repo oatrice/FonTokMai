@@ -20,3 +20,9 @@ def test_runway_zero_budget():
     engine = RunwayEngine()
     days = engine.calculate_remaining_days(0.0, 10.0, 5.0)
     assert days == 0.0
+
+def test_emergency_overdrive_freezes_decay():
+    engine = RunwayEngine()
+    # Should freeze and not decay, returning infinity or bypassing decay
+    days = engine.calculate_remaining_days(0.0, 10.0, 5.0, emergency_overdrive=True)
+    assert days == float('inf')
