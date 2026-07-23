@@ -1,88 +1,80 @@
-# Manual Verification Steps (MR 2: Zero-PII Stripe Webhook Listener)
+# Manual Verification Plan - MR 5: Resiliency & Circuit Breaker
 
-## Pre-requisites
-- Ensure the backend is running.
-- Set a dummy `STRIPE_WEBHOOK_SECRET` in your `.env` file (e.g., `whsec_test_secret`).
-- Install `stripe-cli` if not already installed.
-
-## Verification Steps
-1. **Start the backend server:**
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-
-2. **Trigger a test event using Stripe CLI:**
-   ```bash
-   stripe trigger checkout.session.completed
-   ```
-
-3. **Verify Application Logs:**
-   - Look for the log: `Saving zero-PII transaction: pi_... for customer cus_... with amount ...`
-   - Verify that NO emails, names, or addresses are printed in the log.
-   
-4. **Invalid Signature Test:**
-   - Send a raw POST request to `/api/webhooks/stripe` using Postman or cURL.
-   - Include a fake `Stripe-Signature: invalid` header.
-   - Assert that the response is `400 Bad Request`.
+- **Branch**: `feat/196-197-resiliency`
+- **MR / Issue ID**: Issue #196, #197
+- **Date**: 2026-07-23
 
 ---
 
-# Manual Verification Steps (MR 3: Anon Auth & Recovery)
-
-1. Start the API locally (`uvicorn app.main:app --reload`).
-2. Make a POST request to `/auth/generate-token` with the following body:
-```json
-{
-  "transaction_id": "tx_test_123",
-  "amount": 10.0,
-  "timestamp": "2026-07-22T07:20:00Z"
-}
-```
-3. Copy the returned `token`.
-4. Make a POST request to `/auth/recover` with the correct exact parameters:
-```json
-{
-  "transaction_id": "tx_test_123",
-  "amount": 10.0,
-  "timestamp": "2026-07-22T07:20:00Z"
-}
-```
-5. Ensure the same token is returned.
-6. Try changing `transaction_id` or `amount` in step 4 and ensure it fails with a 401 Unauthorized status.
+## 📌 Prerequisites & Environment Setup
+1. Ensure Python virtual environment dependencies are installed (`poetry install` or `pip install -r requirements.txt`).
+2. Start the local backend server:
+   ```bash
+   poetry run uvicorn backend.app.main:app --reload --port 8000
+   ```
+3. Set environment variable or config state if testing specific API keys (TMD / LINE).
 
 ---
 
-# Manual Verification Instructions (MR 4: Budget Jars & Runway Engine)
+## 🧪 Verification Scenarios
 
-1. **Start the API Server**:
-   ```bash
-   cd backend
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   uvicorn app.main:app --reload
-   ```
-
-2. **Verify SSE Endpoint (Runway Engine)**:
-   - Open a terminal and use `curl` to listen to the SSE stream:
+### Scenario 1: Verify Dynamic Circuit Breaker State & API Fallback (Issue #196)
+- **Goal**: Confirm that when an external service (e.g. TMD API) hits failure threshold or Jar HP <= 0, `CircuitBreaker` trips open and routes to the free fallback routine gracefully.
+- **Steps**:
+  1. Run the Python `CircuitBreaker` service test suite directly:
      ```bash
-     curl -N http://127.0.0.1:8000/api/v1/runway/stream
+     pytest backend/tests/test_circuit_breaker.py -k "test_circuit_breaker_failure_threshold_and_recovery" -v
      ```
-   - **Expected Output**: You should see continuous data events streamed every 0.5 seconds, showing:
-     ```
-     data: {"remaining_days": 33.333333333333336, "budget": 500.0, "daily_burn": 15.0}
-     ```
+  2. Or invoke `CircuitBreaker` in a Python shell / worker routine:
+     ```python
+     from app.services.circuit_breaker import CircuitBreaker
 
-3. **Verify Budget Jars**:
-   - Run the tests locally using:
-     ```bash
-     pytest tests/test_budget_jars.py -v
+     breaker = CircuitBreaker(failure_threshold=2)
+     # Simulate 2 API failures to trip circuit
+     breaker.execute_with_fallback(10.0, False, failing_api, fallback_api, service_name="tmd")
+     breaker.execute_with_fallback(10.0, False, failing_api, fallback_api, service_name="tmd")
+     # Verify fallback behavior
+     assert breaker.is_api_allowed(10.0, False, service_name="tmd") == False
      ```
-   - **Expected Output**: All 3 tests pass, confirming the 50/30/20 allocation logic and the daily cost deduction math is perfectly aligned.
+- **Expected Outcome**:
+  - `CircuitBreaker` trips to `OPEN` state after failure threshold is met.
+  - Automatically routes to free fallback function without throwing exceptions or crashing.
 
-4. **Verify No Regressions**:
-   - Run the full test suite (if possible):
+---
+
+### Scenario 2: Emergency Overdrive & Infinite Runway Mode (Issue #197)
+- **Goal**: Verify that setting `emergency_overdrive=True` puts the Runway engine in `INVINCIBLE` status and bypasses rate limits/circuit breakers.
+- **Steps**:
+  1. Connect to SSE stream or check runway status endpoint:
      ```bash
-     pytest tests/ -v
+     curl -N "http://localhost:8000/api/v1/runway/stream?emergency_overdrive=true"
      ```
-   - Ensure the inclusion of `runway.router` in `main.py` did not break existing routes.
+- **Expected Outcome**:
+  - Response status stream outputs:
+    ```json
+    {
+      "status": "INVINCIBLE",
+      "runway_seconds": "Infinity",
+      "decay_frozen": true
+    }
+    ```
+  - Runway decay timer remains frozen and does not deplete HP.
+
+---
+
+## 📸 Proof of Verification (Artifacts & Logs)
+- **Circuit Breaker Threshold Test Output**:
+  ```text
+  tests/test_circuit_breaker.py::test_circuit_breaker_failure_threshold_and_recovery PASSED [100%]
+  1 passed, 5 deselected in 0.01s
+  ```
+- **Emergency Overdrive SSE Stream (`curl -N`)**:
+  ```text
+  data: {"remaining_days": "Infinity", "budget": 500.0, "daily_burn": 15.0, "emergency_overdrive": true, "status": "INVINCIBLE"}
+  ```
+- **Automated Verification Summary**:
+  ```text
+  pytest tests/test_circuit_breaker.py tests/test_runway_engine.py
+  ====== 10 passed in 0.02s ======
+  Full backend suite: 288 passed, 4 skipped
+  ```
