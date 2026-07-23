@@ -2,21 +2,21 @@
 	"info": {
 		"_postman_id": "8f88921a-1234-4567-89ab-cdef01234567",
 		"name": "FonMaYang API Integration Tests",
-		"description": "Comprehensive integration test suite for FonMaYang APIs including Runway Engine, Budget Jars, Milestone Lock, Anonymous Auth, and Zero-PII Stripe Webhooks.",
+		"description": "Comprehensive integration test suite covering Happy Path & Failure Cases for Runway Engine, Milestones, Anonymous Auth, and Zero-PII Stripe Webhooks.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
 		{
-			"name": "1. Public Runway Engine API",
+			"name": "1a. Public Runway Engine API - Happy Path (200 OK)",
 			"event": [
 				{
 					"listen": "test",
 					"script": {
 						"exec": [
-							"pm.test('Status code is 200', function () {",
+							"pm.test('Status code is 200 OK', function () {",
 							"    pm.response.to.have.status(200);",
 							"});",
-							"pm.test('Returns valid runway metrics', function () {",
+							"pm.test('Returns valid runway metrics schema', function () {",
 							"    var jsonData = pm.response.json();",
 							"    pm.expect(jsonData).to.have.property('days_remaining');",
 							"    pm.expect(jsonData).to.have.property('total_balance_thb');",
@@ -45,16 +45,16 @@
 			"response": []
 		},
 		{
-			"name": "2. Public Milestones & Donation Lock API",
+			"name": "2a. Public Milestones API - Happy Path (200 OK)",
 			"event": [
 				{
 					"listen": "test",
 					"script": {
 						"exec": [
-							"pm.test('Status code is 200', function () {",
+							"pm.test('Status code is 200 OK', function () {",
 							"    pm.response.to.have.status(200);",
 							"});",
-							"pm.test('Returns milestone lock state', function () {",
+							"pm.test('Returns milestone lock state boolean', function () {",
 							"    var jsonData = pm.response.json();",
 							"    pm.expect(jsonData).to.have.property('is_locked');",
 							"    pm.expect(jsonData).to.have.property('target_thb');",
@@ -82,16 +82,16 @@
 			"response": []
 		},
 		{
-			"name": "3. Anonymous Auth Token Generation",
+			"name": "3a. Anonymous Auth Token Generation - Happy Path (200 OK)",
 			"event": [
 				{
 					"listen": "test",
 					"script": {
 						"exec": [
-							"pm.test('Status code is 200 or 201', function () {",
-							"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+							"pm.test('Status code is 200 OK', function () {",
+							"    pm.response.to.have.status(200);",
 							"});",
-							"pm.test('Returns magic token', function () {",
+							"pm.test('Returns magic token with Fon- prefix', function () {",
 							"    var jsonData = pm.response.json();",
 							"    pm.expect(jsonData).to.have.property('token');",
 							"    pm.expect(jsonData.token).to.include('Fon-');",
@@ -128,7 +128,52 @@
 			"response": []
 		},
 		{
-			"name": "4a. Zero-PII Stripe Webhook - Invalid Signature Verification (400)",
+			"name": "3b. Anonymous Auth Token Generation - Fail Case (422 Unprocessable Entity)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Status code is 422 Unprocessable Entity', function () {",
+							"    pm.response.to.have.status(422);",
+							"});",
+							"pm.test('Returns validation error details', function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('detail');",
+							"    pm.expect(Array.isArray(jsonData.detail)).to.be.true;",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{}"
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/auth/generate-token",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"auth",
+						"generate-token"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "4a. Zero-PII Stripe Webhook - Fail Case (400 Invalid Signature)",
 			"event": [
 				{
 					"listen": "test",
@@ -177,7 +222,56 @@
 			"response": []
 		},
 		{
-			"name": "4b. Zero-PII Stripe Webhook - Valid Signed Event (200 OK)",
+			"name": "4b. Zero-PII Stripe Webhook - Fail Case (400 Invalid Payload)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Status code is 400 Bad Request', function () {",
+							"    pm.response.to.have.status(400);",
+							"});",
+							"pm.test('Returns 400 error detail message', function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('detail');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Stripe-Signature",
+						"value": "t=1721660000,v1=invalid_sig"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "invalid_raw_body_not_json"
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/api/webhooks/stripe",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"api",
+						"webhooks",
+						"stripe"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "4c. Zero-PII Stripe Webhook - Happy Path (200 OK)",
 			"event": [
 				{
 					"listen": "prerequest",
