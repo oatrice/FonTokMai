@@ -32,7 +32,7 @@ export function MilestonesSection() {
 
   return (
     <GlassCard className="p-6 md:p-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
             <Flag className="w-5 h-5" />
@@ -42,9 +42,11 @@ export function MilestonesSection() {
             <p className="text-xs text-zinc-400">Automated kill-switch when target runway is reached</p>
           </div>
         </div>
-        <GlassBadge variant={milestone.is_locked ? "danger" : "success"}>
-          {milestone.is_locked ? "DONATION LOCKED" : "ACCEPTING DONATIONS"}
-        </GlassBadge>
+        <div className="flex justify-center sm:justify-end">
+          <GlassBadge variant={milestone.is_locked ? "danger" : "success"}>
+            {milestone.is_locked ? "DONATION LOCKED" : "ACCEPTING DONATIONS"}
+          </GlassBadge>
+        </div>
       </div>
 
       {milestone.is_locked && (
