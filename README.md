@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.58.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
+**v0.61.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
 Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical Flow Cloud Tracking.
 
 ---
@@ -9,11 +9,12 @@ Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical F
 
 - **TMD Radar Processing** — Downloads and processes TMD radar images (kkn120, kkn240, skn240) using Optical Flow.
 - **Rain Prediction** — Forecasts rain arrival time (ETA) and intensity (dBZ) up to 90+ minutes in advance.
+- **Dynamic Circuit Breaker & Resiliency** — Automatically downgrades external API failures to free fallbacks, supported by Emergency Overdrive (`INVINCIBLE` status).
+- **Gamified Financial Transparency & Jars** — Real-time Runway Engine decay, Budget Jars, Milestone Progress Bar (`GET /api/milestones`), and Donation Lock.
+- **Zero-PII Payments & Auth Recovery** — Anonymous Auth (`POST /api/v1/auth/anonymous`), Account Recovery Keys, and Zero-PII Stripe Webhook integration.
 - **Manual Target Locking** — Select and lock specific rain cloud targets to track their precise direction and distance on radar images.
 - **Multi-Provider Fallback** — Fallback support for Tomorrow.io, Rainbow API, Xweather, and Open-Meteo.
-- **Telegram Bot** — Automated alerts via Telegram with tracking radar images, timeline graphs, and multi-frame analysis.
-- **LINE Bot** — Alerts and location/command processing via LINE Official Account with latest radar images and cloud analysis charts.
-- **Multi-Frame Radar Analysis** — Multi-frame strip images (up to 6 frames) ordered chronologically with trajectory overlays and per-frame growth/decay %.
+- **Telegram & LINE Bots** — Automated alerts with tracking radar images, timeline graphs, and multi-frame analysis.
 - **Scheduler** — Cloud Scheduler triggers automated polling and alerts every 15 minutes.
 
 ---
