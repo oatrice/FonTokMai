@@ -43,8 +43,13 @@ async def test_handle_tracking_command_execution():
     """
     Test executing handle_rain_command for /tracking and /tracking home.
     """
+    from app.database import engine, Base
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     loc_home = make_mock_location(13.75, 100.5, "home")
     loc_work = make_mock_location(13.80, 100.6, "work")
+
 
     mock_repo = AsyncMock()
     mock_repo.get_user_locations.return_value = [loc_home, loc_work]
