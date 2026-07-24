@@ -49,7 +49,7 @@ export function Leaderboard() {
         <AnimatePresence>
           {leaderboardData.map((player, index) => (
             <motion.div
-              key={player.id}
+              key={player.token}
               layout
               initial={{ opacity: 0, x: -20, scale: 0.95 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
@@ -77,20 +77,20 @@ export function Leaderboard() {
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <img 
-                      src={player.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${player.id}`} 
-                      alt={player.name} 
+                      src={`https://api.dicebear.com/7.x/bottts/svg?seed=${player.token}`} 
+                      alt={player.pseudonym} 
                       className="w-10 h-10 rounded-lg bg-slate-900 border border-white/10 group-hover:border-purple-400/50 transition-colors"
                     />
-                    {player.combo && player.combo > 2 && (
+                    {player.badge === "Ecosystem Guardian" && (
                       <div className="absolute -top-2 -right-2 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(243,24,64,0.8)] animate-pulse flex items-center">
                         <Flame className="w-2.5 h-2.5 mr-0.5" />
-                        x{player.combo}
+                        Guardian
                       </div>
                     )}
                   </div>
                   <div>
-                    <div className="font-bold text-slate-200 group-hover:text-white transition-colors">{player.name}</div>
-                    <div className="text-xs text-slate-400 font-mono opacity-80">{player.id.substring(0, 8)}</div>
+                    <div className="font-bold text-slate-200 group-hover:text-white transition-colors">{player.pseudonym}</div>
+                    <div className="text-xs text-slate-400 font-mono opacity-80">{player.token.substring(0, 8)}</div>
                   </div>
                 </div>
               </div>
@@ -98,14 +98,12 @@ export function Leaderboard() {
               <div className="flex items-center gap-4">
                 <div className="flex flex-col items-end">
                   <div className="text-lg font-black tracking-tight text-white flex items-center gap-1.5" style={{ textShadow: "0 0 10px rgba(255,255,255,0.3)" }}>
-                    {player.score.toLocaleString()}
-                    <span className="text-[10px] text-cyan-400 uppercase tracking-widest font-normal">PTS</span>
+                    {player.total_amount.toLocaleString()}
+                    <span className="text-[10px] text-cyan-400 uppercase tracking-widest font-normal">THB</span>
                   </div>
                 </div>
                 <div className="w-6 flex justify-center">
-                  {player.trend === "up" && <ChevronUp className="w-5 h-5 text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.8)]" />}
-                  {player.trend === "down" && <ChevronDown className="w-5 h-5 text-rose-400 drop-shadow-[0_0_5px_rgba(251,113,133,0.8)]" />}
-                  {player.trend === "flat" && <Minus className="w-4 h-4 text-slate-500" />}
+                  <Minus className="w-4 h-4 text-slate-500" />
                 </div>
               </div>
             </motion.div>

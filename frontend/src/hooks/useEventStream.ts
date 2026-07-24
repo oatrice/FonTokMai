@@ -3,12 +3,10 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 export interface LeaderboardEntry {
-  id: string;
-  name: string;
-  score: number;
-  avatar: string;
-  trend: "up" | "down" | "flat";
-  combo?: number;
+  token: string;
+  pseudonym: string;
+  total_amount: number;
+  badge: string;
 }
 
 type ConnectionState = "connecting" | "connected" | "disconnected";
@@ -31,6 +29,8 @@ const emitChange = () => {
   subscribers.forEach((callback) => callback());
 };
 
+const SERVER_SNAPSHOT: GlobalState = { connectionState: "disconnected", leaderboardData: [], lastUpdate: 0 };
+
 const store = {
   subscribe(callback: () => void) {
     subscribers.add(callback);
@@ -40,12 +40,27 @@ const store = {
     return state;
   },
   getServerSnapshot() {
-    return { connectionState: "disconnected" as const, leaderboardData: [], lastUpdate: 0 };
+    return SERVER_SNAPSHOT;
   },
 };
 
 let eventSource: EventSource | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+let heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const resetHeartbeat = () => {
+  if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
+  heartbeatTimeout = setTimeout(() => {
+    // If we haven't received a ping or message in 20 seconds, consider the connection dead
+    console.warn("SSE heartbeat timeout, forcing reconnect...");
+    state = { ...state, connectionState: "disconnected" };
+    emitChange();
+    eventSource?.close();
+    eventSource = null;
+    if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    reconnectTimeout = setTimeout(connectSSE, 3000);
+  }, 35000); // 35 seconds
+};
 
 const connectSSE = () => {
   if (eventSource && (eventSource.readyState === EventSource.OPEN || eventSource.readyState === EventSource.CONNECTING)) {
@@ -56,27 +71,47 @@ const connectSSE = () => {
   emitChange();
 
   try {
-    eventSource = new EventSource("/api/v1/events/stream");
+    // Bypass Next.js Turbopack proxy in development for SSE because it buffers streaming responses
+    const isDev = process.env.NODE_ENV === "development";
+    const sseUrl = isDev ? "http://localhost:8000/api/v1/events/stream" : "/api/v1/events/stream";
+    eventSource = new EventSource(sseUrl);
 
     eventSource.onopen = () => {
       state = { ...state, connectionState: "connected" };
       emitChange();
+      resetHeartbeat();
     };
 
-    eventSource.onmessage = (event) => {
+    const fetchLeaderboard = async () => {
       try {
-        const data = JSON.parse(event.data);
-        if (data.type === "leaderboard_update") {
-          state = { 
-            ...state, 
-            leaderboardData: data.payload, 
-            lastUpdate: Date.now() 
-          };
+        const res = await fetch("/api/v1/financial/leaderboard");
+        if (res.ok) {
+          const data = await res.json();
+          state = { ...state, leaderboardData: data, lastUpdate: Date.now() };
           emitChange();
         }
-      } catch (error) {
-        console.error("Failed to parse SSE data:", error);
+      } catch (err) {
+        console.error("Failed to fetch leaderboard", err);
       }
+    };
+
+    // Fetch initial data
+    fetchLeaderboard();
+
+    eventSource.addEventListener("new_donation", (event) => {
+      resetHeartbeat();
+      // Whenever a new donation occurs, refetch the leaderboard
+      fetchLeaderboard();
+    });
+
+    eventSource.addEventListener("ping", (event) => {
+      // console.log("Received ping");
+      resetHeartbeat();
+    });
+
+    eventSource.onmessage = (event) => {
+      // Catch-all for unnamed events
+      resetHeartbeat();
     };
 
     eventSource.onerror = () => {
@@ -85,6 +120,7 @@ const connectSSE = () => {
       eventSource?.close();
       eventSource = null;
 
+      if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       reconnectTimeout = setTimeout(connectSSE, 3000);
     };

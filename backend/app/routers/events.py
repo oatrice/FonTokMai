@@ -28,4 +28,9 @@ async def event_generator():
 
 @router.get("/stream")
 async def stream_events():
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no"
+    }
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=headers)
