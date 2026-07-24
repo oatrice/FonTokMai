@@ -27,74 +27,58 @@ cd backend && source .venv/bin/activate && uvicorn app.main:app --reload
 
 ### Verification Steps (Issue #210)
 
-#### Test 1: payout.created
+*หมายเหตุ: Stripe CLI `stripe trigger` ไม่รองรับ `payout.paid` / `payout.failed` โดยตรง และจำเป็นต้องผูก External Bank Account บน Stripe Dashboard ดังนั้นการทดสอบฝั่ง Local จึงใช้ Helper Script `backend/scripts/trigger_payout_webhook.py` ซึ่งคำนวณ Stripe Signature HMAC-SHA256 ให้อัตโนมัติ*
 
-*หมายเหตุ: หาก Stripe Account ใน Test Mode ไม่รองรับ USD ให้ใส่ `--override payout:currency=thb` หรือยิง `curl` ด้วย raw payload*
-
-**Option A: Stripe CLI (พร้อม override currency)**
-```bash
-stripe trigger payout.created --override payout:currency=thb
-# Expected Logs:
-# [STRIPE] Handled payout.created for payout po_xxx
-# [PAYOUT] Recorded payout.created: po_xxx amount=500000
-```
-
-**Option B: Direct Webhook Payload (แนะนำหากไม่ได้ผูก External Bank Account บน Stripe)**
-
-รัน Script helper เพื่อคำนวณ Stripe Signature (HMAC-SHA256) และยิงไปยัง backend local:
+#### Test 1: payout.created (บันทึก Payout Record)
 
 ```bash
-# 1. ทดสอบ payout.created
 python backend/scripts/trigger_payout_webhook.py created
-
-# Expected Output:
-# Status: 200
-# Response: {"status":"success"}
+# Expected Output: Status: 200, Response: {"status":"success"}
 ```
 
+**ตรวจสอบ DB:**
 ```bash
-# 2. ทดสอบ payout.paid
-python backend/scripts/trigger_payout_webhook.py paid
-```
-
-```bash
-# 3. ทดสอบ payout.failed
-python backend/scripts/trigger_payout_webhook.py failed
-```
-
-**ตรวจสอบ DB (เลือกใช้ตาม Current Working Directory):**
-```bash
-# หากอยู่ที่ Root Directory (FonMaYang):
-sqlite3 backend/fonmayang.db "SELECT payout_id, status, amount_cents, idempotency_key FROM payouts LIMIT 5;"
-
-# หากอยู่ในโฟลเดอร์ backend/:
-sqlite3 fonmayang.db "SELECT payout_id, status, amount_cents, idempotency_key FROM payouts LIMIT 5;"
-# Expected: row ปรากฏขึ้นพร้อม status='pending'
+sqlite3 backend/fonmayang.db "SELECT payout_id, status, amount_cents, idempotency_key FROM payouts;"
+# Expected: po_test_manual_123|pending|500000|po_test_manual_123-created
 ```
 
 #### Test 2: Idempotency (ส่ง event ซ้ำ)
+
 ```bash
-stripe trigger payout.created --override payout:currency=thb
-# Expected Logs: [PAYOUT] Duplicate payout.created for po_xxx — skipping.
+python backend/scripts/trigger_payout_webhook.py created
+# Expected Logs (Backend): [PAYOUT] Duplicate payout.created for po_test_manual_123 — skipping.
 ```
+
+**ตรวจสอบ DB:**
 ```bash
-# หากอยู่ที่ Root Directory:
 sqlite3 backend/fonmayang.db "SELECT COUNT(*) FROM payouts;"
-# หากอยู่ในโฟลเดอร์ backend/:
-sqlite3 fonmayang.db "SELECT COUNT(*) FROM payouts;"
-# Expected: count ไม่เพิ่มขึ้น
+# Expected: 1 (ไม่เกิด row ซ้ำ)
 ```
 
-#### Test 3: payout.paid
+#### Test 3: payout.paid (อัปเดตสถานะสำเร็จ)
+
 ```bash
-stripe trigger payout.paid
-# Expected Logs: [PAYOUT] Updated status to paid: po_xxx
+python backend/scripts/trigger_payout_webhook.py paid
+# Expected Output: Status: 200, Response: {"status":"success"}
 ```
 
-#### Test 4: payout.failed
+**ตรวจสอบ DB:**
 ```bash
-stripe trigger payout.failed
-# Expected Logs: [PAYOUT] Payout failed: po_xxx code=... msg=...
+sqlite3 backend/fonmayang.db "SELECT payout_id, status FROM payouts WHERE payout_id='po_test_manual_123';"
+# Expected: po_test_manual_123|paid
+```
+
+#### Test 4: payout.failed (อัปเดตสถานะล้มเหลวพร้อมเหตุผล)
+
+```bash
+python backend/scripts/trigger_payout_webhook.py failed
+# Expected Output: Status: 200, Response: {"status":"success"}
+```
+
+**ตรวจสอบ DB:**
+```bash
+sqlite3 backend/fonmayang.db "SELECT payout_id, status, failure_code, failure_message FROM payouts WHERE payout_id='po_test_manual_123';"
+# Expected: po_test_manual_123|failed|account_closed|The bank account has been closed.
 ```
 
 ---
