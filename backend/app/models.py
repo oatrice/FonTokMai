@@ -98,3 +98,24 @@ class Donor(Base):
     amount = Column(Float, nullable=False)
     timestamp = Column(DateTime, nullable=False)
 
+
+class Payout(Base):
+    """Audit trail for Stripe automatic payouts (Issue #210).
+
+    Tracks payout lifecycle: created → paid | failed.
+    idempotency_key prevents double-processing of duplicate webhook events.
+    Zero-PII: stores only Stripe-generated IDs, no bank account details.
+    """
+    __tablename__ = "payouts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    payout_id = Column(String, unique=True, index=True, nullable=False)       # Stripe po_xxx ID
+    status = Column(String, nullable=False)                                    # 'pending' | 'paid' | 'failed' | 'canceled'
+    amount_cents = Column(BigInteger, nullable=False)                          # สตางค์ — 500000 = 5,000 THB
+    currency = Column(String, default="thb", nullable=False)
+    arrival_date = Column(DateTime, nullable=True)                             # วันที่โอนเข้าบัญชี
+    idempotency_key = Column(String, unique=True, index=True, nullable=False)  # {payout_id}-{event_type}
+    failure_code = Column(String, nullable=True)                               # Stripe error code
+    failure_message = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
