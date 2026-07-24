@@ -18,7 +18,6 @@ export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
   (
     {
       className,
-      variant = "default",
       glowColor = "blue",
       interactive = false,
       glow = false,

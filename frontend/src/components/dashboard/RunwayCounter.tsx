@@ -51,11 +51,11 @@ export function RunwayCounter() {
   useEffect(() => {
     if (data?.seconds_remaining !== undefined) {
       targetEndTimeRef.current = Date.now() + data.seconds_remaining * 1000;
-      setSecondsRemaining(data.seconds_remaining);
+      // Do not call setSecondsRemaining here, the interval handles the tick down based on targetEndTimeRef
     } else if (targetEndTimeRef.current === null) {
       targetEndTimeRef.current = Date.now() + fallbackData.seconds_remaining * 1000;
     }
-  }, [data]);
+  }, [data, fallbackData.seconds_remaining]);
 
   // Smooth countdown ticker (1s interval) using target end time for zero drift
   useEffect(() => {
