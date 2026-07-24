@@ -51,6 +51,7 @@ class GCPBillingService:
     def get_mock_breakdown(self) -> GCPCostBreakdown:
         """Return realistic mock data for dev/staging environments."""
         now = datetime.datetime.now(datetime.timezone.utc)
+        force_real = os.getenv("FORCE_GCP_REAL_DATA", "false").lower() == "true"
         return GCPCostBreakdown(
             cloud_run_usd=8.40,
             cloud_storage_usd=1.20,
@@ -60,7 +61,7 @@ class GCPBillingService:
             period_start=f"{now.year}-{now.month:02d}-01",
             period_end=now.strftime("%Y-%m-%d"),
             currency="USD",
-            is_mock=True,
+            is_mock=not force_real,
         )
 
     # ─── Aggregation Logic ───────────────────────────────────────────────────
