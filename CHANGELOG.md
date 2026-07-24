@@ -5,67 +5,79 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.63.0] - 2026-07-24
+## [0.65.0] - 2026-07-24
 
 ### Added
-- Added `Payout` SQLAlchemy model in `backend/app/models.py` with `payout_id`, status, amount_cents, currency, arrival_date, failure_code, failure_message, and `idempotency_key` (Issue #210).
-- Added `PayoutService` business logic (`backend/app/services/payout_service.py`) supporting async SQLAlchemy session, naive UTC datetimes, and strict idempotency via deterministic key `{payout_id}-{event_type}`.
-- Added Stripe webhook event handlers in `backend/app/routers/stripe_webhook.py` for `payout.created`, `payout.paid`, and `payout.failed` with robust `StripeObject` dict conversion.
-- Added developer testing helper script `backend/scripts/trigger_payout_webhook.py` with automatic HMAC-SHA256 signature calculation.
-- Added comprehensive unit and integration test suite `backend/tests/test_stripe_payout_webhook.py` (13 tests passing).
+- `[Frontend]` Added Retro-Arcade Glassmorphic Live Leaderboard Component (`Leaderboard.tsx`) with real-time SSE updates and rank #1 glowing indicators (Issue #148).
+- `[Backend]` Added Server-Sent Events (SSE) Broadcaster (`EventBroadcaster`) and stream endpoint (`GET /api/v1/events/stream`) with 15-second automatic `ping` heartbeats (Issue #157).
+- `[CI/CD]` Added Jest, React Testing Library, and Playwright E2E Testing Infrastructure with automated GitLab CI/CD jobs (`test_frontend`, `test_e2e`).
+
+### Fixed
+- `[Frontend]` Fixed Next.js Image component domain authorization and SVG rendering for Dicebear avatar icons by adding `images.remotePatterns` in `next.config.ts` and `unoptimized` prop.
+- `[Frontend]` Fixed React infinite render loops in `GCPCostBreakdown.tsx` and countdown ticker drift in `RunwayCounter.tsx`.
+- `[CI/CD]` Fixed Jest TypeScript config compilation errors and Playwright runner Docker image synchronization in `.gitlab-ci.yml`.
 
 ## [0.64.0] - 2026-07-24
 
 ### Added
-- Added `GCPBillingService` (`backend/app/services/gcp_billing.py`) querying monthly GCP infrastructure costs from GCP BigQuery export dataset (`gcp_billing_export_v1_*`) with fallback chain (`GCP_PROJECT_ID` ➡️ `GOOGLE_CLOUD_PROJECT` ➡️ `GCP_PROJECT`) and graceful mock fallback (Issue #211).
-- Added `GET /api/v1/metrics/gcp-costs` endpoint protected by `x-cron-secret` auth guard (`backend/app/routers/metrics.py`).
-- Added Next.js API Proxy Route `/api/metrics/gcp-costs` server-side proxying requests to backend.
-- Added `GCPCostBreakdown` glassmorphic React component with animated progress bars, skeleton loaders, and mock data badge.
-- Added `FORCE_GCP_REAL_DATA` environment variable for local simulation of `is_mock=False` state.
+- `[Backend]` Added `GCPBillingService` (`backend/app/services/gcp_billing.py`) querying monthly GCP infrastructure costs from GCP BigQuery export dataset (`gcp_billing_export_v1_*`) with fallback chain (`GCP_PROJECT_ID` ➡️ `GOOGLE_CLOUD_PROJECT` ➡️ `GCP_PROJECT`) and graceful mock fallback (Issue #211).
+- `[Backend]` Added `GET /api/v1/metrics/gcp-costs` endpoint protected by `x-cron-secret` auth guard (`backend/app/routers/metrics.py`).
+- `[Frontend]` Added Next.js API Proxy Route `/api/metrics/gcp-costs` server-side proxying requests to backend.
+- `[Frontend]` Added `GCPCostBreakdown` glassmorphic React component with animated progress bars, skeleton loaders, and mock data badge.
+- `[Backend]` Added `FORCE_GCP_REAL_DATA` environment variable for local simulation of `is_mock=False` state.
 
 ### Changed
-- Converted all frontend currency displays from USD (`$`) to THB (`฿`).
-- Refactored Navigation Bar active status highlighting (`GlassNavbar.tsx`) using Next.js `usePathname()`.
+- `[Frontend]` Converted all frontend currency displays from USD (`$`) to THB (`฿`).
+- `[Frontend]` Refactored Navigation Bar active status highlighting (`GlassNavbar.tsx`) using Next.js `usePathname()`.
+
+## [0.63.0] - 2026-07-24
+
+### Added
+- `[Backend]` Added `Payout` SQLAlchemy model in `backend/app/models.py` with `payout_id`, status, amount_cents, currency, arrival_date, failure_code, failure_message, and `idempotency_key` (Issue #210).
+- `[Backend]` Added `PayoutService` business logic (`backend/app/services/payout_service.py`) supporting async SQLAlchemy session, naive UTC datetimes, and strict idempotency via deterministic key `{payout_id}-{event_type}`.
+- `[Backend]` Added Stripe webhook event handlers in `backend/app/routers/stripe_webhook.py` for `payout.created`, `payout.paid`, and `payout.failed` with robust `StripeObject` dict conversion.
+- `[Backend]` Added developer testing helper script `backend/scripts/trigger_payout_webhook.py` with automatic HMAC-SHA256 signature calculation.
+- `[Backend]` Added comprehensive unit and integration test suite `backend/tests/test_stripe_payout_webhook.py` (13 tests passing).
 
 ## [0.62.0] - 2026-07-23
 
 ### Added
-- Added Complete 6-Suite Production QA & Full-Stack E2E Playwright Test Runner (`scripts/run_all_production_qa_tests.sh`) covering Live Runway, Budget Jars, Circuit Breaker, Stripe Auto-Update, Telegram Webhook, and Dark Glassmorphism Accessibility (Issues #182, #191-#197, #201-#203).
-- Added Automated Professional HTML QA Report Generator (`scripts/generate_qa_report.py`).
+- `[QA]` Added Complete 6-Suite Production QA & Full-Stack E2E Playwright Test Runner (`scripts/run_all_production_qa_tests.sh`) covering Live Runway, Budget Jars, Circuit Breaker, Stripe Auto-Update, Telegram Webhook, and Dark Glassmorphism Accessibility (Issues #182, #191-#197, #201-#203).
+- `[QA]` Added Automated Professional HTML QA Report Generator (`scripts/generate_qa_report.py`).
 
 ### Fixed
-- Fixed Stripe Webhook zero-PII transaction balance update (`stripe_webhook.py`) by switching to absolute DB path resolution and robust `StripeObject` dict-style key access.
-- Fixed UX Navigation in Dashboard Header (`Header.tsx` & `GlassNavbar.tsx`), introducing Breadcrumb hierarchy (`FonMaYang` › `System Dashboard`) and bidirectional navigation links between root (`/`) and dashboard (`/dashboard`).
-- Fixed Test Suite 6 assertions to validate actual Dark Glassmorphism background color and keyboard `Tab` navigation.
+- `[Backend]` Fixed Stripe Webhook zero-PII transaction balance update (`stripe_webhook.py`) by switching to absolute DB path resolution and robust `StripeObject` dict-style key access.
+- `[Frontend]` Fixed UX Navigation in Dashboard Header (`Header.tsx` & `GlassNavbar.tsx`), introducing Breadcrumb hierarchy (`FonMaYang` › `System Dashboard`) and bidirectional navigation links between root (`/`) and dashboard (`/dashboard`).
+- `[QA]` Fixed Test Suite 6 assertions to validate actual Dark Glassmorphism background color and keyboard `Tab` navigation.
 
 ## [0.61.0] - 2026-07-23
 
 ### Added
-- Added Milestone Progress Bar & Donation Lock Endpoint (`GET /api/milestones`) (Issue #198).
-- Added `SystemConfig` key `milestone_lock` to dynamically toggle donation lock state and anonymized recent donor lists.
-- Added test suite `test_milestone_lock.py` for verifying milestone locked and unlocked states.
+- `[Backend]` Added Milestone Progress Bar & Donation Lock Endpoint (`GET /api/milestones`) (Issue #198).
+- `[Backend]` Added `SystemConfig` key `milestone_lock` to dynamically toggle donation lock state and anonymized recent donor lists.
+- `[Backend]` Added test suite `test_milestone_lock.py` for verifying milestone locked and unlocked states.
 
 ## [0.60.0] - 2026-07-23
 
 ### Added
-- Added `CircuitBreaker` service (`backend/app/services/circuit_breaker.py`) supporting sync/async fallback execution for external APIs (Issue #196).
-- Added Emergency Overdrive Mode (`INVINCIBLE` status) to `RunwayEngine` and SSE stream endpoint (`/api/v1/runway/stream?emergency_overdrive=true`) (Issue #197).
-- Added test suite `test_circuit_breaker.py` for verifying failure thresholds and recovery.
+- `[Backend]` Added `CircuitBreaker` service (`backend/app/services/circuit_breaker.py`) supporting sync/async fallback execution for external APIs (Issue #196).
+- `[Backend]` Added Emergency Overdrive Mode (`INVINCIBLE` status) to `RunwayEngine` and SSE stream endpoint (`/api/v1/runway/stream?emergency_overdrive=true`) (Issue #197).
+- `[Backend]` Added test suite `test_circuit_breaker.py` for verifying failure thresholds and recovery.
 
 ## [0.59.0] - 2026-07-22
 
 ### Added
-- Added Anonymous Authentication (`POST /api/v1/auth/anonymous`) and Account Recovery Key System (Issue #193, #194).
-- Added Runway Engine (`backend/app/services/runway_engine.py`) and Budget Jars (`backend/app/services/budget_jars.py`) for real-time runway decay and jar allocation tracking (Issue #191, #195).
-- Added Zero-PII Stripe Webhook Listener (`backend/app/routers/stripe_webhook.py`) with transaction hashing and event signature validation (Issue #192).
-- Added test suites for Auth Recovery (`test_auth_recovery.py`), Budget Jars (`test_budget_jars.py`), Runway Engine (`test_runway_engine.py`), and Stripe Webhook (`test_stripe_webhook.py`).
+- `[Backend]` Added Anonymous Authentication (`POST /api/v1/auth/anonymous`) and Account Recovery Key System (Issue #193, #194).
+- `[Backend]` Added Runway Engine (`backend/app/services/runway_engine.py`) and Budget Jars (`backend/app/services/budget_jars.py`) for real-time runway decay and jar allocation tracking (Issue #191, #195).
+- `[Backend]` Added Zero-PII Stripe Webhook Listener (`backend/app/routers/stripe_webhook.py`) with transaction hashing and event signature validation (Issue #192).
+- `[Backend]` Added test suites for Auth Recovery (`test_auth_recovery.py`), Budget Jars (`test_budget_jars.py`), Runway Engine (`test_runway_engine.py`), and Stripe Webhook (`test_stripe_webhook.py`).
 
 ## [0.58.0] - 2026-07-22
 
 ### Added
-- Added infrastructure cost aggregation pipeline for GCP Cloud Billing and AWS Cost Explorer (`BillingService.aggregate_costs`), categorizing Baseline and Variable Costs (Issue #190).
-- Added unit test suite for verifying cost aggregation logic (`tests/test_billing_service.py`).
-- Added Gamified Financial Transparency System architecture documentation (ADR 010), including Web App Site Map and End-to-End Workflow Diagrams (`docs/architecture_decisions/010_gamified_finance_issue_batching_strategy.md` and `docs/web_app_architecture_and_sitemap.md`).
+- `[Backend]` Added infrastructure cost aggregation pipeline for GCP Cloud Billing and AWS Cost Explorer (`BillingService.aggregate_costs`), categorizing Baseline and Variable Costs (Issue #190).
+- `[Backend]` Added unit test suite for verifying cost aggregation logic (`tests/test_billing_service.py`).
+- `[Docs]` Added Gamified Financial Transparency System architecture documentation (ADR 010), including Web App Site Map and End-to-End Workflow Diagrams (`docs/architecture_decisions/010_gamified_finance_issue_batching_strategy.md` and `docs/web_app_architecture_and_sitemap.md`).
 
 ## [0.57.0] - 2026-07-21
 

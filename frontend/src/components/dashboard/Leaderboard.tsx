@@ -82,6 +82,7 @@ export function Leaderboard() {
                       alt={player.pseudonym} 
                       width={40}
                       height={40}
+                      unoptimized
                       className="w-10 h-10 rounded-lg bg-slate-900 border border-white/10 group-hover:border-purple-400/50 transition-colors"
                     />
                     {player.badge === "Ecosystem Guardian" && (
