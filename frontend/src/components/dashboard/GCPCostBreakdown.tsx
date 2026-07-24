@@ -150,10 +150,10 @@ export function GCPCostBreakdown() {
       {data && !loading && (
         <div className="text-center py-1">
           <span className="text-4xl font-black text-white tabular-nums">
-            ${data.total_usd.toFixed(2)}
+            ฿{(data.total_usd * 35).toFixed(2)}
           </span>
           <span className="text-slate-400 ml-2 text-sm font-medium">
-            USD / month
+            THB / month
           </span>
         </div>
       )}
@@ -177,8 +177,9 @@ export function GCPCostBreakdown() {
         ) : data ? (
           // Data rows
           SERVICE_ITEMS.map(({ key, label, icon: Icon, colorClass, bgClass, barClass }) => {
-            const cost = data[key] as number;
-            const pct = data.total_usd > 0 ? (cost / data.total_usd) * 100 : 0;
+            const costUsd = data[key] as number;
+            const costThb = costUsd * 35;
+            const pct = data.total_usd > 0 ? (costUsd / data.total_usd) * 100 : 0;
 
             return (
               <div key={key} className="flex items-center gap-3">
@@ -192,7 +193,7 @@ export function GCPCostBreakdown() {
                   <div className="flex justify-between text-sm mb-1.5">
                     <span className="text-slate-300 font-medium">{label}</span>
                     <span className="font-bold text-white tabular-nums">
-                      ${cost.toFixed(2)}
+                      ฿{costThb.toFixed(2)}
                     </span>
                   </div>
                   <div className="w-full bg-slate-950/80 rounded-full h-1.5 overflow-hidden border border-white/5">
