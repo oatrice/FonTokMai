@@ -3,12 +3,14 @@ import io
 import csv
 import json
 import secrets
+from dataclasses import asdict
 from typing import Optional
 from fastapi import APIRouter, Header, HTTPException, Depends
 from fastapi.responses import JSONResponse, Response
 
 from app.dependencies import get_repo_context
 from app.services.metrics_service import MetricsService
+from app.services.gcp_billing import GCPBillingService
 
 router = APIRouter(
     prefix="/api/v1/metrics",
@@ -110,3 +112,28 @@ async def get_queue_status(
     queue_metrics["timestamp"] = int(time.time())
     
     return JSONResponse(content=queue_metrics)
+
+
+@router.get("/gcp-costs")
+async def get_gcp_costs(x_cron_secret: str = Header(None)):
+    """
+    Fetch monthly GCP infrastructure costs broken down by service.
+
+    Returns mock data transparently when GCP credentials are not configured.
+    Requires x-cron-secret header for authentication.
+
+    Response schema: GCPCostBreakdown dataclass fields:
+      cloud_run_usd, cloud_storage_usd, egress_usd, other_usd,
+      total_usd, period_start, period_end, currency, is_mock
+    """
+    server_secret = os.getenv("CRON_SECRET")
+    if (
+        not server_secret
+        or not x_cron_secret
+        or not secrets.compare_digest(x_cron_secret, server_secret)
+    ):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    svc = GCPBillingService()
+    breakdown = svc.get_current_month_costs()
+    return JSONResponse(content=asdict(breakdown))

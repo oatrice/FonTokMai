@@ -14,19 +14,22 @@ import {
   Cpu
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { GlassButton } from "./ui/GlassButton";
 import { GlassBadge } from "./ui/GlassBadge";
 
 export function GlassNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const isDashboardActive = pathname === "/dashboard";
 
   return (
     <header className="sticky top-0 z-50 w-full backdrop-blur-xl bg-slate-950/70 border-b border-white/10 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-400 p-0.5 shadow-lg shadow-cyan-500/20">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-400 p-0.5 shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
               <div className="h-full w-full bg-slate-950 rounded-[10px] flex items-center justify-center">
                 <CloudRain className="h-5 w-5 text-cyan-400" />
               </div>
@@ -41,36 +44,37 @@ export function GlassNavbar() {
                 </GlassBadge>
               </div>
             </div>
-          </div>
+          </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            <Link href="/dashboard" className="px-3.5 py-2 text-sm font-semibold text-cyan-400 hover:text-cyan-300 rounded-xl hover:bg-cyan-500/10 transition-all flex items-center gap-1.5">
+            <Link 
+              href="/dashboard" 
+              className={`px-3.5 py-2 text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
+                isDashboardActive 
+                  ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20" 
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
+              }`}
+            >
               <Activity className="h-4 w-4" />
               <span>Dashboard</span>
             </Link>
-            <a href="#overview" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+            <a href="/#overview" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
               Overview
             </a>
-            <a href="#jars" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+            <a href="/#jars" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
               Budget Jars
             </a>
-            <a href="#runway" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+            <a href="/#runway" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
               Runway Math
             </a>
-            <a href="#resiliency" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+            <a href="/#resiliency" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
               Resiliency & Breaker
             </a>
           </nav>
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <Link href="/dashboard">
-              <GlassButton variant="secondary" size="sm">
-                <Activity className="h-4 w-4 text-cyan-400" />
-                <span>Live Dashboard</span>
-              </GlassButton>
-            </Link>
             <GlassButton variant="primary" size="sm">
               <HeartHandshake className="h-4 w-4" />
               <span>Donate</span>
@@ -91,14 +95,25 @@ export function GlassNavbar() {
         {/* Mobile Menu Panel */}
         {mobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-white/10 space-y-2 animate-in fade-in slide-in-from-top-2">
-            <a href="#overview" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
+            <Link 
+              href="/dashboard"
+              className={`block px-4 py-2.5 text-sm font-semibold rounded-xl ${
+                isDashboardActive ? "text-cyan-400 bg-cyan-500/10" : "text-slate-200 hover:bg-white/5"
+              }`}
+            >
+              System Dashboard
+            </Link>
+            <a href="/#overview" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
               Overview
             </a>
-            <a href="#jars" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
+            <a href="/#jars" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
               Budget Jars
             </a>
-            <a href="#runway" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
+            <a href="/#runway" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
               Runway Math
+            </a>
+            <a href="/#resiliency" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
+              Resiliency & Breaker
             </a>
             <div className="pt-2 flex flex-col gap-2">
               <GlassButton variant="primary" size="md" className="w-full justify-center">

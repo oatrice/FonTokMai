@@ -25,16 +25,16 @@ export function FinancialDashboard() {
 
   // Mock data representing financial status and budget jars
   const runwayDays = 142;
-  const dailyBurn = 18.5; // USD/day
-  const currentBalance = 2627.00; // USD
+  const dailyBurn = 620; // THB/day
+  const currentBalance = 92000.00; // THB
 
   const budgetJars = [
     {
       id: "infra",
       name: "Infrastructure Jar",
       icon: Server,
-      current: 1250,
-      target: 1500,
+      current: 43500,
+      target: 52500,
       hp: 83,
       status: "Healthy",
       color: "cyan" as const,
@@ -43,8 +43,8 @@ export function FinancialDashboard() {
       id: "salary",
       name: "Developer Salary Jar",
       icon: Code,
-      current: 980,
-      target: 2000,
+      current: 34300,
+      target: 70000,
       hp: 49,
       status: "Warning",
       color: "amber" as const,
@@ -53,8 +53,8 @@ export function FinancialDashboard() {
       id: "api",
       name: "API & Data Services",
       icon: Zap,
-      current: 397,
-      target: 500,
+      current: 13900,
+      target: 17500,
       hp: 79,
       status: "Healthy",
       color: "emerald" as const,
@@ -75,7 +75,7 @@ export function FinancialDashboard() {
             <span className="text-xl font-bold text-cyan-400">Days</span>
           </div>
           <p className="mt-2 text-xs text-slate-400">
-            Based on active GCP/AWS burn rate of <span className="text-slate-200 font-semibold">${dailyBurn}/day</span>
+            Based on active GCP/AWS burn rate of <span className="text-slate-200 font-semibold">฿{dailyBurn}/day</span>
           </p>
         </GlassCard>
 
@@ -85,7 +85,7 @@ export function FinancialDashboard() {
             <GlassBadge variant="emerald">Zero-PII Tracked</GlassBadge>
           </div>
           <div className="mt-4 flex items-baseline gap-1">
-            <span className="text-xl font-semibold text-emerald-400">$</span>
+            <span className="text-xl font-semibold text-emerald-400">฿</span>
             <span className="text-5xl font-black tracking-tight text-white">{currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
           </div>
           <div className="mt-3 w-full bg-slate-800/80 rounded-full h-2 overflow-hidden border border-white/5">
@@ -158,7 +158,7 @@ export function FinancialDashboard() {
                 <div className="mt-6 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-400">Balance</span>
-                    <span className="font-bold text-white">${jar.current} / ${jar.target}</span>
+                    <span className="font-bold text-white">฿{jar.current.toLocaleString()} / ฿{jar.target.toLocaleString()}</span>
                   </div>
                   <div className="w-full bg-slate-950/80 rounded-full h-2.5 p-0.5 border border-white/10">
                     <div 
@@ -183,7 +183,7 @@ export function FinancialDashboard() {
             <h3 className="text-lg font-bold text-white">Gamified Milestone Lock</h3>
           </div>
           <p className="text-sm text-slate-300">
-            Next Milestone: <span className="font-semibold text-cyan-300">Radar Satellite Refactor ($3,000)</span>. 
+            Next Milestone: <span className="font-semibold text-cyan-300">Radar Satellite Refactor (฿105,000)</span>. 
             Once target HP is unlocked, additional high-res processing workers are deployed automatically.
           </p>
           <div className="pt-2">
