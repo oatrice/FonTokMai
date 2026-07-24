@@ -19,6 +19,7 @@ import {
 import { GlassCard } from "./ui/GlassCard";
 import { GlassButton } from "./ui/GlassButton";
 import { GlassBadge } from "./ui/GlassBadge";
+import { Leaderboard } from "./dashboard/Leaderboard";
 
 export function FinancialDashboard() {
   const [invincibleMode, setInvincibleMode] = useState(false);
@@ -173,6 +174,11 @@ export function FinancialDashboard() {
             );
           })}
         </div>
+      </section>
+
+      {/* Arcade Leaderboard Section */}
+      <section id="arcade" className="space-y-4">
+        <Leaderboard />
       </section>
 
       {/* Gamified Milestone & Recovery Callout */}

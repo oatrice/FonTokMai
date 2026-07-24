@@ -93,8 +93,9 @@ class Donor(Base):
     __tablename__ = "donors"
 
     id = Column(Integer, primary_key=True, index=True)
-    token = Column(String, unique=True, index=True, nullable=False)
+    token = Column(String, index=True, nullable=False)
     hashed_transaction_id = Column(String, unique=True, nullable=False)
+    pseudonym = Column(String, nullable=True, default="Anonymous")
     amount = Column(Float, nullable=False)
     timestamp = Column(DateTime, nullable=False)
 

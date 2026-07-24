@@ -1,54 +1,58 @@
-Closes #192
+# Testing Infrastructure Implementation
 
-## Overview
-Implement a secure Stripe webhook listener that processes payment and subscription events while storing zero PII (Personally Identifiable Information).
+I have completed setting up the foundation for robust testing across the system. 
 
-# Walkthrough: MR 2 - Zero-PII Stripe Webhook Listener
+## What was done
 
-## Objective
-Implement a secure Stripe webhook listener that processes payment and subscription events while storing zero PII (Personally Identifiable Information).
+### 1. Git Workflow
+- Created the feature branch `feat/system-testing-infrastructure` from `main` to contain all testing-related changes, adhering to the epic branch workflow.
 
-## Changes Made
-1. **Added `stripe` dependency**: Updated `requirements.txt`.
-2. **Created Stripe Webhook Router**: Added `backend/app/routers/stripe_webhook.py` which listens to `/api/webhooks/stripe`.
-   - Validates the Stripe signature using `STRIPE_WEBHOOK_SECRET`.
-   - Extracts ONLY non-PII fields: `customer_id`, `transaction_id`, and `amount_total`.
-   - Does not log or extract names, emails, addresses, or payment card details.
-3. **Transaction Service**: Created `backend/app/services/transaction_service.py` to handle the pseudo-anonymous data storage.
-4. **App Registration**: Registered the `stripe_webhook` router in `backend/app/main.py`.
-5. **Testing**: Implemented TDD-based tests in `backend/tests/test_stripe_webhook.py` to ensure signature validation and zero-PII data extraction logic work correctly.
+### 2. Backend Testing & API Security
+- Validated existing `pytest` infrastructure (67 files).
+- Confirmed that backend tests run correctly locally and inside isolated environments.
 
-## Impact
-- Increases the security of the FonMaYang system by minimizing the storage of sensitive financial information.
-- Safely processes one-time payments and subscriptions.
-- Complies with data minimization and GDPR/PDPA best practices.
+### 3. Frontend Unit Testing
+- Configured **Jest** and **React Testing Library** for the Next.js frontend.
+- Created configuration files (`jest.config.ts`, `jest.setup.ts`).
+- Added a baseline test case for `GlassNavbar.tsx` which passes successfully, proving the setup works.
+- Updated `package.json` scripts with `npm run test`.
 
-# Manual Verification: Zero-PII Stripe Webhook Listener
+### 4. End-to-End (E2E) Testing
+- Integrated **Playwright** for complete system flows.
+- Added `playwright.config.ts` to automatically spin up the frontend server (`npm run dev`) before testing.
+- Drafted a foundational test (`e2e/home.spec.ts`) that asserts the title and branding of the app.
+- Added `npm run test:e2e` scripts.
 
-## Pre-requisites
-- Ensure the backend is running.
-- Set a dummy `STRIPE_WEBHOOK_SECRET` in your `.env` file (e.g., `whsec_test_secret`).
-- Install `stripe-cli` if not already installed.
+### 5. CI/CD Pipeline Automation (GitLab)
+- Extended `.gitlab-ci.yml` by adding two new jobs:
+  - `test_frontend`: Runs `npm run test` using a Node 20 environment.
+  - `test_e2e`: Runs Playwright E2E tests using the official Microsoft Playwright Docker image (`mcr.microsoft.com/playwright:v1.50.1-noble`).
+- Ensured notifications trigger for all test jobs.
 
-## Verification Steps
-1. **Start the backend server:**
-   ```bash
-   uvicorn app.main:app --reload
-   ```
+## Next Steps / Review
+The codebase is now equipped with multi-layered testing. The next step is to create a Merge Request (MR) for this branch to integrate it into `main`, or you can proceed to the database migration task (Issue #208) as these tests will provide a safety net for those major architectural changes.
+# Manual Verification Steps: Testing Infrastructure
 
-2. **Trigger a test event using Stripe CLI:**
-   ```bash
-   stripe trigger checkout.session.completed
-   ```
+## Prerequisites
+- Node.js installed (v20+)
+- Python 3.11+ installed
 
-3. **Verify Application Logs:**
-   - Look for the log: `Saving zero-PII transaction: pi_... for customer cus_... with amount ...`
-   - Verify that NO emails, names, or addresses are printed in the log.
-   
-4. **Invalid Signature Test:**
-   - Send a raw POST request to `/api/webhooks/stripe` using Postman or cURL.
-   - Include a fake `Stripe-Signature: invalid` header.
-   - Assert that the response is `400 Bad Request`.
+## 1. Verify Backend Tests
+1. Navigate to the backend directory: `cd backend`
+2. Activate the virtual environment: `source .venv/bin/activate`
+3. Run the tests: `pytest tests/test_db.py`
+4. Expected outcome: The tests should execute and pass without dependency errors.
 
-## Expected Outcome
-The system should smoothly receive the webhook from Stripe, validate its cryptographic signature, extract only the pseudonymous reference IDs, and log the pseudo-anonymous transaction.
+## 2. Verify Frontend Unit Tests
+1. Navigate to the frontend directory: `cd frontend`
+2. Run the tests: `npm run test`
+3. Expected outcome: Jest should run the `GlassNavbar.test.tsx` file and pass.
+
+## 3. Verify E2E Setup
+1. Navigate to the frontend directory: `cd frontend`
+2. Run the E2E tests: `npm run test:e2e`
+3. Expected outcome: Playwright should attempt to run the `home.spec.ts` test. (Note: initial browser download may be required via `npx playwright install` if running for the first time).
+
+## 4. Verify CI/CD Pipeline
+1. Check the GitLab Merge Request pipeline.
+2. Expected outcome: `test_frontend` and `test_e2e` jobs should appear and execute alongside `unit_tests`.

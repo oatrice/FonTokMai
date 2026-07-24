@@ -59,18 +59,18 @@ export function GlassNavbar() {
               <Activity className="h-4 w-4" />
               <span>Dashboard</span>
             </Link>
-            <a href="/#overview" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+            <Link href="/#overview" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
               Overview
-            </a>
-            <a href="/#jars" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
-              Budget Jars
-            </a>
-            <a href="/#runway" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
-              Runway Math
-            </a>
-            <a href="/#resiliency" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
-              Resiliency & Breaker
-            </a>
+            </Link>
+            <Link href="/#jars" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+              Jars
+            </Link>
+            <Link href="/#runway" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+              Runway
+            </Link>
+            <Link href="/#resiliency" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+              Resiliency
+            </Link>
           </nav>
 
           {/* Action Buttons */}
@@ -103,18 +103,18 @@ export function GlassNavbar() {
             >
               System Dashboard
             </Link>
-            <a href="/#overview" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
+            <Link href="/#overview" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
               Overview
-            </a>
-            <a href="/#jars" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
-              Budget Jars
-            </a>
-            <a href="/#runway" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
-              Runway Math
-            </a>
-            <a href="/#resiliency" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
-              Resiliency & Breaker
-            </a>
+            </Link>
+            <Link href="/#jars" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
+              Jars
+            </Link>
+            <Link href="/#runway" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
+              Runway
+            </Link>
+            <Link href="/#resiliency" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
+              Resiliency
+            </Link>
             <div className="pt-2 flex flex-col gap-2">
               <GlassButton variant="primary" size="md" className="w-full justify-center">
                 <HeartHandshake className="h-4 w-4" />

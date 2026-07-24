@@ -1,159 +1,99 @@
-# Manual Verification — FonMaYang Financial Engine & Cost Transparency
+# Manual Verification Plan - Real-time Leaderboard & Event Broadcaster & Testing Infrastructure
 
-## Issue #210: Stripe Auto Payout Webhook & Balance Reconciliation
+- **Branch**: `feat/148-157-realtime-leaderboard`
+- **MR / Issue ID**: `#148, #157`
+- **Date**: `2026-07-24`
 
-### Overview
-ตรวจสอบว่า `payout.created`, `payout.paid`, และ `payout.failed` events จาก Stripe ถูก handle อย่างถูกต้อง พร้อม idempotency และ audit trail ใน `payouts` table
-
----
-
-### Prerequisites (Issue #210)
-
-```bash
-# 1. ติดตั้ง Stripe CLI
-brew install stripe/stripe-cli/stripe
-
-# 2. Login กับ Stripe CLI
-stripe login
-
-# 3. เริ่ม webhook listener (forwarding ไปยัง local backend)
-stripe listen --forward-to localhost:8000/api/webhooks/stripe
-
-# 4. เริ่ม backend
-cd backend && source .venv/bin/activate && uvicorn app.main:app --reload
-```
-
----
-
-### Verification Steps (Issue #210)
-
-*หมายเหตุ: Stripe CLI `stripe trigger` ไม่รองรับ `payout.paid` / `payout.failed` โดยตรง และจำเป็นต้องผูก External Bank Account บน Stripe Dashboard ดังนั้นการทดสอบฝั่ง Local จึงใช้ Helper Script `backend/scripts/trigger_payout_webhook.py` ซึ่งคำนวณ Stripe Signature HMAC-SHA256 ให้อัตโนมัติ*
-
-#### Test 1: payout.created (บันทึก Payout Record)
-
-```bash
-python backend/scripts/trigger_payout_webhook.py created
-# Expected Output: Status: 200, Response: {"status":"success"}
-```
-
-**ตรวจสอบ DB:**
-```bash
-sqlite3 backend/fonmayang.db "SELECT payout_id, status, amount_cents, idempotency_key FROM payouts;"
-# Expected: po_test_manual_123|pending|500000|po_test_manual_123-created
-```
-
-#### Test 2: Idempotency (ส่ง event ซ้ำ)
-
-```bash
-python backend/scripts/trigger_payout_webhook.py created
-# Expected Logs (Backend): [PAYOUT] Duplicate payout.created for po_test_manual_123 — skipping.
-```
-
-**ตรวจสอบ DB:**
-```bash
-sqlite3 backend/fonmayang.db "SELECT COUNT(*) FROM payouts;"
-# Expected: 1 (ไม่เกิด row ซ้ำ)
-```
-
-#### Test 3: payout.paid (อัปเดตสถานะสำเร็จ)
-
-```bash
-python backend/scripts/trigger_payout_webhook.py paid
-# Expected Output: Status: 200, Response: {"status":"success"}
-```
-
-**ตรวจสอบ DB:**
-```bash
-sqlite3 backend/fonmayang.db "SELECT payout_id, status FROM payouts WHERE payout_id='po_test_manual_123';"
-# Expected: po_test_manual_123|paid
-```
-
-#### Test 4: payout.failed (อัปเดตสถานะล้มเหลวพร้อมเหตุผล)
-
-```bash
-python backend/scripts/trigger_payout_webhook.py failed
-# Expected Output: Status: 200, Response: {"status":"success"}
-```
-
-**ตรวจสอบ DB:**
-```bash
-sqlite3 backend/fonmayang.db "SELECT payout_id, status, failure_code, failure_message FROM payouts WHERE payout_id='po_test_manual_123';"
-# Expected: po_test_manual_123|failed|account_closed|The bank account has been closed.
-```
+## 📌 Prerequisites & Environment Setup
+1. **Node.js** (v18+) and npm installed for frontend.
+2. **Python 3.10+** and `uv`/`poetry` installed for backend.
+3. Shell commands to launch the services locally:
+   
+   **Backend:**
+   ```bash
+   cd backend
+   source .venv/bin/activate
+   uv run uvicorn app.main:app --reload --port 8000
+   ```
+   
+   **Frontend:**
+   ```bash
+   cd frontend
+   npm run dev
+   ```
 
 ---
 
-## Issue #211: GCP Cloud Billing API & Dashboard
+## 🧪 Verification Scenarios
 
-### Overview
-ตรวจสอบว่า `GCPBillingService`, API Endpoint `/api/v1/metrics/gcp-costs` และ Frontend Component `GCPCostBreakdown` ทำงานร่วมกันได้ถูกต้อง ทั้งในกรณีใช้ Mock Data (Dev/Staging) และข้อมูลจริงจาก GCP BigQuery
-
----
-
-### Verification Steps (Issue #211)
-
-#### Test 1: Backend Endpoint Auth Guard (401 Unauthorized)
-```bash
-# พยายามเข้าถึง endpoint โดยไม่มี x-cron-secret header
-curl -i http://localhost:8000/api/v1/metrics/gcp-costs
-
-# Expected Output:
-# HTTP/1.1 401 Unauthorized
-# {"detail":"Unauthorized"}
-```
-
-#### Test 2: Backend Endpoint Success (Mock Fallback)
-```bash
-# เรียกผ่าน x-cron-secret header (ใช้ secret เดียวกับ env)
-CRON_SECRET=$(grep CRON_SECRET backend/.env | cut -d '=' -f2)
-curl -i -H "x-cron-secret: ${CRON_SECRET}" http://localhost:8000/api/v1/metrics/gcp-costs
-
-# Expected Response (200 OK):
-# {
-#   "cloud_run_usd": 8.4,
-#   "cloud_storage_usd": 1.2,
-#   "egress_usd": 0.6,
-#   "other_usd": 0.8,
-#   "total_usd": 11.0,
-#   "period_start": "2026-07-01",
-#   "period_end": "2026-07-24",
-#   "currency": "USD",
-#   "is_mock": true
-# }
-```
-
-#### Test 3: Next.js API Proxy Route Verification
-```bash
-# สตาร์ท frontend และเรียกผ่าน Next.js route (proxy จะแนบ CRON_SECRET ให้อัตโนมัติ)
-curl -i http://localhost:3000/api/metrics/gcp-costs
-
-# Expected Response (200 OK):
-# ส่งกลับ JSON payload เดียวกับ Backend endpoint โดยไม่เปิดเผย CRON_SECRET สู่ Client
-```
-
-#### Test 4: Frontend UI Verification (GCPCostBreakdown Component)
-1. เปิด Web Browser ไปที่ Dashboard (`http://localhost:3000`)
-2. สังเกต Component **GCP Infrastructure Costs**:
-   - **Total Display**: แสดงผล `$11.00 USD / month`
-   - **Badge**: ขึ้นป้ายกำกับ Amber `Mock Data` เมื่อ `is_mock = true`
-   - **Service Rows & Progress Bars**:
-     - Cloud Run: `$8.40` (76%)
-     - Cloud Storage: `$1.20` (11%)
-     - Network Egress: `$0.60` (5%)
-     - Other Services: `$0.80` (7%)
-3. คลิกปุ่ม **Refresh** (ไอคอนวงกลมหมุน):
-   - ปุ่มแสดง Spinner และดึงข้อมูลใหม่จาก `/api/metrics/gcp-costs` สำเร็จ
+### Scenario 1: SSE Connection & Broadcasting (Issue #157)
+- **Goal**: Verify that the client can connect to the Server-Sent Events endpoint and receive real-time data and periodic heartbeats.
+- **Steps**:
+  1. Open a terminal and connect to the stream endpoint using cURL:
+     ```bash
+     curl -N -H "Accept: text/event-stream" http://localhost:8000/api/v1/events/stream
+     ```
+  2. Wait up to 15 seconds to observe the automated heartbeat.
+  3. In a separate terminal, trigger a mock event (e.g. by hitting an endpoint that calls `EventBroadcaster().broadcast_event()`).
+- **Expected Outcome**:
+  - HTTP Status: `200 OK`
+  - Response Body: Stream remains open.
+  - Heartbeat: Receives `event: ping\ndata: {}\n\n`.
+  - Custom Event: Receives `event: <type>\ndata: <json_payload>\n\n`.
 
 ---
 
-## Automated Test Execution Summary
+### Scenario 2: Leaderboard Data Aggregation & Badges (Issue #148)
+- **Goal**: Verify that the financial leaderboard groups donations by pseudonym/token, sums amounts correctly, and assigns proper tier badges.
+- **Steps**:
+  1. Send mock donations to simulate donors.
+     ```bash
+     curl -X POST http://localhost:8000/auth/generate-token \
+       -H "Content-Type: application/json" \
+       -d '{"transaction_id": "tx1", "amount": 1050, "timestamp": "2026-07-24T12:00:00Z"}'
+     ```
+  2. Fetch the leaderboard data:
+     ```bash
+     curl -X GET http://localhost:8000/api/v1/financial/leaderboard
+     ```
+- **Expected Outcome**:
+  - HTTP Status: `200 OK`
+  - Response Body: JSON array sorted by `total_amount` descending.
+  - Badge Logic: The user with `1050` amount should have the `"badge": "Ecosystem Guardian"` (since amount > 1000).
 
-```bash
-cd backend && source .venv/bin/activate
-pytest tests/test_stripe_payout_webhook.py tests/test_gcp_billing.py -v
-```
+---
 
-**Results:**
-- `test_stripe_payout_webhook.py`: **13 passed** ✅
-- `test_gcp_billing.py`: **8 passed** ✅
-- Full Suite Regression: **294 passed, 4 skipped** ✅
+### Scenario 3: Arcade Leaderboard UI & SSE Hook
+- **Goal**: Verify the frontend glassmorphic UI renders correctly and reacts to real-time events.
+- **Steps**:
+  1. Open `http://localhost:3000` in the browser and navigate to the Financial Dashboard.
+  2. Inspect the "Top Operators" leaderboard card.
+  3. Use the browser DevTools (Network tab) to ensure the `EventSource` connection to `/api/v1/events/stream` is established.
+  4. Manually trigger a donation via the backend API.
+- **Expected Outcome**:
+  - The UI uses a retro-arcade, glassmorphic aesthetic (neon text, glowing borders).
+  - Rank #1 has a gold/amber glow.
+  - The UI updates automatically without a page refresh when the new donation event is received via SSE.
+  - Disconnecting the backend turns the status indicator red and triggers an auto-retry every 3 seconds.
+
+---
+
+### Scenario 4: Verify Backend Tests
+1. Navigate to the backend directory: `cd backend`
+2. Activate the virtual environment: `source .venv/bin/activate`
+3. Run the tests: `pytest tests/test_db.py`
+4. Expected outcome: The tests should execute and pass without dependency errors.
+
+### Scenario 5: Verify Frontend Unit Tests
+1. Navigate to the frontend directory: `cd frontend`
+2. Run the tests: `npm run test`
+3. Expected outcome: Jest should run the `GlassNavbar.test.tsx` file and pass.
+
+### Scenario 6: Verify E2E Setup
+1. Navigate to the frontend directory: `cd frontend`
+2. Run the E2E tests: `npm run test:e2e`
+3. Expected outcome: Playwright should attempt to run the `home.spec.ts` test. (Note: initial browser download may be required via `npx playwright install` if running for the first time).
+
+### Scenario 7: Verify CI/CD Pipeline
+1. Check the GitLab Merge Request pipeline.
+2. Expected outcome: `test_frontend` and `test_e2e` jobs should appear and execute alongside `unit_tests`.

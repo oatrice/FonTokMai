@@ -109,8 +109,9 @@ export function GCPCostBreakdown() {
   }, []);
 
   useEffect(() => {
+    // Only fetch costs once on mount
     fetchCosts();
-  }, [fetchCosts]);
+  }, []); // Remove fetchCosts from dependency to prevent infinite loop or cascading renders
 
   return (
     <GlassCard variant="default" glowColor="cyan" className="p-6 space-y-5">
