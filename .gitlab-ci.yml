@@ -141,7 +141,7 @@ test_frontend:
 
 test_e2e:
   stage: test
-  image: mcr.microsoft.com/playwright:v1.50.1-noble
+  image: mcr.microsoft.com/playwright:v1.61.1-noble
   extends:
     - .telegram_notify
   before_script:
