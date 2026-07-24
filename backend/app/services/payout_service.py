@@ -54,11 +54,11 @@ class PayoutService:
 
         arrival_ts = payout_data.get("arrival_date")
         arrival_dt = (
-            datetime.datetime.fromtimestamp(arrival_ts, tz=datetime.timezone.utc)
+            datetime.datetime.fromtimestamp(arrival_ts, tz=datetime.timezone.utc).replace(tzinfo=None)
             if arrival_ts
             else None
         )
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
         payout = Payout(
             payout_id=payout_id,
@@ -89,7 +89,7 @@ class PayoutService:
             return {"skipped": True}
 
         payout.status = "paid"
-        payout.updated_at = datetime.datetime.now(datetime.timezone.utc)
+        payout.updated_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         await self.db.commit()
         logger.info(f"[PAYOUT] Updated status to paid: {payout_id}")
         return {"status": "paid"}
@@ -110,7 +110,7 @@ class PayoutService:
         payout.status = "failed"
         payout.failure_code = payout_data.get("failure_code")
         payout.failure_message = payout_data.get("failure_message")
-        payout.updated_at = datetime.datetime.now(datetime.timezone.utc)
+        payout.updated_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         await self.db.commit()
         logger.error(
             f"[PAYOUT] Payout failed: {payout_id} "
