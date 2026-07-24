@@ -43,7 +43,12 @@ class GCPBillingService:
     EGRESS_KEYWORDS = ["networking", "egress", "internet egress"]
 
     def __init__(self):
-        self.project_id = os.getenv("GCP_PROJECT_ID", "")
+        self.project_id = (
+            os.getenv("GCP_PROJECT_ID")
+            or os.getenv("GOOGLE_CLOUD_PROJECT")
+            or os.getenv("GCP_PROJECT")
+            or ""
+        )
         self.billing_dataset = os.getenv("GCP_BILLING_BIGQUERY_DATASET", "")
 
     # ─── Mock Data ───────────────────────────────────────────────────────────
