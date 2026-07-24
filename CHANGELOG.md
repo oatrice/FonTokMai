@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added dynamic Next.js API rewrite configuration (`frontend/next.config.ts`) using `process.env.BACKEND_URL` environment variable for seamless Vercel production deployment to Cloud Run (Issue #207).
 - Added `CORSMiddleware` configuration to FastAPI backend (`backend/app/main.py`) allowing Vercel deployment origins (`https://*.vercel.app`) and custom origin overrides via `ALLOWED_ORIGIN`.
 
+## [0.64.0] - 2026-07-24
+
+### Added
+- Added `GCPBillingService` (`backend/app/services/gcp_billing.py`) querying monthly GCP infrastructure costs from GCP BigQuery export dataset (`gcp_billing_export_v1_*`) with fallback chain (`GCP_PROJECT_ID` ➡️ `GOOGLE_CLOUD_PROJECT` ➡️ `GCP_PROJECT`) and graceful mock fallback (Issue #211).
+- Added `GET /api/v1/metrics/gcp-costs` endpoint protected by `x-cron-secret` auth guard (`backend/app/routers/metrics.py`).
+- Added Next.js API Proxy Route `/api/metrics/gcp-costs` server-side proxying requests to backend.
+- Added `GCPCostBreakdown` glassmorphic React component with animated progress bars, skeleton loaders, and mock data badge.
+- Added `FORCE_GCP_REAL_DATA` environment variable for local simulation of `is_mock=False` state.
+
+### Changed
+- Converted all frontend currency displays from USD (`$`) to THB (`฿`).
+- Refactored Navigation Bar active status highlighting (`GlassNavbar.tsx`) using Next.js `usePathname()`.
+
 ## [0.62.0] - 2026-07-23
 
 ### Added
