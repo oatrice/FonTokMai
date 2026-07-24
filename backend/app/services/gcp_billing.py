@@ -124,11 +124,14 @@ class GCPBillingService:
             GROUP BY service.description
             ORDER BY cost DESC
         """
+        logger.info(f"[GCP_BILLING] Querying BigQuery dataset: {dataset}.gcp_billing_export_v1_* for project {self.project_id}")
         results = client.query(query).result()
-        return [
+        fetched = [
             {"service_description": row.service_description, "cost": float(row.cost)}
             for row in results
         ]
+        logger.info(f"[GCP_BILLING] BigQuery returned {len(fetched)} raw service rows")
+        return fetched
 
     # ─── Public Interface ────────────────────────────────────────────────────
 
@@ -148,9 +151,14 @@ class GCPBillingService:
             aggregated = self._aggregate_by_service(rows)
 
             now = datetime.datetime.now(datetime.timezone.utc)
+            total = round(sum(aggregated.values()), 4)
+            logger.info(
+                f"[GCP_BILLING] Successfully fetched real BigQuery billing data: "
+                f"fetched {len(rows)} service rows, total_usd=${total} (is_mock=False)"
+            )
             return GCPCostBreakdown(
                 **aggregated,
-                total_usd=round(sum(aggregated.values()), 4),
+                total_usd=total,
                 period_start=f"{now.year}-{now.month:02d}-01",
                 period_end=now.strftime("%Y-%m-%d"),
                 currency="USD",
