@@ -98,18 +98,18 @@ const connectSSE = () => {
     // Fetch initial data
     fetchLeaderboard();
 
-    eventSource.addEventListener("new_donation", (event) => {
+    eventSource.addEventListener("new_donation", () => {
       resetHeartbeat();
       // Whenever a new donation occurs, refetch the leaderboard
       fetchLeaderboard();
     });
 
-    eventSource.addEventListener("ping", (event) => {
+    eventSource.addEventListener("ping", () => {
       // console.log("Received ping");
       resetHeartbeat();
     });
 
-    eventSource.onmessage = (event) => {
+    eventSource.onmessage = () => {
       // Catch-all for unnamed events
       resetHeartbeat();
     };

@@ -2,8 +2,9 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { useEventStream } from "../../hooks/useEventStream";
-import { Trophy, Flame, ChevronUp, ChevronDown, Minus } from "lucide-react";
+import { Trophy, Flame, Minus } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
 
 export function Leaderboard() {
@@ -76,9 +77,11 @@ export function Leaderboard() {
                 
                 <div className="flex items-center gap-3">
                   <div className="relative">
-                    <img 
+                    <Image 
                       src={`https://api.dicebear.com/7.x/bottts/svg?seed=${player.token}`} 
                       alt={player.pseudonym} 
+                      width={40}
+                      height={40}
                       className="w-10 h-10 rounded-lg bg-slate-900 border border-white/10 group-hover:border-purple-400/50 transition-colors"
                     />
                     {player.badge === "Ecosystem Guardian" && (
