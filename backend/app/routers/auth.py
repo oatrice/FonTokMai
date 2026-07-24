@@ -4,6 +4,7 @@ from sqlalchemy.future import select
 from pydantic import BaseModel
 from app.database import get_db
 from app.models import Donor
+from app.services.event_broadcaster import EventBroadcaster
 import secrets
 import string
 import datetime
@@ -48,6 +49,13 @@ async def generate_token(req: DonationSuccessReq, db: AsyncSession = Depends(get
     db.add(new_donor)
     await db.commit()
     await db.refresh(new_donor)
+    
+    try:
+        broadcaster = EventBroadcaster()
+        await broadcaster.broadcast_event('new_donation', {'token': token, 'amount': req.amount})
+    except Exception as e:
+        pass
+
     
     return {"token": token}
 
