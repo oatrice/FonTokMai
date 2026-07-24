@@ -8,7 +8,7 @@ import pytest
 import datetime
 import stripe
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, AsyncMock, patch
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -112,18 +112,24 @@ def test_payout_idempotency_key_is_unique():
 
 @pytest.fixture
 def mock_db():
-    """Fake SQLAlchemy session ที่ไม่แตะ DB จริง"""
-    db = MagicMock()
-    db.query.return_value.filter.return_value.first.return_value = None
+    """Fake async SQLAlchemy session ที่ไม่แตะ DB จริง"""
+    db = AsyncMock()
+    # Default: _find_payout returns None (no existing record)
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.first.return_value = None
+    db.execute = AsyncMock(return_value=mock_result)
+    db.add = MagicMock()  # add() is synchronous
+    db.commit = AsyncMock()
     return db
 
 
-def test_payout_service_saves_created_event(mock_db):
+@pytest.mark.asyncio
+async def test_payout_service_saves_created_event(mock_db):
     """payout.created ต้องบันทึก Payout record ใหม่ใน DB"""
     from app.services.payout_service import PayoutService
 
     svc = PayoutService(db=mock_db)
-    result = svc.handle_payout_created({
+    result = await svc.handle_payout_created({
         "id": "po_test123",
         "status": "pending",
         "amount": 500000,
@@ -132,31 +138,33 @@ def test_payout_service_saves_created_event(mock_db):
     })
 
     mock_db.add.assert_called_once()
-    mock_db.commit.assert_called_once()
+    mock_db.commit.assert_awaited_once()
     assert result.get("status") == "created"
 
 
-def test_payout_service_idempotency_prevents_duplicate(mock_db):
+@pytest.mark.asyncio
+async def test_payout_service_idempotency_prevents_duplicate(mock_db):
     """ถ้า payout_id ซ้ำ ต้องไม่ add อีกครั้ง (idempotency)"""
     from app.models import Payout
     from app.services.payout_service import PayoutService
 
     existing = Payout(payout_id="po_dup123", idempotency_key="po_dup123-created")
-    mock_db.query.return_value.filter.return_value.first.return_value = existing
+    mock_db.execute.return_value.scalars.return_value.first.return_value = existing
 
     svc = PayoutService(db=mock_db)
-    result = svc.handle_payout_created({"id": "po_dup123", "amount": 100, "currency": "thb"})
+    result = await svc.handle_payout_created({"id": "po_dup123", "amount": 100, "currency": "thb"})
 
     mock_db.add.assert_not_called()
     assert result.get("skipped") is True
 
 
-def test_payout_service_updates_status_on_paid(mock_db):
+@pytest.mark.asyncio
+async def test_payout_service_updates_status_on_paid(mock_db):
     """payout.paid ต้อง update status ของ record เดิมเป็น 'paid'"""
     from app.models import Payout
     from app.services.payout_service import PayoutService
 
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     existing = Payout(
         payout_id="po_paid123",
         status="pending",
@@ -166,21 +174,22 @@ def test_payout_service_updates_status_on_paid(mock_db):
         created_at=now,
         updated_at=now,
     )
-    mock_db.query.return_value.filter.return_value.first.return_value = existing
+    mock_db.execute.return_value.scalars.return_value.first.return_value = existing
 
     svc = PayoutService(db=mock_db)
-    svc.handle_payout_paid({"id": "po_paid123"})
+    await svc.handle_payout_paid({"id": "po_paid123"})
 
     assert existing.status == "paid"
-    mock_db.commit.assert_called_once()
+    mock_db.commit.assert_awaited_once()
 
 
-def test_payout_service_captures_failure_reason(mock_db):
+@pytest.mark.asyncio
+async def test_payout_service_captures_failure_reason(mock_db):
     """payout.failed ต้องบันทึก failure_code และ failure_message"""
     from app.models import Payout
     from app.services.payout_service import PayoutService
 
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     existing = Payout(
         payout_id="po_fail456",
         status="pending",
@@ -190,10 +199,10 @@ def test_payout_service_captures_failure_reason(mock_db):
         created_at=now,
         updated_at=now,
     )
-    mock_db.query.return_value.filter.return_value.first.return_value = existing
+    mock_db.execute.return_value.scalars.return_value.first.return_value = existing
 
     svc = PayoutService(db=mock_db)
-    svc.handle_payout_failed({
+    await svc.handle_payout_failed({
         "id": "po_fail456",
         "failure_code": "insufficient_funds",
         "failure_message": "Your Stripe account has insufficient funds.",
@@ -202,20 +211,21 @@ def test_payout_service_captures_failure_reason(mock_db):
     assert existing.status == "failed"
     assert existing.failure_code == "insufficient_funds"
     assert "insufficient funds" in existing.failure_message
-    mock_db.commit.assert_called_once()
+    mock_db.commit.assert_awaited_once()
 
 
-def test_payout_service_unknown_payout_paid_skips(mock_db):
+@pytest.mark.asyncio
+async def test_payout_service_unknown_payout_paid_skips(mock_db):
     """payout.paid สำหรับ payout_id ที่ไม่รู้จัก ต้อง skip ไม่ crash"""
     from app.services.payout_service import PayoutService
 
     # DB returns None — payout ไม่อยู่ใน system
-    mock_db.query.return_value.filter.return_value.first.return_value = None
+    mock_db.execute.return_value.scalars.return_value.first.return_value = None
 
     svc = PayoutService(db=mock_db)
-    result = svc.handle_payout_paid({"id": "po_unknown"})
+    result = await svc.handle_payout_paid({"id": "po_unknown"})
 
-    mock_db.commit.assert_not_called()
+    mock_db.commit.assert_not_awaited()
     assert result.get("skipped") is True
 
 
