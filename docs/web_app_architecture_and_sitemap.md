@@ -35,11 +35,12 @@ graph TD
   * Hover preview of storm cluster trajectories (#188).
 
 ### 2. 💚 Transparency & Gamification Dashboard (`/dashboard`)
-* **Issues:** #191, #193, #198
+* **Issues:** #148, #157, #191, #193, #198
 * **Target Audience:** Donators, Supporters, BA/PO
 * **Features:**
   * **Magic Link Token Auth:** Handles `token` parameter and stores pseudonymous auth token in Local Storage (#193).
   * **Live Runway Countdown:** SSE / WebSocket stream displaying remaining server lifespan (#191).
+  * **Retro-Arcade Live Leaderboard & SSE Stream:** Real-time EventSource connection (`/api/v1/events/stream`) with 15s heartbeats, live leaderboard aggregation (`/api/v1/financial/leaderboard`), rank #1 glowing indicators, and tier badges (#148, #157).
   * **Milestone Progress & Badges:** Displays donation goal progress bars and anonymized supporter badges (#198).
   * **Donation Lock & Waiting List:** Emergency kill-switch to mask leaderboards and divert traffic (#198).
 
