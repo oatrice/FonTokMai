@@ -1,159 +1,51 @@
-# Manual Verification — FonMaYang Financial Engine & Cost Transparency
+# Manual Verification: Arcade Leaderboard & SSE Integration (Issues #148 & #157)
 
-## Issue #210: Stripe Auto Payout Webhook & Balance Reconciliation
+## Prerequisites
+- Node.js (v18+) and npm installed.
+- Ensure the backend SSE endpoint `/api/v1/events/stream` is running or can be mocked.
+- For testing the UI without the backend, you can temporarily mock `useEventStream.ts` to simulate data.
 
-### Overview
-ตรวจสอบว่า `payout.created`, `payout.paid`, และ `payout.failed` events จาก Stripe ถูก handle อย่างถูกต้อง พร้อม idempotency และ audit trail ใน `payouts` table
+## Test 1: Gamified UI and Animations
+1. Start the Next.js development server:
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+2. Open the application at `http://localhost:3000` and navigate to the Financial Dashboard.
+3. **Verify Glassmorphism & Retro-Arcade Vibe:**
+   - Look for the `Top Operators` leaderboard section.
+   - It should have a purple glow `GlassCard`, an arcade-like grid background, and neon typography.
+   - Check that the `Top Operators` text has a glowing text-shadow.
+4. **Verify Micro-Animations:**
+   - If mock data is updated, observe the `framer-motion` smooth entry and exit animations.
+   - Hover over a leaderboard row. It should highlight nicely.
+   - The connection status dot (e.g., green for connected) should have a pinging animation.
 
----
+## Test 2: SSE Connection (EventSource) State
+1. In the browser Developer Tools -> Network tab, check that a connection to `/api/v1/events/stream` is made using EventSource.
+2. If the connection fails, the indicator should turn red (`disconnected`), and it will auto-retry every 3 seconds.
+3. If connected, the dot should pulse green.
 
-### Prerequisites (Issue #210)
+## Test 3: Leaderboard Data Rendering
+1. Emit a mock `leaderboard_update` event from the backend (or simulate it).
+   ```json
+   {
+     "type": "leaderboard_update",
+     "payload": [
+       { "id": "u1", "name": "CyberNinja", "score": 95000, "avatar": "", "trend": "up", "combo": 4 },
+       { "id": "u2", "name": "CryptoKing", "score": 82000, "avatar": "", "trend": "flat" },
+       { "id": "u3", "name": "HackThePlanet", "score": 75000, "avatar": "", "trend": "down" }
+     ]
+   }
+   ```
+2. **Verify Output:**
+   - Rank #1 should have an amber/gold glowing border and text.
+   - Rank #2 should have a silver styling.
+   - Rank #3 should have a bronze styling.
+   - Players with `combo > 2` should have a pulsing red flame combo badge (e.g., `x4`).
+   - The scores should be formatted with commas.
+   - Trends (`up`, `down`, `flat`) should show correct Chevrons and Minus icons with corresponding colors.
 
-```bash
-# 1. ติดตั้ง Stripe CLI
-brew install stripe/stripe-cli/stripe
-
-# 2. Login กับ Stripe CLI
-stripe login
-
-# 3. เริ่ม webhook listener (forwarding ไปยัง local backend)
-stripe listen --forward-to localhost:8000/api/webhooks/stripe
-
-# 4. เริ่ม backend
-cd backend && source .venv/bin/activate && uvicorn app.main:app --reload
-```
-
----
-
-### Verification Steps (Issue #210)
-
-*หมายเหตุ: Stripe CLI `stripe trigger` ไม่รองรับ `payout.paid` / `payout.failed` โดยตรง และจำเป็นต้องผูก External Bank Account บน Stripe Dashboard ดังนั้นการทดสอบฝั่ง Local จึงใช้ Helper Script `backend/scripts/trigger_payout_webhook.py` ซึ่งคำนวณ Stripe Signature HMAC-SHA256 ให้อัตโนมัติ*
-
-#### Test 1: payout.created (บันทึก Payout Record)
-
-```bash
-python backend/scripts/trigger_payout_webhook.py created
-# Expected Output: Status: 200, Response: {"status":"success"}
-```
-
-**ตรวจสอบ DB:**
-```bash
-sqlite3 backend/fonmayang.db "SELECT payout_id, status, amount_cents, idempotency_key FROM payouts;"
-# Expected: po_test_manual_123|pending|500000|po_test_manual_123-created
-```
-
-#### Test 2: Idempotency (ส่ง event ซ้ำ)
-
-```bash
-python backend/scripts/trigger_payout_webhook.py created
-# Expected Logs (Backend): [PAYOUT] Duplicate payout.created for po_test_manual_123 — skipping.
-```
-
-**ตรวจสอบ DB:**
-```bash
-sqlite3 backend/fonmayang.db "SELECT COUNT(*) FROM payouts;"
-# Expected: 1 (ไม่เกิด row ซ้ำ)
-```
-
-#### Test 3: payout.paid (อัปเดตสถานะสำเร็จ)
-
-```bash
-python backend/scripts/trigger_payout_webhook.py paid
-# Expected Output: Status: 200, Response: {"status":"success"}
-```
-
-**ตรวจสอบ DB:**
-```bash
-sqlite3 backend/fonmayang.db "SELECT payout_id, status FROM payouts WHERE payout_id='po_test_manual_123';"
-# Expected: po_test_manual_123|paid
-```
-
-#### Test 4: payout.failed (อัปเดตสถานะล้มเหลวพร้อมเหตุผล)
-
-```bash
-python backend/scripts/trigger_payout_webhook.py failed
-# Expected Output: Status: 200, Response: {"status":"success"}
-```
-
-**ตรวจสอบ DB:**
-```bash
-sqlite3 backend/fonmayang.db "SELECT payout_id, status, failure_code, failure_message FROM payouts WHERE payout_id='po_test_manual_123';"
-# Expected: po_test_manual_123|failed|account_closed|The bank account has been closed.
-```
-
----
-
-## Issue #211: GCP Cloud Billing API & Dashboard
-
-### Overview
-ตรวจสอบว่า `GCPBillingService`, API Endpoint `/api/v1/metrics/gcp-costs` และ Frontend Component `GCPCostBreakdown` ทำงานร่วมกันได้ถูกต้อง ทั้งในกรณีใช้ Mock Data (Dev/Staging) และข้อมูลจริงจาก GCP BigQuery
-
----
-
-### Verification Steps (Issue #211)
-
-#### Test 1: Backend Endpoint Auth Guard (401 Unauthorized)
-```bash
-# พยายามเข้าถึง endpoint โดยไม่มี x-cron-secret header
-curl -i http://localhost:8000/api/v1/metrics/gcp-costs
-
-# Expected Output:
-# HTTP/1.1 401 Unauthorized
-# {"detail":"Unauthorized"}
-```
-
-#### Test 2: Backend Endpoint Success (Mock Fallback)
-```bash
-# เรียกผ่าน x-cron-secret header (ใช้ secret เดียวกับ env)
-CRON_SECRET=$(grep CRON_SECRET backend/.env | cut -d '=' -f2)
-curl -i -H "x-cron-secret: ${CRON_SECRET}" http://localhost:8000/api/v1/metrics/gcp-costs
-
-# Expected Response (200 OK):
-# {
-#   "cloud_run_usd": 8.4,
-#   "cloud_storage_usd": 1.2,
-#   "egress_usd": 0.6,
-#   "other_usd": 0.8,
-#   "total_usd": 11.0,
-#   "period_start": "2026-07-01",
-#   "period_end": "2026-07-24",
-#   "currency": "USD",
-#   "is_mock": true
-# }
-```
-
-#### Test 3: Next.js API Proxy Route Verification
-```bash
-# สตาร์ท frontend และเรียกผ่าน Next.js route (proxy จะแนบ CRON_SECRET ให้อัตโนมัติ)
-curl -i http://localhost:3000/api/metrics/gcp-costs
-
-# Expected Response (200 OK):
-# ส่งกลับ JSON payload เดียวกับ Backend endpoint โดยไม่เปิดเผย CRON_SECRET สู่ Client
-```
-
-#### Test 4: Frontend UI Verification (GCPCostBreakdown Component)
-1. เปิด Web Browser ไปที่ Dashboard (`http://localhost:3000`)
-2. สังเกต Component **GCP Infrastructure Costs**:
-   - **Total Display**: แสดงผล `$11.00 USD / month`
-   - **Badge**: ขึ้นป้ายกำกับ Amber `Mock Data` เมื่อ `is_mock = true`
-   - **Service Rows & Progress Bars**:
-     - Cloud Run: `$8.40` (76%)
-     - Cloud Storage: `$1.20` (11%)
-     - Network Egress: `$0.60` (5%)
-     - Other Services: `$0.80` (7%)
-3. คลิกปุ่ม **Refresh** (ไอคอนวงกลมหมุน):
-   - ปุ่มแสดง Spinner และดึงข้อมูลใหม่จาก `/api/metrics/gcp-costs` สำเร็จ
-
----
-
-## Automated Test Execution Summary
-
-```bash
-cd backend && source .venv/bin/activate
-pytest tests/test_stripe_payout_webhook.py tests/test_gcp_billing.py -v
-```
-
-**Results:**
-- `test_stripe_payout_webhook.py`: **13 passed** ✅
-- `test_gcp_billing.py`: **8 passed** ✅
-- Full Suite Regression: **294 passed, 4 skipped** ✅
+## Expected Outcomes
+- The UI perfectly matches the rich aesthetics and gamified requirements.
+- The `useEventStream` hook manages connection states and prevents duplicate SSE instances, properly triggering global React state updates using `useSyncExternalStore`.
