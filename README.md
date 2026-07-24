@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.64.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
+**v0.65.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
 Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical Flow Cloud Tracking.
 
 ---
@@ -9,6 +9,7 @@ Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical F
 
 - **TMD Radar Processing** — Downloads and processes TMD radar images (kkn120, kkn240, skn240) using Optical Flow.
 - **Rain Prediction** — Forecasts rain arrival time (ETA) and intensity (dBZ) up to 90+ minutes in advance.
+- **Real-Time Leaderboard & SSE Broadcaster** — Retro-arcade glassmorphic live leaderboard with server-sent events (`/api/v1/events/stream`) and 15s heartbeats (Issues #148, #157).
 - **Dynamic Circuit Breaker & Resiliency** — Automatically downgrades external API failures to free fallbacks, supported by Emergency Overdrive (`INVINCIBLE` status).
 - **Gamified Financial Transparency & Jars** — Real-time Runway Engine decay, Budget Jars, Milestone Progress Bar (`GET /api/milestones`), GCP Infrastructure Cost Breakdown (`GET /api/v1/metrics/gcp-costs`), and Donation Lock.
 - **Zero-PII Payments & Auto Payouts** — Anonymous Auth, Account Recovery Keys, Zero-PII Stripe Webhook, and Stripe Auto Payout lifecycle handling (`payout.created`, `payout.paid`, `payout.failed`).

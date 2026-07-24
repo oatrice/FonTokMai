@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.65.0] - 2026-07-24
+
+### Added
+- Added Retro-Arcade Glassmorphic Live Leaderboard Component (`Leaderboard.tsx`) with real-time SSE updates and rank #1 glowing indicators (Issue #148).
+- Added Server-Sent Events (SSE) Broadcaster (`EventBroadcaster`) and stream endpoint (`GET /api/v1/events/stream`) with 15-second automatic `ping` heartbeats (Issue #157).
+- Added Jest, React Testing Library, and Playwright E2E Testing Infrastructure with automated GitLab CI/CD jobs (`test_frontend`, `test_e2e`).
+
+### Fixed
+- Fixed Next.js Image component domain authorization and SVG rendering for Dicebear avatar icons by adding `images.remotePatterns` in `next.config.ts` and `unoptimized` prop.
+- Fixed React infinite render loops in `GCPCostBreakdown.tsx` and countdown ticker drift in `RunwayCounter.tsx`.
+- Fixed Jest TypeScript config compilation errors and Playwright runner Docker image synchronization in `.gitlab-ci.yml`.
+
 ## [0.63.0] - 2026-07-24
 
 ### Added
