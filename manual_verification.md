@@ -28,25 +28,56 @@ cd backend && source .venv/bin/activate && uvicorn app.main:app --reload
 ### Verification Steps (Issue #210)
 
 #### Test 1: payout.created
+
+*หมายเหตุ: หาก Stripe Account ใน Test Mode ไม่รองรับ USD ให้ใส่ `--override payout:currency=thb` หรือยิง `curl` ด้วย raw payload*
+
+**Option A: Stripe CLI (พร้อม override currency)**
 ```bash
-stripe trigger payout.created
+stripe trigger payout.created --override payout:currency=thb
 # Expected Logs:
 # [STRIPE] Handled payout.created for payout po_xxx
 # [PAYOUT] Recorded payout.created: po_xxx amount=500000
 ```
-**ตรวจสอบ DB:**
+
+**Option B: Direct Webhook Payload (หาก Stripe CLI Account ติดปัญหา Currency)**
 ```bash
+curl -X POST http://localhost:8000/api/webhooks/stripe \
+  -H "Content-Type: application/json" \
+  -H "Stripe-Signature: t=123,v1=mock_signature_for_dev" \
+  -d '{
+    "type": "payout.created",
+    "data": {
+      "object": {
+        "id": "po_test_manual_123",
+        "amount": 500000,
+        "currency": "thb",
+        "status": "pending",
+        "arrival_date": 1754000000
+      }
+    }
+  }'
+```
+
+**ตรวจสอบ DB (เลือกใช้ตาม Current Working Directory):**
+```bash
+# หากอยู่ที่ Root Directory (FonMaYang):
 sqlite3 backend/fonmayang.db "SELECT payout_id, status, amount_cents, idempotency_key FROM payouts LIMIT 5;"
+
+# หากอยู่ในโฟลเดอร์ backend/:
+sqlite3 fonmayang.db "SELECT payout_id, status, amount_cents, idempotency_key FROM payouts LIMIT 5;"
 # Expected: row ปรากฏขึ้นพร้อม status='pending'
 ```
 
 #### Test 2: Idempotency (ส่ง event ซ้ำ)
 ```bash
-stripe trigger payout.created
+stripe trigger payout.created --override payout:currency=thb
 # Expected Logs: [PAYOUT] Duplicate payout.created for po_xxx — skipping.
 ```
 ```bash
+# หากอยู่ที่ Root Directory:
 sqlite3 backend/fonmayang.db "SELECT COUNT(*) FROM payouts;"
+# หากอยู่ในโฟลเดอร์ backend/:
+sqlite3 fonmayang.db "SELECT COUNT(*) FROM payouts;"
 # Expected: count ไม่เพิ่มขึ้น
 ```
 
