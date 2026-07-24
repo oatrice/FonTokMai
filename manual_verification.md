@@ -39,23 +39,27 @@ stripe trigger payout.created --override payout:currency=thb
 # [PAYOUT] Recorded payout.created: po_xxx amount=500000
 ```
 
-**Option B: Direct Webhook Payload (หาก Stripe CLI Account ติดปัญหา Currency)**
+**Option B: Direct Webhook Payload (แนะนำหากไม่ได้ผูก External Bank Account บน Stripe)**
+
+รัน Script helper เพื่อคำนวณ Stripe Signature (HMAC-SHA256) และยิงไปยัง backend local:
+
 ```bash
-curl -X POST http://localhost:8000/api/webhooks/stripe \
-  -H "Content-Type: application/json" \
-  -H "Stripe-Signature: t=123,v1=mock_signature_for_dev" \
-  -d '{
-    "type": "payout.created",
-    "data": {
-      "object": {
-        "id": "po_test_manual_123",
-        "amount": 500000,
-        "currency": "thb",
-        "status": "pending",
-        "arrival_date": 1754000000
-      }
-    }
-  }'
+# 1. ทดสอบ payout.created
+python backend/scripts/trigger_payout_webhook.py created
+
+# Expected Output:
+# Status: 200
+# Response: {"status":"success"}
+```
+
+```bash
+# 2. ทดสอบ payout.paid
+python backend/scripts/trigger_payout_webhook.py paid
+```
+
+```bash
+# 3. ทดสอบ payout.failed
+python backend/scripts/trigger_payout_webhook.py failed
 ```
 
 **ตรวจสอบ DB (เลือกใช้ตาม Current Working Directory):**
