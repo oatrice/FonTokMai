@@ -65,12 +65,6 @@ export function GlassNavbar() {
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <Link href="/dashboard">
-              <GlassButton variant="secondary" size="sm">
-                <Activity className="h-4 w-4 text-cyan-400" />
-                <span>Live Dashboard</span>
-              </GlassButton>
-            </Link>
             <GlassButton variant="primary" size="sm">
               <HeartHandshake className="h-4 w-4" />
               <span>Donate</span>
