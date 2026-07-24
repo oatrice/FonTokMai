@@ -1,44 +1,105 @@
-# 🧪 Manual Verification Artifact: Issue #207 (Vercel Cloud Run API Connection)
+# Manual Verification — Issue #210: Stripe Auto Payout Webhook & Balance Reconciliation
 
-## Feature Overview
-Dynamic configuration of Next.js API rewrites in `frontend/next.config.ts` using `process.env.BACKEND_URL` for Vercel production deployment and CORS Middleware in FastAPI backend.
+## Overview
+ตรวจสอบว่า `payout.created`, `payout.paid`, และ `payout.failed` events จาก Stripe ถูก handle อย่างถูกต้อง พร้อม idempotency และ audit trail ใน `payouts` table
 
 ---
 
-## 📋 Verification Checklist
+## Prerequisites
 
-### Happy Path 1: Local Development Fallback
-- **Pre-requisite**: Do NOT set `BACKEND_URL` in environment.
-- **Command**:
-  ```bash
-  cd frontend
-  npm run dev
-  ```
-- **Verification Step**:
-  Open `http://localhost:3000/dashboard` in browser.
-- **Expected Outcome**:
-  Next.js proxies `/api/runway` to `http://localhost:8000/api/runway`. Runway counter data loads successfully.
+```bash
+# 1. ติดตั้ง Stripe CLI
+brew install stripe/stripe-cli/stripe
 
-### Happy Path 2: Production Vercel Deployment Backend Override
-- **Pre-requisite**: Set `BACKEND_URL` environment variable.
-- **Command**:
-  ```bash
-  export BACKEND_URL="https://fonmayang-backend-xyz.a.run.app"
-  node -e "
-  const fs = require('fs');
-  const content = fs.readFileSync('frontend/next.config.ts', 'utf-8');
-  console.log('Verified process.env.BACKEND_URL present:', content.includes('process.env.BACKEND_URL'));
-  "
-  ```
-- **Expected Outcome**:
-  Next.js API rewrite destination resolves dynamically to `https://fonmayang-backend-xyz.a.run.app/api/:path*`.
+# 2. Login กับ Stripe CLI
+stripe login
 
-### Happy Path 3: CORS Validation in FastAPI Backend
-- **Command**:
-  ```bash
-  curl -I -X OPTIONS http://localhost:8000/api/runway \
-    -H "Origin: https://fonmayang.vercel.app" \
-    -H "Access-Control-Request-Method: GET"
-  ```
-- **Expected Outcome**:
-  HTTP Response headers contain `Access-Control-Allow-Origin: *` or `Access-Control-Allow-Origin: https://fonmayang.vercel.app`.
+# 3. เริ่ม webhook listener (forwarding ไปยัง local backend)
+stripe listen --forward-to localhost:8000/api/webhooks/stripe
+```
+
+```bash
+# 4. เริ่ม backend
+cd backend && source .venv/bin/activate && uvicorn app.main:app --reload
+```
+
+---
+
+## Happy Path Tests
+
+### Test 1: payout.created
+
+```bash
+stripe trigger payout.created
+# Expected Logs:
+# [STRIPE] Handled payout.created for payout po_xxx
+# [PAYOUT] Recorded payout.created: po_xxx amount=500000
+```
+
+**ตรวจสอบใน DB:**
+```bash
+sqlite3 backend/fonmayang.db \
+  "SELECT payout_id, status, amount_cents, idempotency_key FROM payouts LIMIT 5;"
+# Expected: row ปรากฏขึ้นพร้อม status='pending'
+```
+
+### Test 2: Idempotency (ส่ง event ซ้ำ)
+
+```bash
+stripe trigger payout.created
+# Expected Logs:
+# [PAYOUT] Duplicate payout.created for po_xxx — skipping.
+```
+
+```bash
+sqlite3 backend/fonmayang.db "SELECT COUNT(*) FROM payouts;"
+# Expected: count ไม่เพิ่มขึ้น
+```
+
+### Test 3: payout.paid
+
+```bash
+stripe trigger payout.paid
+# Expected: status='paid' ใน DB
+```
+
+### Test 4: payout.failed
+
+```bash
+stripe trigger payout.failed
+# Expected: status='failed', failure_code และ failure_message ปรากฏใน DB
+```
+
+---
+
+## Edge Case Tests
+
+### Test 5: Invalid Signature (Security)
+
+```bash
+curl -X POST http://localhost:8000/api/webhooks/stripe \
+  -H "Content-Type: application/json" \
+  -H "Stripe-Signature: invalid_sig" \
+  -d '{"type": "payout.created"}'
+# Expected: HTTP 400 {"detail": "Invalid signature"}
+```
+
+---
+
+## Automated Test Results
+
+```bash
+cd backend && source .venv/bin/activate && pytest tests/test_stripe_payout_webhook.py -v
+# Expected: 13 passed ✅
+```
+
+---
+
+## Zero-PII Verification
+
+```bash
+sqlite3 backend/fonmayang.db ".schema payouts"
+# Expected columns: id, payout_id, status, amount_cents, currency, arrival_date,
+#                   idempotency_key, failure_code, failure_message, created_at, updated_at
+# NO columns: name, email, bank_account, iban, sort_code, phone
+```
