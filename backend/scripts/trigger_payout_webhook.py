@@ -15,7 +15,18 @@ import urllib.request
 import os
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "http://localhost:8000/api/webhooks/stripe")
-SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_test_secret_for_dev_only")
+
+# Automatically load secret from backend/.env if available
+env_secret = None
+env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+if os.path.exists(env_path):
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("STRIPE_WEBHOOK_SECRET="):
+                env_secret = line.strip().split("=", 1)[1].strip('"').strip("'")
+                break
+
+SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", env_secret or "whsec_test_secret_for_dev_only")
 
 event_type_arg = sys.argv[1] if len(sys.argv) > 1 else "created"
 
