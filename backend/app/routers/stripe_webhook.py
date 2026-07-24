@@ -80,14 +80,24 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None, 
 
     elif event['type'] in ('payout.created', 'payout.paid', 'payout.failed'):
         payout_obj = event['data']['object']
-        try:
-            payout_id = payout_obj.get('id') if hasattr(payout_obj, 'get') else payout_obj['id']
-        except (KeyError, TypeError):
-            payout_id = getattr(payout_obj, 'id', 'unknown')
+        
+        # Safely convert StripeObject or dict to standard Python dict
+        def _to_dict(obj):
+            if isinstance(obj, dict):
+                return obj
+            res = {}
+            for k in ['id', 'amount', 'currency', 'arrival_date', 'status', 'failure_code', 'failure_message']:
+                try:
+                    res[k] = obj[k]
+                except (KeyError, TypeError, AttributeError):
+                    pass
+            return res
+
+        payout_dict = _to_dict(payout_obj)
+        payout_id = payout_dict.get('id', 'unknown')
 
         async with AsyncSessionLocal() as db:
             svc = PayoutService(db=db)
-            payout_dict = dict(payout_obj) if hasattr(payout_obj, 'items') else payout_obj
             if event['type'] == 'payout.created':
                 await svc.handle_payout_created(payout_dict)
             elif event['type'] == 'payout.paid':
