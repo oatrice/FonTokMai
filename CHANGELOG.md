@@ -5,11 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.63.0] - 2026-07-23
+## [0.63.0] - 2026-07-24
 
 ### Added
-- Added dynamic Next.js API rewrite configuration (`frontend/next.config.ts`) using `process.env.BACKEND_URL` environment variable for seamless Vercel production deployment to Cloud Run (Issue #207).
-- Added `CORSMiddleware` configuration to FastAPI backend (`backend/app/main.py`) allowing Vercel deployment origins (`https://*.vercel.app`) and custom origin overrides via `ALLOWED_ORIGIN`.
+- Added `Payout` SQLAlchemy model in `backend/app/models.py` with `payout_id`, status, amount_cents, currency, arrival_date, failure_code, failure_message, and `idempotency_key` (Issue #210).
+- Added `PayoutService` business logic (`backend/app/services/payout_service.py`) supporting async SQLAlchemy session, naive UTC datetimes, and strict idempotency via deterministic key `{payout_id}-{event_type}`.
+- Added Stripe webhook event handlers in `backend/app/routers/stripe_webhook.py` for `payout.created`, `payout.paid`, and `payout.failed` with robust `StripeObject` dict conversion.
+- Added developer testing helper script `backend/scripts/trigger_payout_webhook.py` with automatic HMAC-SHA256 signature calculation.
+- Added comprehensive unit and integration test suite `backend/tests/test_stripe_payout_webhook.py` (13 tests passing).
 
 ## [0.62.0] - 2026-07-23
 

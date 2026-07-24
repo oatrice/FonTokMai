@@ -6,6 +6,8 @@ import sqlite3
 import logging
 from pathlib import Path
 from app.services import transaction_service
+from app.services.payout_service import PayoutService
+from app.database import AsyncSessionLocal
 
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks", "stripe"])
 
@@ -75,5 +77,34 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None, 
 
         # Update real-time balance in system_config
         _update_balance_in_db(amount_total)
+
+    elif event['type'] in ('payout.created', 'payout.paid', 'payout.failed'):
+        payout_obj = event['data']['object']
+        
+        # Safely convert StripeObject or dict to standard Python dict
+        def _to_dict(obj):
+            if isinstance(obj, dict):
+                return obj
+            res = {}
+            for k in ['id', 'amount', 'currency', 'arrival_date', 'status', 'failure_code', 'failure_message']:
+                try:
+                    res[k] = obj[k]
+                except (KeyError, TypeError, AttributeError):
+                    pass
+            return res
+
+        payout_dict = _to_dict(payout_obj)
+        payout_id = payout_dict.get('id', 'unknown')
+
+        async with AsyncSessionLocal() as db:
+            svc = PayoutService(db=db)
+            if event['type'] == 'payout.created':
+                await svc.handle_payout_created(payout_dict)
+            elif event['type'] == 'payout.paid':
+                await svc.handle_payout_paid(payout_dict)
+            elif event['type'] == 'payout.failed':
+                await svc.handle_payout_failed(payout_dict)
+
+        logging.info(f"[STRIPE] Handled {event['type']} for payout {payout_id}")
 
     return {"status": "success"}

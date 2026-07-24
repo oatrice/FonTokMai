@@ -11,7 +11,7 @@ Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical F
 - **Rain Prediction** — Forecasts rain arrival time (ETA) and intensity (dBZ) up to 90+ minutes in advance.
 - **Dynamic Circuit Breaker & Resiliency** — Automatically downgrades external API failures to free fallbacks, supported by Emergency Overdrive (`INVINCIBLE` status).
 - **Gamified Financial Transparency & Jars** — Real-time Runway Engine decay, Budget Jars, Milestone Progress Bar (`GET /api/milestones`), and Donation Lock.
-- **Zero-PII Payments & Auth Recovery** — Anonymous Auth (`POST /api/v1/auth/anonymous`), Account Recovery Keys, and Zero-PII Stripe Webhook integration.
+- **Zero-PII Payments & Auto Payouts** — Anonymous Auth, Account Recovery Keys, Zero-PII Stripe Webhook, and Stripe Auto Payout lifecycle handling (`payout.created`, `payout.paid`, `payout.failed`).
 - **Manual Target Locking** — Select and lock specific rain cloud targets to track their precise direction and distance on radar images.
 - **Multi-Provider Fallback** — Fallback support for Tomorrow.io, Rainbow API, Xweather, and Open-Meteo.
 - **Telegram & LINE Bots** — Automated alerts with tracking radar images, timeline graphs, and multi-frame analysis.
