@@ -1,8 +1,8 @@
 import os
 import logging
 import hashlib
+import secrets
 from datetime import datetime, timezone
-import random
 import string
 from sqlalchemy.future import select
 from app.database import AsyncSessionLocal
@@ -10,7 +10,7 @@ from app.models import Donor
 
 def generate_token(length=8):
     characters = string.ascii_letters + string.digits
-    return "Fon-" + "".join(random.choice(characters) for _ in range(length))
+    return "Fon-" + "".join(secrets.choice(characters) for _ in range(length))
 
 def hash_transaction_id(tx_id: str) -> str:
     salt = os.getenv("HASH_SALT", "default_dev_salt")
@@ -26,8 +26,7 @@ async def save_stripe_transaction(customer_id: str, transaction_id: str, amount:
     hashed_tx_id = hash_transaction_id(transaction_id)
     token = generate_token()
     
-    # Amount from Stripe is usually in cents for some currencies, but for THB it's also in smallest currency unit (satang), so divide by 100
-    # Wait, the amount passed from webhook is amount_total which is in cents/satang. We convert to standard unit (THB).
+    # Stripe's amount_total is in satang (1 THB = 100 satang); convert to THB float for storage
     amount_thb = amount / 100.0 if amount else 0.0
 
     async with AsyncSessionLocal() as db:
