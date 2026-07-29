@@ -1,5 +1,12 @@
+import sys
+import types
+# Workaround for Python 3.14 protobuf / google._upb C-API incompatibility
+sys.modules.setdefault("google._upb", types.ModuleType("google._upb"))
+sys.modules["google._upb._message"] = None
+
 import os
 os.environ["GRPC_ENABLE_FORK_SUPPORT"] = "1"
+os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
 from dotenv import load_dotenv
 load_dotenv()
 import logging

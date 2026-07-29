@@ -1,99 +1,93 @@
-# Manual Verification Plan - Real-time Leaderboard & Event Broadcaster & Testing Infrastructure
+# Manual Verification Plan - Stripe Checkout & Neon Postgres Integration
 
-- **Branch**: `feat/148-157-realtime-leaderboard`
-- **MR / Issue ID**: `#148, #157`
-- **Date**: `2026-07-24`
+- **Branch**: `feat/223-224-stripe-neon-integration`
+- **MR / Issue ID**: `#208, #216, #223, #224`
+- **Date**: `2026-07-29`
+
+---
 
 ## 📌 Prerequisites & Environment Setup
-1. **Node.js** (v18+) and npm installed for frontend.
-2. **Python 3.10+** and `uv`/`poetry` installed for backend.
-3. Shell commands to launch the services locally:
-   
-   **Backend:**
-   ```bash
-   cd backend
-   source .venv/bin/activate
-   uv run uvicorn app.main:app --reload --port 8000
+1. **Environment Variables Needed** (update in `backend/.env`):
+   ```env
+   STRIPE_SECRET_KEY=sk_test_... (from Stripe Dashboard)
+   DATABASE_URL=postgresql+asyncpg://user:password@... (Neon Postgres connection string)
+   HASH_SALT=your_secure_salt_string
+   FRONTEND_URL=http://localhost:3000
    ```
-   
-   **Frontend:**
-   ```bash
-   cd frontend
-   npm run dev
-   ```
+2. **Launch Development Servers**:
+   - Backend:
+     ```bash
+     cd backend
+     source .venv/bin/activate
+     poetry run uvicorn app.main:app --reload
+     ```
+   - Frontend:
+     ```bash
+     cd frontend
+     npm run dev
+     ```
 
 ---
 
 ## 🧪 Verification Scenarios
 
-### Scenario 1: SSE Connection & Broadcasting (Issue #157)
-- **Goal**: Verify that the client can connect to the Server-Sent Events endpoint and receive real-time data and periodic heartbeats.
+### Scenario 1: Create Stripe Checkout Session (Happy Path)
+- **Goal**: Verify that users can initiate a donation and receive a valid Stripe Checkout URL.
 - **Steps**:
-  1. Open a terminal and connect to the stream endpoint using cURL:
-     ```bash
-     curl -N -H "Accept: text/event-stream" http://localhost:8000/api/v1/events/stream
-     ```
-  2. Wait up to 15 seconds to observe the automated heartbeat.
-  3. In a separate terminal, trigger a mock event (e.g. by hitting an endpoint that calls `EventBroadcaster().broadcast_event()`).
+  1. Open the Frontend at `http://localhost:3000`.
+  2. Click the **"Contribute"** button on the Financial Dashboard.
+  3. Select a preset amount (e.g., 100 THB) or enter a custom amount (e.g., 555 THB) in the Donation Modal.
+  4. Click **"Donate with Stripe"**.
 - **Expected Outcome**:
-  - HTTP Status: `200 OK`
-  - Response Body: Stream remains open.
-  - Heartbeat: Receives `event: ping\ndata: {}\n\n`.
-  - Custom Event: Receives `event: <type>\ndata: <json_payload>\n\n`.
+  - The modal shows a loading state.
+  - The backend returns HTTP `200 OK` with a JSON payload: `{"url": "https://checkout.stripe.com/..."}`.
+  - The browser automatically redirects to the Stripe Checkout page displaying "Milestone Contribution" with the exact amount selected.
+
+### Scenario 2: Verify Input Validation (Edge Case)
+- **Goal**: Ensure the backend rejects invalid donation amounts to prevent abuse.
+- **Steps**:
+  1. Use cURL to send an invalid amount (e.g., 5 THB, which is below the 10 THB minimum):
+     ```bash
+     curl -X POST http://localhost:8000/api/v1/donations/create-stripe-session \
+          -H "Content-Type: application/json" \
+          -d '{"amount_thb": 5}'
+     ```
+- **Expected Outcome**:
+  - HTTP Status: `422 Unprocessable Entity`
+  - Response Body: Validation Error detailing "Minimum donation amount is 10 THB".
+
+### Scenario 3: Verify Zero-PII Webhook Persistence (Database & Security)
+- **Goal**: Confirm that completed Stripe payments are recorded in Neon Postgres *without* any Personal Identifiable Information (PII).
+- **Steps**:
+  1. Complete a test payment on the Stripe Checkout page from Scenario 1.
+  2. (Alternatively, trigger the webhook via Stripe CLI if set up, or wait for the webhook payload).
+  3. Inspect the Neon Postgres `donors` table.
+     ```sql
+     SELECT * FROM donors ORDER BY timestamp DESC LIMIT 1;
+     ```
+- **Expected Outcome**:
+  - The record is created successfully.
+  - `hashed_transaction_id` contains a 64-character SHA-256 hash (NOT the raw `cs_test_...` ID).
+  - `pseudonym` is strictly `"Anonymous"`.
+  - `amount` correctly matches the THB amount.
+  - There are **no columns or data** containing the user's real name, email, or phone number.
+
+### Scenario 4: Webhook Idempotency (Edge Case)
+- **Goal**: Ensure duplicate webhooks do not result in double-counting donations.
+- **Steps**:
+  1. Re-send the exact same webhook payload to the backend.
+- **Expected Outcome**:
+  - HTTP Status: `200 OK` (webhook acknowledged).
+  - Database: No new record is created in the `donors` table (the row count remains unchanged).
+  - Logs show: `"Transaction <hash> already exists. Skipping."`
 
 ---
 
-### Scenario 2: Leaderboard Data Aggregation & Badges (Issue #148)
-- **Goal**: Verify that the financial leaderboard groups donations by pseudonym/token, sums amounts correctly, and assigns proper tier badges.
-- **Steps**:
-  1. Send mock donations to simulate donors.
-     ```bash
-     curl -X POST http://localhost:8000/auth/generate-token \
-       -H "Content-Type: application/json" \
-       -d '{"transaction_id": "tx1", "amount": 1050, "timestamp": "2026-07-24T12:00:00Z"}'
-     ```
-  2. Fetch the leaderboard data:
-     ```bash
-     curl -X GET http://localhost:8000/api/v1/financial/leaderboard
-     ```
-- **Expected Outcome**:
-  - HTTP Status: `200 OK`
-  - Response Body: JSON array sorted by `total_amount` descending.
-  - Badge Logic: The user with `1050` amount should have the `"badge": "Ecosystem Guardian"` (since amount > 1000).
-
----
-
-### Scenario 3: Arcade Leaderboard UI & SSE Hook
-- **Goal**: Verify the frontend glassmorphic UI renders correctly and reacts to real-time events.
-- **Steps**:
-  1. Open `http://localhost:3000` in the browser and navigate to the Financial Dashboard.
-  2. Inspect the "Top Operators" leaderboard card.
-  3. Use the browser DevTools (Network tab) to ensure the `EventSource` connection to `/api/v1/events/stream` is established.
-  4. Manually trigger a donation via the backend API.
-- **Expected Outcome**:
-  - The UI uses a retro-arcade, glassmorphic aesthetic (neon text, glowing borders).
-  - Rank #1 has a gold/amber glow.
-  - The UI updates automatically without a page refresh when the new donation event is received via SSE.
-  - Disconnecting the backend turns the status indicator red and triggers an auto-retry every 3 seconds.
-
----
-
-### Scenario 4: Verify Backend Tests
-1. Navigate to the backend directory: `cd backend`
-2. Activate the virtual environment: `source .venv/bin/activate`
-3. Run the tests: `pytest tests/test_db.py`
-4. Expected outcome: The tests should execute and pass without dependency errors.
-
-### Scenario 5: Verify Frontend Unit Tests
-1. Navigate to the frontend directory: `cd frontend`
-2. Run the tests: `npm run test`
-3. Expected outcome: Jest should run the `GlassNavbar.test.tsx` file and pass.
-
-### Scenario 6: Verify E2E Setup
-1. Navigate to the frontend directory: `cd frontend`
-2. Run the E2E tests: `npm run test:e2e`
-3. Expected outcome: Playwright should attempt to run the `home.spec.ts` test. (Note: initial browser download may be required via `npx playwright install` if running for the first time).
-
-### Scenario 7: Verify CI/CD Pipeline
-1. Check the GitLab Merge Request pipeline.
-2. Expected outcome: `test_frontend` and `test_e2e` jobs should appear and execute alongside `unit_tests`.
+## 📸 Proof of Verification (Artifacts & Logs)
+- **Automated Verification Summary**:
+  - `pytest` result: `24 passed, 0 failed` (including unit tests for Zero-PII logic, validation, and env sync).
+- **Test Output Snippet**:
+  ```text
+  backend/tests/test_transaction_service.py::TestSaveStripeTransaction::test_no_pii_fields_on_donor PASSED [ 37%]
+  backend/tests/test_donations_endpoint.py::TestCreateStripeSession::test_minimum_amount_10_thb_passes_validation PASSED [ 66%]
+  ```
