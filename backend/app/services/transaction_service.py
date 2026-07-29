@@ -44,7 +44,7 @@ async def save_stripe_transaction(customer_id: str, transaction_id: str, amount:
             hashed_transaction_id=hashed_tx_id,
             pseudonym="Anonymous",
             amount=amount_thb,
-            timestamp=datetime.now(timezone.utc)
+            timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
         )
         db.add(new_donor)
         try:
