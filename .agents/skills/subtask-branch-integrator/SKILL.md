@@ -56,8 +56,12 @@ git rebase origin/develop
 git push origin feat/<parent-feature-name>
 ```
 
-### Step 6: Create MR Targeting Integration Branch
-When submitting via `glab`, explicitly specify `--target-branch`:
+### Step 6: Create MR Targeting Integration Branch & Auto-Close Issues
+When submitting via `glab`, explicitly specify `--target-branch` and include closing keywords (`Closes #<issue_id>`) in the description:
 ```bash
-glab mr create --target-branch develop --title "feat: <Feature Description>"
+glab mr create --target-branch develop --title "feat: <Feature Description>" --description "## 📌 Summary
+<description>
+
+## 🔗 Related Issues
+- Closes #<issue_id>"
 ```

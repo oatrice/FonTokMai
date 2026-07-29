@@ -48,3 +48,6 @@ Whenever completing a feature release or significant MR, you **MUST** ensure doc
 2. **Changelog Entry**: Add structured entries in `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format (`Added`, `Changed`, `Fixed`, `Security`).
 3. **Version Synchronization**: Ensure the version string in `VERSION` (or `package.json`/`pyproject.toml`) strictly matches the latest version header in `CHANGELOG.md`. Release versions MUST move forward incrementally per MR without collisions.
 4. **README Alignment**: If new API endpoints, environment variables, or CLI options are added, update `README.md` to reflect the changes.
+
+# 🔄 Auto-Closing GitLab Issues Rule
+Whenever creating or updating a Merge Request (MR), you **MUST** include closing keywords (e.g., `Closes #<issue_id>`, `Fixes #<issue_id>`, or `Resolves #<issue_id>`) in the MR Description body or commit messages for all resolved issue cards. This ensures GitLab automatically closes the corresponding issue cards upon MR merge into the target branch without manual intervention.
