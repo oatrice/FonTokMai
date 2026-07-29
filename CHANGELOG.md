@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.66.0] - 2026-07-29
+
+### Added
+- **Stripe Checkout Endpoint** (`POST /api/v1/donations/create-stripe-session`): Accepts `amount_thb` and returns a Stripe Checkout URL for milestone contributions (Issue #223).
+- **Zero-PII Donor Persistence**: `transaction_service.save_stripe_transaction()` stores hashed transaction IDs (SHA-256 + HASH_SALT) and amount only; no names or emails saved (Issue #224).
+- **Neon Postgres Support**: `database.py` now auto-detects `postgresql://` URLs and switches to `asyncpg` driver with `pool_pre_ping=True` for Cloud Run compatibility (Issue #208 partial).
+- **DonationModal Frontend Component**: `DonationModal.tsx` allows users to select preset amounts (50/100/300/500 ฿) or enter a custom amount before redirecting to Stripe Checkout (Issue #216).
+- `asyncpg==0.30.0` added to `requirements.txt`.
+- `STRIPE_SECRET_KEY`, `DATABASE_URL`, and `HASH_SALT` added to `.env.example` and `deploy_cloudrun.sh`.
+
 ## [0.65.0] - 2026-07-24
 
 ### Added

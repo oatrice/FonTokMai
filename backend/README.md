@@ -23,3 +23,14 @@ uvicorn app.main:app --reload --port 8000
 ```bash
 pytest tests/ -v
 ```
+
+## Environment Variables
+
+- `STRIPE_SECRET_KEY` — Stripe secret key for payment processing
+- `DATABASE_URL` — PostgreSQL connection URL (Neon Postgres). Falls back to SQLite if not set.
+- `HASH_SALT` — Salt for SHA-256 hashing of Stripe transaction IDs (Zero-PII)
+
+## API Endpoints
+
+- `POST /api/v1/donations/create-stripe-session` — Create a Stripe Checkout session for milestone contributions
+

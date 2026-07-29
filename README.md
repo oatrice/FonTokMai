@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.65.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
+**v0.66.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
 Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical Flow Cloud Tracking.
 
 ---
