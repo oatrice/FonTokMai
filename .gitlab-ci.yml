@@ -3,6 +3,10 @@ stages:
   - config
   - deploy
 
+default:
+  tags:
+    - local
+
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
