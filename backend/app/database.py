@@ -11,13 +11,20 @@ if DATABASE_URL.startswith("postgres://"):
 elif DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-# Clean unsupported query parameters for asyncpg (e.g. channel_binding from Neon connection strings)
+# Clean unsupported query parameters for asyncpg (e.g. channel_binding, sslmode from Neon connection strings)
 if "postgresql+asyncpg://" in DATABASE_URL:
     parsed = urlparse(DATABASE_URL)
     if parsed.query:
         query_params = parse_qs(parsed.query)
-        # asyncpg does not accept channel_binding
+        # asyncpg does not accept channel_binding or sslmode as kwargs
         query_params.pop("channel_binding", None)
+        has_sslmode = query_params.pop("sslmode", None)
+        
+        # Convert sslmode=require to ssl=require for asyncpg
+        if has_sslmode and "ssl" not in query_params:
+            ssl_val = has_sslmode[0] if isinstance(has_sslmode, list) else has_sslmode
+            query_params["ssl"] = ["require" if ssl_val in ("require", "verify-ca", "verify-full") else ssl_val]
+
         new_query = urlencode(query_params, doseq=True)
         DATABASE_URL = urlunparse((
             parsed.scheme,
