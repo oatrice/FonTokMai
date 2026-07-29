@@ -42,7 +42,7 @@ async def _update_balance_in_db(amount_total):
 
 
 @router.post("/stripe")
-async def stripe_webhook(request: Request, stripe_signature: str = Header(None, alias="Stripe-Signature")):
+async def stripe_webhook(request: Request, stripe_signature: str = Header(None, alias="Stripe-Signature"), mock_dev_sig: str = Header(None, alias="mock_dev_sig")):
     payload = await request.body()
 
     try:
@@ -50,7 +50,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None, 
             payload, stripe_signature, STRIPE_WEBHOOK_SECRET
         )
     except Exception as e:
-        if os.getenv("ENVIRONMENT") == "development":
+        if os.getenv("ENVIRONMENT") == "development" and mock_dev_sig == "true":
             try:
                 logging.warning(f"[STRIPE] Webhook signature verification bypassed in dev mode: {e}")
                 event = json.loads(payload.decode('utf-8'))

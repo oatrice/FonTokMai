@@ -69,6 +69,7 @@ def test_gcp_billing_fallback_on_api_error():
     with patch.dict("os.environ", {
         "GCP_PROJECT_ID": "test-project",
         "GCP_BILLING_BIGQUERY_DATASET": "test-project.billing",
+        "FORCE_GCP_REAL_DATA": "false",
     }):
         from app.services.gcp_billing import GCPBillingService
 

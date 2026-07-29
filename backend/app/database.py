@@ -35,14 +35,20 @@ if "postgresql+asyncpg://" in DATABASE_URL:
             parsed.fragment
         ))
 
-engine = create_async_engine(
-    DATABASE_URL, 
-    echo=False, 
-    pool_pre_ping=True,
-    connect_args={
+engine_kwargs = {
+    "echo": False,
+    "pool_pre_ping": True,
+}
+
+if "postgresql+asyncpg://" in DATABASE_URL:
+    engine_kwargs["connect_args"] = {
         "prepared_statement_cache_size": 0,
         "statement_cache_size": 0
     }
+
+engine = create_async_engine(
+    DATABASE_URL, 
+    **engine_kwargs
 )
 AsyncSessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False)
 
