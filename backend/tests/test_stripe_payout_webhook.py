@@ -232,10 +232,10 @@ async def test_payout_service_unknown_payout_paid_skips(mock_db):
 # ─── Task 3: Webhook Routing ──────────────────────────────────────────────────
 
 def _build_stripe_event(event_type: str, obj: dict):
-    return stripe.Event.construct_from(
-        {"type": event_type, "data": {"object": obj}},
-        stripe.api_key,
-    )
+    return {
+        "type": event_type, 
+        "data": {"object": obj}
+    }
 
 
 def test_stripe_webhook_handles_payout_created(mocker):

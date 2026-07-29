@@ -20,9 +20,25 @@ import { GlassCard } from "./ui/GlassCard";
 import { GlassButton } from "./ui/GlassButton";
 import { GlassBadge } from "./ui/GlassBadge";
 import { Leaderboard } from "./dashboard/Leaderboard";
+import { DonationModal } from "./dashboard/DonationModal";
 
-export function FinancialDashboard() {
+interface FinancialDashboardProps {
+  isDonationModalOpen?: boolean;
+  onOpenDonationModal?: () => void;
+  onCloseDonationModal?: () => void;
+}
+
+export function FinancialDashboard({
+  isDonationModalOpen: externalIsOpen,
+  onOpenDonationModal,
+  onCloseDonationModal,
+}: FinancialDashboardProps = {}) {
   const [invincibleMode, setInvincibleMode] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+
+  const isModalOpen = externalIsOpen ?? internalIsOpen;
+  const handleOpenModal = onOpenDonationModal ?? (() => setInternalIsOpen(true));
+  const handleCloseModal = onCloseDonationModal ?? (() => setInternalIsOpen(false));
 
   // Mock data representing financial status and budget jars
   const runwayDays = 142;
@@ -193,7 +209,12 @@ export function FinancialDashboard() {
             Once target HP is unlocked, additional high-res processing workers are deployed automatically.
           </p>
           <div className="pt-2">
-            <GlassButton variant="primary" size="md" className="w-full justify-center">
+            <GlassButton 
+              variant="primary" 
+              size="md" 
+              className="w-full justify-center"
+              onClick={handleOpenModal}
+            >
               <Heart className="h-4 w-4" />
               <span>Contribute to Milestone</span>
             </GlassButton>
@@ -216,6 +237,11 @@ export function FinancialDashboard() {
           </div>
         </GlassCard>
       </section>
+
+      <DonationModal 
+        isOpen={isModalOpen} 
+        onClose={handleCloseModal} 
+      />
     </div>
   );
 }
