@@ -18,7 +18,11 @@ import { usePathname } from "next/navigation";
 import { GlassButton } from "./ui/GlassButton";
 import { GlassBadge } from "./ui/GlassBadge";
 
-export function GlassNavbar() {
+interface GlassNavbarProps {
+  onOpenDonation?: () => void;
+}
+
+export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const isDashboardActive = pathname === "/dashboard";
@@ -75,7 +79,7 @@ export function GlassNavbar() {
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <GlassButton variant="primary" size="sm">
+            <GlassButton variant="primary" size="sm" onClick={onOpenDonation}>
               <HeartHandshake className="h-4 w-4" />
               <span>Donate</span>
             </GlassButton>
@@ -116,7 +120,7 @@ export function GlassNavbar() {
               Resiliency
             </Link>
             <div className="pt-2 flex flex-col gap-2">
-              <GlassButton variant="primary" size="md" className="w-full justify-center">
+              <GlassButton variant="primary" size="md" className="w-full justify-center" onClick={() => { setMobileMenuOpen(false); onOpenDonation?.(); }}>
                 <HeartHandshake className="h-4 w-4" />
                 <span>Donate & Extend Runway</span>
               </GlassButton>
