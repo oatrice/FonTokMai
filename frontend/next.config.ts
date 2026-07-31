@@ -13,11 +13,14 @@ try {
 
 const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
 
+const gitBranch = process.env.VERCEL_GIT_COMMIT_REF || process.env.CI_COMMIT_BRANCH || "dev";
+const envName = gitBranch === "main" ? "production" : gitBranch === "staging" ? "staging" : "development";
+
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
     NEXT_PUBLIC_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA || process.env.CI_COMMIT_SHORT_SHA || "local",
-    NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT || "development",
+    NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT || envName,
   },
   images: {
     remotePatterns: [
