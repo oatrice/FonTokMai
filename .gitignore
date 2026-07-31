@@ -74,3 +74,4 @@ docs/features/
 .worktrees/
 results/
 scratch/
+.neon
