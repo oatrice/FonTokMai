@@ -4,18 +4,24 @@ on:
   push:
     branches:
       - main
+      - staging
+      - dev
   pull_request:
 
 env:
   PIP_CACHE_DIR: "${{ github.workspace }}/.cache/pip"
 
 jobs:
+  # ------------------------------------------------------------------
+  # Detect which files changed to skip unnecessary jobs
+  # ------------------------------------------------------------------
   check_changes:
     name: Check file changes
     runs-on: ubuntu-latest
     outputs:
       emsc_worker: ${{ steps.filter.outputs.emsc_worker }}
       backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -26,15 +32,38 @@ jobs:
               - 'emsc_worker/**'
               - '.github/workflows/main.yml'
             backend:
-              - 'backend/**'
+              - 'backend/app/**'
+              - 'backend/tests/**'
+              - 'backend/Dockerfile'
+              - 'backend/requirements.txt'
+              - 'backend/main.py'
+              - '.github/workflows/main.yml'
+            frontend:
+              - 'frontend/**'
               - '.github/workflows/main.yml'
 
-  test:
-    name: Unit Tests
+  # ------------------------------------------------------------------
+  # Backend Unit Tests
+  # ------------------------------------------------------------------
+  unit_tests:
+    name: Backend Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Notify Telegram — Started
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true" \
+            --data-urlencode "text=<b>🚀 FonMaYang CI — Job Started</b>
+
+<b>Job:</b> <code>unit_tests</code>
+<b>Branch:</b> <code>${{ github.ref_name }}</code>
+<b>Commit:</b> <code>${{ github.sha }}</code> — ${{ github.event.head_commit.message }}
+<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>" || true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -52,37 +81,163 @@ jobs:
           cd backend
           pytest tests/ -v
 
-      - name: Send Telegram Notification
+      - name: Notify Telegram — Result
         if: always()
         run: |
-          if [ "${{ job.status }}" = "success" ]; then
-            ICON="✅"
-            STATUS_TEXT="Passed"
-          else
-            ICON="❌"
-            STATUS_TEXT="Failed"
-          fi
-          MESSAGE="<b>${ICON} FonMaYang CI — ${STATUS_TEXT}</b>
-
-          <b>Job:</b> <code>test</code>
-          <b>Branch:</b> <code>${{ github.ref_name }}</code>
-          <b>Commit:</b> <code>${{ github.sha }}</code> — ${{ github.event.head_commit.message }}
-          <b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>"
-
+          if [ "${{ job.status }}" = "success" ]; then ICON="✅"; STATUS="Passed"; else ICON="❌"; STATUS="Failed"; fi
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d parse_mode="HTML" \
             -d disable_web_page_preview="true" \
-            --data-urlencode "text=${MESSAGE}"
+            --data-urlencode "text=<b>${ICON} FonMaYang CI — ${STATUS}</b>
 
-  deploy_cloud_run:
-    name: Deploy to Cloud Run
-    needs: [test, check_changes]
-    if: github.ref == 'refs/heads/main' && needs.check_changes.outputs.backend == 'true'
+<b>Job:</b> <code>unit_tests</code>
+<b>Branch:</b> <code>${{ github.ref_name }}</code>
+<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>"
+
+  # ------------------------------------------------------------------
+  # Frontend Unit Tests
+  # ------------------------------------------------------------------
+  test_frontend:
+    name: Frontend Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Notify Telegram — Started
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true" \
+            --data-urlencode "text=<b>🚀 FonMaYang CI — Job Started</b>
+
+<b>Job:</b> <code>test_frontend</code>
+<b>Branch:</b> <code>${{ github.ref_name }}</code>
+<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>" || true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        run: cd frontend && npm ci
+
+      - name: Run Tests
+        run: cd frontend && npm run test
+
+      - name: Notify Telegram — Result
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then ICON="✅"; STATUS="Passed"; else ICON="❌"; STATUS="Failed"; fi
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true" \
+            --data-urlencode "text=<b>${ICON} FonMaYang CI — ${STATUS}</b>
+
+<b>Job:</b> <code>test_frontend</code>
+<b>Branch:</b> <code>${{ github.ref_name }}</code>
+<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>"
+
+  # ------------------------------------------------------------------
+  # Frontend E2E Tests (Playwright)
+  # ------------------------------------------------------------------
+  test_e2e:
+    name: Frontend E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Notify Telegram — Started
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true" \
+            --data-urlencode "text=<b>🚀 FonMaYang CI — Job Started</b>
+
+<b>Job:</b> <code>test_e2e</code>
+<b>Branch:</b> <code>${{ github.ref_name }}</code>
+<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>" || true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        run: cd frontend && npm ci
+
+      - name: Install Playwright Browsers
+        run: cd frontend && npx playwright install --with-deps
+
+      - name: Run E2E Tests
+        run: cd frontend && npm run test:e2e
+
+      - name: Notify Telegram — Result
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then ICON="✅"; STATUS="Passed"; else ICON="❌"; STATUS="Failed"; fi
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true" \
+            --data-urlencode "text=<b>${ICON} FonMaYang CI — ${STATUS}</b>
+
+<b>Job:</b> <code>test_e2e</code>
+<b>Branch:</b> <code>${{ github.ref_name }}</code>
+<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>"
+
+  # ------------------------------------------------------------------
+  # Deploy to Cloud Run (prod / staging / dev)
+  # ------------------------------------------------------------------
+  deploy_cloud_run:
+    name: Deploy to Cloud Run
+    needs: [unit_tests, test_frontend, check_changes]
+    if: |
+      (github.ref_name == 'main' || github.ref_name == 'staging' || github.ref_name == 'dev') &&
+      needs.check_changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Resolve Environment & Service Name
+        id: env_vars
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          if [ "$BRANCH" = "main" ]; then
+            echo "ENVIRONMENT=production"   >> $GITHUB_ENV
+            echo "SERVICE_NAME=fontokmai-api" >> $GITHUB_ENV
+          elif [ "$BRANCH" = "staging" ]; then
+            echo "ENVIRONMENT=staging"              >> $GITHUB_ENV
+            echo "SERVICE_NAME=fontokmai-api-staging" >> $GITHUB_ENV
+          elif [ "$BRANCH" = "dev" ]; then
+            echo "ENVIRONMENT=development"         >> $GITHUB_ENV
+            echo "SERVICE_NAME=fontokmai-api-dev"  >> $GITHUB_ENV
+          fi
+          echo "COMMIT_SHA=${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Notify Telegram — Started
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true" \
+            --data-urlencode "text=<b>🚀 FonMaYang CI — Job Started</b>
+
+<b>Job:</b> <code>deploy_cloud_run</code>
+<b>Branch:</b> <code>${{ github.ref_name }}</code> → <code>${{ env.SERVICE_NAME }}</code> [<code>${{ env.ENVIRONMENT }}</code>]
+<b>Commit:</b> <code>${{ github.sha }}</code>
+<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>" || true
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -97,7 +252,7 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           cd backend
-          gcloud run deploy fontokmai-api \
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
             --source . \
             --service-account=cloud-run-runtime@fonmayang.iam.gserviceaccount.com \
             --region asia-southeast1 \
@@ -118,7 +273,6 @@ jobs:
           XWEATHER_CLIENT_SECRET=${{ secrets.XWEATHER_CLIENT_SECRET }},\
           XWEATHER_ENABLED=${{ secrets.XWEATHER_ENABLED }},\
           DEVELOPER_CHAT_IDS=${{ secrets.DEVELOPER_CHAT_IDS }},\
-          ENVIRONMENT=production,\
           CRON_SECRET=${{ secrets.CRON_SECRET }},\
           STORAGE_BACKEND=firestore,\
           FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }},\
@@ -128,11 +282,14 @@ jobs:
           OCR_SPACE_API_KEY=${{ secrets.OCR_SPACE_API_KEY }},\
           WORKER_SECRET=${{ secrets.WORKER_SECRET }},\
           WORKER_BASE_URL=${{ secrets.WORKER_BASE_URL }},\
-          INTERNAL_WEBHOOK_SECRET=${{ secrets.INTERNAL_WEBHOOK_SECRET }}"
+          INTERNAL_WEBHOOK_SECRET=${{ secrets.INTERNAL_WEBHOOK_SECRET }},\
+          ENVIRONMENT=${{ env.ENVIRONMENT }},\
+          COMMIT_SHA=${{ env.COMMIT_SHA }}"
 
-      - name: Update Telegram Webhook
+      - name: Update Telegram Webhook (prod only)
+        if: github.ref_name == 'main'
         run: |
-          CLOUD_RUN_URL=$(gcloud run services describe fontokmai-api \
+          CLOUD_RUN_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --platform managed \
             --region asia-southeast1 \
             --format 'value(status.url)')
@@ -140,46 +297,52 @@ jobs:
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/setWebhook" \
             -d url="${CLOUD_RUN_URL}/api/v1/telegram/webhook"
 
-      - name: Update Cloud Scheduler Jobs
+      - name: Update Cloud Scheduler Jobs (prod only)
+        if: github.ref_name == 'main'
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          echo "Updating Cloud Scheduler Jobs..."
           cd backend
           chmod +x scripts/setup_schedulers.sh
           ./scripts/setup_schedulers.sh
 
-      - name: Send Telegram Notification
+      - name: Notify Telegram — Result
         if: always()
         run: |
-          if [ "${{ job.status }}" = "success" ]; then
-            ICON="✅"
-            STATUS_TEXT="Passed"
-          else
-            ICON="❌"
-            STATUS_TEXT="Failed"
-          fi
-          MESSAGE="<b>${ICON} FonMaYang CI — ${STATUS_TEXT}</b>
-
-          <b>Job:</b> <code>deploy_cloud_run</code>
-          <b>Branch:</b> <code>${{ github.ref_name }}</code>
-          <b>Commit:</b> <code>${{ github.sha }}</code>
-          <b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>"
-
+          if [ "${{ job.status }}" = "success" ]; then ICON="✅"; STATUS="Passed"; else ICON="❌"; STATUS="Failed"; fi
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d parse_mode="HTML" \
             -d disable_web_page_preview="true" \
-            --data-urlencode "text=${MESSAGE}"
+            --data-urlencode "text=<b>${ICON} FonMaYang CI — ${STATUS}</b>
 
+<b>Job:</b> <code>deploy_cloud_run</code>
+<b>Branch:</b> <code>${{ github.ref_name }}</code> → <code>${{ env.SERVICE_NAME }}</code> [<code>${{ env.ENVIRONMENT }}</code>]
+<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>"
+
+  # ------------------------------------------------------------------
+  # Deploy EMSC Worker (prod only)
+  # ------------------------------------------------------------------
   deploy_emsc_worker:
     name: Deploy EMSC Worker
-    needs: [test, check_changes]
-    if: github.ref == 'refs/heads/main' && needs.check_changes.outputs.emsc_worker == 'true'
+    needs: [unit_tests, check_changes]
+    if: github.ref_name == 'main' && needs.check_changes.outputs.emsc_worker == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Notify Telegram — Started
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true" \
+            --data-urlencode "text=<b>🚀 FonMaYang CI — Job Started</b>
+
+<b>Job:</b> <code>deploy_emsc_worker</code>
+<b>Branch:</b> <code>${{ github.ref_name }}</code>
+<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>" || true
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -193,55 +356,32 @@ jobs:
 
       - name: Deploy EMSC Worker to VM
         run: |
-          echo "Deploying EMSC worker to Compute Engine VM..."
           CLOUD_RUN_URL=$(gcloud run services describe fontokmai-api \
             --platform managed \
             --region asia-southeast1 \
             --format 'value(status.url)')
-          echo "Cloud Run URL is $CLOUD_RUN_URL"
-          echo "Copying files to VM..."
-          
           gcloud compute ssh --zone "us-west1-a" "emsc-worker-vm" --project "${{ secrets.GCP_PROJECT_ID }}" --command="sudo mkdir -p /opt/fonmayang && sudo chown -R \$USER:\$USER /opt/fonmayang" --quiet
-          
           gcloud compute scp --recurse --zone "us-west1-a" --project "${{ secrets.GCP_PROJECT_ID }}" ./emsc_worker emsc-worker-vm:/opt/fonmayang/ --quiet
-          
-          echo "Setting up environment and restarting service..."
           gcloud compute ssh --zone "us-west1-a" "emsc-worker-vm" --project "${{ secrets.GCP_PROJECT_ID }}" --command="
             cd /opt/fonmayang/emsc_worker
-            
             echo \"FONMAYANG_API_URL=${CLOUD_RUN_URL}\" > .env
             echo \"INTERNAL_WEBHOOK_SECRET=${{ secrets.INTERNAL_WEBHOOK_SECRET }}\" >> .env
             echo \"EMSC_WS_URL=wss://www.seismicportal.eu/standing_order/websocket\" >> .env
-            
-            python3 -m venv venv
-            source venv/bin/activate
-            pip install -r requirements.txt
-            
+            python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
             sudo cp emsc_worker.service /etc/systemd/system/
-            sudo systemctl daemon-reload
-            sudo systemctl enable emsc_worker.service
-            sudo systemctl restart emsc_worker.service
+            sudo systemctl daemon-reload && sudo systemctl enable emsc_worker.service && sudo systemctl restart emsc_worker.service
           " --quiet
 
-      - name: Send Telegram Notification
+      - name: Notify Telegram — Result
         if: always()
         run: |
-          if [ "${{ job.status }}" = "success" ]; then
-            ICON="✅"
-            STATUS_TEXT="Passed"
-          else
-            ICON="❌"
-            STATUS_TEXT="Failed"
-          fi
-          MESSAGE="<b>${ICON} FonMaYang CI — ${STATUS_TEXT}</b>
-
-          <b>Job:</b> <code>deploy_emsc_worker</code>
-          <b>Branch:</b> <code>${{ github.ref_name }}</code>
-          <b>Commit:</b> <code>${{ github.sha }}</code>
-          <b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>"
-
+          if [ "${{ job.status }}" = "success" ]; then ICON="✅"; STATUS="Passed"; else ICON="❌"; STATUS="Failed"; fi
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d parse_mode="HTML" \
             -d disable_web_page_preview="true" \
-            --data-urlencode "text=${MESSAGE}"
+            --data-urlencode "text=<b>${ICON} FonMaYang CI — ${STATUS}</b>
+
+<b>Job:</b> <code>deploy_emsc_worker</code>
+<b>Branch:</b> <code>${{ github.ref_name }}</code>
+<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>"
