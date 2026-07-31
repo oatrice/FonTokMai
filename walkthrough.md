@@ -1,22 +1,21 @@
-# Walkthrough - Issue #233 CI Documentation Enforcement
+# Walkthrough - Issue #233 CI Documentation & Commit Ordering Enforcement
 
-Added a `check_docs_updated` verification job to `.gitlab-ci.yml` in the `verify` stage to automatically check that `CHANGELOG.md` and `VERSION` (along with optional `README.md`) are modified in MRs targeting `staging` or `main`.
+Upgraded `.gitlab-ci.yml` `check_docs_updated` job to include **Commit Ordering Verification**. The job now verifies that documentation files (`CHANGELOG.md`, `VERSION`) are not only present in the MR diff, but were also updated in a commit that is **equal to or newer than** the latest code modification.
 
 ## Changes Made
 
 ### CI/CD Pipeline
 #### [.gitlab-ci.yml](file:///Users/oatrice/Software%20Project/FonMaYang/.gitlab-ci.yml)
-- Added `verify` stage.
-- Added `check_docs_updated` job that compares modified files between `$CI_MERGE_REQUEST_TARGET_BRANCH_NAME` (or `main`) and `HEAD`.
-- Exits with error code `1` if `CHANGELOG.md` or `VERSION` is missing from the diff.
+- Added Commit Ordering Check comparing Unix timestamps of `LAST_CODE_COMMIT` vs `LAST_DOC_COMMIT`.
+- Fails CI (`exit 1`) if code changes were committed after the last documentation update.
 
 ### Versioning & Documentation
 #### [VERSION](file:///Users/oatrice/Software%20Project/FonMaYang/VERSION)
-- Bumped version from `0.67.0` to `0.68.0`.
+- Bumped version from `0.68.0` to `0.69.0`.
 
 #### [CHANGELOG.md](file:///Users/oatrice/Software%20Project/FonMaYang/CHANGELOG.md)
-- Prepend section `## [0.68.0] - 2026-08-01` describing Issue #233 changes.
+- Prepend section `## [0.69.0] - 2026-08-01` describing Commit Ordering Check enhancement.
 
 ## Verification Results
+- Verified with `glab ci lint` & `gitlab-ci-local --preview`.
 - Ran `pytest backend/tests/test_deploy_env_sync.py` (Passed).
-- Verified `git diff --name-only origin/main...HEAD` includes `CHANGELOG.md` and `VERSION`.

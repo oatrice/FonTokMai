@@ -61,7 +61,7 @@ check_docs_updated:
   before_script:
     - *notify_start_script
   script:
-    - echo "🔍 Checking documentation updates relative to target branch..."
+    - echo "🔍 Checking documentation updates and commit ordering relative to target branch..."
     - TARGET_BRANCH=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-main}
     - git fetch origin $TARGET_BRANCH || true
     - CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD)
@@ -93,7 +93,27 @@ check_docs_updated:
         echo "💥 Documentation check failed. Merge request cannot proceed without CHANGELOG.md and VERSION updates!"
         exit 1
       fi
-      echo "🎉 All required documentation files have been updated successfully!"
+    - echo "⏱️ Checking commit ordering (ensuring docs were not updated prior to subsequent code changes)..."
+    - |
+      LAST_CODE_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md')
+      LAST_DOC_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- CHANGELOG.md VERSION)
+      
+      if [ -n "$LAST_CODE_COMMIT" ] && [ -n "$LAST_DOC_COMMIT" ]; then
+        CODE_TIME=$(git log -1 --format="%ct" $LAST_CODE_COMMIT)
+        DOC_TIME=$(git log -1 --format="%ct" $LAST_DOC_COMMIT)
+        
+        echo "   Last Code Commit: $LAST_CODE_COMMIT (Timestamp: $CODE_TIME)"
+        echo "   Last Doc Commit:  $LAST_DOC_COMMIT (Timestamp: $DOC_TIME)"
+        
+        if [ "$DOC_TIME" -lt "$CODE_TIME" ]; then
+          echo "❌ ERROR: Code was modified AFTER the last documentation update!"
+          echo "   Code commit: $LAST_CODE_COMMIT ($(git log -1 --format='%s' $LAST_CODE_COMMIT))"
+          echo "   Doc commit:  $LAST_DOC_COMMIT ($(git log -1 --format='%s' $LAST_DOC_COMMIT))"
+          echo "💡 Please update CHANGELOG.md or VERSION in your latest commit to reflect subsequent code changes."
+          exit 1
+        fi
+      fi
+    - echo "🎉 All required documentation files are updated and synchronized with the latest code changes!"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "staging")
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging"
