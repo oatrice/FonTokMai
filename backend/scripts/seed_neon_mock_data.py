@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://neondb_owner:npg_sjZmtv4aOE3f@ep-silent-salad-azkhjran-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?ssl=require"
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    print("❌ ERROR: DATABASE_URL environment variable is not set.")
+    sys.exit(1)
 
 # Clean/format connection string for asyncpg
 if DATABASE_URL.startswith("postgres://"):
