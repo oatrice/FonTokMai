@@ -35,6 +35,8 @@ dist/
 
 # dotenv environment variable files
 .env
+frontend/.env.local
+frontend/.env.development
 
 # Virtual environments
 .venv
