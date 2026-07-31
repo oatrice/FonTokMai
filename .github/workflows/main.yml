@@ -261,7 +261,7 @@ jobs:
           WORKER_SECRET=${{ secrets.WORKER_SECRET }},\
           WORKER_BASE_URL=${{ secrets.WORKER_BASE_URL }},\
           INTERNAL_WEBHOOK_SECRET=${{ secrets.INTERNAL_WEBHOOK_SECRET }},\
-          DATABASE_URL=${{ secrets.DATABASE_URL }},\
+          DATABASE_URL=${{ secrets.DATABASE_URL || vars.DATABASE_URL }},\
           ENVIRONMENT=${{ env.ENVIRONMENT }},\
           COMMIT_SHA=${{ env.COMMIT_SHA }}"
 
