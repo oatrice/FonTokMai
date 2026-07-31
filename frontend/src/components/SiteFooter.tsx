@@ -24,7 +24,7 @@ export function SiteFooter() {
 
   const frontendVersion = process.env.NEXT_PUBLIC_APP_VERSION || "unknown";
   const frontendCommit = process.env.NEXT_PUBLIC_COMMIT_SHA?.substring(0, 7) || "local";
-  const frontendEnv = process.env.NEXT_PUBLIC_ENVIRONMENT || "development";
+  const frontendEnv = backendHealth?.environment || process.env.NEXT_PUBLIC_ENVIRONMENT || "development";
 
   return (
     <footer className="w-full py-4 text-center text-xs text-slate-500 border-t border-white/5 bg-slate-950 mt-auto">
