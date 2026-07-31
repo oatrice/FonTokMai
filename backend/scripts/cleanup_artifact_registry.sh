@@ -8,7 +8,7 @@ set -e
 PROJECT_ID=${GCP_PROJECT_ID}
 REGION=${GCP_REGION:-"asia-southeast1"}
 REPO_NAME=${GCP_ARTIFACT_REPO:-"cloud-run-source-deploy"}
-IMAGE_NAME="fontokmai-api"
+IMAGE_NAME=${IMAGE_NAME:-"fontokmai-api"}
 KEEP_LATEST=${KEEP_LATEST_IMAGES:-2}
 
 if [ -z "$PROJECT_ID" ]; then

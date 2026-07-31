@@ -21,7 +21,25 @@ if [ -f "$SCRIPT_DIR/cloudrun.env" ]; then
   set +a
 fi
 
+if [ -n "${CI_COMMIT_BRANCH:-}" ]; then
+  if [ "$CI_COMMIT_BRANCH" == "dev" ]; then
+    export CLOUD_RUN_SERVICE="fontokmai-api-dev"
+    export DATABASE_URL="${DATABASE_URL_DEV:-${DATABASE_URL:-}}"
+    export ENVIRONMENT="development"
+  elif [ "$CI_COMMIT_BRANCH" == "staging" ]; then
+    export CLOUD_RUN_SERVICE="fontokmai-api-staging"
+    export DATABASE_URL="${DATABASE_URL_STAGING:-${DATABASE_URL:-}}"
+    export ENVIRONMENT="staging"
+  else
+    export CLOUD_RUN_SERVICE="fontokmai-api"
+    export ENVIRONMENT="production"
+  fi
+fi
+
 : "${CLOUD_RUN_SERVICE:=fontokmai-api}"
+: "${ENVIRONMENT:=production}"
+: "${COMMIT_SHA:=${CI_COMMIT_SHORT_SHA:-local}}"
+
 : "${CLOUD_RUN_REGION:=asia-southeast1}"
 : "${CLOUD_RUN_SERVICE_ACCOUNT:=cloud-run-runtime@fonmayang.iam.gserviceaccount.com}"
 : "${CLOUD_RUN_ALLOW_UNAUTHENTICATED:=true}"
@@ -75,7 +93,7 @@ XWEATHER_CLIENT_ID=${XWEATHER_CLIENT_ID},\
 XWEATHER_CLIENT_SECRET=${XWEATHER_CLIENT_SECRET},\
 XWEATHER_ENABLED=${XWEATHER_ENABLED},\
 DEVELOPER_CHAT_IDS=${DEVELOPER_CHAT_IDS},\
-ENVIRONMENT=production,\
+ENVIRONMENT=${ENVIRONMENT},\
 CRON_SECRET=${CRON_SECRET},\
 STORAGE_BACKEND=firestore,\
 FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET},\
@@ -99,4 +117,13 @@ HASH_SALT=${HASH_SALT:-},\
 GCP_PROJECT_ID=${GCP_PROJECT_ID:-},\
 GCP_BILLING_BIGQUERY_DATASET=${GCP_BILLING_BIGQUERY_DATASET:-},\
 FORCE_GCP_REAL_DATA=${FORCE_GCP_REAL_DATA:-false},\
-USE_LOCAL_FIXTURES=${USE_LOCAL_FIXTURES:-false}"
+USE_LOCAL_FIXTURES=${USE_LOCAL_FIXTURES:-false},\
+COMMIT_SHA=${COMMIT_SHA}"
+
+# Post-deploy: Cleanup Artifact Registry to optimize storage costs
+echo "Running artifact registry cleanup..."
+if [ -x "scripts/cleanup_artifact_registry.sh" ]; then
+    IMAGE_NAME="${CLOUD_RUN_SERVICE}" ./scripts/cleanup_artifact_registry.sh || true
+else
+    echo "Warning: cleanup script not found or not executable."
+fi

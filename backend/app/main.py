@@ -205,4 +205,25 @@ async def root():
 
 @app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
-    return {"status": "ok"}
+    version = "unknown"
+    try:
+        # Check one level up (if running from backend/)
+        with open("../VERSION", "r") as f:
+            version = f.read().strip()
+    except Exception:
+        try:
+            # Check current directory (if running from root)
+            with open("VERSION", "r") as f:
+                version = f.read().strip()
+        except Exception:
+            pass
+            
+    environment = os.getenv("ENVIRONMENT", "development")
+    commit_sha = os.getenv("COMMIT_SHA", "local")
+    
+    return {
+        "status": "ok", 
+        "version": version, 
+        "environment": environment, 
+        "commit_sha": commit_sha
+    }

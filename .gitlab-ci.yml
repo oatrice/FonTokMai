@@ -75,7 +75,7 @@ cloudrun_config_only:
   rules:
     - if: $CI_PIPELINE_SOURCE == "web"
       when: manual
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
       changes:
         - backend/deploy/cloudrun.env
       when: manual
@@ -103,7 +103,7 @@ deploy_cloud_run:
     - chmod +x scripts/setup_schedulers.sh
     - ./scripts/setup_schedulers.sh
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
       changes:
         - backend/app/**/*
         - backend/tests/**/*
@@ -125,7 +125,7 @@ unit_tests:
     - pytest tests/ -v
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
 
 test_frontend:
   stage: test
@@ -141,7 +141,7 @@ test_frontend:
     - npm run test
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
 
 test_e2e:
   stage: test
@@ -157,7 +157,7 @@ test_e2e:
     - npm run test:e2e
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
 
 cleanup_artifact_registry:
   stage: deploy
