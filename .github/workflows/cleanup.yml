@@ -3,7 +3,7 @@ name: Cleanup Artifact Registry
 on:
   schedule:
     - cron: '0 2 * * 1' # Every Monday 02:00 UTC = 09:00 ICT
-  workflow_dispatch:     # Manual trigger from GitHub Actions UI
+  workflow_dispatch: # Manual trigger from GitHub Actions UI
 
 jobs:
   cleanup_artifact_registry:
@@ -13,17 +13,14 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Notify Telegram — Started
+      - name: Notify Telegram - Started
         run: |
+          TEXT=$(printf '<b>🚀 FonMaYang CI — Job Started</b>\n\n<b>Job:</b> <code>cleanup_artifact_registry</code>\n<b>Trigger:</b> <code>${{ github.event_name }}</code>\n<b>Pipeline:</b> <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Pipeline</a>')
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d parse_mode="HTML" \
             -d disable_web_page_preview="true" \
-            --data-urlencode "text=<b>🚀 FonMaYang CI — Job Started</b>
-
-<b>Job:</b> <code>cleanup_artifact_registry</code>
-<b>Trigger:</b> <code>${{ github.event_name }}</code>
-<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>" || true
+            --data-urlencode "text=${TEXT}" || true
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -43,16 +40,13 @@ jobs:
           chmod +x scripts/cleanup_artifact_registry.sh
           ./scripts/cleanup_artifact_registry.sh
 
-      - name: Notify Telegram — Result
+      - name: Notify Telegram - Result
         if: always()
         run: |
           if [ "${{ job.status }}" = "success" ]; then ICON="✅"; STATUS="Passed"; else ICON="❌"; STATUS="Failed"; fi
+          TEXT=$(printf "${ICON} FonMaYang CI — ${STATUS}\n\n<b>Job:</b> <code>cleanup_artifact_registry</code>\n<b>Trigger:</b> <code>${{ github.event_name }}</code>\n<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>")
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d parse_mode="HTML" \
             -d disable_web_page_preview="true" \
-            --data-urlencode "text=<b>${ICON} FonMaYang CI — ${STATUS}</b>
-
-<b>Job:</b> <code>cleanup_artifact_registry</code>
-<b>Trigger:</b> <code>${{ github.event_name }}</code>
-<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>"
+            --data-urlencode "text=${TEXT}"
