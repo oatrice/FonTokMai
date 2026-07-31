@@ -64,7 +64,9 @@ cache:
 
 cloudrun_config_only:
   stage: config
-  image: google/cloud-sdk:alpine
+  # [LOCAL] Shell runner uses host gcloud (ARM64 native). For GitLab Cloud: remove tags + uncomment image below.
+  tags: [deploy-local]
+  # image: google/cloud-sdk:alpine
   extends:
     - .gcloud_auth
     - .telegram_notify
@@ -75,14 +77,18 @@ cloudrun_config_only:
   rules:
     - if: $CI_PIPELINE_SOURCE == "web"
       when: manual
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
       changes:
         - backend/deploy/cloudrun.env
       when: manual
 
 deploy_cloud_run:
   stage: deploy
-  image: google/cloud-sdk:alpine
+  environment:
+    name: $CI_COMMIT_BRANCH
+  # [LOCAL] Shell runner uses host gcloud (ARM64 native). For GitLab Cloud: remove tags + uncomment image below.
+  tags: [deploy-local]
+  # image: google/cloud-sdk:alpine
   extends:
     - .gcloud_auth
     - .telegram_notify
@@ -103,7 +109,7 @@ deploy_cloud_run:
     - chmod +x scripts/setup_schedulers.sh
     - ./scripts/setup_schedulers.sh
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
       changes:
         - backend/app/**/*
         - backend/tests/**/*
@@ -117,15 +123,15 @@ unit_tests:
   extends:
     - .telegram_notify
   before_script:
-    - apt-get update && apt-get install -y curl
     - *notify_start_script
+    - apt-get update && apt-get install -y
     - cd backend
     - pip install --default-timeout=100 -r requirements.txt
   script:
     - pytest tests/ -v
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
 
 test_frontend:
   stage: test
@@ -133,15 +139,15 @@ test_frontend:
   extends:
     - .telegram_notify
   before_script:
-    - apk add --no-cache curl
     - *notify_start_script
+    - apk add --no-cache curl
     - cd frontend
     - npm ci
   script:
     - npm run test
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
 
 test_e2e:
   stage: test
@@ -149,19 +155,21 @@ test_e2e:
   extends:
     - .telegram_notify
   before_script:
-    - apt-get update && apt-get install -y curl
     - *notify_start_script
+    - apt-get update && apt-get install -y curl
     - cd frontend
     - npm ci
   script:
     - npm run test:e2e
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
 
 cleanup_artifact_registry:
   stage: deploy
-  image: google/cloud-sdk:alpine
+  # [LOCAL] Shell runner uses host gcloud (ARM64 native). For GitLab Cloud: remove tags + uncomment image below.
+  tags: [deploy-local]
+  # image: google/cloud-sdk:alpine
   extends:
     - .gcloud_auth
     - .telegram_notify
@@ -177,7 +185,9 @@ cleanup_artifact_registry:
 
 deploy_emsc_worker:
   stage: deploy
-  image: google/cloud-sdk:alpine
+  # [LOCAL] Shell runner uses host gcloud (ARM64 native). For GitLab Cloud: remove tags + uncomment image below.
+  tags: [deploy-local]
+  # image: google/cloud-sdk:alpine
   extends:
     - .gcloud_auth
     - .telegram_notify
