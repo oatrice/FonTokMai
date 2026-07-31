@@ -84,6 +84,7 @@ gcloud run deploy "$CLOUD_RUN_SERVICE" \
   --concurrency "$CLOUD_RUN_CONCURRENCY" \
   $CPU_BOOST_FLAG \
   $CPU_THROTTLING_FLAG \
+  --update-labels "service_name=$CLOUD_RUN_SERVICE,environment=$ENVIRONMENT" \
   --set-env-vars "\
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN},\
 DEV_TELEGRAM_BOT_TOKEN=${DEV_TELEGRAM_BOT_TOKEN:-},\
