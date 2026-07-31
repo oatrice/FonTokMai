@@ -5,14 +5,18 @@
 
 set -e
 
-PROJECT_ID=${GCP_PROJECT_ID}
+# Priority: $1 (CLI arg) → $GCP_PROJECT_ID (env) → active gcloud config
+PROJECT_ID=${1:-${GCP_PROJECT_ID:-$(gcloud config get-value project 2>/dev/null)}}
+# If 2nd arg provided, use as IMAGE_NAME override (e.g. fontokmai-api-dev)
+[ -n "$2" ] && IMAGE_NAME="$2"
+
 REGION=${GCP_REGION:-"asia-southeast1"}
 REPO_NAME=${GCP_ARTIFACT_REPO:-"cloud-run-source-deploy"}
 IMAGE_NAME=${IMAGE_NAME:-"fontokmai-api"}
 KEEP_LATEST=${KEEP_LATEST_IMAGES:-2}
 
 if [ -z "$PROJECT_ID" ]; then
-    echo "Error: GCP_PROJECT_ID environment variable is not set."
+    echo "Error: GCP_PROJECT_ID not set. Pass as arg: ./cleanup_artifact_registry.sh <project-id> [image-name]"
     exit 1
 fi
 
