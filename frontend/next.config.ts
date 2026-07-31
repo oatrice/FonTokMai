@@ -11,16 +11,22 @@ try {
   } catch (err) {}
 }
 
-const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
-
 const gitBranch = process.env.VERCEL_GIT_COMMIT_REF || process.env.CI_COMMIT_BRANCH || "dev";
 const envName = gitBranch === "main" ? "production" : gitBranch === "staging" ? "staging" : "development";
+
+let backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+
+// Auto-correct BACKEND_URL if Vercel injects the 'dev' URL for the 'staging' branch
+if (gitBranch === "staging" && backendUrl.includes("-dev-")) {
+  backendUrl = backendUrl.replace("-dev-", "-staging-");
+}
 
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
     NEXT_PUBLIC_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA || process.env.CI_COMMIT_SHORT_SHA || "local",
-    NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT || envName,
+    NEXT_PUBLIC_ENVIRONMENT: envName, // Force it to use the branch-derived name to prevent Vercel preview override
+    BACKEND_URL: backendUrl, // Auto-corrected backend URL globally for all API routes
   },
   images: {
     remotePatterns: [
