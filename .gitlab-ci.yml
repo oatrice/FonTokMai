@@ -84,6 +84,8 @@ cloudrun_config_only:
 
 deploy_cloud_run:
   stage: deploy
+  environment:
+    name: $CI_COMMIT_BRANCH
   # [LOCAL] Shell runner uses host gcloud (ARM64 native). For GitLab Cloud: remove tags + uncomment image below.
   tags: [deploy-local]
   # image: google/cloud-sdk:alpine
