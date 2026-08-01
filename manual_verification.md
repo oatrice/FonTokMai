@@ -1,59 +1,89 @@
-# Manual Verification Guide: Frontend Financial Dashboard Batch MR (#227, #146, #147)
+# Manual Verification Plan — GCP Infrastructure Costs Multi-Period Selector & Net Cost Calculation
 
-This document provides step-by-step instructions to manually verify that `FinancialDashboard.tsx` dynamically consumes `/api/runway`, mock budget jars are removed, and budget allocations & runway countdown timers render cleanly.
-
-## Prerequisites
-- Node.js & npm installed
-- Next.js development server or local build
-
-## Verification Steps
-
-### 1. Automated Unit & Build Verification
-Run the following commands in terminal:
-
-```bash
-# 1. Frontend Unit Tests
-npm test --prefix frontend
-
-# 2. Frontend Production Build Check
-npm run build --prefix frontend
-
-# 3. Cloud Run Deploy Env Synchronization Check
-pytest backend/tests/test_deploy_env_sync.py
-```
-
-**Expected Outcome:**
-- All 5 Jest unit tests pass cleanly (`FinancialDashboard.test.tsx` and `GlassNavbar.test.tsx`).
-- Next.js build succeeds with static/dynamic route compilation without TypeScript errors.
-- `test_deploy_env_sync.py` passes with 100% success.
+- **Branch**: `feat/146-147-227-financial-dashboard`
+- **MR / Issue ID**: `MR !78` / `Issue #211, #227`
+- **Date**: `2026-08-01`
 
 ---
 
-### 2. Manual UI Verification on Home Page (`/`)
+## 📌 Prerequisites & Environment Setup
 
-1. Start the Next.js frontend local dev server:
+1. **Environment Variables**:
+   - `GCP_PROJECT_ID=fonmayang`
+   - `GCP_BILLING_BIGQUERY_DATASET=fonmayang.gcp_billing_export`
+   - `GOOGLE_APPLICATION_CREDENTIALS=/Users/oatrice/.config/gcloud/application_default_credentials.json`
+   - `CRON_SECRET=CRON_SECRET`
+
+2. **Launch Backend Server**:
+   ```bash
+   uvicorn app.main:app --reload --port 8000
+   ```
+
+3. **Launch Frontend Dev Server**:
    ```bash
    npm run dev --prefix frontend
    ```
-2. Open browser at `http://localhost:3000/`.
-3. Check the **Financial Runway Hero Stats**:
-   - Verify that **Live Runway Days**, **Daily Burn (฿/day)**, and **Total Reserve Vault (฿)** reflect dynamic data from `/api/runway`.
-   - Verify that the badge shows `Live Math` (or `Syncing...` while loading).
-4. Check the **Budget Jars State Machine**:
-   - Verify that hardcoded jars (*Infrastructure Jar*, *Developer Salary Jar*, *API & Data Services*) are **gone**.
-   - Verify that active dynamic budget jars render:
-     - **Cloud Run Infrastructure (50%)**
-     - **TMD Radar & Weather APIs (30%)**
-     - **Emergency Reserve Jar (20%)**
-   - Verify allocated balances match the total reserve split.
-5. Check **Interactive Elements**:
-   - Click **Sync Jars** button to verify SWR revalidation.
-   - Toggle **Emergency Invincible Mode** switch to verify status changes to `OVERDRIVE`.
-   - Click **Contribute to Milestone** button to verify `DonationModal` opens smoothly.
 
 ---
 
-### 3. Manual Verification on Dashboard Page (`/dashboard`)
+## 🧪 Verification Scenarios
 
-1. Navigate to `http://localhost:3000/dashboard`.
-2. Verify that `RunwayCounter.tsx` and `BudgetJars.tsx` display consistent runway days and jar percentages matching the home page.
+### Scenario 1: Fetch Current Month Costs (Net Cost Deduction & THB Currency)
+- **Goal**: Verify Backend calculates Net Cost (costs - credits) in THB natively for `current_month`.
+- **Steps**:
+  ```bash
+  curl -s -H "x-cron-secret: CRON_SECRET" "http://localhost:8000/api/v1/metrics/gcp-costs?period=current_month"
+  ```
+- **Expected Outcome**:
+  - HTTP Status: `200 OK`
+  - Response Body: Returns `currency: "THB"`, `is_mock: false`, and `total_thb`.
+
+---
+
+### Scenario 2: Fetch Last Month Costs with `invoice.month` Filter
+- **Goal**: Verify `period=last_month` uses BigQuery `invoice.month` matching GCP Console Invoice reports 100%.
+- **Steps**:
+  ```bash
+  curl -s -H "x-cron-secret: CRON_SECRET" "http://localhost:8000/api/v1/metrics/gcp-costs?period=last_month"
+  ```
+- **Expected Outcome**:
+  - HTTP Status: `200 OK`
+  - Response Body: `{"cloud_run_thb": 66.6, "cloud_storage_thb": 0.58, "egress_thb": 0, "other_thb": 7.53, "total_thb": 74.71, "currency": "THB", "is_mock": false}`
+
+---
+
+### Scenario 3: UI Period Dropdown Interaction & Skeleton Loader
+- **Goal**: Verify changing period in `GCPCostBreakdown` component re-fetches costs and displays skeleton loading state without rendering mock defaults.
+- **Steps**:
+  1. Open `http://localhost:3000/dashboard`.
+  2. Locate **GCP Infrastructure Costs** card.
+  3. Select **"Last Month"** or **"Last 30 Days"** from the glass period selector dropdown.
+- **Expected Outcome**:
+  - Card displays animated pulse skeleton loader briefly during fetch.
+  - Updates total THB and period date range without showing amber "Mock Data" badge.
+
+---
+
+## 📸 Proof of Verification (Artifacts & Logs)
+
+### Automated Unit Test Summary
+- **Backend Pytest (`backend/tests/test_gcp_billing.py`)**: `8 passed` (100%)
+- **Frontend Jest (`frontend/src/__tests__/FinancialDashboard.test.tsx`)**: `5 passed` (100%)
+
+```text
+PASS backend/tests/test_gcp_billing.py (8/8 tests passed)
+PASS frontend/src/__tests__/FinancialDashboard.test.tsx (5/5 tests passed)
+```
+
+### Direct BigQuery Verification Query Output
+```text
++---------------------+--------------------+---------------+-------------------+
+| service_description |     usage_cost     | total_credits |     net_cost      |
++---------------------+--------------------+---------------+-------------------+
+| Cloud Run           | 139.06598299999996 |   -72.470214  | 66.59576899999999 |
+| Cloud Scheduler     |            4.30264 |          0.0  |           4.30264 |
+| Artifact Registry   |  3.225143999999999 |          0.0  | 3.225143999999999 |
+| Cloud Storage       | 0.5822330000000001 |          0.0  | 0.5822330000000001|
++---------------------+--------------------+---------------+-------------------+
+Total Net Cost: 74.71 THB (Matches BigQuery Export records from 2026-07-23 to 2026-07-31)
+```
