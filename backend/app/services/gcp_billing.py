@@ -150,8 +150,8 @@ class GCPBillingService:
 
     # ─── Real API Query ──────────────────────────────────────────────────────
 
-    def _query_billing_api(self, period_start: str, period_end: str) -> List[Dict[str, Any]]:
-        """Query GCP BigQuery billing export for specified period range.
+    def _query_billing_api(self, period: str, period_start: str, period_end: str) -> List[Dict[str, Any]]:
+        """Query GCP BigQuery billing export for specified period range or invoice month.
 
         Requires:
           - GOOGLE_APPLICATION_CREDENTIALS (service account with BigQuery reader)
@@ -164,15 +164,23 @@ class GCPBillingService:
             raise Exception(f"google-cloud-bigquery not installed: {e}") from e
 
         client = bigquery.Client(project=self.project_id)
-
-        # Supports both 'project.dataset' and 'dataset' formats
         dataset = self.billing_dataset
+
+        # Use invoice.month filtering for monthly periods to align 100% with GCP Console Invoice Reports
+        if period in ("current_month", "last_month"):
+            # Format: YYYYMM (e.g. 202607)
+            year, month = period_start.split("-")[:2]
+            invoice_month = f"{year}{month}"
+            where_clause = f"invoice.month = '{invoice_month}'"
+        else:
+            where_clause = f"DATE(usage_start_time) BETWEEN '{period_start}' AND '{period_end}'"
+
         query = f"""
             SELECT
                 service.description AS service_description,
                 SUM(cost + COALESCE((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0)) AS cost
             FROM `{dataset}.gcp_billing_export_v1_*`
-            WHERE DATE(usage_start_time) BETWEEN '{period_start}' AND '{period_end}'
+            WHERE {where_clause}
             GROUP BY service.description
             ORDER BY cost DESC
         """
@@ -198,7 +206,7 @@ class GCPBillingService:
         period_start, period_end = self._get_date_range(period)
 
         try:
-            rows = self._query_billing_api(period_start=period_start, period_end=period_end)
+            rows = self._query_billing_api(period=period, period_start=period_start, period_end=period_end)
             aggregated = self._aggregate_by_service(rows)
 
             return GCPCostBreakdown(
