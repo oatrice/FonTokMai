@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.0] - 2026-08-01
+
+### Added
+- **Financial Dashboard API Integration & Unification**: Refactored `FinancialDashboard.tsx` to dynamically fetch live financial runway stats, burn rate, and transparent budget jars from `/api/runway` using `useSWR` with smart fallback handling (Issues #227, #146, #147).
+- **Frontend Unit Test Coverage**: Added `FinancialDashboard.test.tsx` with Jest and React Testing Library to verify dynamic SWR fetching and rendering.
+
+### Removed
+- **Hardcoded Mock Budget Jars**: Removed static mock budget jars (`Infrastructure Jar`, `Developer Salary Jar`, `API & Data Services`) from `FinancialDashboard.tsx`.
+
 ## [0.69.0] - 2026-08-01
 
 ### Added
