@@ -157,7 +157,8 @@ async def _telegram_webhook_impl(request: Request, background_tasks: BackgroundT
 
         text = message.get("text", "")
         username = message.get("from", {}).get("username", "")
-        logger.info(f"[WEBHOOK] Received text='{text}' chat_id={chat_id} username={username}")
+        token_suffix = telegram.TELEGRAM_BOT_TOKEN[-4:] if len(telegram.TELEGRAM_BOT_TOKEN) >= 4 else "N/A"
+        logger.info(f"[WEBHOOK] Received text='{text}' chat_id={chat_id} username={username} (Active Bot Token Suffix: ...{token_suffix})")
 
         from app.services.cloud_tasks import CloudTasksService
         tasks_svc = CloudTasksService()
