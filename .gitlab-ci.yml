@@ -64,9 +64,9 @@ check_docs_updated:
     - *notify_start_script
   script:
     - echo "🔍 Checking documentation updates and commit ordering relative to target branch..."
-    - TARGET_BRANCH=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-${CI_DEFAULT_BRANCH:-main}}
-    - git fetch origin $TARGET_BRANCH || true
-    - CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD)
+    - TARGET_BRANCH=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-dev}
+    - git fetch origin $TARGET_BRANCH:$TARGET_BRANCH || git fetch origin main:main || true
+    - CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only $TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only HEAD~5)
     - echo "Changed files in this MR/branch:"
     - echo "$CHANGED_FILES"
     - MISSING=0
@@ -97,8 +97,8 @@ check_docs_updated:
       fi
     - echo "⏱️ Checking commit ordering (ensuring docs were not updated prior to subsequent code changes)..."
     - |
-      LAST_CODE_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md')
-      LAST_DOC_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- CHANGELOG.md VERSION)
+      LAST_CODE_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md' 2>/dev/null || git log -n 1 --format="%H" HEAD~5..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md')
+      LAST_DOC_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- CHANGELOG.md VERSION 2>/dev/null || git log -n 1 --format="%H" HEAD~5..HEAD -- CHANGELOG.md VERSION)
       
       if [ -n "$LAST_CODE_COMMIT" ] && [ -n "$LAST_DOC_COMMIT" ]; then
         CODE_TIME=$(git log -1 --format="%ct" $LAST_CODE_COMMIT)
