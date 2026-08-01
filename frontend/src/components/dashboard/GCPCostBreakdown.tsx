@@ -16,11 +16,17 @@ import { GlassBadge } from "../ui/GlassBadge";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface GCPCostData {
-  cloud_run_usd: number;
-  cloud_storage_usd: number;
-  egress_usd: number;
-  other_usd: number;
-  total_usd: number;
+  cloud_run_thb?: number;
+  cloud_storage_thb?: number;
+  egress_thb?: number;
+  other_thb?: number;
+  total_thb?: number;
+  // Fallbacks for backwards compatibility
+  cloud_run_usd?: number;
+  cloud_storage_usd?: number;
+  egress_usd?: number;
+  other_usd?: number;
+  total_usd?: number;
   period_start: string;
   period_end: string;
   currency: string;
@@ -31,7 +37,8 @@ interface GCPCostData {
 
 const SERVICE_ITEMS = [
   {
-    key: "cloud_run_usd" as keyof GCPCostData,
+    key: "cloud_run_thb" as keyof GCPCostData,
+    fallbackKey: "cloud_run_usd" as keyof GCPCostData,
     label: "Cloud Run",
     icon: Cloud,
     colorClass: "text-cyan-400",
@@ -39,7 +46,8 @@ const SERVICE_ITEMS = [
     barClass: "from-cyan-500 to-blue-500",
   },
   {
-    key: "cloud_storage_usd" as keyof GCPCostData,
+    key: "cloud_storage_thb" as keyof GCPCostData,
+    fallbackKey: "cloud_storage_usd" as keyof GCPCostData,
     label: "Cloud Storage",
     icon: HardDrive,
     colorClass: "text-emerald-400",
@@ -47,7 +55,8 @@ const SERVICE_ITEMS = [
     barClass: "from-emerald-500 to-teal-500",
   },
   {
-    key: "egress_usd" as keyof GCPCostData,
+    key: "egress_thb" as keyof GCPCostData,
+    fallbackKey: "egress_usd" as keyof GCPCostData,
     label: "Network Egress",
     icon: Wifi,
     colorClass: "text-amber-400",
@@ -55,7 +64,8 @@ const SERVICE_ITEMS = [
     barClass: "from-amber-500 to-orange-500",
   },
   {
-    key: "other_usd" as keyof GCPCostData,
+    key: "other_thb" as keyof GCPCostData,
+    fallbackKey: "other_usd" as keyof GCPCostData,
     label: "Other Services",
     icon: MoreHorizontal,
     colorClass: "text-slate-400",
@@ -113,6 +123,12 @@ export function GCPCostBreakdown() {
     fetchCosts();
   }, []); // Remove fetchCosts from dependency to prevent infinite loop or cascading renders
 
+  const totalThb = data
+    ? data.total_thb !== undefined
+      ? data.total_thb
+      : (data.total_usd ?? 0) * (data.currency === "THB" ? 1 : 35)
+    : 0;
+
   return (
     <GlassCard variant="default" glowColor="cyan" className="p-6 space-y-5">
       {/* ── Header ── */}
@@ -151,7 +167,7 @@ export function GCPCostBreakdown() {
       {data && !loading && (
         <div className="text-center py-1">
           <span className="text-4xl font-black text-white tabular-nums">
-            ฿{(data.total_usd * 35).toFixed(2)}
+            ฿{totalThb.toFixed(2)}
           </span>
           <span className="text-slate-400 ml-2 text-sm font-medium">
             THB / month
@@ -177,10 +193,10 @@ export function GCPCostBreakdown() {
           </div>
         ) : data ? (
           // Data rows
-          SERVICE_ITEMS.map(({ key, label, icon: Icon, colorClass, bgClass, barClass }) => {
-            const costUsd = data[key] as number;
-            const costThb = costUsd * 35;
-            const pct = data.total_usd > 0 ? (costUsd / data.total_usd) * 100 : 0;
+          SERVICE_ITEMS.map(({ key, fallbackKey, label, icon: Icon, colorClass, bgClass, barClass }) => {
+            const rawCost = data[key] !== undefined ? (data[key] as number) : (data[fallbackKey] as number) || 0;
+            const costThb = data.currency === "THB" || data[key] !== undefined ? rawCost : rawCost * 35;
+            const pct = totalThb > 0 ? (costThb / totalThb) * 100 : 0;
 
             return (
               <div key={key} className="flex items-center gap-3">

@@ -23,15 +23,36 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GCPCostBreakdown:
     """Immutable cost breakdown for one billing period."""
-    cloud_run_usd: float = 0.0
-    cloud_storage_usd: float = 0.0
-    egress_usd: float = 0.0
-    other_usd: float = 0.0
-    total_usd: float = 0.0
+    cloud_run_thb: float = 0.0
+    cloud_storage_thb: float = 0.0
+    egress_thb: float = 0.0
+    other_thb: float = 0.0
+    total_thb: float = 0.0
     period_start: str = ""
     period_end: str = ""
-    currency: str = "USD"
+    currency: str = "THB"
     is_mock: bool = True
+
+    # Deprecated backward compatibility properties if needed
+    @property
+    def cloud_run_usd(self) -> float:
+        return self.cloud_run_thb
+
+    @property
+    def cloud_storage_usd(self) -> float:
+        return self.cloud_storage_thb
+
+    @property
+    def egress_usd(self) -> float:
+        return self.egress_thb
+
+    @property
+    def other_usd(self) -> float:
+        return self.other_thb
+
+    @property
+    def total_usd(self) -> float:
+        return self.total_thb
 
 
 class GCPBillingService:
@@ -52,14 +73,14 @@ class GCPBillingService:
         """Return realistic mock data for dev/staging environments."""
         now = datetime.datetime.now(datetime.timezone.utc)
         return GCPCostBreakdown(
-            cloud_run_usd=8.40,
-            cloud_storage_usd=1.20,
-            egress_usd=0.60,
-            other_usd=0.80,
-            total_usd=11.00,
+            cloud_run_thb=294.00,
+            cloud_storage_thb=42.00,
+            egress_thb=21.00,
+            other_thb=28.00,
+            total_thb=385.00,
             period_start=f"{now.year}-{now.month:02d}-01",
             period_end=now.strftime("%Y-%m-%d"),
-            currency="USD",
+            currency="THB",
             is_mock=True,
         )
 
@@ -86,10 +107,10 @@ class GCPBillingService:
                 other += cost
 
         return {
-            "cloud_run_usd": round(cloud_run, 4),
-            "cloud_storage_usd": round(storage, 4),
-            "egress_usd": round(egress, 4),
-            "other_usd": round(other, 4),
+            "cloud_run_thb": round(cloud_run, 2),
+            "cloud_storage_thb": round(storage, 2),
+            "egress_thb": round(egress, 2),
+            "other_thb": round(other, 2),
         }
 
     # ─── Real API Query ──────────────────────────────────────────────────────
@@ -149,10 +170,10 @@ class GCPBillingService:
             now = datetime.datetime.now(datetime.timezone.utc)
             return GCPCostBreakdown(
                 **aggregated,
-                total_usd=round(sum(aggregated.values()), 4),
+                total_thb=round(sum(aggregated.values()), 2),
                 period_start=f"{now.year}-{now.month:02d}-01",
                 period_end=now.strftime("%Y-%m-%d"),
-                currency="USD",
+                currency="THB",
                 is_mock=False,
             )
         except Exception as e:

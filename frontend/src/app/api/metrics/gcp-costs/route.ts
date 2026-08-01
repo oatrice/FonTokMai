@@ -37,14 +37,14 @@ export async function GET(_req: NextRequest) {
   const periodEnd = now.toISOString().slice(0, 10);
 
   return NextResponse.json({
-    cloud_run_usd: 8.4,
-    cloud_storage_usd: 1.2,
-    egress_usd: 0.6,
-    other_usd: 0.8,
-    total_usd: 11.0,
+    cloud_run_thb: 294.0,
+    cloud_storage_thb: 42.0,
+    egress_thb: 21.0,
+    other_thb: 28.0,
+    total_thb: 385.0,
     period_start: periodStart,
     period_end: periodEnd,
-    currency: "USD",
+    currency: "THB",
     is_mock: true,
   });
 }
