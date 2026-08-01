@@ -170,7 +170,7 @@ class GCPBillingService:
         query = f"""
             SELECT
                 service.description AS service_description,
-                SUM(cost) AS cost
+                SUM(cost + COALESCE((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0)) AS cost
             FROM `{dataset}.gcp_billing_export_v1_*`
             WHERE DATE(usage_start_time) BETWEEN '{period_start}' AND '{period_end}'
             GROUP BY service.description
