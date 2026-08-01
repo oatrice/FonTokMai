@@ -805,3 +805,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Set up tests with `pytest` utilizing Test-Driven Development (TDD).
 - Initialized FastAPI project folder structure (`services`, `routers`, `schemas`).
 
+

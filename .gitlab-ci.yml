@@ -64,7 +64,7 @@ check_docs_updated:
     - *notify_start_script
   script:
     - echo "🔍 Checking documentation updates and commit ordering relative to target branch..."
-    - TARGET_BRANCH=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-main}
+    - TARGET_BRANCH=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-${CI_DEFAULT_BRANCH:-main}}
     - git fetch origin $TARGET_BRANCH || true
     - CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD)
     - echo "Changed files in this MR/branch:"
@@ -117,7 +117,8 @@ check_docs_updated:
       fi
     - echo "🎉 All required documentation files are updated and synchronized with the latest code changes!"
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "staging")
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "develop"
 
 .gcloud_auth:
   before_script:
