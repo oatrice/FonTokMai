@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DevOps Staging Environment**: Updated `deploy_cloudrun.sh` and CI/CD pipelines to support dynamic deployment mapping for `dev`, `staging`, and `prod` environments (Issue #226).
 - **Artifact Registry Cleanup**: Added `cleanup_artifact_registry.sh` script to delete old Docker images while keeping the latest 2 tags to optimize storage costs (Issue #180).
 - **Frontend & Backend Versioning**: Added build version, environment, and commit SHA to the backend `/health` endpoint and displayed them in the frontend `SiteFooter` component (Issue #229).
+- **GitLab Cloud Runner Migration**: Updated `.gitlab-ci.yml` to remove local runner tags (`tags: [deploy-local]` and `tags: [local]`) and enabled `google/cloud-sdk:alpine` Docker image for Cloud Run and Artifact Registry deployment jobs on GitLab SaaS shared cloud runners.
 
 ## [0.66.0] - 2026-07-29
 

@@ -3,9 +3,6 @@ stages:
   - config
   - deploy
 
-default:
-  tags:
-    - local
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -64,9 +61,7 @@ cache:
 
 cloudrun_config_only:
   stage: config
-  # [LOCAL] Shell runner uses host gcloud (ARM64 native). For GitLab Cloud: remove tags + uncomment image below.
-  tags: [deploy-local]
-  # image: google/cloud-sdk:alpine
+  image: google/cloud-sdk:alpine
   extends:
     - .gcloud_auth
     - .telegram_notify
@@ -86,9 +81,7 @@ deploy_cloud_run:
   stage: deploy
   environment:
     name: $CI_COMMIT_BRANCH
-  # [LOCAL] Shell runner uses host gcloud (ARM64 native). For GitLab Cloud: remove tags + uncomment image below.
-  tags: [deploy-local]
-  # image: google/cloud-sdk:alpine
+  image: google/cloud-sdk:alpine
   extends:
     - .gcloud_auth
     - .telegram_notify
@@ -167,9 +160,7 @@ test_e2e:
 
 cleanup_artifact_registry:
   stage: deploy
-  # [LOCAL] Shell runner uses host gcloud (ARM64 native). For GitLab Cloud: remove tags + uncomment image below.
-  tags: [deploy-local]
-  # image: google/cloud-sdk:alpine
+  image: google/cloud-sdk:alpine
   extends:
     - .gcloud_auth
     - .telegram_notify
@@ -185,9 +176,7 @@ cleanup_artifact_registry:
 
 deploy_emsc_worker:
   stage: deploy
-  # [LOCAL] Shell runner uses host gcloud (ARM64 native). For GitLab Cloud: remove tags + uncomment image below.
-  tags: [deploy-local]
-  # image: google/cloud-sdk:alpine
+  image: google/cloud-sdk:alpine
   extends:
     - .gcloud_auth
     - .telegram_notify
