@@ -1,67 +1,21 @@
-# QA Walkthrough
+# Walkthrough - Issue #233 CI Documentation & Commit Ordering Enforcement
 
-## Walkthrough: MR 2 - Zero-PII Stripe Webhook Listener
-- **Objective**: Implement a secure Stripe webhook listener that processes payment and subscription events while storing zero PII (Personally Identifiable Information).
-- **Changes Made**:
-  1. **Added `stripe` dependency**: Updated `requirements.txt`.
-  2. **Created Stripe Webhook Router**: Added `backend/app/routers/stripe_webhook.py` which listens to `/api/webhooks/stripe`.
-     - Validates the Stripe signature using `STRIPE_WEBHOOK_SECRET`.
-     - Extracts ONLY non-PII fields: `customer_id`, `transaction_id`, and `amount_total`.
-     - Does not log or extract names, emails, addresses, or payment card details.
-  3. **Transaction Service**: Created `backend/app/services/transaction_service.py` to handle the pseudo-anonymous data storage.
-  4. **App Registration**: Registered the `stripe_webhook` router in `backend/app/main.py`.
-  5. **Testing**: Implemented TDD-based tests in `backend/tests/test_stripe_webhook.py` to ensure signature validation and zero-PII data extraction logic work correctly.
-- **Impact**:
-  - Increases the security of the FonMaYang system by minimizing the storage of sensitive financial information.
-  - Safely processes one-time payments and subscriptions.
-  - Complies with data minimization and GDPR/PDPA best practices.
+Upgraded `.gitlab-ci.yml` `check_docs_updated` job to include **Commit Ordering Verification**. The job now verifies that documentation files (`CHANGELOG.md`, `VERSION`) are not only present in the MR diff, but were also updated in a commit that is **equal to or newer than** the latest code modification.
 
----
+## Changes Made
 
-## Issue #193: Pseudonymous Authentication & Magic Link Token Generator
-- **Objective**: Generate a unique token upon a successful donation to persist session without PII.
-- **Implementation**: 
-  - Created `Donor` model in `models.py` with `token`, `hashed_transaction_id`, `amount`, and `timestamp`.
-  - Added `POST /auth/generate-token` endpoint that accepts donation metadata and returns a `Fon-XXXX-XXXX` format token.
-  - Generates token using cryptographic `secrets.choice`.
+### CI/CD Pipeline
+#### [.gitlab-ci.yml](file:///Users/oatrice/Software%20Project/FonMaYang/.gitlab-ci.yml)
+- Added Commit Ordering Check comparing Unix timestamps of `LAST_CODE_COMMIT` vs `LAST_DOC_COMMIT`.
+- Fails CI (`exit 1`) if code changes were committed after the last documentation update.
 
-## Issue #194: Two-Factor Financial Account Recovery Flow
-- **Objective**: Recover an account using donation metadata without exposing raw transaction IDs.
-- **Implementation**:
-  - `POST /auth/recover` endpoint accepts `transaction_id`, `amount`, and `timestamp`.
-  - DB queries by exact `amount`, filters by timestamp (naive 1-second tolerance), and uses `bcrypt.checkpw` to verify the transaction ID hash.
-  - If successful, returns the magic token.
+### Versioning & Documentation
+#### [VERSION](file:///Users/oatrice/Software%20Project/FonMaYang/VERSION)
+- Bumped version from `0.68.0` to `0.69.0`.
 
-## Testing (MR 3)
-- Implemented `test_auth_recovery.py` which validates:
-  1. Token generation on donation success.
-  2. Successful recovery with exact transaction data.
-  3. Rejection of invalid transaction IDs.
-  4. Rejection of invalid amounts.
-- Tests executed and passed successfully.
+#### [CHANGELOG.md](file:///Users/oatrice/Software%20Project/FonMaYang/CHANGELOG.md)
+- Prepend section `## [0.69.0] - 2026-08-01` describing Commit Ordering Check enhancement.
 
----
-
-# Walkthrough for MR 4 (Issues #191, #195)
-
-## 1. Budget Jars State Machine & Allocation Strategy
-- **File**: `backend/app/services/budget_jars.py`
-- **Description**: Implemented the `BudgetJarManager` with `BudgetState`. It correctly routes incoming donations (add_donation) into salary (50%), infra (30%), and API (20%) jars.
-- **Deduction**: Implemented a `deduct_daily_costs` method to subtract daily burn from each respective jar.
-
-## 2. Dynamic Runway Countdown Engine
-- **File**: `backend/app/services/runway_engine.py`
-- **Description**: Implemented `RunwayEngine.calculate_remaining_days(current_budget, fixed_daily_cost, variable_usage_cost)`.
-- **Handling Limits**: Handles division by zero (returning `inf` if no costs) and correctly calculates total run days.
-
-## 3. Real-time Streaming API (SSE)
-- **File**: `backend/app/routers/runway.py`
-- **Description**: Exposed `/api/v1/runway/stream` endpoint delivering Sever-Sent Events (SSE) representing real-time updates for `remaining_days`, `budget`, and `daily_burn`.
-- **Integration**: Added `app.include_router(runway.router)` in `backend/app/main.py`.
-
-## TDD Implementation (MR 4)
-- Fully covered the new logic in:
-  - `backend/tests/test_budget_jars.py`
-  - `backend/tests/test_runway_engine.py`
-  - `backend/tests/test_runway_sse.py`
-- Tests pass cleanly, validating both correct values and edge cases (like zero cost).
+## Verification Results
+- Verified with `glab ci lint` & `gitlab-ci-local --preview`.
+- Ran `pytest backend/tests/test_deploy_env_sync.py` (Passed).
