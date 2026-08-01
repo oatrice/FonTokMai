@@ -67,10 +67,14 @@ export function MilestonesSection() {
           </span>
         </div>
 
-        <div className="w-full h-3 rounded-full bg-white/5 overflow-hidden p-0.5 border border-white/10 relative">
+        <div className="w-full h-2 rounded-full overflow-hidden border border-white/10" style={{ background: "rgba(255,255,255,0.05)" }}>
           <div
-            className="h-full rounded-full bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 transition-all duration-700 shadow-lg shadow-cyan-500/30"
-            style={{ width: `${progressPercent}%` }}
+            className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${Math.max(progressPercent, 5)}%`,
+              background: "linear-gradient(to right, #06b6d4, #3b82f6, #6366f1)",
+              boxShadow: "0 0 10px rgba(6,182,212,0.5)",
+            }}
           />
         </div>
 

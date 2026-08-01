@@ -6,6 +6,12 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { GlassBadge } from "@/components/ui/GlassBadge";
 import { Server, CloudRain, ShieldCheck } from "lucide-react";
 
+const jarGradients: Record<string, string> = {
+  "Cloud Run Infrastructure": "linear-gradient(to right, #3b82f6, #06b6d4)",
+  "TMD Radar & Weather APIs": "linear-gradient(to right, #a855f7, #6366f1)",
+  "Emergency Reserve Jar": "linear-gradient(to right, #10b981, #14b8a6)",
+};
+
 interface BudgetJar {
   name: string;
   percentage: number;
@@ -50,6 +56,12 @@ const defaultJars: BudgetJar[] = [
   },
 ];
 
+const jarColorMap: Record<string, string> = {
+  "Cloud Run Infrastructure": "from-blue-500 to-cyan-500",
+  "TMD Radar & Weather APIs": "from-purple-500 to-indigo-500",
+  "Emergency Reserve Jar": "from-emerald-500 to-teal-500",
+};
+
 export function BudgetJars() {
   const { data, isLoading } = useSWR<RunwayData>("/api/runway", fetcher, {
     refreshInterval: 15000,
@@ -90,7 +102,7 @@ export function BudgetJars() {
         ) : (
           jars.map((jar) => {
             const Icon = jarIconMap[jar.name] || Server;
-            const colorClass = jar.color || "from-cyan-500 to-blue-500";
+            const gradient = jarGradients[jar.name] || "linear-gradient(to right, #06b6d4, #3b82f6)";
             return (
               <div key={jar.name} className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
@@ -110,10 +122,14 @@ export function BudgetJars() {
                 </div>
 
                 {/* Custom Progress Bar */}
-                <div className="w-full h-2 rounded-full bg-white/5 overflow-hidden p-0.5 border border-white/5">
+                <div className="w-full h-2 rounded-full overflow-hidden border border-white/10" style={{ background: "rgba(255,255,255,0.05)" }}>
                   <div
-                    className={`h-full rounded-full bg-gradient-to-r ${colorClass} transition-all duration-500`}
-                    style={{ width: `${jar.percentage}%` }}
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${Math.max(jar.percentage, 5)}%`,
+                      background: gradient,
+                      boxShadow: `0 0 8px 0 ${gradient.includes('b6d4') ? 'rgba(6,182,212,0.5)' : gradient.includes('a855f7') ? 'rgba(168,85,247,0.5)' : 'rgba(16,185,129,0.5)'}`,
+                    }}
                   />
                 </div>
               </div>

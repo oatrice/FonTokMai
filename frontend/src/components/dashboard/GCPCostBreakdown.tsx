@@ -74,6 +74,13 @@ const SERVICE_ITEMS = [
   },
 ] as const;
 
+const serviceGradients: Record<string, string> = {
+  cloud_run_thb: "linear-gradient(to right, #06b6d4, #3b82f6)",
+  cloud_storage_thb: "linear-gradient(to right, #10b981, #14b8a6)",
+  egress_thb: "linear-gradient(to right, #f59e0b, #f97316)",
+  other_thb: "linear-gradient(to right, #64748b, #475569)",
+};
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SkeletonRow() {
@@ -227,10 +234,14 @@ export function GCPCostBreakdown() {
                       ฿{costThb.toFixed(2)}
                     </span>
                   </div>
-                  <div className="w-full bg-slate-950/80 rounded-full h-1.5 overflow-hidden border border-white/5">
+                  <div className="w-full rounded-full h-1.5 overflow-hidden border border-white/10" style={{ background: "rgba(255,255,255,0.05)" }}>
                     <div
-                      className={`h-full rounded-full bg-gradient-to-r ${barClass} transition-all duration-700 ease-out`}
-                      style={{ width: `${pct}%` }}
+                      className="h-full rounded-full transition-all duration-700 ease-out"
+                      style={{
+                        width: `${Math.max(pct, pct > 0 ? 3 : 0)}%`,
+                        background: serviceGradients[key] || "linear-gradient(to right, #06b6d4, #3b82f6)",
+                        boxShadow: pct > 0 ? `0 0 6px ${key === 'cloud_run_thb' ? 'rgba(6,182,212,0.4)' : key === 'cloud_storage_thb' ? 'rgba(16,185,129,0.4)' : key === 'egress_thb' ? 'rgba(245,158,11,0.4)' : 'rgba(100,116,139,0.4)'}` : "none",
+                      }}
                       role="progressbar"
                       aria-valuenow={pct}
                       aria-valuemin={0}

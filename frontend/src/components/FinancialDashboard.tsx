@@ -55,6 +55,18 @@ const jarIconMap: Record<string, typeof Server> = {
   "Emergency Reserve Jar": ShieldCheck,
 };
 
+const jarGradients: Record<string, string> = {
+  "Cloud Run Infrastructure": "linear-gradient(to right, #3b82f6, #06b6d4)",
+  "TMD Radar & Weather APIs": "linear-gradient(to right, #a855f7, #6366f1)",
+  "Emergency Reserve Jar": "linear-gradient(to right, #10b981, #14b8a6)",
+};
+
+const jarGlows: Record<string, string> = {
+  "Cloud Run Infrastructure": "rgba(6,182,212,0.45)",
+  "TMD Radar & Weather APIs": "rgba(168,85,247,0.45)",
+  "Emergency Reserve Jar": "rgba(16,185,129,0.45)",
+};
+
 const defaultJars: BudgetJar[] = [
   {
     name: "Cloud Run Infrastructure",
@@ -148,8 +160,8 @@ export function FinancialDashboard({
               </span>
             )}
           </div>
-          <div className="mt-3 w-full bg-slate-800/80 rounded-full h-2 overflow-hidden border border-white/5">
-            <div className="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full w-[72%]" />
+          <div className="mt-3 w-full rounded-full h-2 overflow-hidden border border-white/5" style={{ background: "rgba(255,255,255,0.05)" }}>
+            <div className="h-full rounded-full" style={{ width: "72%", background: "linear-gradient(to right, #10b981, #22d3ee)", boxShadow: "0 0 10px rgba(16,185,129,0.4)" }} />
           </div>
         </GlassCard>
 
@@ -245,12 +257,14 @@ export function FinancialDashboard({
                       <span className="text-slate-400">Allocated Balance</span>
                       <span className="font-bold text-white">฿{jar.allocated_thb.toLocaleString()}</span>
                     </div>
-                    <div className="w-full bg-slate-950/80 rounded-full h-2.5 p-0.5 border border-white/10">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
-                          jar.color || 'from-cyan-500 to-blue-500'
-                        }`}
-                        style={{ width: `${jar.percentage}%` }}
+                    <div className="w-full h-2 rounded-full overflow-hidden border border-white/10" style={{ background: "rgba(255,255,255,0.05)" }}>
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: `${Math.max(jar.percentage, 5)}%`,
+                          background: jarGradients[jar.name] || "linear-gradient(to right, #06b6d4, #3b82f6)",
+                          boxShadow: `0 0 8px 0 ${jarGlows[jar.name] || "rgba(6,182,212,0.4)"}`,
+                        }}
                       />
                     </div>
                   </div>
