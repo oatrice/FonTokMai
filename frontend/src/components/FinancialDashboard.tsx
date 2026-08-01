@@ -96,12 +96,12 @@ export function FinancialDashboard({
     revalidateOnFocus: true,
   });
 
-  const runwayDays = data?.days_remaining ?? 42;
-  const dailyBurn = data?.burn_rate_per_day ?? 120;
-  const currentBalance = data?.total_balance_thb ?? 5140;
+  const runwayDays = data?.days_remaining;
+  const dailyBurn = data?.burn_rate_per_day;
+  const currentBalance = data?.total_balance_thb;
   const circuitBreaker = data?.circuit_breaker_active ?? false;
   const overdrive = invincibleMode || (data?.emergency_overdrive ?? false);
-  const budgetJars = data?.budget_jars || defaultJars;
+  const budgetJars = data?.budget_jars;
 
   return (
     <div className="space-y-8 py-6">
@@ -115,11 +115,21 @@ export function FinancialDashboard({
             </GlassBadge>
           </div>
           <div className="mt-4 flex items-baseline gap-3">
-            <span className="text-5xl font-black tracking-tight text-white">{runwayDays}</span>
-            <span className="text-xl font-bold text-cyan-400">Days</span>
+            {isLoading || runwayDays === undefined ? (
+              <div className="h-12 w-28 rounded-lg bg-slate-800/80 animate-pulse my-1" />
+            ) : (
+              <>
+                <span className="text-5xl font-black tracking-tight text-white">{runwayDays}</span>
+                <span className="text-xl font-bold text-cyan-400">Days</span>
+              </>
+            )}
           </div>
           <p className="mt-2 text-xs text-slate-400">
-            Based on active GCP/AWS burn rate of <span className="text-slate-200 font-semibold">฿{dailyBurn}/day</span>
+            {isLoading || dailyBurn === undefined ? (
+              <span className="inline-block h-3 w-40 rounded bg-slate-800/80 animate-pulse mt-1" />
+            ) : (
+              <>Based on active GCP/AWS burn rate of <span className="text-slate-200 font-semibold">฿{dailyBurn}/day</span></>
+            )}
           </p>
         </GlassCard>
 
@@ -130,9 +140,13 @@ export function FinancialDashboard({
           </div>
           <div className="mt-4 flex items-baseline gap-1">
             <span className="text-xl font-semibold text-emerald-400">฿</span>
-            <span className="text-5xl font-black tracking-tight text-white">
-              {currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
+            {isLoading || currentBalance === undefined ? (
+              <div className="h-12 w-44 rounded-lg bg-slate-800/80 animate-pulse my-1" />
+            ) : (
+              <span className="text-5xl font-black tracking-tight text-white">
+                {currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            )}
           </div>
           <div className="mt-3 w-full bg-slate-800/80 rounded-full h-2 overflow-hidden border border-white/5">
             <div className="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full w-[72%]" />
@@ -186,41 +200,64 @@ export function FinancialDashboard({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {budgetJars.map((jar) => {
-            const Icon = jarIconMap[jar.name] || Server;
-            const badgeVariant = jar.percentage >= 40 ? "cyan" : jar.percentage >= 25 ? "purple" : "emerald";
-            return (
-              <GlassCard key={jar.name} variant="default" glowColor="cyan" interactive className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-slate-800/80 border border-white/10 text-cyan-400">
-                      <Icon className="h-5 w-5" />
+          {isLoading || !budgetJars ? (
+            <>
+              {[1, 2, 3].map((i) => (
+                <GlassCard key={i} variant="default" glowColor="cyan" className="p-6 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-slate-800/80 animate-pulse" />
+                      <div className="space-y-1">
+                        <div className="h-4 w-32 rounded bg-slate-800/80 animate-pulse" />
+                        <div className="h-3 w-24 rounded bg-slate-800/80 animate-pulse" />
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-white text-base">{jar.name}</h3>
-                      <span className="text-xs text-slate-400">{jar.description}</span>
-                    </div>
+                    <div className="h-5 w-10 rounded-full bg-slate-800/80 animate-pulse" />
                   </div>
-                  <GlassBadge variant={badgeVariant}>{jar.percentage}%</GlassBadge>
-                </div>
+                  <div className="space-y-2 pt-2">
+                    <div className="h-4 w-full rounded bg-slate-800/80 animate-pulse" />
+                    <div className="h-2.5 w-full rounded-full bg-slate-800/80 animate-pulse" />
+                  </div>
+                </GlassCard>
+              ))}
+            </>
+          ) : (
+            budgetJars.map((jar) => {
+              const Icon = jarIconMap[jar.name] || Server;
+              const badgeVariant = jar.percentage >= 40 ? "cyan" : jar.percentage >= 25 ? "purple" : "emerald";
+              return (
+                <GlassCard key={jar.name} variant="default" glowColor="cyan" interactive className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-slate-800/80 border border-white/10 text-cyan-400">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-white text-base">{jar.name}</h3>
+                        <span className="text-xs text-slate-400">{jar.description}</span>
+                      </div>
+                    </div>
+                    <GlassBadge variant={badgeVariant}>{jar.percentage}%</GlassBadge>
+                  </div>
 
-                <div className="mt-6 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Allocated Balance</span>
-                    <span className="font-bold text-white">฿{jar.allocated_thb.toLocaleString()}</span>
+                  <div className="mt-6 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-400">Allocated Balance</span>
+                      <span className="font-bold text-white">฿{jar.allocated_thb.toLocaleString()}</span>
+                    </div>
+                    <div className="w-full bg-slate-950/80 rounded-full h-2.5 p-0.5 border border-white/10">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
+                          jar.color || 'from-cyan-500 to-blue-500'
+                        }`}
+                        style={{ width: `${jar.percentage}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-950/80 rounded-full h-2.5 p-0.5 border border-white/10">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
-                        jar.color || 'from-cyan-500 to-blue-500'
-                      }`}
-                      style={{ width: `${jar.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              </GlassCard>
-            );
-          })}
+                </GlassCard>
+              );
+            })
+          )}
         </div>
       </section>
 
