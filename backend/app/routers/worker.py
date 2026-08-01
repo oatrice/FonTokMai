@@ -77,6 +77,19 @@ async def worker_trigger_mock_disaster(payload: dict):
         logger.error(f"Worker failed trigger-mock-disaster: {e}")
         return {"status": "error", "message": str(e)}
 
+@router.post("/sync-burn-rate")
+async def worker_sync_burn_rate():
+    """Worker endpoint for syncing GCP burn rate to DB."""
+    try:
+        logger.info("Worker started: sync-burn-rate")
+        from app.scheduler_tasks import update_daily_burn_rate_routine
+        await update_daily_burn_rate_routine()
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed sync-burn-rate: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 from pydantic import BaseModel
 from typing import Optional
 
