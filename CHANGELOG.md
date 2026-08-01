@@ -5,22 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.71.0] - 2026-08-01
+## [0.70.0] - 2026-08-01
 
 ### Added
+- **Financial Dashboard API Integration & Unification**: Refactored `FinancialDashboard.tsx` to dynamically fetch live financial runway stats, burn rate, and transparent budget jars from `/api/runway` using `useSWR` with smart fallback handling (Issues #227, #146, #147).
 - **GCP Cost Multi-Period Selector**: Added period selection (`current_month`, `last_month`, `30d`, `7d`) to GCP Infrastructure Costs card header and backend API endpoints (Issue #211).
 - **Natively THB Currency Display**: Updated GCP billing breakdown schema and API responses to output costs in THB natively instead of USD.
+- **Frontend Unit Test Coverage**: Added `FinancialDashboard.test.tsx` with Jest and React Testing Library to verify dynamic SWR fetching and rendering.
 
 ### Fixed
 - **GCP Billing Net Cost Deduction**: Updated BigQuery SQL query to calculate Net Cost (`cost + credits`) by subtracting Free Tier & Savings Program discounts, ensuring 100% precision match with GCP Console Invoice Reports.
 - **Invoice Month Matching**: Configured monthly billing period queries (`current_month`, `last_month`) to filter by BigQuery `invoice.month` matching official monthly invoices.
 - **Dashboard Initial Skeleton Loaders**: Replaced initial fallback constants (`42 days`, `฿5,140.00`, default budget jars) with animated pulse Skeleton UI during initial SWR loading state.
-
-## [0.70.0] - 2026-08-01
-
-### Added
-- **Financial Dashboard API Integration & Unification**: Refactored `FinancialDashboard.tsx` to dynamically fetch live financial runway stats, burn rate, and transparent budget jars from `/api/runway` using `useSWR` with smart fallback handling (Issues #227, #146, #147).
-- **Frontend Unit Test Coverage**: Added `FinancialDashboard.test.tsx` with Jest and React Testing Library to verify dynamic SWR fetching and rendering.
 
 ### Removed
 - **Hardcoded Mock Budget Jars**: Removed static mock budget jars (`Infrastructure Jar`, `Developer Salary Jar`, `API & Data Services`) from `FinancialDashboard.tsx`.
