@@ -2,6 +2,10 @@
 When asked to plan or start a new issue, you **MUST ALWAYS** use the `glab` CLI (e.g., `glab issue view <issue_number>`) to fetch and read the full issue description before creating an `implementation_plan.md` or taking action. 
 Do not rely solely on the issue title, your memory, or conversation summaries. If you cannot find the full description, you must explicitly ask the user for it before proceeding.
 
+# 📦 Multi-Issue MR Batching Alignment Rule
+Whenever asked to plan or work on tasks involving multiple open issues, you **MUST** first analyze the issue dependencies, propose a grouped MR/Batching strategy (grouping 2-3 tightly-coupled issues per MR with <500 LOC changes), and confirm the grouping with the user **BEFORE** creating `implementation_plan.md` or starting implementation.
+
+
 # 🧪 Test-Driven Development (TDD) Rule
 When implementing new features or fixing bugs (especially for backend or core logic), you **MUST** follow a Test-Driven Development (TDD) approach:
 1. **Write Tests First:** Before modifying or creating implementation code, write unit tests covering the expected behavior or reproducing the bug.

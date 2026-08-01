@@ -5,6 +5,9 @@ from sqlalchemy.orm import declarative_base
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./fonmayang.db")
 
+# Strip surrounding quotes if present (e.g. when set via .env file with quotes)
+DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
+
 # Automatically switch to asyncpg for Neon Postgres
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)

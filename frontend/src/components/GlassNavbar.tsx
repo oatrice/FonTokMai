@@ -28,7 +28,7 @@ export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
   const isDashboardActive = pathname === "/dashboard";
 
   return (
-    <header className="sticky top-0 z-50 w-full backdrop-blur-xl bg-slate-950/70 border-b border-white/10 shadow-lg">
+    <header className="sticky top-0 z-50 w-full backdrop-blur-md transform-gpu bg-slate-950/70 border-b border-white/10 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -39,7 +39,7 @@ export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
               </div>
             </div>
             <div>
-              <span className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
+              <span className="text-lg font-extrabold tracking-tight text-white drop-shadow-[0_0_12px_rgba(34,211,238,0.4)]">
                 FonMaYang
               </span>
               <div className="flex items-center gap-1.5">
