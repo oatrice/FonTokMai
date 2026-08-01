@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **GCP Cost Multi-Period Selector**: Added period selection (`current_month`, `last_month`, `30d`, `7d`) to GCP Infrastructure Costs card header and backend API endpoints (Issue #211).
 - **Natively THB Currency Display**: Updated GCP billing breakdown schema and API responses to output costs in THB natively instead of USD.
 - **Frontend Unit Test Coverage**: Added `FinancialDashboard.test.tsx` with Jest and React Testing Library to verify dynamic SWR fetching and rendering.
+- **Budget Jars UX Proportion Bar**: Introduced a single multi-segment proportion bar (`Segmented Proportion Bar`) for Budget Jars allocation split (100% total) in both Home and Dashboard pages to resolve UX confusion regarding allocation shares vs progress completion.
 
 ### Fixed
 - **GCP Billing Net Cost Deduction**: Updated BigQuery SQL query to calculate Net Cost (`cost + credits`) by subtracting Free Tier & Savings Program discounts, ensuring 100% precision match with GCP Console Invoice Reports.
