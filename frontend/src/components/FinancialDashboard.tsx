@@ -160,9 +160,6 @@ export function FinancialDashboard({
               </span>
             )}
           </div>
-          <div className="mt-3 w-full rounded-full h-2 overflow-hidden border border-white/5" style={{ background: "rgba(255,255,255,0.05)" }}>
-            <div className="h-full rounded-full" style={{ width: "72%", background: "linear-gradient(to right, #10b981, #22d3ee)", boxShadow: "0 0 10px rgba(16,185,129,0.4)" }} />
-          </div>
         </GlassCard>
 
         <GlassCard variant="default" glowColor="purple" className="p-6">
@@ -252,21 +249,9 @@ export function FinancialDashboard({
                     <GlassBadge variant={badgeVariant}>{jar.percentage}%</GlassBadge>
                   </div>
 
-                  <div className="mt-6 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-400">Allocated Balance</span>
-                      <span className="font-bold text-white">฿{jar.allocated_thb.toLocaleString()}</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full overflow-hidden border border-white/10" style={{ background: "rgba(255,255,255,0.05)" }}>
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{
-                          width: `${Math.max(jar.percentage, 5)}%`,
-                          background: jarGradients[jar.name] || "linear-gradient(to right, #06b6d4, #3b82f6)",
-                          boxShadow: `0 0 8px 0 ${jarGlows[jar.name] || "rgba(6,182,212,0.4)"}`,
-                        }}
-                      />
-                    </div>
+                  <div className="mt-5 pt-3 border-t border-white/10 flex items-center justify-between text-sm">
+                    <span className="text-slate-400">Allocated Share</span>
+                    <span className="font-bold text-white text-base">฿{jar.allocated_thb.toLocaleString()}</span>
                   </div>
                 </GlassCard>
               );

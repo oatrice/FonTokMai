@@ -105,8 +105,8 @@ export function BudgetJars() {
             const gradient = jarGradients[jar.name] || "linear-gradient(to right, #06b6d4, #3b82f6)";
             return (
               <div key={jar.name} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between text-sm py-1">
+                  <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-lg bg-white/5 border border-white/10 text-cyan-400">
                       <Icon className="w-4 h-4" />
                     </div>
@@ -117,20 +117,8 @@ export function BudgetJars() {
                   </div>
                   <div className="text-right">
                     <span className="font-bold text-white block">฿{jar.allocated_thb.toLocaleString()}</span>
-                    <span className="text-xs text-zinc-400">{jar.percentage}%</span>
+                    <span className="text-xs text-cyan-400 font-medium">{jar.percentage}% Share</span>
                   </div>
-                </div>
-
-                {/* Custom Progress Bar */}
-                <div className="w-full h-2 rounded-full overflow-hidden border border-white/10" style={{ background: "rgba(255,255,255,0.05)" }}>
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{
-                      width: `${Math.max(jar.percentage, 5)}%`,
-                      background: gradient,
-                      boxShadow: `0 0 8px 0 ${gradient.includes('b6d4') ? 'rgba(6,182,212,0.5)' : gradient.includes('a855f7') ? 'rgba(168,85,247,0.5)' : 'rgba(16,185,129,0.5)'}`,
-                    }}
-                  />
                 </div>
               </div>
             );
