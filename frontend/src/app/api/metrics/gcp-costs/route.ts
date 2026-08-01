@@ -9,13 +9,16 @@ import { headers } from "next/headers";
  *
  * Falls back to mock data when backend is unreachable.
  */
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const period = searchParams.get("period") || "current_month";
+
   const backendUrl =
     process.env.BACKEND_URL || "http://localhost:8000";
   const cronSecret = process.env.CRON_SECRET || "";
 
   try {
-    const res = await fetch(`${backendUrl}/api/v1/metrics/gcp-costs`, {
+    const res = await fetch(`${backendUrl}/api/v1/metrics/gcp-costs?period=${encodeURIComponent(period)}`, {
       cache: "no-store",
       headers: {
         "x-cron-secret": cronSecret,

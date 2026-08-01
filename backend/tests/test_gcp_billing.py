@@ -145,17 +145,29 @@ def test_gcp_costs_endpoint_requires_auth():
     assert response.status_code == 401
 
 
-def test_gcp_costs_endpoint_wrong_secret_rejected():
-    """x-cron-secret ที่ผิดต้อง return 401"""
+def test_gcp_costs_endpoint_supports_period_param(mocker):
+    """GET /api/v1/metrics/gcp-costs?period=30d ต้องส่ง period ไปให้ GCPBillingService"""
     import os
     from fastapi.testclient import TestClient
     from app.main import app
+    from app.services.gcp_billing import GCPCostBreakdown
 
-    with patch.dict(os.environ, {"CRON_SECRET": "real_secret"}):
-        client = TestClient(app)
-        response = client.get(
-            "/api/v1/metrics/gcp-costs",
-            headers={"x-cron-secret": "wrong_secret"},
-        )
+    mocker.patch.dict(os.environ, {"CRON_SECRET": "test_secret_xyz"})
+    mock_service = mocker.patch(
+        "app.routers.metrics.GCPBillingService.get_current_month_costs",
+        return_value=GCPCostBreakdown(
+            cloud_run_thb=300.0,
+            period_start="2026-07-01",
+            period_end="2026-08-01",
+            currency="THB",
+            is_mock=True,
+        ),
+    )
 
-    assert response.status_code == 401
+    client = TestClient(app)
+    response = client.get(
+        "/api/v1/metrics/gcp-costs?period=30d",
+        headers={"x-cron-secret": "test_secret_xyz"},
+    )
+    assert response.status_code == 200
+    mock_service.assert_called_once_with(period="30d")

@@ -115,16 +115,18 @@ async def get_queue_status(
 
 
 @router.get("/gcp-costs")
-async def get_gcp_costs(x_cron_secret: str = Header(None)):
+async def get_gcp_costs(
+    period: str = "current_month",
+    x_cron_secret: str = Header(None)
+):
     """
-    Fetch monthly GCP infrastructure costs broken down by service.
+    Fetch GCP infrastructure costs broken down by service.
+
+    Query parameters:
+      period: 'current_month' (default), 'last_month', '30d', '7d'
 
     Returns mock data transparently when GCP credentials are not configured.
     Requires x-cron-secret header for authentication.
-
-    Response schema: GCPCostBreakdown dataclass fields:
-      cloud_run_usd, cloud_storage_usd, egress_usd, other_usd,
-      total_usd, period_start, period_end, currency, is_mock
     """
     server_secret = os.getenv("CRON_SECRET")
     if (
@@ -135,5 +137,5 @@ async def get_gcp_costs(x_cron_secret: str = Header(None)):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     svc = GCPBillingService()
-    breakdown = svc.get_current_month_costs()
+    breakdown = svc.get_current_month_costs(period=period)
     return JSONResponse(content=asdict(breakdown))

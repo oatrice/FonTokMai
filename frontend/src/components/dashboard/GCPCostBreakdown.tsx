@@ -100,14 +100,15 @@ function SkeletonRow() {
  */
 export function GCPCostBreakdown() {
   const [data, setData] = useState<GCPCostData | null>(null);
+  const [period, setPeriod] = useState<string>("current_month");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCosts = useCallback(async () => {
+  const fetchCosts = useCallback(async (selectedPeriod: string = period) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/metrics/gcp-costs", { cache: "no-store" });
+      const res = await fetch(`/api/metrics/gcp-costs?period=${selectedPeriod}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: GCPCostData = await res.json();
       setData(json);
@@ -116,12 +117,11 @@ export function GCPCostBreakdown() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [period]);
 
   useEffect(() => {
-    // Only fetch costs once on mount
-    fetchCosts();
-  }, []); // Remove fetchCosts from dependency to prevent infinite loop or cascading renders
+    fetchCosts(period);
+  }, [period]);
 
   const totalThb = data
     ? data.total_thb !== undefined
@@ -132,7 +132,7 @@ export function GCPCostBreakdown() {
   return (
     <GlassCard variant="default" glowColor="cyan" className="p-6 space-y-5">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-cyan-400" />
@@ -146,12 +146,26 @@ export function GCPCostBreakdown() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Period Selector Dropdown */}
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            disabled={loading}
+            className="bg-slate-900/80 border border-white/15 text-xs text-slate-200 rounded-lg px-2.5 py-1 font-medium cursor-pointer focus:outline-none focus:border-cyan-400 transition-colors disabled:opacity-50"
+            aria-label="Select billing period"
+          >
+            <option value="current_month" className="bg-slate-900 text-white">Current Month</option>
+            <option value="last_month" className="bg-slate-900 text-white">Last Month</option>
+            <option value="30d" className="bg-slate-900 text-white">Last 30 Days</option>
+            <option value="7d" className="bg-slate-900 text-white">Last 7 Days</option>
+          </select>
+
           {data?.is_mock && (
             <GlassBadge variant="amber">Mock Data</GlassBadge>
           )}
           <button
             id="gcp-cost-refresh-btn"
-            onClick={fetchCosts}
+            onClick={() => fetchCosts(period)}
             disabled={loading}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
             aria-label="Refresh GCP costs"

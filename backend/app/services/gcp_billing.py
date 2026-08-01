@@ -67,19 +67,54 @@ class GCPBillingService:
         self.project_id = os.getenv("GCP_PROJECT_ID", "")
         self.billing_dataset = os.getenv("GCP_BILLING_BIGQUERY_DATASET", "")
 
+    def _get_date_range(self, period: str) -> tuple[str, str]:
+        """Calculate period_start and period_end YYYY-MM-DD for a given period."""
+        now = datetime.datetime.now(datetime.timezone.utc).date()
+        if period == "last_month":
+            first_of_this_month = now.replace(day=1)
+            last_day_of_last_month = first_of_this_month - datetime.timedelta(days=1)
+            first_day_of_last_month = last_day_of_last_month.replace(day=1)
+            return first_day_of_last_month.strftime("%Y-%m-%d"), last_day_of_last_month.strftime("%Y-%m-%d")
+        elif period == "30d":
+            start_date = now - datetime.timedelta(days=30)
+            return start_date.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")
+        elif period == "7d":
+            start_date = now - datetime.timedelta(days=7)
+            return start_date.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")
+        else:
+            # Default: current_month
+            start_date = now.replace(day=1)
+            return start_date.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")
+
     # ─── Mock Data ───────────────────────────────────────────────────────────
 
-    def get_mock_breakdown(self) -> GCPCostBreakdown:
+    def get_mock_breakdown(self, period: str = "current_month") -> GCPCostBreakdown:
         """Return realistic mock data for dev/staging environments."""
-        now = datetime.datetime.now(datetime.timezone.utc)
+        period_start, period_end = self._get_date_range(period)
+        
+        # Scale mock numbers slightly based on period
+        multiplier = 1.0
+        if period == "last_month":
+            multiplier = 1.25
+        elif period == "30d":
+            multiplier = 1.10
+        elif period == "7d":
+            multiplier = 0.25
+
+        cloud_run = round(294.00 * multiplier, 2)
+        storage = round(42.00 * multiplier, 2)
+        egress = round(21.00 * multiplier, 2)
+        other = round(28.00 * multiplier, 2)
+        total = round(cloud_run + storage + egress + other, 2)
+
         return GCPCostBreakdown(
-            cloud_run_thb=294.00,
-            cloud_storage_thb=42.00,
-            egress_thb=21.00,
-            other_thb=28.00,
-            total_thb=385.00,
-            period_start=f"{now.year}-{now.month:02d}-01",
-            period_end=now.strftime("%Y-%m-%d"),
+            cloud_run_thb=cloud_run,
+            cloud_storage_thb=storage,
+            egress_thb=egress,
+            other_thb=other,
+            total_thb=total,
+            period_start=period_start,
+            period_end=period_end,
             currency="THB",
             is_mock=True,
         )
@@ -115,8 +150,8 @@ class GCPBillingService:
 
     # ─── Real API Query ──────────────────────────────────────────────────────
 
-    def _query_billing_api(self) -> List[Dict[str, Any]]:
-        """Query GCP BigQuery billing export for current month costs.
+    def _query_billing_api(self, period_start: str, period_end: str) -> List[Dict[str, Any]]:
+        """Query GCP BigQuery billing export for specified period range.
 
         Requires:
           - GOOGLE_APPLICATION_CREDENTIALS (service account with BigQuery reader)
@@ -130,9 +165,6 @@ class GCPBillingService:
 
         client = bigquery.Client(project=self.project_id)
 
-        now = datetime.datetime.now(datetime.timezone.utc)
-        period_start = f"{now.year}-{now.month:02d}-01"
-
         # Supports both 'project.dataset' and 'dataset' formats
         dataset = self.billing_dataset
         query = f"""
@@ -140,7 +172,7 @@ class GCPBillingService:
                 service.description AS service_description,
                 SUM(cost) AS cost
             FROM `{dataset}.gcp_billing_export_v1_*`
-            WHERE DATE(usage_start_time) >= '{period_start}'
+            WHERE DATE(usage_start_time) BETWEEN '{period_start}' AND '{period_end}'
             GROUP BY service.description
             ORDER BY cost DESC
         """
@@ -152,8 +184,8 @@ class GCPBillingService:
 
     # ─── Public Interface ────────────────────────────────────────────────────
 
-    def get_current_month_costs(self) -> GCPCostBreakdown:
-        """Fetch current month GCP costs with automatic mock fallback.
+    def get_current_month_costs(self, period: str = "current_month") -> GCPCostBreakdown:
+        """Fetch GCP costs for given period with automatic mock fallback.
 
         Falls back to mock when:
         - GCP_PROJECT_ID or GCP_BILLING_BIGQUERY_DATASET are not set
@@ -161,21 +193,22 @@ class GCPBillingService:
         """
         if not self.project_id or not self.billing_dataset:
             logger.info("[GCP_BILLING] No project/dataset configured — returning mock data")
-            return self.get_mock_breakdown()
+            return self.get_mock_breakdown(period=period)
+
+        period_start, period_end = self._get_date_range(period)
 
         try:
-            rows = self._query_billing_api()
+            rows = self._query_billing_api(period_start=period_start, period_end=period_end)
             aggregated = self._aggregate_by_service(rows)
 
-            now = datetime.datetime.now(datetime.timezone.utc)
             return GCPCostBreakdown(
                 **aggregated,
                 total_thb=round(sum(aggregated.values()), 2),
-                period_start=f"{now.year}-{now.month:02d}-01",
-                period_end=now.strftime("%Y-%m-%d"),
+                period_start=period_start,
+                period_end=period_end,
                 currency="THB",
                 is_mock=False,
             )
         except Exception as e:
             logger.error(f"[GCP_BILLING] API error, falling back to mock: {e}")
-            return self.get_mock_breakdown()
+            return self.get_mock_breakdown(period=period)
