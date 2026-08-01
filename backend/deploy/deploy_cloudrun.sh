@@ -32,6 +32,7 @@ if [ -n "${CI_COMMIT_BRANCH:-}" ]; then
     export ENVIRONMENT="staging"
   else
     export CLOUD_RUN_SERVICE="fontokmai-api"
+    export DATABASE_URL="${DATABASE_URL_PROD:-${DATABASE_URL:-}}"
     export ENVIRONMENT="production"
   fi
 fi
