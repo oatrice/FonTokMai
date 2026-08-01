@@ -56,15 +56,17 @@ cache:
 
 check_docs_updated:
   stage: verify
+  image: alpine:latest
   extends:
     - .telegram_notify
   before_script:
+    - apk add --no-cache git curl bash
     - *notify_start_script
   script:
     - echo "🔍 Checking documentation updates and commit ordering relative to target branch..."
-    - TARGET_BRANCH=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-main}
-    - git fetch origin $TARGET_BRANCH || true
-    - CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD)
+    - TARGET_BRANCH=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-dev}
+    - git fetch origin $TARGET_BRANCH:$TARGET_BRANCH || git fetch origin main:main || true
+    - CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only $TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only HEAD~5)
     - echo "Changed files in this MR/branch:"
     - echo "$CHANGED_FILES"
     - MISSING=0
@@ -95,8 +97,8 @@ check_docs_updated:
       fi
     - echo "⏱️ Checking commit ordering (ensuring docs were not updated prior to subsequent code changes)..."
     - |
-      LAST_CODE_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md')
-      LAST_DOC_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- CHANGELOG.md VERSION)
+      LAST_CODE_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md' 2>/dev/null || git log -n 1 --format="%H" HEAD~5..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md')
+      LAST_DOC_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- CHANGELOG.md VERSION 2>/dev/null || git log -n 1 --format="%H" HEAD~5..HEAD -- CHANGELOG.md VERSION)
       
       if [ -n "$LAST_CODE_COMMIT" ] && [ -n "$LAST_DOC_COMMIT" ]; then
         CODE_TIME=$(git log -1 --format="%ct" $LAST_CODE_COMMIT)
@@ -115,7 +117,8 @@ check_docs_updated:
       fi
     - echo "🎉 All required documentation files are updated and synchronized with the latest code changes!"
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "staging")
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "develop"
 
 .gcloud_auth:
   before_script:

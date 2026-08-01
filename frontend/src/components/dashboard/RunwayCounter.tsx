@@ -43,19 +43,16 @@ export function RunwayCounter() {
     emergency_overdrive: false,
   };
 
-  const runway = data || fallbackData;
+  const runway = data;
   const targetEndTimeRef = useRef<number | null>(null);
-  const [secondsRemaining, setSecondsRemaining] = useState<number>(runway.seconds_remaining);
+  const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
 
   // When new SWR data arrives, update the target end timestamp
   useEffect(() => {
     if (data?.seconds_remaining !== undefined) {
       targetEndTimeRef.current = Date.now() + data.seconds_remaining * 1000;
-      // Do not call setSecondsRemaining here, the interval handles the tick down based on targetEndTimeRef
-    } else if (targetEndTimeRef.current === null) {
-      targetEndTimeRef.current = Date.now() + fallbackData.seconds_remaining * 1000;
     }
-  }, [data, fallbackData.seconds_remaining]);
+  }, [data]);
 
   // Smooth countdown ticker (1s interval) using target end time for zero drift
   useEffect(() => {
@@ -63,18 +60,16 @@ export function RunwayCounter() {
       if (targetEndTimeRef.current !== null) {
         const diffInSeconds = Math.max(0, Math.floor((targetEndTimeRef.current - Date.now()) / 1000));
         setSecondsRemaining(diffInSeconds);
-      } else {
-        setSecondsRemaining((prev) => Math.max(0, prev - 1));
       }
     }, 1000);
 
     return () => clearInterval(timer);
   }, []);
 
-  const days = Math.floor(secondsRemaining / (3600 * 24));
-  const hours = Math.floor((secondsRemaining % (3600 * 24)) / 3600);
-  const minutes = Math.floor((secondsRemaining % 3600) / 60);
-  const seconds = secondsRemaining % 60;
+  const days = secondsRemaining !== null ? Math.floor(secondsRemaining / (3600 * 24)) : null;
+  const hours = secondsRemaining !== null ? Math.floor((secondsRemaining % (3600 * 24)) / 3600) : null;
+  const minutes = secondsRemaining !== null ? Math.floor((secondsRemaining % 3600) / 60) : null;
+  const seconds = secondsRemaining !== null ? secondsRemaining % 60 : null;
 
   return (
     <GlassCard glow className="p-6 md:p-8">
@@ -82,10 +77,12 @@ export function RunwayCounter() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h2 className="text-xl font-bold text-white tracking-tight">Live Runway Engine</h2>
-            <GlassBadge variant={runway.emergency_overdrive ? "danger" : "cyan"}>
-              {runway.emergency_overdrive ? "OVERDRIVE MODE" : "HEALTHY"}
-            </GlassBadge>
-            {runway.circuit_breaker_active && (
+            {runway && (
+              <GlassBadge variant={runway.emergency_overdrive ? "danger" : "cyan"}>
+                {runway.emergency_overdrive ? "OVERDRIVE MODE" : "HEALTHY"}
+              </GlassBadge>
+            )}
+            {runway?.circuit_breaker_active && (
               <GlassBadge variant="danger">
                 CIRCUIT BREAKER ACTIVE
               </GlassBadge>
@@ -98,33 +95,53 @@ export function RunwayCounter() {
         </div>
         <div className="text-right">
           <span className="text-xs text-zinc-500 block">Total Balance</span>
-          <span className="text-2xl font-extrabold text-cyan-400">
-            ฿{runway.total_balance_thb.toLocaleString()} THB
-          </span>
+          {isLoading || !runway ? (
+            <div className="h-8 w-36 rounded-lg bg-slate-800/80 animate-pulse ml-auto mt-1" />
+          ) : (
+            <span className="text-2xl font-extrabold text-cyan-400">
+              ฿{runway.total_balance_thb.toLocaleString()} THB
+            </span>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-4 gap-3 md:gap-4 my-6 text-center">
         <div className="bg-white/5 border border-white/10 rounded-xl p-3 md:p-4 backdrop-blur-md">
-          <span className="text-3xl md:text-5xl font-black text-white font-mono">{days}</span>
+          {days === null ? (
+            <div className="h-10 w-16 mx-auto rounded bg-slate-800/80 animate-pulse" />
+          ) : (
+            <span className="text-3xl md:text-5xl font-black text-white font-mono">{days}</span>
+          )}
           <span className="text-xs text-zinc-400 block mt-1 uppercase font-semibold">Days</span>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-xl p-3 md:p-4 backdrop-blur-md">
-          <span className="text-3xl md:text-5xl font-black text-white font-mono">
-            {String(hours).padStart(2, "0")}
-          </span>
+          {hours === null ? (
+            <div className="h-10 w-16 mx-auto rounded bg-slate-800/80 animate-pulse" />
+          ) : (
+            <span className="text-3xl md:text-5xl font-black text-white font-mono">
+              {String(hours).padStart(2, "0")}
+            </span>
+          )}
           <span className="text-xs text-zinc-400 block mt-1 uppercase font-semibold">Hours</span>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-xl p-3 md:p-4 backdrop-blur-md">
-          <span className="text-3xl md:text-5xl font-black text-white font-mono">
-            {String(minutes).padStart(2, "0")}
-          </span>
+          {minutes === null ? (
+            <div className="h-10 w-16 mx-auto rounded bg-slate-800/80 animate-pulse" />
+          ) : (
+            <span className="text-3xl md:text-5xl font-black text-white font-mono">
+              {String(minutes).padStart(2, "0")}
+            </span>
+          )}
           <span className="text-xs text-zinc-400 block mt-1 uppercase font-semibold">Mins</span>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-xl p-3 md:p-4 backdrop-blur-md">
-          <span className="text-3xl md:text-5xl font-black text-cyan-400 font-mono animate-pulse">
-            {String(seconds).padStart(2, "0")}
-          </span>
+          {seconds === null ? (
+            <div className="h-10 w-16 mx-auto rounded bg-slate-800/80 animate-pulse" />
+          ) : (
+            <span className="text-3xl md:text-5xl font-black text-cyan-400 font-mono animate-pulse">
+              {String(seconds).padStart(2, "0")}
+            </span>
+          )}
           <span className="text-xs text-zinc-400 block mt-1 uppercase font-semibold">Secs</span>
         </div>
       </div>
@@ -132,7 +149,7 @@ export function RunwayCounter() {
       <div className="flex items-center justify-between text-xs text-zinc-400 pt-4 border-t border-white/10">
         <div className="flex items-center gap-1.5">
           <Zap className="w-4 h-4 text-amber-400" />
-          <span>Burn Rate: <strong className="text-zinc-200">฿{runway.burn_rate_per_day}/day</strong></span>
+          <span>Burn Rate: <strong className="text-zinc-200">{runway ? `฿${runway.burn_rate_per_day}/day` : "Syncing..."}</strong></span>
         </div>
         <div className="flex items-center gap-1.5">
           <Clock className="w-4 h-4 text-cyan-400" />

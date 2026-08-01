@@ -18,10 +18,10 @@ Based on the Luma release management engine (`luma_core/tools.py`), this skill a
 
 ---
 
-## 🛑 STRICT RULE: PER-MR ISOLATED UPDATES
-- **NO BATCHED DOCUMENTATION**: Never generate documentation or version updates for multiple MRs/branches in a single commit.
+## 🛑 STRICT RULE: PER-MR ISOLATED UPDATES (ONE VERSION BUMP PER MR)
+- **NO MULTIPLE VERSION BUMPS WITHIN THE SAME MR**: When working within an active feature branch or Merge Request (MR), **DO NOT** bump the version number repeatedly for minor commits or follow-ups. All commits and changes made inside the **SAME branch/MR MUST share a single Version and Changelog section**.
+- **ONE VERSION BUMP PER MR**: The version bump (e.g. `v0.70.0`) happens **once per MR**. Subsequent updates within the same branch/MR should simply append or update bullet points under the existing MR's release header in `CHANGELOG.md` without incrementing `VERSION` again.
 - **ISOLATED MR SCOPE**: Each MR/PR branch MUST modify `CHANGELOG.md`, `README.md`, and `VERSION` strictly and exclusively for the changes introduced within **that specific MR's scope**.
-- **INCREMENTAL VERSIONING PER MR**: Increment the version number per MR (e.g. `v0.59.0` for MR 5, `v0.60.0` for MR 6) so that each merged MR carries its own version bump and changelog section independently.
 
 ---
 

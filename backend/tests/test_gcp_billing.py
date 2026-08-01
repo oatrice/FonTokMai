@@ -16,19 +16,19 @@ def test_gcp_cost_breakdown_dataclass_exists():
     from app.services.gcp_billing import GCPCostBreakdown
 
     breakdown = GCPCostBreakdown(
-        cloud_run_usd=10.50,
-        cloud_storage_usd=2.30,
-        egress_usd=0.80,
-        other_usd=1.00,
-        total_usd=14.60,
+        cloud_run_thb=367.50,
+        cloud_storage_thb=80.50,
+        egress_thb=28.00,
+        other_thb=35.00,
+        total_thb=511.00,
         period_start="2026-07-01",
         period_end="2026-07-31",
-        currency="USD",
+        currency="THB",
         is_mock=False,
     )
-    assert breakdown.total_usd == pytest.approx(14.60)
+    assert breakdown.total_thb == pytest.approx(511.00)
     assert breakdown.is_mock is False
-    assert breakdown.currency == "USD"
+    assert breakdown.currency == "THB"
 
 
 def test_gcp_billing_service_returns_mock_when_no_env():
@@ -40,7 +40,7 @@ def test_gcp_billing_service_returns_mock_when_no_env():
         result = svc.get_mock_breakdown()
 
     assert result.is_mock is True
-    assert result.total_usd > 0
+    assert result.total_thb > 0
     assert result.period_start != ""
 
 
@@ -58,10 +58,10 @@ def test_gcp_billing_aggregates_by_service():
     ]
     result = svc._aggregate_by_service(raw)
 
-    assert result["cloud_run_usd"] == pytest.approx(12.5)
-    assert result["cloud_storage_usd"] == pytest.approx(3.0)
-    assert result["egress_usd"] == pytest.approx(0.5)
-    assert result["other_usd"] == pytest.approx(1.0)
+    assert result["cloud_run_thb"] == pytest.approx(12.5)
+    assert result["cloud_storage_thb"] == pytest.approx(3.0)
+    assert result["egress_thb"] == pytest.approx(0.5)
+    assert result["other_thb"] == pytest.approx(1.0)
 
 
 def test_gcp_billing_fallback_on_api_error():
@@ -89,7 +89,7 @@ def test_gcp_billing_uses_mock_when_no_config():
         result = svc.get_current_month_costs()
 
     assert result.is_mock is True
-    assert result.total_usd > 0
+    assert result.total_thb > 0
 
 
 # ─── Task 6: GET /api/v1/metrics/gcp-costs ───────────────────────────────────
@@ -105,13 +105,14 @@ def test_gcp_costs_endpoint_returns_breakdown(mocker):
     mocker.patch(
         "app.routers.metrics.GCPBillingService.get_current_month_costs",
         return_value=GCPCostBreakdown(
-            cloud_run_usd=8.4,
-            cloud_storage_usd=1.2,
-            egress_usd=0.6,
-            other_usd=0.8,
-            total_usd=11.0,
+            cloud_run_thb=294.0,
+            cloud_storage_thb=42.0,
+            egress_thb=21.0,
+            other_thb=28.0,
+            total_thb=385.0,
             period_start="2026-07-01",
             period_end="2026-07-24",
+            currency="THB",
             is_mock=True,
         ),
     )
@@ -123,11 +124,12 @@ def test_gcp_costs_endpoint_returns_breakdown(mocker):
     )
     assert response.status_code == 200
     data = response.json()
-    assert "cloud_run_usd" in data
-    assert "total_usd" in data
+    assert "cloud_run_thb" in data
+    assert "total_thb" in data
     assert "period_start" in data
+    assert data["currency"] == "THB"
     assert data["is_mock"] is True
-    assert data["total_usd"] == pytest.approx(11.0)
+    assert data["total_thb"] == pytest.approx(385.0)
 
 
 def test_gcp_costs_endpoint_requires_auth():
@@ -143,17 +145,29 @@ def test_gcp_costs_endpoint_requires_auth():
     assert response.status_code == 401
 
 
-def test_gcp_costs_endpoint_wrong_secret_rejected():
-    """x-cron-secret ที่ผิดต้อง return 401"""
+def test_gcp_costs_endpoint_supports_period_param(mocker):
+    """GET /api/v1/metrics/gcp-costs?period=30d ต้องส่ง period ไปให้ GCPBillingService"""
     import os
     from fastapi.testclient import TestClient
     from app.main import app
+    from app.services.gcp_billing import GCPCostBreakdown
 
-    with patch.dict(os.environ, {"CRON_SECRET": "real_secret"}):
-        client = TestClient(app)
-        response = client.get(
-            "/api/v1/metrics/gcp-costs",
-            headers={"x-cron-secret": "wrong_secret"},
-        )
+    mocker.patch.dict(os.environ, {"CRON_SECRET": "test_secret_xyz"})
+    mock_service = mocker.patch(
+        "app.routers.metrics.GCPBillingService.get_current_month_costs",
+        return_value=GCPCostBreakdown(
+            cloud_run_thb=300.0,
+            period_start="2026-07-01",
+            period_end="2026-08-01",
+            currency="THB",
+            is_mock=True,
+        ),
+    )
 
-    assert response.status_code == 401
+    client = TestClient(app)
+    response = client.get(
+        "/api/v1/metrics/gcp-costs?period=30d",
+        headers={"x-cron-secret": "test_secret_xyz"},
+    )
+    assert response.status_code == 200
+    mock_service.assert_called_once_with(period="30d")

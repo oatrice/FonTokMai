@@ -22,7 +22,7 @@ export function Header() {
           </div>
 
           <span className="hidden sm:inline-block ml-1 text-xs px-2 py-0.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">
-            v0.2.0
+            v{process.env.NEXT_PUBLIC_APP_VERSION || "0.70.0"}
           </span>
         </div>
 
