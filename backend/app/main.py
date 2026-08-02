@@ -50,7 +50,7 @@ from fastapi.responses import RedirectResponse
 from app.routers import weather, webhook, metrics
 
 from contextlib import asynccontextmanager
-from app.database import engine, Base
+from app.database import engine, Base, AsyncSessionLocal
 import app.models  # Ensure all models are registered before create_all
 
 from app.scheduler_tasks import check_rain_and_alert
