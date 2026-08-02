@@ -169,6 +169,7 @@ deploy_cloud_run:
     - chmod +x scripts/setup_schedulers.sh
     - ./scripts/setup_schedulers.sh
   rules:
+    # Auto deploy when backend files change
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
       changes:
         - backend/app/**/*
@@ -176,6 +177,9 @@ deploy_cloud_run:
         - backend/Dockerfile
         - backend/requirements.txt
         - backend/main.py
+    # Manual deploy (play button) when no backend files changed
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
+      when: manual
 
 unit_tests:
   stage: test
