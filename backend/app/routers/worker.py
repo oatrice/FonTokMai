@@ -292,3 +292,16 @@ async def worker_handle_status(payload: AdminCommandPayload):
         return {"status": "error", "message": str(e)}
 
 
+@router.post("/handle-overdrive")
+async def worker_handle_overdrive(payload: AdminCommandPayload):
+    """Worker endpoint for /overdrive on|off|status — toggles emergency_overdrive in NeonDB."""
+    try:
+        from app.routers.webhook_admin import handle_overdrive_command
+        await handle_overdrive_command(payload.chat_id, payload.command, payload.username, payload.message_id_to_edit)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed handle_overdrive: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+

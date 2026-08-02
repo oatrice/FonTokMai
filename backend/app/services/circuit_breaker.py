@@ -1,5 +1,31 @@
 import inspect
-from typing import Callable, Any
+import logging
+from typing import Callable, Any, Awaitable
+
+logger = logging.getLogger(__name__)
+
+
+async def _persist_circuit_breaker_state(is_tripped: bool) -> None:
+    """Persist circuit_breaker_active flag to NeonDB (SystemConfig table)."""
+    try:
+        from app.database import AsyncSessionLocal
+        from app.models import SystemConfig
+        from sqlalchemy import select
+        import json
+
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                stmt = select(SystemConfig).where(SystemConfig.key == "circuit_breaker_active")
+                result = await session.execute(stmt)
+                record = result.scalar_one_or_none()
+                new_val = json.dumps("true" if is_tripped else "false")
+                if record:
+                    record.value_json = new_val
+                else:
+                    session.add(SystemConfig(key="circuit_breaker_active", value_json=new_val))
+    except Exception as e:
+        logger.warning(f"circuit_breaker: failed to persist state to DB: {e}")
+
 
 class CircuitBreaker:
     def __init__(self, failure_threshold: int = 5):
@@ -14,14 +40,42 @@ class CircuitBreaker:
             return False
         return jar_hp > 0.0
 
+    def is_tripped(self, service_name: str = "default") -> bool:
+        """Return True if any circuit is open (tripped)."""
+        return any(self._open_circuits.values())
+
     def record_failure(self, service_name: str = "default"):
         self._failures[service_name] = self._failures.get(service_name, 0) + 1
+        was_tripped = self._open_circuits.get(service_name, False)
         if self._failures[service_name] >= self.failure_threshold:
             self._open_circuits[service_name] = True
+            if not was_tripped:
+                # Newly tripped — persist to DB asynchronously
+                import asyncio
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        asyncio.ensure_future(_persist_circuit_breaker_state(True))
+                    else:
+                        loop.run_until_complete(_persist_circuit_breaker_state(True))
+                except RuntimeError:
+                    pass  # No event loop available (e.g., during tests)
 
     def record_success(self, service_name: str = "default"):
+        was_tripped = self._open_circuits.get(service_name, False)
         self._failures[service_name] = 0
         self._open_circuits[service_name] = False
+        if was_tripped and not self.is_tripped():
+            # All circuits reset — persist to DB asynchronously
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.ensure_future(_persist_circuit_breaker_state(False))
+                else:
+                    loop.run_until_complete(_persist_circuit_breaker_state(False))
+            except RuntimeError:
+                pass
 
     def reset(self, service_name: str = "default"):
         self._failures[service_name] = 0

@@ -1,21 +1,22 @@
-# Walkthrough - Issue #233 CI Documentation & Commit Ordering Enforcement
+# Walkthrough: Dashboard UX/UI & Zero-PII Token Recovery Batch
 
-Upgraded `.gitlab-ci.yml` `check_docs_updated` job to include **Commit Ordering Verification**. The job now verifies that documentation files (`CHANGELOG.md`, `VERSION`) are not only present in the MR diff, but were also updated in a commit that is **equal to or newer than** the latest code modification.
+This Merge Request addresses three primary objectives within the frontend dashboard components:
 
-## Changes Made
+## 1. UX Terminology Updates (#204)
+Technical jargon in `FinancialDashboard.tsx` and `RunwayCounter.tsx` has been replaced with user-friendly terminology to enhance clarity for non-technical sponsors:
+- `OVERDRIVE MODE` → `Extended Lifespan Mode / โหมดต่ออายุระบบฉุกเฉิน`
+- `CIRCUIT BREAKER ACTIVE` → `Cached Weather Data Mode / ใช้ข้อมูลพยากรณ์สำรอง`
 
-### CI/CD Pipeline
-#### [.gitlab-ci.yml](file:///Users/oatrice/Software%20Project/FonMaYang/.gitlab-ci.yml)
-- Added Commit Ordering Check comparing Unix timestamps of `LAST_CODE_COMMIT` vs `LAST_DOC_COMMIT`.
-- Fails CI (`exit 1`) if code changes were committed after the last documentation update.
+## 2. Dashboard View Modes (#209)
+The `RunwayCounter.tsx` component was entirely refactored to support three interactive view modes:
+- **Numeric View**: Standard stat block.
+- **Storytelling View**: Conversational explanation of runway duration.
+- **Compact View**: Minimalist ticker layout.
+State is seamlessly animated via `framer-motion` (`AnimatePresence`) and user preferences are persistently stored in the browser's `localStorage` (`runwayViewMode`).
 
-### Versioning & Documentation
-#### [VERSION](file:///Users/oatrice/Software%20Project/FonMaYang/VERSION)
-- Bumped version from `0.68.0` to `0.69.0`.
-
-#### [CHANGELOG.md](file:///Users/oatrice/Software%20Project/FonMaYang/CHANGELOG.md)
-- Prepend section `## [0.69.0] - 2026-08-01` describing Commit Ordering Check enhancement.
-
-## Verification Results
-- Verified with `glab ci lint` & `gitlab-ci-local --preview`.
-- Ran `pytest backend/tests/test_deploy_env_sync.py` (Passed).
+## 3. Token Recovery Modal (#236)
+A new zero-PII recovery interface (`TokenRecoveryModal.tsx`) was introduced to allow sponsors to reclaim lost access tokens using their transaction receipt details:
+- **Inputs**: `tx_hash`, `timestamp`, and `amount`.
+- **Integration**: Securely POSTs to the `/api/v1/auth/recover` endpoint.
+- **Robust Feedback**: Handles and visualizes API validation errors gracefully, and prominently displays the recovered `sk_test_...` access token upon success.
+- **Testing**: Includes a comprehensive Jest test suite (`TokenRecoveryModal.test.tsx`) verifying form rendering, submission behaviors, and error/success states.
