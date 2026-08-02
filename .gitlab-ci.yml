@@ -91,14 +91,32 @@ check_docs_updated:
         echo "✅ README.md is updated."
       fi
     - |
+      if echo "$CHANGED_FILES" | grep -q "^backend/"; then
+        if ! echo "$CHANGED_FILES" | grep -q "^backend/VERSION$"; then
+          echo "❌ ERROR: Backend code changed, but backend/VERSION was not updated!"
+          MISSING=1
+        else
+          echo "✅ backend/VERSION is updated."
+        fi
+      fi
+    - |
+      if echo "$CHANGED_FILES" | grep -q "^frontend/"; then
+        if ! echo "$CHANGED_FILES" | grep -q "^frontend/package\.json$"; then
+          echo "❌ ERROR: Frontend code changed, but frontend/package.json was not updated!"
+          MISSING=1
+        else
+          echo "✅ frontend/package.json is updated."
+        fi
+      fi
+    - |
       if [ "$MISSING" = "1" ]; then
         echo "💥 Documentation check failed. Merge request cannot proceed without CHANGELOG.md and VERSION updates!"
         exit 1
       fi
     - echo "⏱️ Checking commit ordering (ensuring docs were not updated prior to subsequent code changes)..."
     - |
-      LAST_CODE_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md' 2>/dev/null || git log -n 1 --format="%H" HEAD~5..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md')
-      LAST_DOC_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- CHANGELOG.md VERSION 2>/dev/null || git log -n 1 --format="%H" HEAD~5..HEAD -- CHANGELOG.md VERSION)
+      LAST_CODE_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!backend/VERSION' ':!frontend/package.json' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md' 2>/dev/null || git log -n 1 --format="%H" HEAD~5..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!backend/VERSION' ':!frontend/package.json' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md')
+      LAST_DOC_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- CHANGELOG.md VERSION backend/VERSION frontend/package.json 2>/dev/null || git log -n 1 --format="%H" HEAD~5..HEAD -- CHANGELOG.md VERSION backend/VERSION frontend/package.json)
       
       if [ -n "$LAST_CODE_COMMIT" ] && [ -n "$LAST_DOC_COMMIT" ]; then
         CODE_TIME=$(git log -1 --format="%ct" $LAST_CODE_COMMIT)

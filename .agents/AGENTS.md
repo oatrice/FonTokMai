@@ -49,9 +49,13 @@ Whenever an Agent Squad or Subagent finishes implementing a feature or completin
 # 📝 Documentation & Version Sync Rule (Luma Pattern)
 Whenever completing a feature release or significant MR, you **MUST** ensure documentation and version files are synchronized following `.agents/skills/doc-version-updater/SKILL.md`:
 1. **Isolated Per-MR Updates**: **DO NOT** update documentation for multiple MRs/branches in a single commit. Each MR/PR branch MUST modify `CHANGELOG.md`, `README.md`, and `VERSION` exclusively for the scope of **that specific MR**.
-2. **Changelog Entry**: Add structured entries in `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format (`Added`, `Changed`, `Fixed`, `Security`).
-3. **Version Synchronization**: Ensure the version string in `VERSION` (or `package.json`/`pyproject.toml`) strictly matches the latest version header in `CHANGELOG.md`. Release versions MUST move forward incrementally per MR without collisions.
-4. **README Alignment**: If new API endpoints, environment variables, or CLI options are added, update `README.md` to reflect the changes.
+2. **Per-Component Version Sync**:
+   - If changes include `backend/` files, update `backend/VERSION` to match the target release/patch version.
+   - If changes include `frontend/` files, update `frontend/package.json` (`"version"`) to match the target release/patch version.
+3. **Changelog Entry**: Add structured entries in `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format (`Added`, `Changed`, `Fixed`, `Security`).
+4. **Version Synchronization**: Ensure the version string in `VERSION` strictly matches the latest version header in `CHANGELOG.md`. Release versions MUST move forward incrementally per MR without collisions.
+5. **README Alignment**: If new API endpoints, environment variables, or CLI options are added, update `README.md` to reflect the changes.
+
 
 # 🔄 Auto-Closing GitLab Issues Rule
 Whenever creating or updating a Merge Request (MR), you **MUST** include closing keywords (e.g., `Closes #<issue_id>`, `Fixes #<issue_id>`, or `Resolves #<issue_id>`) in the MR Description body or commit messages for all resolved issue cards. This ensures GitLab automatically closes the corresponding issue cards upon MR merge into the target branch without manual intervention.
