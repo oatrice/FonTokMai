@@ -55,6 +55,11 @@ fi
 
 cd "$SCRIPT_DIR/.."
 
+# Sync VERSION file from project root
+if [ -f "../VERSION" ]; then
+  cp ../VERSION ./VERSION
+fi
+
 echo "Deploying ${CLOUD_RUN_SERVICE} to Cloud Run"
 
 ALLOW_FLAG="--allow-unauthenticated"
