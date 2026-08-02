@@ -599,7 +599,7 @@ async def update_daily_burn_rate_routine():
         # Minimum baseline floor (e.g. 5.0 THB/day for fixed storage/IP costs)
         MINIMUM_DAILY_BURN_THB = 5.0
         daily_burn_thb = float(daily_burn_thb)
-        # daily_burn_thb = max(daily_burn_thb, MINIMUM_DAILY_BURN_THB)
+        daily_burn_thb = max(daily_burn_thb, MINIMUM_DAILY_BURN_THB)
 
         logger.info(
             "[GCP_BILLING_SYNC] Fetched burn data: "

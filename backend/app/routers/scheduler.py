@@ -97,11 +97,9 @@ async def trigger_sync_burn_rate(background_tasks: BackgroundTasks, x_cron_secre
     if not x_cron_secret or x_cron_secret != CRON_SECRET:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # Run this sync inline so cost read and DB write happen in the same revision/config.
-    from app.scheduler_tasks import update_daily_burn_rate_routine
-    result = await update_daily_burn_rate_routine()
-    return {
-        "status": "ok",
-        "message": "GCP burn rate synced",
-        "result": result,
-    }
+    tasks_svc = CloudTasksService()
+    task_name = await tasks_svc.enqueue_task("worker/sync-burn-rate", {})
+    if not task_name:
+        from app.scheduler_tasks import update_daily_burn_rate_routine
+        background_tasks.add_task(update_daily_burn_rate_routine)
+    return {"status": "ok", "message": "GCP burn rate sync task enqueued"}

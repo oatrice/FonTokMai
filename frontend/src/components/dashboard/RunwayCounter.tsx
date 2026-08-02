@@ -29,6 +29,12 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 type ViewMode = "numeric" | "storytelling" | "compact";
 
+const formatThb = (value: number) =>
+  value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 export function RunwayCounter() {
   const { data, error, isLoading } = useSWR<RunwayData>("/api/runway", fetcher, {
     refreshInterval: 15000,
@@ -134,7 +140,7 @@ export function RunwayCounter() {
             <span className="text-white font-bold">{days} days</span>,{" "}
             <span className="text-white font-bold">{hours} hours</span>, and{" "}
             <span className="text-white font-bold">{minutes} minutes</span>. 
-            At a burn rate of <span className="text-cyan-400">฿{runway?.burn_rate_per_day}/day</span>, 
+            At a burn rate of <span className="text-cyan-400">฿{runway ? formatThb(runway.burn_rate_per_day) : "0.00"}/day</span>, 
             the final shutdown will occur in exactly{" "}
             <span className="font-mono text-cyan-400 font-bold">{String(seconds).padStart(2, '0')}</span> seconds.
           </p>
@@ -231,7 +237,7 @@ export function RunwayCounter() {
       <div className="flex items-center justify-between text-xs text-zinc-400 pt-4 border-t border-white/10">
         <div className="flex items-center gap-1.5">
           <Zap className="w-4 h-4 text-amber-400" />
-          <span>Burn Rate: <strong className="text-zinc-200">{runway ? `฿${runway.burn_rate_per_day}/day` : "Syncing..."}</strong></span>
+          <span>Burn Rate: <strong className="text-zinc-200">{runway ? `฿${formatThb(runway.burn_rate_per_day)}/day` : "Syncing..."}</strong></span>
         </div>
         <div className="flex items-center gap-1.5">
           <Clock className="w-4 h-4 text-cyan-400" />

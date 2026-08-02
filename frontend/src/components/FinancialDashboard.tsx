@@ -50,6 +50,12 @@ interface RunwayData {
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+const formatThb = (value: number) =>
+  value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 const jarIconMap: Record<string, typeof Server> = {
   "Cloud Run Infrastructure": Server,
   "TMD Radar & Weather APIs": CloudRain,
@@ -142,7 +148,7 @@ export function FinancialDashboard({
             {isLoading || dailyBurn === undefined ? (
               <span className="inline-block h-3 w-40 rounded bg-slate-800/80 animate-pulse mt-1" />
             ) : (
-              <>Based on active GCP/AWS burn rate of <span className="text-slate-200 font-semibold">฿{dailyBurn}/day</span></>
+              <>Based on active GCP/AWS burn rate of <span className="text-slate-200 font-semibold">฿{formatThb(dailyBurn)}/day</span></>
             )}
           </p>
         </GlassCard>
@@ -325,4 +331,3 @@ export function FinancialDashboard({
     </div>
   );
 }
-

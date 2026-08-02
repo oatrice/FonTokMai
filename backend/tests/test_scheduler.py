@@ -418,33 +418,23 @@ def test_trigger_rain_check_endpoint_missing_header():
     assert response.status_code == 401
 
 
-def test_trigger_sync_burn_rate_runs_inline():
+def test_trigger_sync_burn_rate_enqueues_cloud_task():
     if not client:
         pytest.fail("FastAPI app is not implemented yet")
 
     secret = "test_cron_secret_scheduler"
-    result = {
-        "daily_burn_thb": 5.0,
-        "total_thb": 1.11,
-        "days_elapsed": 2,
-        "period_start": "2026-08-01",
-        "period_end": "2026-08-02",
-        "is_mock": False,
-    }
     with patch("app.routers.scheduler.CRON_SECRET", secret):
-        with patch("app.scheduler_tasks.update_daily_burn_rate_routine", new_callable=AsyncMock, return_value=result) as mock_sync:
-            with patch("app.routers.scheduler.CloudTasksService.enqueue_task", new_callable=AsyncMock) as mock_enqueue:
-                with TestClient(app) as test_client:
-                    response = test_client.post("/api/v1/cron/sync-burn-rate", headers={"X-Cron-Secret": secret})
+        with patch(
+            "app.routers.scheduler.CloudTasksService.enqueue_task",
+            new_callable=AsyncMock,
+            return_value="projects/my-project/locations/asia/queues/my-queue/tasks/sync-burn-rate",
+        ) as mock_enqueue:
+            with TestClient(app) as test_client:
+                response = test_client.post("/api/v1/cron/sync-burn-rate", headers={"X-Cron-Secret": secret})
 
     assert response.status_code == 200
-    assert response.json() == {
-        "status": "ok",
-        "message": "GCP burn rate synced",
-        "result": result,
-    }
-    mock_sync.assert_awaited_once()
-    mock_enqueue.assert_not_called()
+    assert response.json() == {"status": "ok", "message": "GCP burn rate sync task enqueued"}
+    mock_enqueue.assert_awaited_once_with("worker/sync-burn-rate", {})
 
 
 @pytest.mark.asyncio
