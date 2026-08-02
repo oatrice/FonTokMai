@@ -586,8 +586,8 @@ async def update_daily_burn_rate_routine():
         daily_burn_thb = round(total_thb / day_of_month, 2)
         
         # Minimum baseline fallback (e.g. 120 THB/day)
-        if daily_burn_thb < 10.0:
-            daily_burn_thb = 120.0
+        if daily_burn_thb < 1:
+            daily_burn_thb = 5
 
         async with AsyncSessionLocal() as session:
             stmt = select(SystemConfig).where(SystemConfig.key == "burn_rate_per_day")

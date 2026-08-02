@@ -88,6 +88,17 @@ Ask the donor to send the following via Telegram to the admin:
 
 > ⚠️ **Fraud Prevention:** Before delivering the token, verify that the slip/screenshot amount and date matches the DB record. Never deliver a token based on verbal claim alone.
 
+### Fraudulent Revoke Protection & Disputes
+
+In cases where a malicious actor gains access to a donor's Stripe receipt/Transaction ID and attempts to fraudulently revoke/claim a token:
+
+1. **Self-Service Revoke Limits**: Self-service token re-issuance is rate-limited (max 2 times per 30 days) and restricted to a 72-hour window post-payment.
+2. **Revoke Notification Email**: Any re-issuance triggers an automated alert to the original Stripe receipt email address.
+3. **Admin Dispute Resolution (Fraud Claim)**:
+   - Admin freezes the disputed token via Admin Backoffice Console (`/api/v1/admin/donors/freeze-token`).
+   - Admin requests deep proof from the victim: **Bank Statement / Credit Card Statement** showing the last 4 digits of the card used for the Stripe payment.
+   - Upon verification against Stripe API Charge Query, Admin revokes the attacker's token, re-issues to the legitimate owner, and blacklists the attacker's IP/Device.
+
 ---
 
 ## 4. Checking & Querying Donor Records
@@ -174,3 +185,33 @@ Manual sync/setup:
 python3 backend/scripts/sync_schedulers.py
 bash backend/scripts/setup_schedulers.sh
 ```
+
+---
+
+## 8. Future Identity & KYC Strategy
+
+Operational overview of identity verification tiers for future product roadmap expansion.
+
+### Identity Verification Tiers
+
+| Tier | Method | Primary Use Case | Privacy Impact |
+|---|---|---|---|
+| **Tier 0: Zero-PII** | Token (`Fon-XXXX-XXXX`) | Anonymous donations, 30-day Supporter Badge | Zero PII stored |
+| **Tier 1: Soft KYC** | LINE / Telegram Auth / Email | Account binding, cross-device sync, recurring billing | Pseudonymous / Low PII |
+| **Tier 2: Hard KYC** | Personal ID Card / NDID / Tax ID | Legal, financial, high-trust governance, emergency operations | High PII (Strict PDPA compliance) |
+
+### Extreme Cases Requiring Personal ID Card (Tier 2 / Hard KYC)
+
+#### 1. Official Tax Deduction Receipts (ใบกำกับภาษี / ลดหย่อนภาษี สรรพากร)
+- **Why ID Card is mandatory**: Revenue Dept of Thailand requires 13-digit Thai National ID (เลขประจำตัวประชาชน 13 หลัก) or Tax ID for official E-Donation submission.
+
+#### 2. High-Stakes Financial Payouts & Grants (ระบบทุนสนับสนุนภัยพิบัติ)
+- **Why ID Card is mandatory**: If FonMaYang expands to distribute direct financial relief / grants to affected farmers or flood victims, Anti-Money Laundering (AML) laws and Bank of Thailand regulations mandate strict KYC/NDID.
+
+#### 3. Critical Disaster Emergency Operations (ระบบประสานงานกู้ภัยระดับจังหวัด)
+- **Why ID Card is mandatory**: Authorized emergency responders who issue official evacuation warnings or command local rescue operations must be legally verified to prevent panic and sabotage.
+
+#### 4. High-Value Commercial Data Partnerships (B2B Enterprise Contracts)
+- **Why ID Card is mandatory**: Signing legally binding SLAs and customized radar data access agreements for corporate clients (insurance companies, large-scale agriculture firms).
+
+> ⚠️ **Principle**: Tier 2 (ID Card) must ALWAYS remain strictly optional and isolated from standard donor operations. General donors continue under Tier 0 (Zero-PII Token).
