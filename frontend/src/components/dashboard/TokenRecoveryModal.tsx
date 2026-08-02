@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Lock, Key, AlertCircle, CheckCircle2 } from "lucide-react";
+import { X, Lock, Key, AlertCircle, CheckCircle2, Copy, Check } from "lucide-react";
 
 interface TokenRecoveryModalProps {
   isOpen: boolean;
@@ -14,6 +14,14 @@ export function TokenRecoveryModal({ isOpen, onClose }: TokenRecoveryModalProps)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recoveredToken, setRecoveredToken] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (!recoveredToken) return;
+    await navigator.clipboard.writeText(recoveredToken);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,13 +29,13 @@ export function TokenRecoveryModal({ isOpen, onClose }: TokenRecoveryModalProps)
     setError(null);
 
     try {
-      const res = await fetch("/api/v1/auth/recover", {
+      const res = await fetch("/auth/recover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tx_hash: txHash,
+          transaction_id: txHash,
           timestamp: timestamp,
-          amount: amount,
+          amount: parseFloat(amount),
         }),
       });
 
@@ -170,10 +178,25 @@ export function TokenRecoveryModal({ isOpen, onClose }: TokenRecoveryModalProps)
                     <p className="text-sm text-slate-300">
                       Your recovered access token:
                     </p>
-                    <div className="bg-slate-950 border border-white/10 rounded-lg p-4 select-all">
-                      <code className="text-emerald-400 font-mono text-lg font-bold">
+                    <div className="bg-slate-950 border border-white/10 rounded-lg p-4 flex items-center justify-between gap-3">
+                      <code className="text-emerald-400 font-mono text-lg font-bold select-all break-all text-left">
                         {recoveredToken}
                       </code>
+                      <button
+                        onClick={handleCopy}
+                        title={copied ? "Copied!" : "Copy token"}
+                        className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          copied
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+                        }`}
+                      >
+                        {copied ? (
+                          <><Check className="w-3.5 h-3.5" /><span>Copied!</span></>
+                        ) : (
+                          <><Copy className="w-3.5 h-3.5" /><span>Copy</span></>
+                        )}
+                      </button>
                     </div>
                     <p className="text-xs text-slate-400 mt-4">
                       Keep this token safe. It is valid for your 30-day sponsor period.
