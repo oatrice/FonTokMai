@@ -33,26 +33,26 @@ class GCPCostBreakdown:
     currency: str = "THB"
     is_mock: bool = True
 
-    # Deprecated backward compatibility properties if needed
+    # Informational USD approximation (billing account is THB, ~35 THB/USD)
     @property
     def cloud_run_usd(self) -> float:
-        return self.cloud_run_thb
+        return round(self.cloud_run_thb / 35.0, 2)
 
     @property
     def cloud_storage_usd(self) -> float:
-        return self.cloud_storage_thb
+        return round(self.cloud_storage_thb / 35.0, 2)
 
     @property
     def egress_usd(self) -> float:
-        return self.egress_thb
+        return round(self.egress_thb / 35.0, 2)
 
     @property
     def other_usd(self) -> float:
-        return self.other_thb
+        return round(self.other_thb / 35.0, 2)
 
     @property
     def total_usd(self) -> float:
-        return self.total_thb
+        return round(self.total_thb / 35.0, 2)
 
 
 class GCPBillingService:
@@ -192,7 +192,7 @@ class GCPBillingService:
 
     # ─── Public Interface ────────────────────────────────────────────────────
 
-    def get_current_month_costs(self, period: str = "current_month") -> GCPCostBreakdown:
+    def get_current_month_costs(self, period: str = "current_month", require_real_data: bool = False) -> GCPCostBreakdown:
         """Fetch GCP costs for given period with automatic mock fallback.
 
         Falls back to mock when:
@@ -200,23 +200,32 @@ class GCPBillingService:
         - Google Cloud API call fails (auth error, network issue, etc.)
         """
         if not self.project_id or not self.billing_dataset:
+            if require_real_data:
+                raise RuntimeError(
+                    "GCP billing config is missing; "
+                    "set GCP_PROJECT_ID and GCP_BILLING_BIGQUERY_DATASET to enable real burn-rate sync."
+                )
             logger.info("[GCP_BILLING] No project/dataset configured — returning mock data")
             return self.get_mock_breakdown(period=period)
 
         period_start, period_end = self._get_date_range(period)
 
         try:
+            # BigQuery Billing Export already returns costs in THB
+            # (GCP billing account currency is THB — no conversion needed)
             rows = self._query_billing_api(period=period, period_start=period_start, period_end=period_end)
-            aggregated = self._aggregate_by_service(rows)
+            aggregated_thb = self._aggregate_by_service(rows)
 
             return GCPCostBreakdown(
-                **aggregated,
-                total_thb=round(sum(aggregated.values()), 2),
+                **aggregated_thb,
+                total_thb=round(sum(aggregated_thb.values()), 2),
                 period_start=period_start,
                 period_end=period_end,
                 currency="THB",
                 is_mock=False,
             )
         except Exception as e:
+            if require_real_data:
+                raise RuntimeError(f"Failed to fetch real GCP billing data: {e}") from e
             logger.error(f"[GCP_BILLING] API error, falling back to mock: {e}")
             return self.get_mock_breakdown(period=period)

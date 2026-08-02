@@ -92,6 +92,17 @@ def test_gcp_billing_uses_mock_when_no_config():
     assert result.total_thb > 0
 
 
+def test_gcp_billing_requires_real_data_when_requested():
+    """require_real_data=True ต้อง fail แทนการ fallback เป็น mock."""
+    with patch.dict("os.environ", {}, clear=True):
+        from app.services.gcp_billing import GCPBillingService
+
+        svc = GCPBillingService()
+
+        with pytest.raises(RuntimeError, match="GCP billing config is missing"):
+            svc.get_current_month_costs(require_real_data=True)
+
+
 # ─── Task 6: GET /api/v1/metrics/gcp-costs ───────────────────────────────────
 
 def test_gcp_costs_endpoint_returns_breakdown(mocker):
@@ -171,3 +182,44 @@ def test_gcp_costs_endpoint_supports_period_param(mocker):
     )
     assert response.status_code == 200
     mock_service.assert_called_once_with(period="30d")
+
+
+def test_gcp_billing_passes_thb_values_from_bigquery_directly():
+    """BigQuery Billing Export already returns costs in THB (billing account currency).
+    No conversion should happen — values must pass through as-is."""
+    import os
+    from app.services.gcp_billing import GCPBillingService
+
+    with patch.dict(os.environ, {
+        "GCP_PROJECT_ID": "test-proj",
+        "GCP_BILLING_BIGQUERY_DATASET": "test-dataset",
+    }):
+        svc = GCPBillingService()
+        mock_raw = [
+            {"service_description": "Cloud Run", "cost": 350.0},  # 350 THB direct from BQ
+            {"service_description": "Cloud Storage", "cost": 38.5},  # 38.5 THB direct from BQ
+        ]
+        with patch.object(svc, "_query_billing_api", return_value=mock_raw):
+            res = svc.get_current_month_costs()
+
+    assert res.is_mock is False
+    # Values must NOT be multiplied — BigQuery already returns THB
+    assert res.cloud_run_thb == pytest.approx(350.0)
+    assert res.cloud_storage_thb == pytest.approx(38.5)
+    assert res.total_thb == pytest.approx(388.5)
+    # USD properties are informational only (THB / 35)
+    assert res.total_usd == pytest.approx(388.5 / 35.0, rel=1e-3)
+
+
+def test_gcp_billing_requires_real_data_on_api_error():
+    """require_real_data=True ต้อง fail เมื่อ BigQuery query error เกิดขึ้น."""
+    with patch.dict("os.environ", {
+        "GCP_PROJECT_ID": "test-proj",
+        "GCP_BILLING_BIGQUERY_DATASET": "test-dataset",
+    }):
+        from app.services.gcp_billing import GCPBillingService
+
+        svc = GCPBillingService()
+        with patch.object(svc, "_query_billing_api", side_effect=Exception("API Error")):
+            with pytest.raises(RuntimeError, match="Failed to fetch real GCP billing data"):
+                svc.get_current_month_costs(require_real_data=True)

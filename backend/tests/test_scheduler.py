@@ -564,3 +564,49 @@ async def test_fetch_tmd_radar_routine(mock_get_repo, mock_metrics_class, mock_p
     mock_metrics.record_cron_run.assert_called_once()
 
 
+@pytest.mark.asyncio
+@patch("app.services.gcp_billing.GCPBillingService")
+async def test_update_daily_burn_rate_routine_floor(mock_billing_class):
+    from app.scheduler_tasks import update_daily_burn_rate_routine
+    from app.models import SystemConfig, Base
+    from app.database import engine, AsyncSessionLocal
+    from sqlalchemy import select
+    import json
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    mock_svc = mock_billing_class.return_value
+    mock_breakdown = MagicMock()
+    mock_breakdown.total_thb = 2.80  # 2.80 / 2 = 1.4 THB (less than 5.0 floor)
+    mock_breakdown.is_mock = False
+    mock_breakdown.period_start = "2026-08-01"
+    mock_breakdown.period_end = "2026-08-02"
+    mock_breakdown.total_usd = 0.08
+    mock_svc.get_current_month_costs.return_value = mock_breakdown
+
+    await update_daily_burn_rate_routine()
+
+    async with AsyncSessionLocal() as session:
+        res = await session.execute(select(SystemConfig.value_json).where(SystemConfig.key == "burn_rate_per_day"))
+        val = json.loads(res.scalar_one())
+        assert float(val) == 5.0
+
+
+@pytest.mark.asyncio
+@patch("app.services.gcp_billing.GCPBillingService")
+async def test_update_daily_burn_rate_routine_rejects_mock_data(mock_billing_class):
+    from app.scheduler_tasks import update_daily_burn_rate_routine
+
+    mock_svc = mock_billing_class.return_value
+    mock_breakdown = MagicMock()
+    mock_breakdown.total_thb = 385.0
+    mock_breakdown.is_mock = True
+    mock_breakdown.period_start = "2026-08-01"
+    mock_breakdown.period_end = "2026-08-02"
+    mock_breakdown.total_usd = 11.0
+    mock_svc.get_current_month_costs.return_value = mock_breakdown
+
+    with pytest.raises(RuntimeError, match="mock billing data"):
+        await update_daily_burn_rate_routine()
+

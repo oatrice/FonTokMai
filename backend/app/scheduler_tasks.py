@@ -564,30 +564,50 @@ async def trigger_mock_disaster(payload_dict: dict):
 async def update_daily_burn_rate_routine():
     """Daily cron job to fetch actual GCP costs and sync burn_rate_per_day to system_config."""
     logger.info("Starting daily GCP burn rate sync routine...")
-    from app.services.gcp_billing import GCPBillingService
+    from app.services import gcp_billing
     from app.database import AsyncSessionLocal
     from app.models import SystemConfig
     from sqlalchemy.future import select
     import json
+    from decimal import Decimal, ROUND_HALF_UP
 
     try:
-        billing_svc = GCPBillingService()
-        cost_breakdown = billing_svc.get_current_month_costs()
+        billing_svc = gcp_billing.GCPBillingService()
+        cost_breakdown = billing_svc.get_current_month_costs(
+            period="current_month",
+            require_real_data=True,
+        )
+
+        if cost_breakdown.is_mock:
+            raise RuntimeError(
+                "GCP burn rate sync received mock billing data; "
+                "check BigQuery credentials and billing dataset configuration."
+            )
         
         # Calculate daily burn rate from month-to-date total or mock
         # If period_start is YYYY-MM-01, calculate days elapsed so far
         now = datetime.now(timezone.utc)
         day_of_month = max(1, now.day)
+
+        # Daily burn rate = MTD Total THB / days elapsed
+        total_thb = Decimal(str(cost_breakdown.total_thb))
+        daily_burn_thb = (total_thb / Decimal(day_of_month)).quantize(
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
+        )
         
-        # Daily burn rate = MTD Total USD converted to THB (fixed ~35 THB/USD) / days elapsed
-        # Or if total_usd > 0: calculate real daily rate
-        usd_to_thb = 35.0
-        total_thb = cost_breakdown.total_usd * usd_to_thb
-        daily_burn_thb = round(total_thb / day_of_month, 2)
-        
-        # Minimum baseline fallback (e.g. 120 THB/day)
-        if daily_burn_thb < 1:
-            daily_burn_thb = 5
+        # Minimum baseline floor (e.g. 5.0 THB/day for fixed storage/IP costs)
+        MINIMUM_DAILY_BURN_THB = 5.0
+        daily_burn_thb = max(float(daily_burn_thb), MINIMUM_DAILY_BURN_THB)
+
+        logger.info(
+            "[GCP_BILLING_SYNC] Fetched burn data: "
+            f"is_mock={cost_breakdown.is_mock}, "
+            f"period={cost_breakdown.period_start}..{cost_breakdown.period_end}, "
+            f"total_thb={cost_breakdown.total_thb:.2f}, "
+            f"days_elapsed={day_of_month}, "
+            f"daily_burn_thb={daily_burn_thb:.2f}"
+        )
 
         async with AsyncSessionLocal() as session:
             stmt = select(SystemConfig).where(SystemConfig.key == "burn_rate_per_day")
@@ -595,12 +615,12 @@ async def update_daily_burn_rate_routine():
             config = res.scalar_one_or_none()
             
             if config:
-                config.value_json = json.dumps(str(daily_burn_thb))
+                config.value_json = json.dumps(daily_burn_thb)
             else:
-                session.add(SystemConfig(key="burn_rate_per_day", value_json=json.dumps(str(daily_burn_thb))))
+                session.add(SystemConfig(key="burn_rate_per_day", value_json=json.dumps(daily_burn_thb)))
             
             await session.commit()
             logger.info(f"[GCP_BILLING_SYNC] Synced burn_rate_per_day to {daily_burn_thb} THB/day (MTD total ${cost_breakdown.total_usd:.2f})")
     except Exception as e:
-        logger.error(f"[GCP_BILLING_SYNC] Failed to sync daily burn rate: {e}")
-
+        logger.error(f"[GCP_BILLING_SYNC] Failed to sync daily burn rate: {e}", exc_info=True)
+        raise  # Re-raise so worker endpoint can surface the actual error
