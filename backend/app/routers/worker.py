@@ -83,8 +83,8 @@ async def worker_sync_burn_rate():
     try:
         logger.info("Worker started: sync-burn-rate")
         from app.scheduler_tasks import update_daily_burn_rate_routine
-        await update_daily_burn_rate_routine()
-        return {"status": "ok"}
+        result = await update_daily_burn_rate_routine()
+        return {"status": "ok", "result": result}
     except Exception as e:
         logger.error(f"Worker failed sync-burn-rate: {e}")
         return {"status": "error", "message": str(e)}
@@ -302,6 +302,5 @@ async def worker_handle_overdrive(payload: AdminCommandPayload):
     except Exception as e:
         logger.error(f"Worker failed handle_overdrive: {e}")
         return {"status": "error", "message": str(e)}
-
 
 

@@ -598,7 +598,8 @@ async def update_daily_burn_rate_routine():
         
         # Minimum baseline floor (e.g. 5.0 THB/day for fixed storage/IP costs)
         MINIMUM_DAILY_BURN_THB = 5.0
-        daily_burn_thb = max(float(daily_burn_thb), MINIMUM_DAILY_BURN_THB)
+        daily_burn_thb = float(daily_burn_thb)
+        # daily_burn_thb = max(daily_burn_thb, MINIMUM_DAILY_BURN_THB)
 
         logger.info(
             "[GCP_BILLING_SYNC] Fetched burn data: "
@@ -621,6 +622,14 @@ async def update_daily_burn_rate_routine():
             
             await session.commit()
             logger.info(f"[GCP_BILLING_SYNC] Synced burn_rate_per_day to {daily_burn_thb} THB/day (MTD total ${cost_breakdown.total_usd:.2f})")
+            return {
+                "daily_burn_thb": daily_burn_thb,
+                "total_thb": float(total_thb),
+                "days_elapsed": day_of_month,
+                "period_start": cost_breakdown.period_start,
+                "period_end": cost_breakdown.period_end,
+                "is_mock": cost_breakdown.is_mock,
+            }
     except Exception as e:
         logger.error(f"[GCP_BILLING_SYNC] Failed to sync daily burn rate: {e}", exc_info=True)
         raise  # Re-raise so worker endpoint can surface the actual error
