@@ -118,7 +118,6 @@ check_docs_updated:
     - echo "🎉 All required documentation files are updated and synchronized with the latest code changes!"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "develop"
 
 .gcloud_auth:
   before_script:
