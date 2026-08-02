@@ -90,3 +90,17 @@ async def trigger_mock_disaster(payload: MockDisasterPayload, background_tasks: 
         from app.scheduler_tasks import trigger_mock_disaster
         background_tasks.add_task(trigger_mock_disaster, payload.model_dump())
     return {"status": "ok", "message": f"Mock {payload.type} triggered"}
+
+@router.post("/sync-burn-rate")
+async def trigger_sync_burn_rate(background_tasks: BackgroundTasks, x_cron_secret: str = Header(None)):
+    """Endpoint for external schedulers to trigger daily GCP burn rate calculation and DB sync."""
+    if not x_cron_secret or x_cron_secret != CRON_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    tasks_svc = CloudTasksService()
+    task_name = await tasks_svc.enqueue_task("worker/sync-burn-rate", {})
+    if not task_name:
+        from app.scheduler_tasks import update_daily_burn_rate_routine
+        background_tasks.add_task(update_daily_burn_rate_routine)
+    return {"status": "ok", "message": "GCP burn rate sync task enqueued"}
+

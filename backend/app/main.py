@@ -50,7 +50,7 @@ from fastapi.responses import RedirectResponse
 from app.routers import weather, webhook, metrics
 
 from contextlib import asynccontextmanager
-from app.database import engine, Base
+from app.database import engine, Base, AsyncSessionLocal
 import app.models  # Ensure all models are registered before create_all
 
 from app.scheduler_tasks import check_rain_and_alert
@@ -83,6 +83,27 @@ async def lifespan(app: FastAPI):
                 await conn.execute(text("ALTER TABLE radar_latest_cache ADD COLUMN source VARCHAR DEFAULT 'api'"))
             except Exception:
                 pass
+
+        # Automatic Seed Initial system_config settings if not already present
+        async with AsyncSessionLocal() as session:
+            from sqlalchemy.future import select
+            from app.models import SystemConfig
+            import json
+            
+            seeds = {
+                "total_balance_thb": "25140.0",
+                "burn_rate_per_day": "120.0",
+                "budget_jar_percentages": json.dumps({"infra": 50, "api": 30, "reserve": 20}),
+                "circuit_breaker_active": "false",
+                "emergency_overdrive": "false"
+            }
+            
+            for key, val in seeds.items():
+                stmt = select(SystemConfig).where(SystemConfig.key == key)
+                res = await session.execute(stmt)
+                if res.scalar_one_or_none() is None:
+                    session.add(SystemConfig(key=key, value_json=val))
+            await session.commit()
     except Exception as e:
         logging.error(f"Failed to initialize database tables during startup: {e}")
         

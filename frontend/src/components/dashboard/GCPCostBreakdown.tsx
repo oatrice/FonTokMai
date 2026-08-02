@@ -16,11 +16,17 @@ import { GlassBadge } from "../ui/GlassBadge";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface GCPCostData {
-  cloud_run_usd: number;
-  cloud_storage_usd: number;
-  egress_usd: number;
-  other_usd: number;
-  total_usd: number;
+  cloud_run_thb?: number;
+  cloud_storage_thb?: number;
+  egress_thb?: number;
+  other_thb?: number;
+  total_thb?: number;
+  // Fallbacks for backwards compatibility
+  cloud_run_usd?: number;
+  cloud_storage_usd?: number;
+  egress_usd?: number;
+  other_usd?: number;
+  total_usd?: number;
   period_start: string;
   period_end: string;
   currency: string;
@@ -31,7 +37,8 @@ interface GCPCostData {
 
 const SERVICE_ITEMS = [
   {
-    key: "cloud_run_usd" as keyof GCPCostData,
+    key: "cloud_run_thb" as keyof GCPCostData,
+    fallbackKey: "cloud_run_usd" as keyof GCPCostData,
     label: "Cloud Run",
     icon: Cloud,
     colorClass: "text-cyan-400",
@@ -39,7 +46,8 @@ const SERVICE_ITEMS = [
     barClass: "from-cyan-500 to-blue-500",
   },
   {
-    key: "cloud_storage_usd" as keyof GCPCostData,
+    key: "cloud_storage_thb" as keyof GCPCostData,
+    fallbackKey: "cloud_storage_usd" as keyof GCPCostData,
     label: "Cloud Storage",
     icon: HardDrive,
     colorClass: "text-emerald-400",
@@ -47,7 +55,8 @@ const SERVICE_ITEMS = [
     barClass: "from-emerald-500 to-teal-500",
   },
   {
-    key: "egress_usd" as keyof GCPCostData,
+    key: "egress_thb" as keyof GCPCostData,
+    fallbackKey: "egress_usd" as keyof GCPCostData,
     label: "Network Egress",
     icon: Wifi,
     colorClass: "text-amber-400",
@@ -55,7 +64,8 @@ const SERVICE_ITEMS = [
     barClass: "from-amber-500 to-orange-500",
   },
   {
-    key: "other_usd" as keyof GCPCostData,
+    key: "other_thb" as keyof GCPCostData,
+    fallbackKey: "other_usd" as keyof GCPCostData,
     label: "Other Services",
     icon: MoreHorizontal,
     colorClass: "text-slate-400",
@@ -63,6 +73,13 @@ const SERVICE_ITEMS = [
     barClass: "from-slate-500 to-slate-600",
   },
 ] as const;
+
+const serviceGradients: Record<string, string> = {
+  cloud_run_thb: "linear-gradient(to right, #06b6d4, #3b82f6)",
+  cloud_storage_thb: "linear-gradient(to right, #10b981, #14b8a6)",
+  egress_thb: "linear-gradient(to right, #f59e0b, #f97316)",
+  other_thb: "linear-gradient(to right, #64748b, #475569)",
+};
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -90,14 +107,15 @@ function SkeletonRow() {
  */
 export function GCPCostBreakdown() {
   const [data, setData] = useState<GCPCostData | null>(null);
+  const [period, setPeriod] = useState<string>("current_month");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCosts = useCallback(async () => {
+  const fetchCosts = useCallback(async (selectedPeriod: string = period) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/metrics/gcp-costs", { cache: "no-store" });
+      const res = await fetch(`/api/metrics/gcp-costs?period=${selectedPeriod}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: GCPCostData = await res.json();
       setData(json);
@@ -106,17 +124,22 @@ export function GCPCostBreakdown() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [period]);
 
   useEffect(() => {
-    // Only fetch costs once on mount
-    fetchCosts();
-  }, []); // Remove fetchCosts from dependency to prevent infinite loop or cascading renders
+    fetchCosts(period);
+  }, [period]);
+
+  const totalThb = data
+    ? data.total_thb !== undefined
+      ? data.total_thb
+      : (data.total_usd ?? 0) * (data.currency === "THB" ? 1 : 35)
+    : 0;
 
   return (
     <GlassCard variant="default" glowColor="cyan" className="p-6 space-y-5">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-cyan-400" />
@@ -130,12 +153,26 @@ export function GCPCostBreakdown() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Period Selector Dropdown */}
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            disabled={loading}
+            className="bg-slate-900/80 border border-white/15 text-xs text-slate-200 rounded-lg px-2.5 py-1 font-medium cursor-pointer focus:outline-none focus:border-cyan-400 transition-colors disabled:opacity-50"
+            aria-label="Select billing period"
+          >
+            <option value="current_month" className="bg-slate-900 text-white">Current Month</option>
+            <option value="last_month" className="bg-slate-900 text-white">Last Month</option>
+            <option value="30d" className="bg-slate-900 text-white">Last 30 Days</option>
+            <option value="7d" className="bg-slate-900 text-white">Last 7 Days</option>
+          </select>
+
           {data?.is_mock && (
             <GlassBadge variant="amber">Mock Data</GlassBadge>
           )}
           <button
             id="gcp-cost-refresh-btn"
-            onClick={fetchCosts}
+            onClick={() => fetchCosts(period)}
             disabled={loading}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
             aria-label="Refresh GCP costs"
@@ -151,7 +188,7 @@ export function GCPCostBreakdown() {
       {data && !loading && (
         <div className="text-center py-1">
           <span className="text-4xl font-black text-white tabular-nums">
-            ฿{(data.total_usd * 35).toFixed(2)}
+            ฿{totalThb.toFixed(2)}
           </span>
           <span className="text-slate-400 ml-2 text-sm font-medium">
             THB / month
@@ -177,10 +214,10 @@ export function GCPCostBreakdown() {
           </div>
         ) : data ? (
           // Data rows
-          SERVICE_ITEMS.map(({ key, label, icon: Icon, colorClass, bgClass, barClass }) => {
-            const costUsd = data[key] as number;
-            const costThb = costUsd * 35;
-            const pct = data.total_usd > 0 ? (costUsd / data.total_usd) * 100 : 0;
+          SERVICE_ITEMS.map(({ key, fallbackKey, label, icon: Icon, colorClass, bgClass, barClass }) => {
+            const rawCost = data[key] !== undefined ? (data[key] as number) : (data[fallbackKey] as number) || 0;
+            const costThb = data.currency === "THB" || data[key] !== undefined ? rawCost : rawCost * 35;
+            const pct = totalThb > 0 ? (costThb / totalThb) * 100 : 0;
 
             return (
               <div key={key} className="flex items-center gap-3">
@@ -197,10 +234,14 @@ export function GCPCostBreakdown() {
                       ฿{costThb.toFixed(2)}
                     </span>
                   </div>
-                  <div className="w-full bg-slate-950/80 rounded-full h-1.5 overflow-hidden border border-white/5">
+                  <div className="w-full rounded-full h-1.5 overflow-hidden border border-white/10" style={{ background: "rgba(255,255,255,0.05)" }}>
                     <div
-                      className={`h-full rounded-full bg-gradient-to-r ${barClass} transition-all duration-700 ease-out`}
-                      style={{ width: `${pct}%` }}
+                      className="h-full rounded-full transition-all duration-700 ease-out"
+                      style={{
+                        width: `${Math.max(pct, pct > 0 ? 3 : 0)}%`,
+                        background: serviceGradients[key] || "linear-gradient(to right, #06b6d4, #3b82f6)",
+                        boxShadow: pct > 0 ? `0 0 6px ${key === 'cloud_run_thb' ? 'rgba(6,182,212,0.4)' : key === 'cloud_storage_thb' ? 'rgba(16,185,129,0.4)' : key === 'egress_thb' ? 'rgba(245,158,11,0.4)' : 'rgba(100,116,139,0.4)'}` : "none",
+                      }}
                       role="progressbar"
                       aria-valuenow={pct}
                       aria-valuemin={0}

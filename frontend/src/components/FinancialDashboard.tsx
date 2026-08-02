@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
+import useSWR from "swr";
 import { 
   ShieldCheck, 
   Flame, 
   Server, 
-  Code, 
-  Zap, 
+  CloudRain,
   Activity, 
   ArrowUpRight, 
   CheckCircle2, 
@@ -28,6 +28,69 @@ interface FinancialDashboardProps {
   onCloseDonationModal?: () => void;
 }
 
+interface BudgetJar {
+  name: string;
+  percentage: number;
+  allocated_thb: number;
+  description: string;
+  color?: string;
+}
+
+interface RunwayData {
+  days_remaining: number;
+  hours_remaining: number;
+  seconds_remaining: number;
+  burn_rate_per_day: number;
+  total_balance_thb: number;
+  circuit_breaker_active: boolean;
+  emergency_overdrive: boolean;
+  budget_jars?: BudgetJar[];
+}
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+const jarIconMap: Record<string, typeof Server> = {
+  "Cloud Run Infrastructure": Server,
+  "TMD Radar & Weather APIs": CloudRain,
+  "Emergency Reserve Jar": ShieldCheck,
+};
+
+const jarGradients: Record<string, string> = {
+  "Cloud Run Infrastructure": "linear-gradient(to right, #3b82f6, #06b6d4)",
+  "TMD Radar & Weather APIs": "linear-gradient(to right, #a855f7, #6366f1)",
+  "Emergency Reserve Jar": "linear-gradient(to right, #10b981, #14b8a6)",
+};
+
+const jarGlows: Record<string, string> = {
+  "Cloud Run Infrastructure": "rgba(6,182,212,0.45)",
+  "TMD Radar & Weather APIs": "rgba(168,85,247,0.45)",
+  "Emergency Reserve Jar": "rgba(16,185,129,0.45)",
+};
+
+const defaultJars: BudgetJar[] = [
+  {
+    name: "Cloud Run Infrastructure",
+    percentage: 50,
+    allocated_thb: 2570,
+    color: "from-blue-500 to-cyan-500",
+    description: "Backend API instances & async workers",
+  },
+  {
+    name: "TMD Radar & Weather APIs",
+    percentage: 30,
+    allocated_thb: 1542,
+    color: "from-purple-500 to-indigo-500",
+    description: "Radar image processing & storage",
+  },
+  {
+    name: "Emergency Reserve Jar",
+    percentage: 20,
+    allocated_thb: 1028,
+    color: "from-emerald-500 to-teal-500",
+    description: "Locked buffer for unexpected spikes",
+  },
+];
+
 export function FinancialDashboard({
   isDonationModalOpen: externalIsOpen,
   onOpenDonationModal,
@@ -40,43 +103,17 @@ export function FinancialDashboard({
   const handleOpenModal = onOpenDonationModal ?? (() => setInternalIsOpen(true));
   const handleCloseModal = onCloseDonationModal ?? (() => setInternalIsOpen(false));
 
-  // Mock data representing financial status and budget jars
-  const runwayDays = 142;
-  const dailyBurn = 620; // THB/day
-  const currentBalance = 92000.00; // THB
+  const { data, isLoading, mutate } = useSWR<RunwayData>("/api/runway", fetcher, {
+    refreshInterval: 15000,
+    revalidateOnFocus: true,
+  });
 
-  const budgetJars = [
-    {
-      id: "infra",
-      name: "Infrastructure Jar",
-      icon: Server,
-      current: 43500,
-      target: 52500,
-      hp: 83,
-      status: "Healthy",
-      color: "cyan" as const,
-    },
-    {
-      id: "salary",
-      name: "Developer Salary Jar",
-      icon: Code,
-      current: 34300,
-      target: 70000,
-      hp: 49,
-      status: "Warning",
-      color: "amber" as const,
-    },
-    {
-      id: "api",
-      name: "API & Data Services",
-      icon: Zap,
-      current: 13900,
-      target: 17500,
-      hp: 79,
-      status: "Healthy",
-      color: "emerald" as const,
-    },
-  ];
+  const runwayDays = data?.days_remaining;
+  const dailyBurn = data?.burn_rate_per_day;
+  const currentBalance = data?.total_balance_thb;
+  const circuitBreaker = data?.circuit_breaker_active ?? false;
+  const overdrive = invincibleMode || (data?.emergency_overdrive ?? false);
+  const budgetJars = data?.budget_jars;
 
   return (
     <div className="space-y-8 py-6">
@@ -85,14 +122,26 @@ export function FinancialDashboard({
         <GlassCard variant="accent" glowColor="blue" className="p-6">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-400">Financial Runway</span>
-            <GlassBadge variant="cyan" dot>Live Math</GlassBadge>
+            <GlassBadge variant="cyan" dot>
+              {isLoading ? "Syncing..." : "Live Math"}
+            </GlassBadge>
           </div>
           <div className="mt-4 flex items-baseline gap-3">
-            <span className="text-5xl font-black tracking-tight text-white">{runwayDays}</span>
-            <span className="text-xl font-bold text-cyan-400">Days</span>
+            {isLoading || runwayDays === undefined ? (
+              <div className="h-12 w-28 rounded-lg bg-slate-800/80 animate-pulse my-1" />
+            ) : (
+              <>
+                <span className="text-5xl font-black tracking-tight text-white">{runwayDays}</span>
+                <span className="text-xl font-bold text-cyan-400">Days</span>
+              </>
+            )}
           </div>
           <p className="mt-2 text-xs text-slate-400">
-            Based on active GCP/AWS burn rate of <span className="text-slate-200 font-semibold">฿{dailyBurn}/day</span>
+            {isLoading || dailyBurn === undefined ? (
+              <span className="inline-block h-3 w-40 rounded bg-slate-800/80 animate-pulse mt-1" />
+            ) : (
+              <>Based on active GCP/AWS burn rate of <span className="text-slate-200 font-semibold">฿{dailyBurn}/day</span></>
+            )}
           </p>
         </GlassCard>
 
@@ -103,26 +152,31 @@ export function FinancialDashboard({
           </div>
           <div className="mt-4 flex items-baseline gap-1">
             <span className="text-xl font-semibold text-emerald-400">฿</span>
-            <span className="text-5xl font-black tracking-tight text-white">{currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-          </div>
-          <div className="mt-3 w-full bg-slate-800/80 rounded-full h-2 overflow-hidden border border-white/5">
-            <div className="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full w-[72%]" />
+            {isLoading || currentBalance === undefined ? (
+              <div className="h-12 w-44 rounded-lg bg-slate-800/80 animate-pulse my-1" />
+            ) : (
+              <span className="text-5xl font-black tracking-tight text-white">
+                {currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            )}
           </div>
         </GlassCard>
 
         <GlassCard variant="default" glowColor="purple" className="p-6">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-400">Resiliency Status</span>
-            <GlassBadge variant={invincibleMode ? "purple" : "emerald"} dot>
-              {invincibleMode ? "OVERDRIVE" : "NORMAL"}
+            <GlassBadge variant={overdrive ? "purple" : "emerald"} dot>
+              {overdrive ? "OVERDRIVE" : "NORMAL"}
             </GlassBadge>
           </div>
           <div className="mt-4 flex items-center gap-3">
-            <div className={`p-3 rounded-2xl ${invincibleMode ? 'bg-purple-500/20 text-purple-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+            <div className={`p-3 rounded-2xl ${overdrive ? 'bg-purple-500/20 text-purple-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
               <ShieldCheck className="h-7 w-7" />
             </div>
             <div>
-              <div className="text-lg font-bold text-white">Circuit Breaker Active</div>
+              <div className="text-lg font-bold text-white">
+                {circuitBreaker ? "Circuit Breaker Active" : "All Systems Operational"}
+              </div>
               <div className="text-xs text-slate-400">All financial safety gates nominal</div>
             </div>
           </div>
@@ -130,9 +184,9 @@ export function FinancialDashboard({
             <span className="text-xs text-slate-400">Emergency Invincible Mode</span>
             <button
               onClick={() => setInvincibleMode(!invincibleMode)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${invincibleMode ? 'bg-purple-600' : 'bg-slate-700'}`}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${overdrive ? 'bg-purple-600' : 'bg-slate-700'}`}
             >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${invincibleMode ? 'translate-x-6' : 'translate-x-1'}`} />
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${overdrive ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
           </div>
         </GlassCard>
@@ -148,47 +202,61 @@ export function FinancialDashboard({
             </h2>
             <p className="text-xs text-slate-400">Real-time HP decay and split strategy allocation</p>
           </div>
-          <GlassButton variant="outline" size="sm">
+          <GlassButton variant="outline" size="sm" onClick={() => mutate()}>
             <RefreshCw className="h-3.5 w-3.5" />
             <span>Sync Jars</span>
           </GlassButton>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {budgetJars.map((jar) => {
-            const Icon = jar.icon;
-            return (
-              <GlassCard key={jar.id} variant="default" glowColor={jar.color} interactive className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-slate-800/80 border border-white/10 text-cyan-400">
-                      <Icon className="h-5 w-5" />
+          {isLoading || !budgetJars ? (
+            <>
+              {[1, 2, 3].map((i) => (
+                <GlassCard key={i} variant="default" glowColor="cyan" className="p-6 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-slate-800/80 animate-pulse" />
+                      <div className="space-y-1">
+                        <div className="h-4 w-32 rounded bg-slate-800/80 animate-pulse" />
+                        <div className="h-3 w-24 rounded bg-slate-800/80 animate-pulse" />
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-white text-base">{jar.name}</h3>
-                      <span className="text-xs text-slate-400">HP: {jar.hp}%</span>
-                    </div>
+                    <div className="h-5 w-10 rounded-full bg-slate-800/80 animate-pulse" />
                   </div>
-                  <GlassBadge variant={jar.color}>{jar.status}</GlassBadge>
-                </div>
+                  <div className="space-y-2 pt-2">
+                    <div className="h-4 w-full rounded bg-slate-800/80 animate-pulse" />
+                    <div className="h-2.5 w-full rounded-full bg-slate-800/80 animate-pulse" />
+                  </div>
+                </GlassCard>
+              ))}
+            </>
+          ) : (
+            budgetJars.map((jar) => {
+              const Icon = jarIconMap[jar.name] || Server;
+              const badgeVariant = jar.percentage >= 40 ? "cyan" : jar.percentage >= 25 ? "purple" : "emerald";
+              return (
+                <GlassCard key={jar.name} variant="default" glowColor="cyan" interactive className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-slate-800/80 border border-white/10 text-cyan-400">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-white text-base">{jar.name}</h3>
+                        <span className="text-xs text-slate-400">{jar.description}</span>
+                      </div>
+                    </div>
+                    <GlassBadge variant={badgeVariant}>{jar.percentage}%</GlassBadge>
+                  </div>
 
-                <div className="mt-6 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Balance</span>
-                    <span className="font-bold text-white">฿{jar.current.toLocaleString()} / ฿{jar.target.toLocaleString()}</span>
+                  <div className="mt-5 pt-3 border-t border-white/10 flex items-center justify-between text-sm">
+                    <span className="text-slate-400">Allocated Share</span>
+                    <span className="font-bold text-white text-base">฿{jar.allocated_thb.toLocaleString()}</span>
                   </div>
-                  <div className="w-full bg-slate-950/80 rounded-full h-2.5 p-0.5 border border-white/10">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        jar.hp < 50 ? 'bg-amber-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'
-                      }`}
-                      style={{ width: `${(jar.current / jar.target) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              </GlassCard>
-            );
-          })}
+                </GlassCard>
+              );
+            })
+          )}
         </div>
       </section>
 
@@ -245,3 +313,4 @@ export function FinancialDashboard({
     </div>
   );
 }
+

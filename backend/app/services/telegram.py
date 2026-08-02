@@ -10,6 +10,8 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "mock_token")
+token_suffix = TELEGRAM_BOT_TOKEN[-4:] if len(TELEGRAM_BOT_TOKEN) >= 4 else "N/A"
+logger.info(f"[TELEGRAM INIT] Active TELEGRAM_BOT_TOKEN suffix: ...{token_suffix}")
 DEVELOPER_CHAT_IDS = os.getenv("DEVELOPER_CHAT_IDS", "").split(",")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 TELEGRAM_SEND_ANIMATION_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendAnimation"

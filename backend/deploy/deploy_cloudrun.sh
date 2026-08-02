@@ -32,6 +32,7 @@ if [ -n "${CI_COMMIT_BRANCH:-}" ]; then
     export ENVIRONMENT="staging"
   else
     export CLOUD_RUN_SERVICE="fontokmai-api"
+    export DATABASE_URL="${DATABASE_URL_PROD:-${DATABASE_URL:-}}"
     export ENVIRONMENT="production"
   fi
 fi
@@ -53,6 +54,11 @@ fi
 : "${CLOUD_RUN_NO_CPU_THROTTLING:=true}"
 
 cd "$SCRIPT_DIR/.."
+
+# Sync VERSION file from project root
+if [ -f "../VERSION" ]; then
+  cp ../VERSION ./VERSION
+fi
 
 echo "Deploying ${CLOUD_RUN_SERVICE} to Cloud Run"
 
