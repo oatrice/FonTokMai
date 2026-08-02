@@ -117,7 +117,7 @@ check_docs_updated:
       fi
     - echo "🎉 All required documentation files are updated and synchronized with the latest code changes!"
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "staging")
 
 .gcloud_auth:
   before_script:
