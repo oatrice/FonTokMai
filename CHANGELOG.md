@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.71.0] - 2026-08-02
+
+### Added
+- **Dashboard View Modes**: Added interactive viewing modes (Numeric, Storytelling, Compact) for `RunwayCounter.tsx` with smooth `framer-motion` transitions and local state persistence (Issue #209).
+- **Token Recovery Modal**: Introduced `TokenRecoveryModal.tsx` allowing zero-PII recovery of 30-day access tokens via transaction hash, timestamp, and amount (Issue #236).
+
+### Changed
+- **UX Terminology**: Refactored confusing technical jargon in `FinancialDashboard.tsx` and `RunwayCounter.tsx`. Replaced `OVERDRIVE MODE` with `Extended Lifespan Mode / โหมดต่ออายุระบบฉุกเฉิน` and `CIRCUIT BREAKER ACTIVE` with `Cached Weather Data Mode / ใช้ข้อมูลพยากรณ์สำรอง` (Issue #204).
+
 ## [0.70.0] - 2026-08-01
 
 ### Added
