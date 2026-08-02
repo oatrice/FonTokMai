@@ -53,8 +53,9 @@ Whenever completing a feature release or significant MR, you **MUST** ensure doc
    - If changes include `backend/` files, update `backend/VERSION` to match the target release/patch version.
    - If changes include `frontend/` files, update `frontend/package.json` (`"version"`) to match the target release/patch version.
 3. **Changelog Entry**: Add structured entries in `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format (`Added`, `Changed`, `Fixed`, `Security`).
-4. **Version Synchronization**: Ensure the version string in `VERSION` strictly matches the latest version header in `CHANGELOG.md`. Release versions MUST move forward incrementally per MR without collisions.
+4. **Version Synchronization & Evaluation**: Ensure the version string in `VERSION` strictly matches the latest version header in `CHANGELOG.md`. Release versions MUST move forward incrementally per MR without collisions. If diffs indicate a **MAJOR** version change or a scope escalation (e.g., from `0.71.0` to `1.0.0`), the Agent MUST propose the version change and confirm with the USER before opening the MR.
 5. **README Alignment**: If new API endpoints, environment variables, or CLI options are added, update `README.md` to reflect the changes.
+
 
 
 # 🔄 Auto-Closing GitLab Issues Rule
