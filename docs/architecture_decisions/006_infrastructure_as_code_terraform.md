@@ -46,3 +46,34 @@ Accepted
 | dev | Logs/metrics จากการ debug ถี่, BigQuery query ซ้ำ, Cloud Run instance ค้างถ้าเปิด always-on โดยไม่จำเป็น | VPN endpoint ชั่วโมงเปิดทิ้ง, CloudWatch logs/metrics เยอะ, NAT สำหรับ developer traffic | ใช้ corporate-style เป็นค่าเริ่มต้น และจำกัด retention/log sampling |
 | staging | Internal LB / Cloud NAT ถ้าเริ่มจำลอง private path, monitoring ที่ละเอียดเกินจำเป็น, query/export ซ้ำจาก test data | Client VPN สำหรับทีม QA, ALB/LCU, CloudWatch, NAT Gateway | ให้ staging mirror prod เฉพาะ behavior ที่ต้องทดสอบ ไม่ต้อง mirror ทุก network cost |
 | prod | BigQuery scan volume, Cloud Logging ingestion, Cloud NAT + internal LB ถ้ามี private egress, Cloud Run always-on | Verified Access / Client VPN, NAT Gateway, ALB/LCU, CloudWatch logs/metrics | ให้ prod จ่ายเฉพาะสิ่งที่เพิ่ม reliability/security จริง ๆ และเก็บ observability แบบมี budget |
+
+## Reference Architectures
+
+### Corporate-style access
+
+```mermaid
+flowchart LR
+    U[User / Team Member] --> A[IAP or Verified Access]
+    A --> F[Frontend / Web App]
+    A --> B[Backend API]
+    B --> D[(Neon DB)]
+    B --> G[(GCP / AWS Services)]
+    B --> L[Logs / Monitoring]
+```
+
+### Network isolation
+
+```mermaid
+flowchart LR
+    U[User / Dev Laptop] --> V[VPN Client]
+    V --> P[VPN Gateway / Private Access Layer]
+    P --> L[Private Load Balancer]
+    L --> B[Backend API in Private Network]
+    B --> D[(Neon DB / Private Data)]
+    B --> N[Private Egress / NAT]
+    B --> O[Logs / Monitoring]
+```
+
+- Corporate-style focuses on **identity and app-level authorization**.
+- Network isolation focuses on **network perimeter, private routing, and restricted ingress**.
+- For FonMaYang, corporate-style is the default baseline; network isolation is the upgrade path if compliance or stronger access control becomes necessary.
