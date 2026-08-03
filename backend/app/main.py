@@ -103,7 +103,7 @@ async def lifespan(app: FastAPI):
                 "budget_jar_percentages": json.dumps({"infra": 50, "api": 30, "reserve": 20}),
                 "circuit_breaker_active": "false",
                 "emergency_overdrive": "false",
-                "gcp_force_real_data": "false",
+                "gcp_force_real_data": "true" if os.getenv("ENVIRONMENT", "development").lower() in {"staging", "production", "prod", "main"} else "false",
             }
             
             for key, val in seeds.items():
