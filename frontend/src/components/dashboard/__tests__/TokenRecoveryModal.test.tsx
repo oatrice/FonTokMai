@@ -49,15 +49,15 @@ describe('TokenRecoveryModal', () => {
       expect(screen.getByText(/Recovery failed. Invalid details./i)).toBeInTheDocument();
     });
 
-    expect(global.fetch).toHaveBeenCalledWith('/api/v1/auth/recover', expect.objectContaining({
+    expect(global.fetch).toHaveBeenCalledWith('/auth/recover', expect.objectContaining({
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        tx_hash: '0x123',
+        transaction_id: '0x123',
         timestamp: '1690000000',
-        amount: '500',
+        amount: 500,
       }),
     }));
   });
