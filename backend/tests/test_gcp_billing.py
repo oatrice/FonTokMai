@@ -6,7 +6,7 @@ service aggregation logic, and API error fallback.
 Uses strict TDD: RED → GREEN → REFACTOR.
 """
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock, MagicMock
 
 
 # ─── Task 5: GCPBillingService ───────────────────────────────────────────────
@@ -101,6 +101,32 @@ def test_gcp_billing_requires_real_data_when_requested():
 
         with pytest.raises(RuntimeError, match="GCP billing config is missing"):
             svc.get_current_month_costs(require_real_data=True)
+
+
+@pytest.mark.asyncio
+async def test_gcp_billing_local_false_can_defer_to_neon_true():
+    """local env=false should defer to Neon override instead of forcing mock."""
+    with patch.dict("os.environ", {
+        "ENVIRONMENT": "development",
+        "FORCE_GCP_REAL_DATA": "false",
+        "DATABASE_URL": "postgresql://example",
+    }):
+        from app.services.gcp_billing import GCPBillingService
+
+        session = AsyncMock()
+        execute_result = MagicMock()
+        execute_result.scalar_one_or_none.return_value = "true"
+        session.execute.return_value = execute_result
+
+        session_cm = AsyncMock()
+        session_cm.__aenter__.return_value = session
+        session_cm.__aexit__.return_value = False
+
+        with patch("app.services.gcp_billing.AsyncSessionLocal", return_value=session_cm):
+            svc = GCPBillingService()
+            resolved = await svc.resolve_force_real_data()
+
+    assert resolved is True
 
 
 # ─── Task 6: GET /api/v1/metrics/gcp-costs ───────────────────────────────────
@@ -210,7 +236,7 @@ def test_gcp_billing_passes_thb_values_from_bigquery_directly():
             },  # 38.5 THB direct from BQ
         ]
         with patch.object(svc, "_query_billing_api", return_value=mock_raw):
-            res = svc.get_current_month_costs()
+            res = svc.get_current_month_costs(require_real_data=True)
 
     assert res.is_mock is False
     # Values must NOT be multiplied — BigQuery already returns THB

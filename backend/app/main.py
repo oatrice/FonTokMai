@@ -37,6 +37,13 @@ class SensitiveDataFilter(logging.Filter):
 
 logging.basicConfig(level=logging.INFO)
 
+logging.info(
+    "Backend env loaded: ENVIRONMENT=%s FORCE_GCP_REAL_DATA=%s DATABASE_URL=%s",
+    os.getenv("ENVIRONMENT", "development"),
+    os.getenv("FORCE_GCP_REAL_DATA", ""),
+    "set" if os.getenv("DATABASE_URL") else "missing",
+)
+
 # Apply filter to handlers
 sensitive_filter = SensitiveDataFilter()
 for handler in logging.root.handlers:

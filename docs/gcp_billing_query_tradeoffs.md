@@ -34,3 +34,13 @@ For the public financial dashboard, prefer Console-compatible semantics:
 For internal quick diagnostics, the simpler `cost + credits` query remains useful because it is easier to inspect and reason about.
 
 Runway definition for the dashboard: `Runway is calculated from total cash on hand divided by actual monthly burn only, using expenses already paid; reserved budgets, free-tier usage, and projected future costs are shown separately and are not included in the main runway figure.`
+
+## Runtime Policy
+
+`gcp_force_real_data` follows this precedence:
+
+1. `local` / `dev`: `FORCE_GCP_REAL_DATA=true` forces real data; `false` or unset defers to Neon/default
+2. `staging` / `production`: Neon `system_config.gcp_force_real_data` first
+3. If Neon is unavailable or the key is missing, fall back to the runtime default for that environment
+
+This keeps local debugging flexible while making staging/prod deterministic and safe when the database is temporarily unavailable.

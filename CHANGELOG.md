@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **UX Terminology**: Refactored confusing technical jargon in `FinancialDashboard.tsx` and `RunwayCounter.tsx`. Replaced `OVERDRIVE MODE` with `Extended Lifespan Mode / โหมดต่ออายุระบบฉุกเฉิน` and `CIRCUIT BREAKER ACTIVE` with `Cached Weather Data Mode / ใช้ข้อมูลพยากรณ์สำรอง` (Issue #204).
+- **GCP Real-Data Policy**: Centralized `gcp_force_real_data` resolution so local/dev can force real data with `FORCE_GCP_REAL_DATA=true`, while `false`/unset defers to Neon `system_config`; staging/prod read Neon first and safely fall back to environment defaults if Neon is unavailable.
 
 ## [0.70.0] - 2026-08-01
 
@@ -813,6 +814,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented `RainbowService` for fetching raw nowcast predictions.
 - Set up tests with `pytest` utilizing Test-Driven Development (TDD).
 - Initialized FastAPI project folder structure (`services`, `routers`, `schemas`).
-
-
 

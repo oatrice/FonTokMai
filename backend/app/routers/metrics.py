@@ -137,19 +137,7 @@ async def get_gcp_costs(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     svc = GCPBillingService()
-    require_real_data = svc.should_force_real_data()
-
-    async with get_repo_context() as repo:
-        try:
-            settings = await repo.get_system_settings()
-            override = settings.get("gcp_force_real_data")
-            if override is not None:
-                if isinstance(override, str):
-                    require_real_data = override.strip().lower() in {"1", "true", "yes", "on"}
-                else:
-                    require_real_data = bool(override)
-        except Exception:
-            pass
+    require_real_data = await svc.resolve_force_real_data()
 
     if require_real_data:
         breakdown = svc.get_current_month_costs(period=period, require_real_data=True)
