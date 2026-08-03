@@ -1,89 +1,94 @@
-# Manual Verification Plan — GCP Infrastructure Costs Multi-Period Selector & Net Cost Calculation
+# Manual Verification Plan - GCP Billing Policy Consistency
 
-- **Branch**: `feat/146-147-227-financial-dashboard`
-- **MR / Issue ID**: `MR !78` / `Issue #211, #227`
-- **Date**: `2026-08-01`
+- **Branch**: `feat/dashboard-ux-recovery-batch`
+- **MR / Issue ID**: `#211`
+- **Date**: `2026-08-03`
 
 ---
 
 ## 📌 Prerequisites & Environment Setup
-
-1. **Environment Variables**:
-   - `GCP_PROJECT_ID=fonmayang`
-   - `GCP_BILLING_BIGQUERY_DATASET=fonmayang.gcp_billing_export`
-   - `GOOGLE_APPLICATION_CREDENTIALS=/Users/oatrice/.config/gcloud/application_default_credentials.json`
-   - `CRON_SECRET=CRON_SECRET`
-
-2. **Launch Backend Server**:
+1. Backend local environment is configured and can start with Uvicorn.
+2. Frontend local environment is configured and points to the local backend.
+3. `DATABASE_URL` is available for the target environment:
+   - local/dev may use Neon or local DB
+   - staging/prod should use Neon Postgres
+4. Relevant env vars:
+   - `ENVIRONMENT`
+   - `FORCE_GCP_REAL_DATA`
+   - `GCP_PROJECT_ID`
+   - `GCP_BILLING_BIGQUERY_DATASET`
+   - `CRON_SECRET`
+5. Start backend:
    ```bash
+   cd backend
    uvicorn app.main:app --reload --port 8000
    ```
-
-3. **Launch Frontend Dev Server**:
+6. Start frontend:
    ```bash
-   npm run dev --prefix frontend
+   cd frontend
+   npm run dev
    ```
 
 ---
 
 ## 🧪 Verification Scenarios
 
-### Scenario 1: Fetch Current Month Costs (Net Cost Deduction & THB Currency)
-- **Goal**: Verify Backend calculates Net Cost (costs - credits) in THB natively for `current_month`.
+### Scenario 1: Local Mock-Only Path
+- **Goal**: Verify that local/dev can stay on mock data when the policy resolves to mock-only.
 - **Steps**:
-  ```bash
-  curl -s -H "x-cron-secret: CRON_SECRET" "http://localhost:8000/api/v1/metrics/gcp-costs?period=current_month"
-  ```
+  1. Set `ENVIRONMENT=development`.
+  2. Set `FORCE_GCP_REAL_DATA=false`.
+  3. Ensure the frontend points to the local backend.
+  4. Open `http://localhost:3000/dashboard`.
+  5. Refresh the page and inspect the GCP Infrastructure Costs card.
 - **Expected Outcome**:
-  - HTTP Status: `200 OK`
-  - Response Body: Returns `currency: "THB"`, `is_mock: false`, and `total_thb`.
+  - The backend log shows policy resolution and mock-only mode.
+  - The dashboard displays mock data.
+  - `is_mock=true` in the response.
 
----
-
-### Scenario 2: Fetch Last Month Costs with `invoice.month` Filter
-- **Goal**: Verify `period=last_month` uses BigQuery `invoice.month` matching GCP Console Invoice reports 100%.
+### Scenario 2: Local Explicit Real Override
+- **Goal**: Verify that local/dev can still force real data when explicitly requested.
 - **Steps**:
-  ```bash
-  curl -s -H "x-cron-secret: CRON_SECRET" "http://localhost:8000/api/v1/metrics/gcp-costs?period=last_month"
-  ```
+  1. Set `ENVIRONMENT=development`.
+  2. Set `FORCE_GCP_REAL_DATA=true`.
+  3. Ensure `GCP_PROJECT_ID` and `GCP_BILLING_BIGQUERY_DATASET` are configured.
+  4. Refresh `http://localhost:3000/dashboard`.
 - **Expected Outcome**:
-  - HTTP Status: `200 OK`
-  - Response Body: `{"cloud_run_thb": 66.6, "cloud_storage_thb": 0.58, "egress_thb": 0, "other_thb": 7.53, "total_thb": 74.71, "currency": "THB", "is_mock": false}`
+  - The backend logs show real-data path selection.
+  - The endpoint queries BigQuery.
+  - `is_mock=false` when BigQuery data is returned.
 
----
-
-### Scenario 3: UI Period Dropdown Interaction & Skeleton Loader
-- **Goal**: Verify changing period in `GCPCostBreakdown` component re-fetches costs and displays skeleton loading state without rendering mock defaults.
+### Scenario 3: Neon-Driven Policy
+- **Goal**: Verify that Neon `system_config.gcp_force_real_data` can drive the result when local env does not force real data.
 - **Steps**:
-  1. Open `http://localhost:3000/dashboard`.
-  2. Locate **GCP Infrastructure Costs** card.
-  3. Select **"Last Month"** or **"Last 30 Days"** from the glass period selector dropdown.
+  1. Set `ENVIRONMENT=development`.
+  2. Set `FORCE_GCP_REAL_DATA=false`.
+  3. Set Neon `system_config.gcp_force_real_data=true`.
+  4. Refresh `http://localhost:3000/dashboard`.
 - **Expected Outcome**:
-  - Card displays animated pulse skeleton loader briefly during fetch.
-  - Updates total THB and period date range without showing amber "Mock Data" badge.
+  - The backend logs show the Neon override being read.
+  - The GCP billing route uses the Neon value.
+  - The card shows real data if BigQuery credentials are valid.
+
+### Scenario 4: Backend Fallback Safety
+- **Goal**: Verify that the endpoint still fails safely when real data is requested but BigQuery config is missing or invalid.
+- **Steps**:
+  1. Set the policy to real-data mode.
+  2. Remove or invalidate `GCP_PROJECT_ID` or `GCP_BILLING_BIGQUERY_DATASET`.
+  3. Call `GET /api/v1/metrics/gcp-costs`.
+- **Expected Outcome**:
+  - The backend raises a clear error for missing config in real-data mode.
+  - No silent false-positive real-data state is returned.
 
 ---
 
 ## 📸 Proof of Verification (Artifacts & Logs)
-
-### Automated Unit Test Summary
-- **Backend Pytest (`backend/tests/test_gcp_billing.py`)**: `8 passed` (100%)
-- **Frontend Jest (`frontend/src/__tests__/FinancialDashboard.test.tsx`)**: `5 passed` (100%)
-
-```text
-PASS backend/tests/test_gcp_billing.py (8/8 tests passed)
-PASS frontend/src/__tests__/FinancialDashboard.test.tsx (5/5 tests passed)
-```
-
-### Direct BigQuery Verification Query Output
-```text
-+---------------------+--------------------+---------------+-------------------+
-| service_description |     usage_cost     | total_credits |     net_cost      |
-+---------------------+--------------------+---------------+-------------------+
-| Cloud Run           | 139.06598299999996 |   -72.470214  | 66.59576899999999 |
-| Cloud Scheduler     |            4.30264 |          0.0  |           4.30264 |
-| Artifact Registry   |  3.225143999999999 |          0.0  | 3.225143999999999 |
-| Cloud Storage       | 0.5822330000000001 |          0.0  | 0.5822330000000001|
-+---------------------+--------------------+---------------+-------------------+
-Total Net Cost: 74.71 THB (Matches BigQuery Export records from 2026-07-23 to 2026-07-31)
-```
+- **Backend Test Result**
+  - `pytest backend/tests/test_gcp_billing.py -q`
+  - Expected: `12 passed`
+- **Log Snippet**
+  ```text
+  [GCP_BILLING] resolve_force_real_data(local) ...
+  [GCP_BILLING] Neon override resolved ...
+  [GCP_BILLING] get_current_month_costs ...
+  ```

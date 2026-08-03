@@ -75,6 +75,21 @@ graph TD
   - Redirect logic to "Future Donor Waiting List".
 - **Rationale**: Focuses on public gamification elements and their security panic buttons. Depends on the Auth (MR 3) and Jars (MR 4) models.
 
+### MR 7: Treasury, Ledger, and Operating Disbursement
+- **Parent Issue**:
+  - [Operating treasury and disbursement workflow](https://gitlab.com/oatricedev/FonMaYang/-/work_items/255)
+- **Child Issues**:
+  - [Implement treasury transaction data model](https://gitlab.com/oatricedev/FonMaYang/-/work_items/257)
+  - [Implement treasury disbursement service](https://gitlab.com/oatricedev/FonMaYang/-/work_items/258)
+  - [Implement treasury admin API endpoints](https://gitlab.com/oatricedev/FonMaYang/-/work_items/256)
+  - [Implement treasury ledger projections and visibility split](https://gitlab.com/oatricedev/FonMaYang/-/work_items/259)
+- **Scope**:
+  - Canonical treasury transaction schema for disbursements, internal transfers, and expense allocations.
+  - Service layer to approve, record, and update operating expense movements.
+  - Protected admin endpoints for spend initiation and transfer requests.
+  - Dual ledger projections for public community transparency and internal admin auditability.
+- **Rationale**: Keeps treasury/disbursement concerns isolated from the existing donation, runway, and payout flows while preserving a single source of truth for operating money movement.
+
 ---
 
 ## Data Flow & Integration Points
@@ -157,6 +172,30 @@ To align system design with business and user value:
    - **Zero-PII Data Hardening (#192, #194)**: Ensures database stores only hashed transaction markers and anonymous IDs.
 
 ---
+
+## Treasury Roadmap
+
+The operating treasury work should be delivered in this order to avoid broken financial state transitions:
+
+1. **Phase 1: Data + Service**
+   - Create the treasury transaction data model and disbursement service.
+   - Issues: [#257](https://gitlab.com/oatricedev/FonMaYang/-/work_items/257), [#258](https://gitlab.com/oatricedev/FonMaYang/-/work_items/258)
+   - Dependency note: the service must write into a stable canonical schema.
+
+2. **Phase 2: Admin Endpoints**
+   - Add protected backend endpoints for approving spends and triggering internal transfers.
+   - Issue: [#256](https://gitlab.com/oatricedev/FonMaYang/-/work_items/256)
+   - Dependency note: endpoint behavior should call the service layer rather than duplicating business rules.
+
+3. **Phase 3: Ledger UI**
+   - Implement the ledger projections and visibility split needed by the frontend.
+   - Issue: [#259](https://gitlab.com/oatricedev/FonMaYang/-/work_items/259)
+   - Dependency note: UI projection should consume finalized treasury records and audit metadata.
+
+4. **Phase 4: Public/Internal Visibility Rules**
+   - Finalize the boundary between community-facing transparency and admin-only operational data.
+   - Parent issue: [#255](https://gitlab.com/oatricedev/FonMaYang/-/work_items/255)
+   - Dependency note: public-safe summaries should remain derived from the same source of truth as internal reconciliation data.
 
 ## Consequences
 - **Reviewability**: Each MR targets less than 300-500 lines of code changes (except for schema definitions), facilitating fast PR cycle times.

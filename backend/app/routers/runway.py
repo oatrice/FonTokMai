@@ -110,7 +110,7 @@ async def get_runway(
         "days_remaining": -1 if is_overdrive_active else int(remaining_days),
         "hours_remaining": -1 if is_overdrive_active else int((remaining_days % 1) * 24),
         "seconds_remaining": -1 if is_overdrive_active else int(remaining_days * 86400),
-        "burn_rate_per_day": fixed_daily_cost + variable_daily_cost,
+        "burn_rate_per_day": round(fixed_daily_cost + variable_daily_cost, 2),
         "total_balance_thb": current_budget,
         "circuit_breaker_active": circuit_breaker_active,
         "emergency_overdrive": is_overdrive_active,
@@ -138,5 +138,4 @@ async def get_runway(
             },
         ],
     }
-
 

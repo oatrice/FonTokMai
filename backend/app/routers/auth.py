@@ -40,11 +40,15 @@ async def generate_token(req: DonationSuccessReq, db: AsyncSession = Depends(get
     token = generate_magic_token()
     hashed_tx = hash_transaction(req.transaction_id)
     
+    ts = datetime.datetime(
+        req.timestamp.year, req.timestamp.month, req.timestamp.day,
+        req.timestamp.hour, req.timestamp.minute, req.timestamp.second
+    )
     new_donor = Donor(
         token=token,
         hashed_transaction_id=hashed_tx,
         amount=req.amount,
-        timestamp=req.timestamp
+        timestamp=ts
     )
     db.add(new_donor)
     await db.commit()
@@ -56,21 +60,23 @@ async def generate_token(req: DonationSuccessReq, db: AsyncSession = Depends(get
     except Exception as e:
         pass
 
-    
     return {"token": token}
 
 @router.post("/recover")
 async def recover_account(req: RecoveryReq, db: AsyncSession = Depends(get_db)):
+    req_ts = datetime.datetime(
+        req.timestamp.year, req.timestamp.month, req.timestamp.day,
+        req.timestamp.hour, req.timestamp.minute, req.timestamp.second
+    )
     result = await db.execute(select(Donor).where(Donor.amount == req.amount))
     donors = result.scalars().all()
     
     for donor in donors:
-        # DB may strip tzinfo or truncate microseconds. 
-        # Convert both to naive and compare with 1 second tolerance
-        dt1 = donor.timestamp.replace(tzinfo=None)
-        dt2 = req.timestamp.replace(tzinfo=None)
-        
-        if abs((dt1 - dt2).total_seconds()) < 1:
+        dt1 = datetime.datetime(
+            donor.timestamp.year, donor.timestamp.month, donor.timestamp.day,
+            donor.timestamp.hour, donor.timestamp.minute, donor.timestamp.second
+        )
+        if abs((dt1 - req_ts).total_seconds()) < 2:
             if check_transaction(req.transaction_id, donor.hashed_transaction_id):
                 return {"token": donor.token, "message": "Recovery successful"}
                 

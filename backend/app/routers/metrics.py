@@ -137,5 +137,10 @@ async def get_gcp_costs(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     svc = GCPBillingService()
-    breakdown = svc.get_current_month_costs(period=period)
+    require_real_data = await svc.resolve_force_real_data()
+
+    if require_real_data:
+        breakdown = svc.get_current_month_costs(period=period, require_real_data=True)
+    else:
+        breakdown = svc.get_current_month_costs(period=period)
     return JSONResponse(content=asdict(breakdown))

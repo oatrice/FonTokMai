@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   RefreshCw,
   AlertCircle,
+  Info,
   TrendingUp,
 } from "lucide-react";
 import { GlassCard } from "../ui/GlassCard";
@@ -31,6 +32,14 @@ interface GCPCostData {
   period_end: string;
   currency: string;
   is_mock: boolean;
+  service_details?: Record<string, ServiceCostDetail[]>;
+}
+
+interface ServiceCostDetail {
+  project_id?: string;
+  service: string;
+  sku?: string;
+  cost_thb: number;
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -218,6 +227,15 @@ export function GCPCostBreakdown() {
             const rawCost = data[key] !== undefined ? (data[key] as number) : (data[fallbackKey] as number) || 0;
             const costThb = data.currency === "THB" || data[key] !== undefined ? rawCost : rawCost * 35;
             const pct = totalThb > 0 ? (costThb / totalThb) * 100 : 0;
+            const details = data.service_details?.[key] ?? [];
+            const tooltipLines = details.length > 0
+              ? details
+                  .map((item) => {
+                    const sku = item.sku ? ` / ${item.sku}` : "";
+                    const project = item.project_id ? ` (${item.project_id})` : "";
+                    return `${item.service}${sku}${project}: ฿${item.cost_thb.toFixed(2)}`;
+                  })
+              : [`${label}: ฿${costThb.toFixed(2)}`];
 
             return (
               <div key={key} className="flex items-center gap-3">
@@ -229,7 +247,23 @@ export function GCPCostBreakdown() {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between text-sm mb-1.5">
-                    <span className="text-slate-300 font-medium">{label}</span>
+                    <span className="text-slate-300 font-medium inline-flex items-center gap-1.5">
+                      {label}
+                      <button
+                        type="button"
+                        aria-label={`${label} cost details`}
+                        className="group relative inline-flex rounded text-slate-500 hover:text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-400/70"
+                      >
+                        <Info className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+                        <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-72 -translate-x-1/2 rounded-md border border-white/15 bg-slate-950/95 p-3 text-left text-xs font-normal leading-relaxed text-slate-200 shadow-2xl backdrop-blur group-hover:block group-focus:block">
+                          {tooltipLines.map((line, index) => (
+                            <span key={`${key}-${index}`} className="block py-0.5">
+                              {line}
+                            </span>
+                          ))}
+                        </span>
+                      </button>
+                    </span>
                     <span className="font-bold text-white tabular-nums">
                       ฿{costThb.toFixed(2)}
                     </span>

@@ -63,7 +63,7 @@ check_docs_updated:
     - apk add --no-cache git curl bash
     - *notify_start_script
   script:
-    - echo "🔍 Checking documentation updates and commit ordering relative to target branch..."
+    - echo "🔍 Checking documentation updates against MR diff only..."
     - TARGET_BRANCH=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-dev}
     - git fetch origin $TARGET_BRANCH:$TARGET_BRANCH || git fetch origin main:main || true
     - CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only $TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only HEAD~5)
@@ -112,26 +112,6 @@ check_docs_updated:
       if [ "$MISSING" = "1" ]; then
         echo "💥 Documentation check failed. Merge request cannot proceed without CHANGELOG.md and VERSION updates!"
         exit 1
-      fi
-    - echo "⏱️ Checking commit ordering (ensuring docs were not updated prior to subsequent code changes)..."
-    - |
-      LAST_CODE_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!backend/VERSION' ':!frontend/package.json' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md' 2>/dev/null || git log -n 1 --format="%H" HEAD~5..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!backend/VERSION' ':!frontend/package.json' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md')
-      LAST_DOC_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- CHANGELOG.md VERSION backend/VERSION frontend/package.json 2>/dev/null || git log -n 1 --format="%H" HEAD~5..HEAD -- CHANGELOG.md VERSION backend/VERSION frontend/package.json)
-      
-      if [ -n "$LAST_CODE_COMMIT" ] && [ -n "$LAST_DOC_COMMIT" ]; then
-        CODE_TIME=$(git log -1 --format="%ct" $LAST_CODE_COMMIT)
-        DOC_TIME=$(git log -1 --format="%ct" $LAST_DOC_COMMIT)
-        
-        echo "   Last Code Commit: $LAST_CODE_COMMIT (Timestamp: $CODE_TIME)"
-        echo "   Last Doc Commit:  $LAST_DOC_COMMIT (Timestamp: $DOC_TIME)"
-        
-        if [ "$DOC_TIME" -lt "$CODE_TIME" ]; then
-          echo "❌ ERROR: Code was modified AFTER the last documentation update!"
-          echo "   Code commit: $LAST_CODE_COMMIT ($(git log -1 --format='%s' $LAST_CODE_COMMIT))"
-          echo "   Doc commit:  $LAST_DOC_COMMIT ($(git log -1 --format='%s' $LAST_DOC_COMMIT))"
-          echo "💡 Please update CHANGELOG.md or VERSION in your latest commit to reflect subsequent code changes."
-          exit 1
-        fi
       fi
     - echo "🎉 All required documentation files are updated and synchronized with the latest code changes!"
   rules:

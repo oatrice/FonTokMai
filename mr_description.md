@@ -1,58 +1,109 @@
-# Testing Infrastructure Implementation
+# Walkthrough: Dashboard UX/UI & Zero-PII Token Recovery Batch
 
-I have completed setting up the foundation for robust testing across the system. 
+This Merge Request addresses three primary objectives within the frontend dashboard components:
 
-## What was done
+## 1. UX Terminology Updates (#204)
+Technical jargon in `FinancialDashboard.tsx` and `RunwayCounter.tsx` has been replaced with user-friendly terminology to enhance clarity for non-technical sponsors:
+- `OVERDRIVE MODE` → `Extended Lifespan Mode / โหมดต่ออายุระบบฉุกเฉิน`
+- `CIRCUIT BREAKER ACTIVE` → `Cached Weather Data Mode / ใช้ข้อมูลพยากรณ์สำรอง`
 
-### 1. Git Workflow
-- Created the feature branch `feat/system-testing-infrastructure` from `main` to contain all testing-related changes, adhering to the epic branch workflow.
+## 2. Dashboard View Modes (#209)
+The `RunwayCounter.tsx` component was entirely refactored to support three interactive view modes:
+- **Numeric View**: Standard stat block.
+- **Storytelling View**: Conversational explanation of runway duration.
+- **Compact View**: Minimalist ticker layout.
+State is seamlessly animated via `framer-motion` (`AnimatePresence`) and user preferences are persistently stored in the browser's `localStorage` (`runwayViewMode`).
 
-### 2. Backend Testing & API Security
-- Validated existing `pytest` infrastructure (67 files).
-- Confirmed that backend tests run correctly locally and inside isolated environments.
+## 3. Token Recovery Modal (#236)
+A new zero-PII recovery interface (`TokenRecoveryModal.tsx`) was introduced to allow sponsors to reclaim lost access tokens using their transaction receipt details:
+- **Inputs**: `tx_hash`, `timestamp`, and `amount`.
+- **Integration**: Securely POSTs to the `/api/v1/auth/recover` endpoint.
+- **Robust Feedback**: Handles and visualizes API validation errors gracefully, and prominently displays the recovered `sk_test_...` access token upon success.
+- **Testing**: Includes a comprehensive Jest test suite (`TokenRecoveryModal.test.tsx`) verifying form rendering, submission behaviors, and error/success states.
 
-### 3. Frontend Unit Testing
-- Configured **Jest** and **React Testing Library** for the Next.js frontend.
-- Created configuration files (`jest.config.ts`, `jest.setup.ts`).
-- Added a baseline test case for `GlassNavbar.tsx` which passes successfully, proving the setup works.
-- Updated `package.json` scripts with `npm run test`.
+---
 
-### 4. End-to-End (E2E) Testing
-- Integrated **Playwright** for complete system flows.
-- Added `playwright.config.ts` to automatically spin up the frontend server (`npm run dev`) before testing.
-- Drafted a foundational test (`e2e/home.spec.ts`) that asserts the title and branding of the app.
-- Added `npm run test:e2e` scripts.
+# Manual Verification Plan - Dashboard UX/UI & Zero-PII Token Recovery Batch
 
-### 5. CI/CD Pipeline Automation (GitLab)
-- Extended `.gitlab-ci.yml` by adding two new jobs:
-  - `test_frontend`: Runs `npm run test` using a Node 20 environment.
-  - `test_e2e`: Runs Playwright E2E tests using the official Microsoft Playwright Docker image (`mcr.microsoft.com/playwright:v1.50.1-noble`).
-- Ensured notifications trigger for all test jobs.
+- **Branch**: `feat/dashboard-ux-recovery-batch`
+- **MR / Issue ID**: `#204, #209, #236`
+- **Date**: `2026-08-02`
 
-## Next Steps / Review
-The codebase is now equipped with multi-layered testing. The next step is to create a Merge Request (MR) for this branch to integrate it into `main`, or you can proceed to the database migration task (Issue #208) as these tests will provide a safety net for those major architectural changes.
-# Manual Verification Steps: Testing Infrastructure
+---
 
-## Prerequisites
-- Node.js installed (v20+)
-- Python 3.11+ installed
+## 📌 Prerequisites & Environment Setup
+1. Node.js environment configured for the Next.js frontend.
+2. Shell commands to launch server locally:
+   ```bash
+   cd frontend
+   npm run dev
+   ```
 
-## 1. Verify Backend Tests
-1. Navigate to the backend directory: `cd backend`
-2. Activate the virtual environment: `source .venv/bin/activate`
-3. Run the tests: `pytest tests/test_db.py`
-4. Expected outcome: The tests should execute and pass without dependency errors.
+---
 
-## 2. Verify Frontend Unit Tests
-1. Navigate to the frontend directory: `cd frontend`
-2. Run the tests: `npm run test`
-3. Expected outcome: Jest should run the `GlassNavbar.test.tsx` file and pass.
+## 🧪 Verification Scenarios
 
-## 3. Verify E2E Setup
-1. Navigate to the frontend directory: `cd frontend`
-2. Run the E2E tests: `npm run test:e2e`
-3. Expected outcome: Playwright should attempt to run the `home.spec.ts` test. (Note: initial browser download may be required via `npx playwright install` if running for the first time).
+### Scenario 1: UX Terminology Updates (#204)
+- **Goal**: Verify that confusing technical terms have been replaced.
+- **Steps**:
+  1. Open the Financial Dashboard page (`http://localhost:3000` or equivalent route).
+  2. Observe the badge and text states.
+- **Expected Outcome**:
+  - `OVERDRIVE MODE` should be replaced with `Extended Lifespan Mode / โหมดต่ออายุระบบฉุกเฉิน`.
+  - `CIRCUIT BREAKER ACTIVE` should be replaced with `Cached Weather Data Mode / ใช้ข้อมูลพยากรณ์สำรอง`.
 
-## 4. Verify CI/CD Pipeline
-1. Check the GitLab Merge Request pipeline.
-2. Expected outcome: `test_frontend` and `test_e2e` jobs should appear and execute alongside `unit_tests`.
+---
+
+### Scenario 2: Runway Counter View Modes (#209)
+- **Goal**: Verify that the 3 viewing modes work and animations are smooth.
+- **Steps**:
+  1. Locate the Runway Counter widget on the Financial Dashboard.
+  2. Click the gear or toggle button (if present) or click the component itself to cycle modes (Numeric -> Storytelling -> Compact).
+  3. Reload the page.
+- **Expected Outcome**:
+  - Transitions between modes are smoothly animated via `framer-motion`.
+  - The selected mode persists across page reloads (saved in `localStorage` under `runwayViewMode`).
+
+---
+
+### Scenario 3: Token Recovery Modal - Successful Recovery (#236)
+- **Goal**: Verify that the Token Recovery Modal accepts valid inputs and returns a token.
+- **Steps**:
+  1. On the Financial Dashboard, click the "Start Token Recovery" button.
+  2. In the modal, enter a mock `tx_hash` (e.g. `0x123`), `timestamp` (e.g. `1690000000`), and `amount` (e.g. `500`).
+  3. Click "Recover Token".
+  4. (For full verification, a mock backend response or dev environment pointing to `/api/v1/auth/recover` is required).
+- **Expected Outcome**:
+  - The modal transitions to a success state displaying the recovered token (e.g., `sk_test_...`).
+
+---
+
+### Scenario 4: Token Recovery Modal - Error Handling (#236)
+- **Goal**: Verify that the Token Recovery Modal handles invalid inputs gracefully.
+- **Steps**:
+  1. On the Financial Dashboard, click the "Start Token Recovery" button.
+  2. Enter invalid details that the backend will reject.
+  3. Click "Recover Token".
+- **Expected Outcome**:
+  - An error message appears in a red alert box within the modal (e.g., "Recovery failed. Invalid details.").
+  - The form remains open for the user to try again.
+
+---
+
+## 📸 Proof of Verification (Artifacts & Logs)
+- **Automated Verification Summary**:
+  - `npm run test -- TokenRecoveryModal.test.tsx` result: `5 passed, 5 total`
+  - Output Snippet:
+    ```
+    PASS src/components/dashboard/__tests__/TokenRecoveryModal.test.tsx
+      TokenRecoveryModal
+        ✓ does not render when isOpen is false
+        ✓ renders the form inputs when isOpen is true
+        ✓ shows error message on API failure
+        ✓ shows recovered token on API success
+        ✓ calls onClose when close button or overlay is clicked
+    ```
+
+---
+
+Closes #204, Closes #209, Closes #236
