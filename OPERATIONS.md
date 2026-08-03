@@ -152,6 +152,12 @@ EOF
 | `GET /api/v1/metrics/gcp-costs` | GCP infrastructure cost breakdown |
 | `GET /api/milestones` | Donation milestone progress |
 
+### Environment Isolation Note
+
+- `dev`, `staging`, and `production` should each use separate GCP projects, BigQuery billing datasets, Neon DB targets, backend/worker URLs, and secrets.
+- `staging` should mirror production behavior, but never point at production workers or production DBs.
+- If an on-call check shows cross-env leakage, treat it as a config bug first, not a billing or Neon data bug.
+
 ---
 
 ## 6. Cloud Run & IAM

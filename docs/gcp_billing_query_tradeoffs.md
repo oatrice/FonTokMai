@@ -52,3 +52,22 @@ If we later want the simplest cross-environment behavior, use this precedence ev
 `FORCE_GCP_REAL_DATA` explicit override > Neon `system_config.gcp_force_real_data` > `ENVIRONMENT` default > safe fallback
 
 That version is easier to reason about because every environment follows the same shape. It is not the active policy yet; it is only a recommended future simplification.
+
+## Environment Separation Matrix
+
+Recommended isolation boundaries for `dev` / `staging` / `production`:
+
+| Item | dev | staging | production | Recommendation |
+|---|---|---|---|---|
+| Billing account | Separate preferred | Separate required | Separate required | Keep prod billing isolated; if dev must share, apply strict budgets and labels. |
+| GCP project | Separate | Separate | Separate | Never share a project across environments. |
+| BigQuery billing dataset | Separate | Separate | Separate | Keep per-env datasets so burn-rate reads cannot cross environments. |
+| Neon DB | Separate DB / branch | Separate DB / branch | Separate DB / branch | Do not share the same writable DB across envs. |
+| Backend / worker URL | Separate service URL | Separate service URL | Separate service URL | Each env should point to its own backend and worker endpoints. |
+| Secrets / config | Separate values | Separate values | Separate values | Use the same key names, but env-specific secret values and config defaults. |
+
+Practical rule:
+
+- `dev` can be noisy and disposable.
+- `staging` should mirror production as closely as possible without sharing production targets.
+- `production` must never fall back to a dev/staging worker, DB, or billing dataset.
