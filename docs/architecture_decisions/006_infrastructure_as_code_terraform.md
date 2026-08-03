@@ -81,3 +81,40 @@ flowchart LR
 - Corporate-style focuses on **identity and app-level authorization**.
 - Network isolation focuses on **network perimeter, private routing, and restricted ingress**.
 - For FonMaYang, corporate-style is the default baseline; network isolation is the upgrade path if compliance or stronger access control becomes necessary.
+
+## IAP vs ALB / LCU Note
+
+- `IAP` belongs to the **GCP corporate-style / identity-first** model.
+- `ALB + LCU` belongs to the **AWS traffic-routing / usage-metered** model.
+- In billing terms, `IAP` is usually not the cost driver by itself; the runtime, logging, monitoring, and data services are the bigger cost buckets.
+- In billing terms, `ALB` has a base hourly charge plus `LCU` usage, so traffic growth is more directly reflected in the bill.
+
+```mermaid
+flowchart LR
+  U[User / Browser]
+
+  subgraph GCP["GCP: IAP + billing/runtime"]
+    I[IAP]
+    F1[Frontend / Cloud Run]
+    B1[Backend API]
+    D1[(Neon DB)]
+    C1[(Billing / Monitoring / Runtime)]
+    U --> I --> F1 --> B1 --> D1
+    B1 --> C1
+    I -. authN/authZ .- U
+    I -. protects access .- F1
+    I -. protects access .- B1
+  end
+
+  subgraph AWS["AWS: ALB + LCU"]
+    A[ALB]
+    F2[Frontend / App Targets]
+    B2[Backend API]
+    D2[(Neon DB)]
+    C2[(CloudWatch / Billing)]
+    U --> A --> F2 --> B2 --> D2
+    B2 --> C2
+    A -. routing / health checks .- F2
+    A -. routing / health checks .- B2
+  end
+```
