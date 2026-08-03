@@ -44,3 +44,11 @@ Runway definition for the dashboard: `Runway is calculated from total cash on ha
 3. If Neon is unavailable or the key is missing, fall back to the runtime default for that environment
 
 This keeps local debugging flexible while making staging/prod deterministic and safe when the database is temporarily unavailable.
+
+## Future Consistency Option
+
+If we later want the simplest cross-environment behavior, use this precedence everywhere:
+
+`FORCE_GCP_REAL_DATA` explicit override > Neon `system_config.gcp_force_real_data` > `ENVIRONMENT` default > safe fallback
+
+That version is easier to reason about because every environment follows the same shape. It is not the active policy yet; it is only a recommended future simplification.
