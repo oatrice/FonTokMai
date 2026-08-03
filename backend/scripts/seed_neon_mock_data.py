@@ -31,7 +31,7 @@ if parsed.query:
 async def seed_data():
     print(f"🌱 Connecting to Neon Database...")
     env_name = os.getenv("ENVIRONMENT", "development").lower()
-    gcp_force_real_data_default = "false" if env_name in {"staging", "production", "prod", "main"} else "true"
+    gcp_force_real_data_default = "true" if env_name in {"staging", "production", "prod", "main"} else "false"
     engine = create_async_engine(
         DATABASE_URL, 
         connect_args={
