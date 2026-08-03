@@ -196,8 +196,18 @@ def test_gcp_billing_passes_thb_values_from_bigquery_directly():
     }):
         svc = GCPBillingService()
         mock_raw = [
-            {"service_description": "Cloud Run", "cost": 350.0},  # 350 THB direct from BQ
-            {"service_description": "Cloud Storage", "cost": 38.5},  # 38.5 THB direct from BQ
+            {
+                "project_id": "test-proj",
+                "service_description": "Cloud Run",
+                "sku_description": "CPU Allocation Time",
+                "cost": 350.0,
+            },  # 350 THB direct from BQ
+            {
+                "project_id": "test-proj",
+                "service_description": "Cloud Storage",
+                "sku_description": "Standard Storage",
+                "cost": 38.5,
+            },  # 38.5 THB direct from BQ
         ]
         with patch.object(svc, "_query_billing_api", return_value=mock_raw):
             res = svc.get_current_month_costs()
@@ -207,6 +217,13 @@ def test_gcp_billing_passes_thb_values_from_bigquery_directly():
     assert res.cloud_run_thb == pytest.approx(350.0)
     assert res.cloud_storage_thb == pytest.approx(38.5)
     assert res.total_thb == pytest.approx(388.5)
+    assert res.service_details["cloud_run_thb"][0] == {
+        "project_id": "test-proj",
+        "service": "Cloud Run",
+        "sku": "CPU Allocation Time",
+        "cost_thb": 350.0,
+    }
+    assert res.service_details["cloud_storage_thb"][0]["sku"] == "Standard Storage"
     # USD properties are informational only (THB / 35)
     assert res.total_usd == pytest.approx(388.5 / 35.0, rel=1e-3)
 

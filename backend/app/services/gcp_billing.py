@@ -14,7 +14,7 @@ Service breakdown categories:
 import os
 import logging
 import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,7 @@ class GCPCostBreakdown:
     period_end: str = ""
     currency: str = "THB"
     is_mock: bool = True
+    service_details: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
 
     # Informational USD approximation (billing account is THB, ~35 THB/USD)
     @property
@@ -66,6 +67,7 @@ class GCPBillingService:
     def __init__(self):
         self.project_id = os.getenv("GCP_PROJECT_ID", "")
         self.billing_dataset = os.getenv("GCP_BILLING_BIGQUERY_DATASET", "")
+        self.billing_project_filter = os.getenv("GCP_BILLING_PROJECT_FILTER", self.project_id)
 
     def _get_date_range(self, period: str) -> tuple[str, str]:
         """Calculate period_start and period_end YYYY-MM-DD for a given period."""
@@ -117,6 +119,12 @@ class GCPBillingService:
             period_end=period_end,
             currency="THB",
             is_mock=True,
+            service_details={
+                "cloud_run_thb": [{"service": "Cloud Run", "sku": "Mock compute", "cost_thb": cloud_run}],
+                "cloud_storage_thb": [{"service": "Cloud Storage", "sku": "Mock storage", "cost_thb": storage}],
+                "egress_thb": [{"service": "Networking", "sku": "Mock egress", "cost_thb": egress}],
+                "other_thb": [{"service": "Other Services", "sku": "Mock other", "cost_thb": other}],
+            },
         )
 
     # ─── Aggregation Logic ───────────────────────────────────────────────────
@@ -148,6 +156,44 @@ class GCPBillingService:
             "other_thb": round(other, 2),
         }
 
+    def _category_for_service(self, service: str) -> str:
+        """Map a GCP service name to the dashboard cost bucket."""
+        service_lower = service.lower()
+        if any(kw in service_lower for kw in self.CLOUD_RUN_KEYWORDS):
+            return "cloud_run_thb"
+        if any(kw in service_lower for kw in self.STORAGE_KEYWORDS):
+            return "cloud_storage_thb"
+        if any(kw in service_lower for kw in self.EGRESS_KEYWORDS):
+            return "egress_thb"
+        return "other_thb"
+
+    def _build_service_details(self, rows: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+        """Expose the raw service/SKU rows used by each dashboard bucket."""
+        details: Dict[str, List[Dict[str, Any]]] = {
+            "cloud_run_thb": [],
+            "cloud_storage_thb": [],
+            "egress_thb": [],
+            "other_thb": [],
+        }
+
+        for row in rows:
+            service = row.get("service_description", "")
+            category = self._category_for_service(service)
+            cost = round(float(row.get("cost", 0.0)), 2)
+            if cost == 0:
+                continue
+            details[category].append({
+                "project_id": row.get("project_id", ""),
+                "service": service,
+                "sku": row.get("sku_description", ""),
+                "cost_thb": cost,
+            })
+
+        for category_rows in details.values():
+            category_rows.sort(key=lambda item: abs(item["cost_thb"]), reverse=True)
+
+        return details
+
     # ─── Real API Query ──────────────────────────────────────────────────────
 
     def _query_billing_api(self, period: str, period_start: str, period_end: str) -> List[Dict[str, Any]]:
@@ -166,27 +212,33 @@ class GCPBillingService:
         client = bigquery.Client(project=self.project_id)
         dataset = self.billing_dataset
 
-        # Use invoice.month filtering for monthly periods to align 100% with GCP Console Invoice Reports
-        if period in ("current_month", "last_month"):
-            # Format: YYYYMM (e.g. 202607)
-            year, month = period_start.split("-")[:2]
-            invoice_month = f"{year}{month}"
-            where_clause = f"invoice.month = '{invoice_month}'"
-        else:
-            where_clause = f"DATE(usage_start_time) BETWEEN '{period_start}' AND '{period_end}'"
+        # Match the dashboard period label and GCP Console Reports date-range view.
+        where_clause = f"DATE(usage_start_time) BETWEEN '{period_start}' AND '{period_end}'"
+
+        project_filter = self.billing_project_filter.strip()
+        if project_filter and project_filter.lower() != "all":
+            safe_project_filter = project_filter.replace("'", "''")
+            where_clause += f" AND project.id = '{safe_project_filter}'"
 
         query = f"""
             SELECT
+                project.id AS project_id,
                 service.description AS service_description,
+                sku.description AS sku_description,
                 SUM(cost + COALESCE((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0)) AS cost
             FROM `{dataset}.gcp_billing_export_v1_*`
             WHERE {where_clause}
-            GROUP BY service.description
+            GROUP BY project.id, service.description, sku.description
             ORDER BY cost DESC
         """
         results = client.query(query).result()
         return [
-            {"service_description": row.service_description, "cost": float(row.cost)}
+            {
+                "project_id": row.project_id,
+                "service_description": row.service_description,
+                "sku_description": row.sku_description,
+                "cost": float(row.cost),
+            }
             for row in results
         ]
 
@@ -215,6 +267,7 @@ class GCPBillingService:
             # (GCP billing account currency is THB — no conversion needed)
             rows = self._query_billing_api(period=period, period_start=period_start, period_end=period_end)
             aggregated_thb = self._aggregate_by_service(rows)
+            service_details = self._build_service_details(rows)
 
             return GCPCostBreakdown(
                 **aggregated_thb,
@@ -223,6 +276,7 @@ class GCPBillingService:
                 period_end=period_end,
                 currency="THB",
                 is_mock=False,
+                service_details=service_details,
             )
         except Exception as e:
             if require_real_data:
