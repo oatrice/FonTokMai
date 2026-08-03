@@ -53,12 +53,16 @@ Accepted
 
 ```mermaid
 flowchart LR
-    U[User / Team Member] --> A[IAP or Verified Access]
-    A --> F[Frontend / Web App]
-    A --> B[Backend API]
-    B --> D[(Neon DB)]
-    B --> G[(GCP / AWS Services)]
-    B --> L[Logs / Monitoring]
+  U[User on the internet] --> G[Access Gateway / SSO / Zero-Trust]
+  G --> F[Frontend]
+  G --> A[Admin Console]
+  F --> B[Backend API]
+  A --> B
+  B --> W[Worker / Internal Jobs]
+  B --> D[(Neon DB)]
+  B --> C[(GCP / Billing / Monitoring)]
+  T[Telegram / LINE Webhooks] --> B
+  B --> T
 ```
 
 ### Network isolation
