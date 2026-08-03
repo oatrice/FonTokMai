@@ -26,6 +26,55 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - [ ] Support for additional TMD radar stations beyond Sakon Nakhon.
 - [ ] Community-based real-time rain reporting (Crowdsourcing).
 
+## Phase 5: Treasury, Ledger, and Operating Disbursement
+
+This phase covers the financial operating path that moves from reserves to actual system spending, while keeping public transparency separate from internal admin detail.
+
+### Execution Roadmap
+
+#### Phase 1: Data + Service
+- Create the treasury transaction data model and disbursement service.
+- Goal: establish the single source of truth for disbursements, transfers, and expense allocations.
+- Issues:
+  - [#257] treasury transaction data model
+  - [#258] treasury disbursement service
+
+#### Phase 2: Admin Endpoints
+- Add protected backend endpoints for approving spends and triggering internal transfers.
+- Goal: let maintainers initiate treasury actions without embedding logic in UI code.
+- Issue:
+  - [#256] treasury admin API endpoints
+
+#### Phase 3: Ledger UI
+- Implement the ledger projections and visibility split needed by the frontend.
+- Goal: render the same treasury records as either public-safe summaries or full internal detail.
+- Issue:
+  - [#259] treasury ledger projections and visibility split
+
+#### Phase 4: Public/Internal Visibility Rules
+- Finalize the boundary between community-facing transparency and admin-only operational data.
+- Goal: ensure donor/community views stay safe while admins retain audit and reconciliation detail.
+- Parent issue:
+  - [#255] operating treasury and disbursement workflow
+
+### Dependency Notes
+
+- `#255` is the parent workflow issue for the treasury/disbursement domain.
+- `#257` should land first because schema stability is required before service or UI work.
+- `#258` depends on `#257` because the service must write into the canonical treasury records.
+- `#256` depends on the service and schema because admin actions should call a stable backend workflow.
+- `#259` should land last because the ledger UI needs the finalized record model and visibility rules.
+
+### Relationship Summary
+
+- Parent:
+  - `#255` Operating treasury and disbursement workflow
+- Children:
+  - `#256` Treasury admin API endpoints
+  - `#257` Treasury transaction data model
+  - `#258` Treasury disbursement service
+  - `#259` Treasury ledger projections and visibility split
+
 ## Synced From GitHub
 ### Issue #198 - [Feature] Anonymized Milestone Funding & Donation Lock Mechanism
 - **GitHub:** [#198](https://gitlab.com/oatricedev/FonMaYang/-/issues/198)
@@ -798,4 +847,3 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ### Issue # - Fix /tracking and /nowcast Telegram commands not executing processing logic
 - **State:** opened
 - ✅ **Done** (0.57.0)
-

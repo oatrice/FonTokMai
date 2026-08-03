@@ -32,3 +32,5 @@ For the public financial dashboard, prefer Console-compatible semantics:
 - Treat credits/savings consistently with GCP Console if exact visual reconciliation becomes a requirement.
 
 For internal quick diagnostics, the simpler `cost + credits` query remains useful because it is easier to inspect and reason about.
+
+Runway definition for the dashboard: `Runway is calculated from total cash on hand divided by actual monthly burn only, using expenses already paid; reserved budgets, free-tier usage, and projected future costs are shown separately and are not included in the main runway figure.`

@@ -154,3 +154,5 @@ Key test suites & files:
 See [CHANGELOG.md](CHANGELOG.md) for full history.
 
 Current: **v0.63.0** — Dynamic Next.js API Rewrites for Vercel Deployment to Cloud Run Backend (`BACKEND_URL`) & FastAPI CORS Middleware configuration.
+
+Financial runway note: `Runway is calculated from total cash on hand divided by actual monthly burn only, using expenses already paid; reserved budgets, free-tier usage, and projected future costs are shown separately and are not included in the main runway figure.`
