@@ -158,6 +158,12 @@ EOF
 - `staging` should mirror production behavior, but never point at production workers or production DBs.
 - If an on-call check shows cross-env leakage, treat it as a config bug first, not a billing or Neon data bug.
 
+### Cloud Strategy Note
+
+- For FonMaYang, **GCP is the primary long-term platform** because the current stack fits serverless + IAP-style access patterns with less ops burden.
+- Treat **AWS as an optional secondary path** for learning, sandboxing, or future enterprise comparison work rather than the default production target.
+- If a future change proposes moving production to AWS, review the full migration cost, ops burden, and service parity first.
+
 ---
 
 ## 6. Cloud Run & IAM
