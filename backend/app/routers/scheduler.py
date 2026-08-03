@@ -96,11 +96,10 @@ async def trigger_sync_burn_rate(background_tasks: BackgroundTasks, x_cron_secre
     """Endpoint for external schedulers to trigger daily GCP burn rate calculation and DB sync."""
     if not x_cron_secret or x_cron_secret != CRON_SECRET:
         raise HTTPException(status_code=401, detail="Unauthorized")
-        
+
     tasks_svc = CloudTasksService()
     task_name = await tasks_svc.enqueue_task("worker/sync-burn-rate", {})
     if not task_name:
         from app.scheduler_tasks import update_daily_burn_rate_routine
         background_tasks.add_task(update_daily_burn_rate_routine)
     return {"status": "ok", "message": "GCP burn rate sync task enqueued"}
-

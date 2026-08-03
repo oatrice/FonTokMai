@@ -30,6 +30,8 @@ if parsed.query:
 
 async def seed_data():
     print(f"🌱 Connecting to Neon Database...")
+    env_name = os.getenv("ENVIRONMENT", "development").lower()
+    gcp_force_real_data_default = "false" if env_name in {"staging", "production", "prod", "main"} else "true"
     engine = create_async_engine(
         DATABASE_URL, 
         connect_args={
@@ -75,6 +77,15 @@ async def seed_data():
             ON CONFLICT (endpoint) DO NOTHING;
         """))
         print("✅ Mock API Reliability metrics seeded.")
+
+        # 5. Seed GCP billing runtime setting
+        # Local/dev defaults to true, while staging/prod default to false.
+        await conn.execute(text("""
+            INSERT INTO system_config (key, value_json)
+            VALUES ('gcp_force_real_data', :value_json)
+            ON CONFLICT (key) DO NOTHING;
+        """), {"value_json": gcp_force_real_data_default})
+        print(f"✅ GCP billing runtime setting seeded: gcp_force_real_data = {gcp_force_real_data_default}")
 
     await engine.dispose()
     print("🎉 Seeding completed successfully!")

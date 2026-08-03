@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.71.0] - 2026-08-02
+
+### Added
+- **Dashboard View Modes**: Added interactive viewing modes (Numeric, Storytelling, Compact) for `RunwayCounter.tsx` with smooth `framer-motion` transitions and local state persistence (Issue #209).
+- **Token Recovery Modal**: Introduced `TokenRecoveryModal.tsx` allowing zero-PII recovery of 30-day access tokens via transaction hash, timestamp, and amount (Issue #236).
+
+### Changed
+- **UX Terminology**: Refactored confusing technical jargon in `FinancialDashboard.tsx` and `RunwayCounter.tsx`. Replaced `OVERDRIVE MODE` with `Extended Lifespan Mode / โหมดต่ออายุระบบฉุกเฉิน` and `CIRCUIT BREAKER ACTIVE` with `Cached Weather Data Mode / ใช้ข้อมูลพยากรณ์สำรอง` (Issue #204).
+- **GCP Real-Data Policy**: Centralized `gcp_force_real_data` resolution so local/dev can force real data with `FORCE_GCP_REAL_DATA=true`, while `false`/unset defers to Neon `system_config`; staging/prod read Neon first and safely fall back to environment defaults if Neon is unavailable.
+- **GCP Policy Note**: Documented a future consistency-first precedence option for `gcp_force_real_data` (`FORCE_GCP_REAL_DATA` > Neon > `ENVIRONMENT` default > safe fallback) without changing runtime behavior yet.
+- **System Admin Toggle**: Added `/overdrive` admin command with Neon-backed persistence for `emergency_overdrive`, plus auto-persisted `circuit_breaker_active` updates in the circuit breaker service.
+
 ## [0.70.0] - 2026-08-01
 
 ### Added
@@ -804,6 +816,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented `RainbowService` for fetching raw nowcast predictions.
 - Set up tests with `pytest` utilizing Test-Driven Development (TDD).
 - Initialized FastAPI project folder structure (`services`, `routers`, `schemas`).
-
-
-

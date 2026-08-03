@@ -66,7 +66,7 @@ describe('FinancialDashboard', () => {
     // Verify stats
     expect(screen.getByText('150')).toBeInTheDocument();
     expect(screen.getByText('75,000.00')).toBeInTheDocument();
-    expect(screen.getByText(/500\/day/)).toBeInTheDocument();
+    expect(screen.getByText(/฿500\.00\/day/)).toBeInTheDocument();
 
     // Verify budget jars
     expect(screen.getByText('Cloud Run Infrastructure')).toBeInTheDocument();

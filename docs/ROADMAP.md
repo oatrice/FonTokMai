@@ -40,223 +40,223 @@ This document outlines the strategic goals, planned features, and upcoming miles
 - **Status:** 🟢 **Ready**
 
 ### Issue #195 - [Backend] Budget Jars State Machine & Allocation Strategy
-- **GitHub:** [#195](https://gitlab.com/oatricedev/FonMaYang/-/issues/195)
+- **GitHub:** [#195](https://gitlab.com/oatricedev/FonMaYang/-/work_items/195)(https://gitlab.com/oatricedev/FonMaYang/-/issues/195)
 - **Status:** 🟢 **Ready**
 
 ### Issue #194 - [Security] Two-Factor Financial Account Recovery Flow
-- **GitHub:** [#194](https://gitlab.com/oatricedev/FonMaYang/-/issues/194)
+- **GitHub:** [#194](https://gitlab.com/oatricedev/FonMaYang/-/work_items/194)(https://gitlab.com/oatricedev/FonMaYang/-/issues/194)
 - **Status:** 🟢 **Ready**
 
 ### Issue #193 - [Feature] Pseudonymous Authentication & Magic Link Token Generator
-- **GitHub:** [#193](https://gitlab.com/oatricedev/FonMaYang/-/issues/193)
+- **GitHub:** [#193](https://gitlab.com/oatricedev/FonMaYang/-/work_items/193)(https://gitlab.com/oatricedev/FonMaYang/-/issues/193)
 - **Status:** 🟢 **Ready**
 
 ### Issue #192 - [Security] Zero-PII Stripe Webhook Listener & Transaction Logger
-- **GitHub:** [#192](https://gitlab.com/oatricedev/FonMaYang/-/issues/192)
+- **GitHub:** [#192](https://gitlab.com/oatricedev/FonMaYang/-/work_items/192)(https://gitlab.com/oatricedev/FonMaYang/-/issues/192)
 - **Status:** 🟢 **Ready**
 
 ### Issue #191 - [Architecture] Dynamic Runway Countdown Engine
-- **GitHub:** [#191](https://gitlab.com/oatricedev/FonMaYang/-/issues/191)
+- **GitHub:** [#191](https://gitlab.com/oatricedev/FonMaYang/-/work_items/191)(https://gitlab.com/oatricedev/FonMaYang/-/issues/191)
 - **Status:** 🟢 **Ready**
 
 ### Issue #190 - [DevOps] GCP/AWS Billing API Integration & Cost Aggregator
-- **GitHub:** [#190](https://gitlab.com/oatricedev/FonMaYang/-/issues/190)
+- **GitHub:** [#190](https://gitlab.com/oatricedev/FonMaYang/-/work_items/190)(https://gitlab.com/oatricedev/FonMaYang/-/issues/190)
     - ✅ **Done** (0.58.0)
 
 ### Issue #189 - Update Debug Grid Visualization to 2 Panels
-- **GitHub:** [#189](https://gitlab.com/oatricedev/FonMaYang/-/issues/189)
+- **GitHub:** [#189](https://gitlab.com/oatricedev/FonMaYang/-/work_items/189)(https://gitlab.com/oatricedev/FonMaYang/-/issues/189)
 - **Status:** 🟢 **Ready**
 
 ### Issue #188 - Web App Feature: Cloud Cluster Hover Trajectory Preview
-- **GitHub:** [#188](https://gitlab.com/oatricedev/FonMaYang/-/issues/188)
+- **GitHub:** [#188](https://gitlab.com/oatricedev/FonMaYang/-/work_items/188)(https://gitlab.com/oatricedev/FonMaYang/-/issues/188)
 - **Status:** 🟢 **Ready**
 
 ### Issue #187 - Web App for Visualizing Rain Direction and Warning Boundary Configuration
-- **GitHub:** [#187](https://gitlab.com/oatricedev/FonMaYang/-/issues/187)
+- **GitHub:** [#187](https://gitlab.com/oatricedev/FonMaYang/-/work_items/187)(https://gitlab.com/oatricedev/FonMaYang/-/issues/187)
 - **Status:** 🟢 **Ready**
 
 ### Issue #185 - Refactor: Unify shared message and media processing logic for Telegram and LINE webhooks
-- **GitHub:** [#185](https://gitlab.com/oatricedev/FonMaYang/-/issues/185)
+- **GitHub:** [#185](https://gitlab.com/oatricedev/FonMaYang/-/work_items/185)(https://gitlab.com/oatricedev/FonMaYang/-/issues/185)
 - **Status:** 🟢 **Ready**
 
 ### Issue #184 - Filter out radial/stripe pattern noise artifacts from radar images
-- **GitHub:** [#184](https://gitlab.com/oatricedev/FonMaYang/-/issues/184)
+- **GitHub:** [#184](https://gitlab.com/oatricedev/FonMaYang/-/work_items/184)(https://gitlab.com/oatricedev/FonMaYang/-/issues/184)
 - **Status:** 🟢 **Ready**
 
 ### Issue #183 - Investigate Non-Deterministic Trajectory Results When Using Fixed Fixture Data
-- **GitHub:** [#183](https://gitlab.com/oatricedev/FonMaYang/-/issues/183)
+- **GitHub:** [#183](https://gitlab.com/oatricedev/FonMaYang/-/work_items/183)(https://gitlab.com/oatricedev/FonMaYang/-/issues/183)
 - **Status:** 🟢 **Ready**
 
 ### Issue #181 - Add /tracking and /nowcast commands to Telegram Bot command menu
-- **GitHub:** [#181](https://gitlab.com/oatricedev/FonMaYang/-/issues/181)
+- **GitHub:** [#181](https://gitlab.com/oatricedev/FonMaYang/-/work_items/181)(https://gitlab.com/oatricedev/FonMaYang/-/issues/181)
     - ✅ **Done** (0.57.0)
 
 ### Issue #180 - Optimize Artifact Registry storage costs and lifecycle policies
-- **GitHub:** [#180](https://gitlab.com/oatricedev/FonMaYang/-/issues/180)
+- **GitHub:** [#180](https://gitlab.com/oatricedev/FonMaYang/-/work_items/180)(https://gitlab.com/oatricedev/FonMaYang/-/issues/180)
 - **Status:** 🟢 **Ready**
 
 ### Issue #179 - Analyze radar color decoding and false growth prediction for station kkn240
-- **GitHub:** [#179](https://gitlab.com/oatricedev/FonMaYang/-/issues/179)
+- **GitHub:** [#179](https://gitlab.com/oatricedev/FonMaYang/-/work_items/179)(https://gitlab.com/oatricedev/FonMaYang/-/issues/179)
 - **Status:** 🟢 **Ready**
 
 ### Issue #178 - Implement Morphological Filtering (Opening) on TMD Radar images to remove thin boundaries, grid lines, and text labels
-- **GitHub:** [#178](https://gitlab.com/oatricedev/FonMaYang/-/issues/178)
+- **GitHub:** [#178](https://gitlab.com/oatricedev/FonMaYang/-/work_items/178)(https://gitlab.com/oatricedev/FonMaYang/-/issues/178)
 - **Status:** 🟢 **Ready**
 
 ### Issue #177 - Add command to convert current and locked coordinates to Latitude/Longitude
-- **GitHub:** [#177](https://gitlab.com/oatricedev/FonMaYang/-/issues/177)
+- **GitHub:** [#177](https://gitlab.com/oatricedev/FonMaYang/-/work_items/177)(https://gitlab.com/oatricedev/FonMaYang/-/issues/177)
 - **Status:** 🟢 **Ready**
 
 ### Issue #176 - Add ETA calculation feature when moving/driving by entering speed in chat
-- **GitHub:** [#176](https://gitlab.com/oatricedev/FonMaYang/-/issues/176)
+- **GitHub:** [#176](https://gitlab.com/oatricedev/FonMaYang/-/work_items/176)(https://gitlab.com/oatricedev/FonMaYang/-/issues/176)
 - **Status:** 🟢 **Ready**
 
 ### Issue #173 - สร้างปุ่มเลือกส่งข้อมูลเพิ่มเติมผ่าน LINE Rich Menu เพื่อความสะดวก
-- **GitHub:** [#173](https://gitlab.com/oatricedev/FonMaYang/-/issues/173)
+- **GitHub:** [#173](https://gitlab.com/oatricedev/FonMaYang/-/work_items/173)(https://gitlab.com/oatricedev/FonMaYang/-/issues/173)
 - **Status:** 🟢 **Ready**
 
 ### Issue #172 - เพิ่มระบบเก็บสถิติการส่งข้อความ LINE OA เพื่อควบคุมโควต้าลิมิต (300 ข้อความ/เดือน)
-- **GitHub:** [#172](https://gitlab.com/oatricedev/FonMaYang/-/issues/172)
+- **GitHub:** [#172](https://gitlab.com/oatricedev/FonMaYang/-/work_items/172)(https://gitlab.com/oatricedev/FonMaYang/-/issues/172)
 - **Status:** 🟢 **Ready**
 
 ### Issue #171 - ปรับความถี่และกลไกการเรียกข้อมูลเรดาร์ (Radar Fetching Optimizations & Recovery)
-- **GitHub:** [#171](https://gitlab.com/oatricedev/FonMaYang/-/issues/171)
+- **GitHub:** [#171](https://gitlab.com/oatricedev/FonMaYang/-/work_items/171)(https://gitlab.com/oatricedev/FonMaYang/-/issues/171)
     - ✅ **Done** (0.53.0)
 
 ### Issue #170 - แก้ไขปัญหาระบบแจ้งเตือนทาง LINE ทำงานไม่ปกติ (ขณะที่ Telegram ทำงานปกติ)
-- **GitHub:** [#170](https://gitlab.com/oatricedev/FonMaYang/-/issues/170)
+- **GitHub:** [#170](https://gitlab.com/oatricedev/FonMaYang/-/work_items/170)(https://gitlab.com/oatricedev/FonMaYang/-/issues/170)
 - **Status:** 🟢 **Ready**
 
 ### Issue #169 - เพิ่มโหมดคิด/ไม่คิดอัตราการสลายตัว
-- **GitHub:** [#169](https://gitlab.com/oatricedev/FonMaYang/-/issues/169)
+- **GitHub:** [#169](https://gitlab.com/oatricedev/FonMaYang/-/work_items/169)(https://gitlab.com/oatricedev/FonMaYang/-/issues/169)
     - ✅ **Done** (0.54.0)
 
 ### Issue #168 - Investigate: การคำนวณระยะเวลาฝนตก/ฝนหยุดตก ในกรณีกลุ่มฝนขนาดใหญ่ และข้อจำกัดขอบเขตเวลา
-- **GitHub:** [#168](https://gitlab.com/oatricedev/FonMaYang/-/issues/168)
+- **GitHub:** [#168](https://gitlab.com/oatricedev/FonMaYang/-/work_items/168)(https://gitlab.com/oatricedev/FonMaYang/-/issues/168)
     - ✅ **Done** (0.54.0)
 
 ### Issue #167 - Investigate: ความสอดคล้องของเวลาเรดาร์ระหว่าง Production (15:30) และ Manual Dev (15:15)
-- **GitHub:** [#167](https://gitlab.com/oatricedev/FonMaYang/-/issues/167)
+- **GitHub:** [#167](https://gitlab.com/oatricedev/FonMaYang/-/work_items/167)(https://gitlab.com/oatricedev/FonMaYang/-/issues/167)
     - ✅ **Done** (0.53.0)
 
 ### Issue #166 - แก้ไขบั๊กในระบบแจ้งเตือน Budget บน production Telegram
-- **GitHub:** [#166](https://gitlab.com/oatricedev/FonMaYang/-/issues/166)
+- **GitHub:** [#166](https://gitlab.com/oatricedev/FonMaYang/-/work_items/166)(https://gitlab.com/oatricedev/FonMaYang/-/issues/166)
 - **Status:** 🟢 **Ready**
 
 ### Issue #165 - ทำระบบ bind command แบบที่ bind กับ ZCode
-- **GitHub:** [#165](https://gitlab.com/oatricedev/FonMaYang/-/issues/165)
+- **GitHub:** [#165](https://gitlab.com/oatricedev/FonMaYang/-/work_items/165)(https://gitlab.com/oatricedev/FonMaYang/-/issues/165)
     - ✅ **Done** (0.56.0)
 
 ### Issue #164 - เพิ่มระบบล็อคเป้าก้อนเมฆแบบ manual
-- **GitHub:** [#164](https://gitlab.com/oatricedev/FonMaYang/-/issues/164)
+- **GitHub:** [#164](https://gitlab.com/oatricedev/FonMaYang/-/work_items/164)(https://gitlab.com/oatricedev/FonMaYang/-/issues/164)
     - ✅ **Done** (0.55.0)
 
 ### Issue #163 - Investigate inconsistent wind direction between tmd-radar and Open-Meteo contingency
-- **GitHub:** [#163](https://gitlab.com/oatricedev/FonMaYang/-/issues/163)
+- **GitHub:** [#163](https://gitlab.com/oatricedev/FonMaYang/-/work_items/163)(https://gitlab.com/oatricedev/FonMaYang/-/issues/163)
 - **Status:** 🟢 **Ready**
 
 ### Issue #161 - ศึกษาความพร้อมของข้อมูลเรดาร์เพื่อขยายบริการไปยังต่างประเทศ
-- **GitHub:** [#161](https://gitlab.com/oatricedev/FonMaYang/-/issues/161)
+- **GitHub:** [#161](https://gitlab.com/oatricedev/FonMaYang/-/work_items/161)(https://gitlab.com/oatricedev/FonMaYang/-/issues/161)
 - **Status:** 🟢 **Ready**
 
 ### Issue #160 - Implement Edge CDN for Static Assets and Caching
-- **GitHub:** [#160](https://gitlab.com/oatricedev/FonMaYang/-/issues/160)
+- **GitHub:** [#160](https://gitlab.com/oatricedev/FonMaYang/-/work_items/160)(https://gitlab.com/oatricedev/FonMaYang/-/issues/160)
 - **Status:** 🟢 **Ready**
 
 ### Issue #159 - Implement message delivery and read status logging
-- **GitHub:** [#159](https://gitlab.com/oatricedev/FonMaYang/-/issues/159)
+- **GitHub:** [#159](https://gitlab.com/oatricedev/FonMaYang/-/work_items/159)(https://gitlab.com/oatricedev/FonMaYang/-/issues/159)
 - **Status:** 🟢 **Ready**
 
 ### Issue #158 - สร้างระบบ Export Log ระบุช่วงเวลาที่มีปัญหาผ่าน Telegram Akasa Chat
-- **GitHub:** [#158](https://gitlab.com/oatricedev/FonMaYang/-/issues/158)
+- **GitHub:** [#158](https://gitlab.com/oatricedev/FonMaYang/-/work_items/158)(https://gitlab.com/oatricedev/FonMaYang/-/issues/158)
 - **Status:** 🟢 **Ready**
 
 ### Issue #157 - Real-time Event Broadcaster (SSE / WebSockets)
-- **GitHub:** [#157](https://gitlab.com/oatricedev/FonMaYang/-/issues/157)
+- **GitHub:** [#157](https://gitlab.com/oatricedev/FonMaYang/-/work_items/157)(https://gitlab.com/oatricedev/FonMaYang/-/issues/157)
 - **Status:** 🟢 **Ready**
 
 ### Issue #156 - Implement "Emergency Overdrive & Waiting List" UI/Logic
-- **GitHub:** [#156](https://gitlab.com/oatricedev/FonMaYang/-/issues/156)
+- **GitHub:** [#156](https://gitlab.com/oatricedev/FonMaYang/-/work_items/156)(https://gitlab.com/oatricedev/FonMaYang/-/issues/156)
 - **Status:** 🟢 **Ready**
 
 ### Issue #155 - Build "Two-Factor Financial Verification" API for Account Recovery
-- **GitHub:** [#155](https://gitlab.com/oatricedev/FonMaYang/-/issues/155)
+- **GitHub:** [#155](https://gitlab.com/oatricedev/FonMaYang/-/work_items/155)(https://gitlab.com/oatricedev/FonMaYang/-/issues/155)
 - **Status:** 🟢 **Ready**
 
 ### Issue #154 - Implement "Zero-Knowledge" Transaction Logging
-- **GitHub:** [#154](https://gitlab.com/oatricedev/FonMaYang/-/issues/154)
+- **GitHub:** [#154](https://gitlab.com/oatricedev/FonMaYang/-/work_items/154)(https://gitlab.com/oatricedev/FonMaYang/-/issues/154)
 - **Status:** 🟢 **Ready**
 
 ### Issue #153 - Implement Dynamic Feature Flag / Circuit Breaker
-- **GitHub:** [#153](https://gitlab.com/oatricedev/FonMaYang/-/issues/153)
+- **GitHub:** [#153](https://gitlab.com/oatricedev/FonMaYang/-/work_items/153)(https://gitlab.com/oatricedev/FonMaYang/-/issues/153)
 - **Status:** 🟢 **Ready**
 
 ### Issue #152 - Database Schema Design (Firestore/Redis) for Jars & Leaderboard
-- **GitHub:** [#152](https://gitlab.com/oatricedev/FonMaYang/-/issues/152)
+- **GitHub:** [#152](https://gitlab.com/oatricedev/FonMaYang/-/work_items/152)(https://gitlab.com/oatricedev/FonMaYang/-/issues/152)
 - **Status:** 🟢 **Ready**
 
 ### Issue #151 - Implement "Pseudonymous Auth" Logic
-- **GitHub:** [#151](https://gitlab.com/oatricedev/FonMaYang/-/issues/151)
+- **GitHub:** [#151](https://gitlab.com/oatricedev/FonMaYang/-/work_items/151)(https://gitlab.com/oatricedev/FonMaYang/-/issues/151)
 - **Status:** 🟢 **Ready**
 
 ### Issue #150 - Setup Stripe Webhook Receiver & Idempotency
-- **GitHub:** [#150](https://gitlab.com/oatricedev/FonMaYang/-/issues/150)
+- **GitHub:** [#150](https://gitlab.com/oatricedev/FonMaYang/-/work_items/150)(https://gitlab.com/oatricedev/FonMaYang/-/issues/150)
 - **Status:** 🟢 **Ready**
 
 ### Issue #149 - Implement "Skin/Theme Token System" (Dynamic Theme Switcher)
-- **GitHub:** [#149](https://gitlab.com/oatricedev/FonMaYang/-/issues/149)
+- **GitHub:** [#149](https://gitlab.com/oatricedev/FonMaYang/-/work_items/149)(https://gitlab.com/oatricedev/FonMaYang/-/issues/149)
 - **Status:** 🟢 **Ready**
 
 ### Issue #148 - Develop "Pseudonymous Leaderboard & Badge System"
-- **GitHub:** [#148](https://gitlab.com/oatricedev/FonMaYang/-/issues/148)
+- **GitHub:** [#148](https://gitlab.com/oatricedev/FonMaYang/-/work_items/148)(https://gitlab.com/oatricedev/FonMaYang/-/issues/148)
 - **Status:** 🟢 **Ready**
 
 ### Issue #147 - Implement "The Budget Jars" UI (Server Defense Grid)
-- **GitHub:** [#147](https://gitlab.com/oatricedev/FonMaYang/-/issues/147)
+- **GitHub:** [#147](https://gitlab.com/oatricedev/FonMaYang/-/work_items/147)(https://gitlab.com/oatricedev/FonMaYang/-/issues/147)
 - **Status:** 🟢 **Ready**
 
 ### Issue #146 - Create "The Runway Countdown" Component
-- **GitHub:** [#146](https://gitlab.com/oatricedev/FonMaYang/-/issues/146)
+- **GitHub:** [#146](https://gitlab.com/oatricedev/FonMaYang/-/work_items/146)(https://gitlab.com/oatricedev/FonMaYang/-/issues/146)
 - **Status:** 🟢 **Ready**
 
 ### Issue #145 - 🛠️ Weather Analysis & Location Update: Register Nong Khai House and Deprecate Stale Coordinates
-- **GitHub:** [#145](https://gitlab.com/oatricedev/FonMaYang/-/issues/145)
+- **GitHub:** [#145](https://gitlab.com/oatricedev/FonMaYang/-/work_items/145)(https://gitlab.com/oatricedev/FonMaYang/-/issues/145)
     - ✅ **Done** (0.51.0)
 
 ### Issue #144 - Infrastructure: Migrate system architecture from GCP to AWS
-- **GitHub:** [#144](https://gitlab.com/oatricedev/FonMaYang/-/issues/144)
+- **GitHub:** [#144](https://gitlab.com/oatricedev/FonMaYang/-/work_items/144)(https://gitlab.com/oatricedev/FonMaYang/-/issues/144)
 - **Status:** 🟢 **Ready**
 
 ### Issue #143 - ตรวจสอบความสมบูรณ์ของลิงก์ภาพเคลื่อนไหว (Loop GIF) ของเรดาร์ที่สถานีขอนแก่น kkn120
-- **GitHub:** [#143](https://gitlab.com/oatricedev/FonMaYang/-/issues/143)
+- **GitHub:** [#143](https://gitlab.com/oatricedev/FonMaYang/-/work_items/143)(https://gitlab.com/oatricedev/FonMaYang/-/issues/143)
     - ✅ **Done** (0.50.0)
 
 ### Issue #142 - ปรับ Endpoint /health ใน FastAPI ให้รองรับการเรียกแบบ HEAD ด้วย
-- **GitHub:** [#142](https://gitlab.com/oatricedev/FonMaYang/-/issues/142)
+- **GitHub:** [#142](https://gitlab.com/oatricedev/FonMaYang/-/work_items/142)(https://gitlab.com/oatricedev/FonMaYang/-/issues/142)
     - ✅ **Done** (0.50.0)
 
 ### Issue #141 - Feature: Enhance LINE OA with Rich Menu, Flex Messages, and Quick Replies
-- **GitHub:** [#141](https://gitlab.com/oatricedev/FonMaYang/-/issues/141)
+- **GitHub:** [#141](https://gitlab.com/oatricedev/FonMaYang/-/work_items/141)(https://gitlab.com/oatricedev/FonMaYang/-/issues/141)
 - **Status:** 🟢 **Ready**
 
 ### Issue #140 - UX: Display user-friendly API error messages instead of raw HTTP exceptions in /rain_pro
-- **GitHub:** [#140](https://gitlab.com/oatricedev/FonMaYang/-/issues/140)
+- **GitHub:** [#140](https://gitlab.com/oatricedev/FonMaYang/-/work_items/140)(https://gitlab.com/oatricedev/FonMaYang/-/issues/140)
     - ✅ **Done** (0.48.0)
 
 ### Issue #139 - Feature: Rotate ADMIN_BYPASS_PASSWORD dynamically using TOTP (OTP)
-- **GitHub:** [#139](https://gitlab.com/oatricedev/FonMaYang/-/issues/139)
+- **GitHub:** [#139](https://gitlab.com/oatricedev/FonMaYang/-/work_items/139)(https://gitlab.com/oatricedev/FonMaYang/-/issues/139)
 - **Status:** 🟢 **Ready**
 
 ### Issue #138 - Implement radar noise filtering and multi-station cross-referencing to prevent false rain alerts
-- **GitHub:** [#138](https://gitlab.com/oatricedev/FonMaYang/-/issues/138)
+- **GitHub:** [#138](https://gitlab.com/oatricedev/FonMaYang/-/work_items/138)(https://gitlab.com/oatricedev/FonMaYang/-/issues/138)
 - **Status:** 🟢 **Ready**
 
 ### Issue #137 - Feature: Integrate Multimodal Gen AI with 6-frame sequence for rain forecasting
-- **GitHub:** [#137](https://gitlab.com/oatricedev/FonMaYang/-/issues/137)
+- **GitHub:** [#137](https://gitlab.com/oatricedev/FonMaYang/-/work_items/137)(https://gitlab.com/oatricedev/FonMaYang/-/issues/137)
 - **Status:** 🟢 **Ready**
 
 ### Issue #136 - Feature: Add Language Settings Menu (Support English Switch)
-- **GitHub:** [#136](https://gitlab.com/oatricedev/FonMaYang/-/issues/136)
+- **GitHub:** [#136](https://gitlab.com/oatricedev/FonMaYang/-/work_items/136)(https://gitlab.com/oatricedev/FonMaYang/-/issues/136)
 - **Status:** 🟢 **Ready**
 
 ### Issue #135 - Feature: Implement Emergency Admin Bypass Password for restricted bot commands in Production
@@ -798,4 +798,3 @@ This document outlines the strategic goals, planned features, and upcoming miles
 ### Issue # - Fix /tracking and /nowcast Telegram commands not executing processing logic
 - **State:** opened
 - ✅ **Done** (0.57.0)
-

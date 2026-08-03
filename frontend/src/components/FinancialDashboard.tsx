@@ -21,6 +21,7 @@ import { GlassButton } from "./ui/GlassButton";
 import { GlassBadge } from "./ui/GlassBadge";
 import { Leaderboard } from "./dashboard/Leaderboard";
 import { DonationModal } from "./dashboard/DonationModal";
+import { TokenRecoveryModal } from "./dashboard/TokenRecoveryModal";
 
 interface FinancialDashboardProps {
   isDonationModalOpen?: boolean;
@@ -48,6 +49,12 @@ interface RunwayData {
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+const formatThb = (value: number) =>
+  value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 const jarIconMap: Record<string, typeof Server> = {
   "Cloud Run Infrastructure": Server,
@@ -98,6 +105,7 @@ export function FinancialDashboard({
 }: FinancialDashboardProps = {}) {
   const [invincibleMode, setInvincibleMode] = useState(false);
   const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const [isRecoveryModalOpen, setRecoveryModalOpen] = useState(false);
 
   const isModalOpen = externalIsOpen ?? internalIsOpen;
   const handleOpenModal = onOpenDonationModal ?? (() => setInternalIsOpen(true));
@@ -140,7 +148,7 @@ export function FinancialDashboard({
             {isLoading || dailyBurn === undefined ? (
               <span className="inline-block h-3 w-40 rounded bg-slate-800/80 animate-pulse mt-1" />
             ) : (
-              <>Based on active GCP/AWS burn rate of <span className="text-slate-200 font-semibold">฿{dailyBurn}/day</span></>
+              <>Based on active GCP/AWS burn rate of <span className="text-slate-200 font-semibold">฿{formatThb(dailyBurn)}/day</span></>
             )}
           </p>
         </GlassCard>
@@ -166,7 +174,7 @@ export function FinancialDashboard({
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-400">Resiliency Status</span>
             <GlassBadge variant={overdrive ? "purple" : "emerald"} dot>
-              {overdrive ? "OVERDRIVE" : "NORMAL"}
+              {overdrive ? "Extended Lifespan Mode / โหมดต่ออายุระบบฉุกเฉิน" : "NORMAL"}
             </GlassBadge>
           </div>
           <div className="mt-4 flex items-center gap-3">
@@ -175,13 +183,13 @@ export function FinancialDashboard({
             </div>
             <div>
               <div className="text-lg font-bold text-white">
-                {circuitBreaker ? "Circuit Breaker Active" : "All Systems Operational"}
+                {circuitBreaker ? "Cached Weather Data Mode / ใช้ข้อมูลพยากรณ์สำรอง" : "All Systems Operational"}
               </div>
               <div className="text-xs text-slate-400">All financial safety gates nominal</div>
             </div>
           </div>
           <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-            <span className="text-xs text-slate-400">Emergency Invincible Mode</span>
+            <span className="text-xs text-slate-400">Extended Lifespan Mode</span>
             <button
               onClick={() => setInvincibleMode(!invincibleMode)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${overdrive ? 'bg-purple-600' : 'bg-slate-700'}`}
@@ -299,7 +307,12 @@ export function FinancialDashboard({
             Use 3-point recovery (Transaction Hash, Timestamp, Amount) with 0 private data leakage.
           </p>
           <div className="pt-2">
-            <GlassButton variant="outline" size="md" className="w-full justify-center">
+            <GlassButton 
+              variant="outline" 
+              size="md" 
+              className="w-full justify-center"
+              onClick={() => setRecoveryModalOpen(true)}
+            >
               <span>Start Token Recovery</span>
             </GlassButton>
           </div>
@@ -310,7 +323,11 @@ export function FinancialDashboard({
         isOpen={isModalOpen} 
         onClose={handleCloseModal} 
       />
+      
+      <TokenRecoveryModal
+        isOpen={isRecoveryModalOpen}
+        onClose={() => setRecoveryModalOpen(false)}
+      />
     </div>
   );
 }
-

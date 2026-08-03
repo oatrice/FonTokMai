@@ -37,6 +37,13 @@ class SensitiveDataFilter(logging.Filter):
 
 logging.basicConfig(level=logging.INFO)
 
+logging.info(
+    "Backend env loaded: ENVIRONMENT=%s FORCE_GCP_REAL_DATA=%s DATABASE_URL=%s",
+    os.getenv("ENVIRONMENT", "development"),
+    os.getenv("FORCE_GCP_REAL_DATA", ""),
+    "set" if os.getenv("DATABASE_URL") else "missing",
+)
+
 # Apply filter to handlers
 sensitive_filter = SensitiveDataFilter()
 for handler in logging.root.handlers:
@@ -95,7 +102,8 @@ async def lifespan(app: FastAPI):
                 "burn_rate_per_day": "120.0",
                 "budget_jar_percentages": json.dumps({"infra": 50, "api": 30, "reserve": 20}),
                 "circuit_breaker_active": "false",
-                "emergency_overdrive": "false"
+                "emergency_overdrive": "false",
+                "gcp_force_real_data": "false",
             }
             
             for key, val in seeds.items():
