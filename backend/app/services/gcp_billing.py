@@ -69,6 +69,25 @@ class GCPBillingService:
         self.billing_dataset = os.getenv("GCP_BILLING_BIGQUERY_DATASET", "")
         self.billing_project_filter = os.getenv("GCP_BILLING_PROJECT_FILTER", self.project_id)
 
+    def _bool_env(self, key: str, default: bool = False) -> bool:
+        value = os.getenv(key)
+        if value is None or value == "":
+            return default
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+
+    def should_force_real_data(self) -> bool:
+        """Return the default strict mode for this runtime environment.
+
+        Default policy:
+          - local/dev: false
+          - staging/main(prod): true
+
+        An explicit FORCE_GCP_REAL_DATA env var still overrides the default.
+        """
+        env_name = os.getenv("ENVIRONMENT", "development").lower()
+        default = env_name in {"staging", "production"}
+        return self._bool_env("FORCE_GCP_REAL_DATA", default=default)
+
     def _get_date_range(self, period: str) -> tuple[str, str]:
         """Calculate period_start and period_end YYYY-MM-DD for a given period."""
         now = datetime.datetime.now(datetime.timezone.utc).date()
@@ -244,13 +263,16 @@ class GCPBillingService:
 
     # ─── Public Interface ────────────────────────────────────────────────────
 
-    def get_current_month_costs(self, period: str = "current_month", require_real_data: bool = False) -> GCPCostBreakdown:
+    def get_current_month_costs(self, period: str = "current_month", require_real_data: bool | None = None) -> GCPCostBreakdown:
         """Fetch GCP costs for given period with automatic mock fallback.
 
         Falls back to mock when:
         - GCP_PROJECT_ID or GCP_BILLING_BIGQUERY_DATASET are not set
         - Google Cloud API call fails (auth error, network issue, etc.)
         """
+        if require_real_data is None:
+            require_real_data = self.should_force_real_data()
+
         if not self.project_id or not self.billing_dataset:
             if require_real_data:
                 raise RuntimeError(
