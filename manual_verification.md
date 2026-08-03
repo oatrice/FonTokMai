@@ -1,14 +1,29 @@
-# Manual Verification Plan - Dashboard UX/UI & Zero-PII Token Recovery Batch
+# Manual Verification Plan - GCP Billing Policy Consistency
 
 - **Branch**: `feat/dashboard-ux-recovery-batch`
-- **MR / Issue ID**: `#204, #209, #236`
-- **Date**: `2026-08-02`
+- **MR / Issue ID**: `#211`
+- **Date**: `2026-08-03`
 
 ---
 
 ## 📌 Prerequisites & Environment Setup
-1. Node.js environment configured for the Next.js frontend.
-2. Shell commands to launch server locally:
+1. Backend local environment is configured and can start with Uvicorn.
+2. Frontend local environment is configured and points to the local backend.
+3. `DATABASE_URL` is available for the target environment:
+   - local/dev may use Neon or local DB
+   - staging/prod should use Neon Postgres
+4. Relevant env vars:
+   - `ENVIRONMENT`
+   - `FORCE_GCP_REAL_DATA`
+   - `GCP_PROJECT_ID`
+   - `GCP_BILLING_BIGQUERY_DATASET`
+   - `CRON_SECRET`
+5. Start backend:
+   ```bash
+   cd backend
+   uvicorn app.main:app --reload --port 8000
+   ```
+6. Start frontend:
    ```bash
    cd frontend
    npm run dev
@@ -18,63 +33,62 @@
 
 ## 🧪 Verification Scenarios
 
-### Scenario 1: UX Terminology Updates (#204)
-- **Goal**: Verify that confusing technical terms have been replaced.
+### Scenario 1: Local Mock-Only Path
+- **Goal**: Verify that local/dev can stay on mock data when the policy resolves to mock-only.
 - **Steps**:
-  1. Open the Financial Dashboard page (`http://localhost:3000` or equivalent route).
-  2. Observe the badge and text states.
+  1. Set `ENVIRONMENT=development`.
+  2. Set `FORCE_GCP_REAL_DATA=false`.
+  3. Ensure the frontend points to the local backend.
+  4. Open `http://localhost:3000/dashboard`.
+  5. Refresh the page and inspect the GCP Infrastructure Costs card.
 - **Expected Outcome**:
-  - `OVERDRIVE MODE` should be replaced with `Extended Lifespan Mode / โหมดต่ออายุระบบฉุกเฉิน`.
-  - `CIRCUIT BREAKER ACTIVE` should be replaced with `Cached Weather Data Mode / ใช้ข้อมูลพยากรณ์สำรอง`.
+  - The backend log shows policy resolution and mock-only mode.
+  - The dashboard displays mock data.
+  - `is_mock=true` in the response.
 
----
-
-### Scenario 2: Runway Counter View Modes (#209)
-- **Goal**: Verify that the 3 viewing modes work and animations are smooth.
+### Scenario 2: Local Explicit Real Override
+- **Goal**: Verify that local/dev can still force real data when explicitly requested.
 - **Steps**:
-  1. Locate the Runway Counter widget on the Financial Dashboard.
-  2. Click the gear or toggle button (if present) or click the component itself to cycle modes (Numeric -> Storytelling -> Compact).
-  3. Reload the page.
+  1. Set `ENVIRONMENT=development`.
+  2. Set `FORCE_GCP_REAL_DATA=true`.
+  3. Ensure `GCP_PROJECT_ID` and `GCP_BILLING_BIGQUERY_DATASET` are configured.
+  4. Refresh `http://localhost:3000/dashboard`.
 - **Expected Outcome**:
-  - Transitions between modes are smoothly animated via `framer-motion`.
-  - The selected mode persists across page reloads (saved in `localStorage` under `runwayViewMode`).
+  - The backend logs show real-data path selection.
+  - The endpoint queries BigQuery.
+  - `is_mock=false` when BigQuery data is returned.
 
----
-
-### Scenario 3: Token Recovery Modal - Successful Recovery (#236)
-- **Goal**: Verify that the Token Recovery Modal accepts valid inputs and returns a token.
+### Scenario 3: Neon-Driven Policy
+- **Goal**: Verify that Neon `system_config.gcp_force_real_data` can drive the result when local env does not force real data.
 - **Steps**:
-  1. On the Financial Dashboard, click the "Start Token Recovery" button.
-  2. In the modal, enter a mock `tx_hash` (e.g. `0x123`), `timestamp` (e.g. `1690000000`), and `amount` (e.g. `500`).
-  3. Click "Recover Token".
-  4. (For full verification, a mock backend response or dev environment pointing to `/api/v1/auth/recover` is required).
+  1. Set `ENVIRONMENT=development`.
+  2. Set `FORCE_GCP_REAL_DATA=false`.
+  3. Set Neon `system_config.gcp_force_real_data=true`.
+  4. Refresh `http://localhost:3000/dashboard`.
 - **Expected Outcome**:
-  - The modal transitions to a success state displaying the recovered token (e.g., `sk_test_...`).
+  - The backend logs show the Neon override being read.
+  - The GCP billing route uses the Neon value.
+  - The card shows real data if BigQuery credentials are valid.
 
----
-
-### Scenario 4: Token Recovery Modal - Error Handling (#236)
-- **Goal**: Verify that the Token Recovery Modal handles invalid inputs gracefully.
+### Scenario 4: Backend Fallback Safety
+- **Goal**: Verify that the endpoint still fails safely when real data is requested but BigQuery config is missing or invalid.
 - **Steps**:
-  1. On the Financial Dashboard, click the "Start Token Recovery" button.
-  2. Enter invalid details that the backend will reject.
-  3. Click "Recover Token".
+  1. Set the policy to real-data mode.
+  2. Remove or invalidate `GCP_PROJECT_ID` or `GCP_BILLING_BIGQUERY_DATASET`.
+  3. Call `GET /api/v1/metrics/gcp-costs`.
 - **Expected Outcome**:
-  - An error message appears in a red alert box within the modal (e.g., "Recovery failed. Invalid details.").
-  - The form remains open for the user to try again.
+  - The backend raises a clear error for missing config in real-data mode.
+  - No silent false-positive real-data state is returned.
 
 ---
 
 ## 📸 Proof of Verification (Artifacts & Logs)
-- **Automated Verification Summary**:
-  - `npm run test -- TokenRecoveryModal.test.tsx` result: `5 passed, 5 total`
-  - Output Snippet:
-    ```
-    PASS src/components/dashboard/__tests__/TokenRecoveryModal.test.tsx
-      TokenRecoveryModal
-        ✓ does not render when isOpen is false
-        ✓ renders the form inputs when isOpen is true
-        ✓ shows error message on API failure
-        ✓ shows recovered token on API success
-        ✓ calls onClose when close button or overlay is clicked
-    ```
+- **Backend Test Result**
+  - `pytest backend/tests/test_gcp_billing.py -q`
+  - Expected: `12 passed`
+- **Log Snippet**
+  ```text
+  [GCP_BILLING] resolve_force_real_data(local) ...
+  [GCP_BILLING] Neon override resolved ...
+  [GCP_BILLING] get_current_month_costs ...
+  ```
