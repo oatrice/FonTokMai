@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from google.cloud import vision
-except ImportError:
+except (ImportError, TypeError):
     vision = None
 
 try:

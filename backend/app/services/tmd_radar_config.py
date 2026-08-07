@@ -69,6 +69,15 @@ KKN240_BBOX = BoundingBox(
     lng_max=104.99
 )
 
+# Bounding Boxes for Nationwide TMD Stations (~240km radius, ~2.16 deg offset)
+BKK240_BBOX = BoundingBox(lat_max=15.86, lng_min=98.34, lat_min=11.54, lng_max=102.66)
+NTP240_BBOX = BoundingBox(lat_max=16.03, lng_min=98.37, lat_min=11.71, lng_max=102.69)
+CMI240_BBOX = BoundingBox(lat_max=20.93, lng_min=96.81, lat_min=16.61, lng_max=101.13)
+PHS240_BBOX = BoundingBox(lat_max=18.94, lng_min=98.11, lat_min=14.62, lng_max=102.43)
+UBN240_BBOX = BoundingBox(lat_max=17.41, lng_min=102.72, lat_min=13.09, lng_max=107.04)
+SRT240_BBOX = BoundingBox(lat_max=11.29, lng_min=97.02, lat_min=6.97, lng_max=101.34)
+PKT240_BBOX = BoundingBox(lat_max=10.04, lng_min=96.16, lat_min=5.72, lng_max=100.48)
+
 STATIONS = {
     "kkn120": StationConfig(
         code="kkn120",
@@ -132,6 +141,146 @@ STATIONS = {
         loop_crop_width=728,
         loop_crop_height=728,
         legend_bboxes=[(50, 100, 75, 650), (0, 740, 800, 800), (0, 0, 400, 60)]
+    ),
+    "bkk240": StationConfig(
+        code="bkk240",
+        name="Bangkok Suvarnabhumi (240km)",
+        static_image_url="https://weather.tmd.go.th/bkk/bkk240_latest.jpg",
+        loop_page_url="https://weather.tmd.go.th/bkkLoop.php",
+        loop_gif_url="https://weather.tmd.go.th/bkk/bkkloop.gif",
+        bbox=BKK240_BBOX,
+        projection_type="azimuthal",
+        center_lat=13.70,
+        center_lng=100.50,
+        radius_km=240.0,
+        static_crop_x=72,
+        static_crop_y=28,
+        static_crop_width=728,
+        static_crop_height=728,
+        loop_crop_x=72,
+        loop_crop_y=28,
+        loop_crop_width=728,
+        loop_crop_height=728
+    ),
+    "ntp240": StationConfig(
+        code="ntp240",
+        name="Nonthaburi / Don Mueang (240km)",
+        static_image_url="https://weather.tmd.go.th/ntp/ntp240_latest.jpg",
+        loop_page_url="https://weather.tmd.go.th/ntpLoop.php",
+        loop_gif_url="https://weather.tmd.go.th/ntp/ntploop.gif",
+        bbox=NTP240_BBOX,
+        projection_type="azimuthal",
+        center_lat=13.87,
+        center_lng=100.53,
+        radius_km=240.0,
+        static_crop_x=72,
+        static_crop_y=28,
+        static_crop_width=728,
+        static_crop_height=728,
+        loop_crop_x=72,
+        loop_crop_y=28,
+        loop_crop_width=728,
+        loop_crop_height=728
+    ),
+    "cmi240": StationConfig(
+        code="cmi240",
+        name="Chiang Mai (240km)",
+        static_image_url="https://weather.tmd.go.th/cmi/cmi240_latest.jpg",
+        loop_page_url="https://weather.tmd.go.th/cmiLoop.php",
+        loop_gif_url="https://weather.tmd.go.th/cmi/cmiloop.gif",
+        bbox=CMI240_BBOX,
+        projection_type="azimuthal",
+        center_lat=18.77,
+        center_lng=98.97,
+        radius_km=240.0,
+        static_crop_x=72,
+        static_crop_y=28,
+        static_crop_width=728,
+        static_crop_height=728,
+        loop_crop_x=72,
+        loop_crop_y=28,
+        loop_crop_width=728,
+        loop_crop_height=728
+    ),
+    "phs240": StationConfig(
+        code="phs240",
+        name="Phitsanulok (240km)",
+        static_image_url="https://weather.tmd.go.th/phs/phs240_latest.jpg",
+        loop_page_url="https://weather.tmd.go.th/phsLoop.php",
+        loop_gif_url="https://weather.tmd.go.th/phs/phsloop.gif",
+        bbox=PHS240_BBOX,
+        projection_type="azimuthal",
+        center_lat=16.78,
+        center_lng=100.27,
+        radius_km=240.0,
+        static_crop_x=72,
+        static_crop_y=28,
+        static_crop_width=728,
+        static_crop_height=728,
+        loop_crop_x=72,
+        loop_crop_y=28,
+        loop_crop_width=728,
+        loop_crop_height=728
+    ),
+    "ubn240": StationConfig(
+        code="ubn240",
+        name="Ubon Ratchathani (240km)",
+        static_image_url="https://weather.tmd.go.th/ubn/ubn240_latest.jpg",
+        loop_page_url="https://weather.tmd.go.th/ubnLoop.php",
+        loop_gif_url="https://weather.tmd.go.th/ubn/ubnloop.gif",
+        bbox=UBN240_BBOX,
+        projection_type="azimuthal",
+        center_lat=15.25,
+        center_lng=104.88,
+        radius_km=240.0,
+        static_crop_x=72,
+        static_crop_y=28,
+        static_crop_width=728,
+        static_crop_height=728,
+        loop_crop_x=72,
+        loop_crop_y=28,
+        loop_crop_width=728,
+        loop_crop_height=728
+    ),
+    "srt240": StationConfig(
+        code="srt240",
+        name="Surat Thani (240km)",
+        static_image_url="https://weather.tmd.go.th/srt/srt240_latest.jpg",
+        loop_page_url="https://weather.tmd.go.th/srtLoop.php",
+        loop_gif_url="https://weather.tmd.go.th/srt/srtloop.gif",
+        bbox=SRT240_BBOX,
+        projection_type="azimuthal",
+        center_lat=9.13,
+        center_lng=99.18,
+        radius_km=240.0,
+        static_crop_x=72,
+        static_crop_y=28,
+        static_crop_width=728,
+        static_crop_height=728,
+        loop_crop_x=72,
+        loop_crop_y=28,
+        loop_crop_width=728,
+        loop_crop_height=728
+    ),
+    "pkt240": StationConfig(
+        code="pkt240",
+        name="Phuket (240km)",
+        static_image_url="https://weather.tmd.go.th/pkt/pkt240_latest.jpg",
+        loop_page_url="https://weather.tmd.go.th/pktLoop.php",
+        loop_gif_url="https://weather.tmd.go.th/pkt/pktloop.gif",
+        bbox=PKT240_BBOX,
+        projection_type="azimuthal",
+        center_lat=7.88,
+        center_lng=98.32,
+        radius_km=240.0,
+        static_crop_x=72,
+        static_crop_y=28,
+        static_crop_width=728,
+        static_crop_height=728,
+        loop_crop_x=72,
+        loop_crop_y=28,
+        loop_crop_width=728,
+        loop_crop_height=728
     )
 }
 
