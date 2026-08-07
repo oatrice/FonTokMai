@@ -21,7 +21,9 @@ async def process_telegram_location(
     is_lock_command: bool = False,
     is_saved_location: bool = False,
     command_name: str = None,
+    show_labels: bool = True,
 ):
+
     """
     ดึงข้อมูลพยากรณ์ฝนผ่าน WeatherManager (รองรับ fallback chain อัตโนมัติ)
     และส่ง/แก้ไขข้อความผลลัพธ์กลับไปยัง Telegram
@@ -57,6 +59,7 @@ async def process_telegram_location(
             force_endpoint=force_endpoint,
             location_name=location_name,
             chat_id=chat_id,
+            show_labels=show_labels,
         )
 
         text, actual_endpoint, eta_minutes = _build_forecast_text(result)

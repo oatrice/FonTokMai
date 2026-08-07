@@ -500,10 +500,12 @@ async def handle_radar_command(chat_id: int):
 @cmd_router.bind("/tracking", task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
 @cmd_router.bind("/nowcast", task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
 @cmd_router.bind("/rain_pro_d", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", show_advanced=True, command_override="/rain_pro d")
+@cmd_router.bind("/rain_minimal", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", show_labels=False)
 @cmd_router.bind("/rain_pro", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", show_advanced=True)
 @cmd_router.bind("/rain", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
 @cmd_router.bind("/check", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", command_override="/rain tmd-radar")
-async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False, message_id_to_edit: int = None):
+async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False, show_labels: bool = True, message_id_to_edit: int = None):
+
     import re
     coords_match = re.search(r'([+-]?\d+\.\d+)[,\s]+([+-]?\d+\.\d+)', command)
     custom_lat = None
@@ -566,7 +568,7 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
                 await process_telegram_location(
                     chat_id, lat=l.latitude, lng=l.longitude,
                     force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
-                    show_advanced=show_advanced, location_name=loc_display,
+                    show_advanced=show_advanced, show_labels=show_labels, location_name=loc_display,
                     is_saved_location=True, command_name=parts[0]
                 )
             return
@@ -597,7 +599,7 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
     await process_telegram_location(
         chat_id, lat=loc.latitude, lng=loc.longitude,
         force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
-        show_advanced=show_advanced, location_name=loc_display,
+        show_advanced=show_advanced, show_labels=show_labels, location_name=loc_display,
         is_saved_location=True, command_name=parts[0]
     )
 
@@ -1039,5 +1041,10 @@ async def handle_mock_rain_command(chat_id: int, command: str, message_id_to_edi
         sent, errors = await _send_combined_alerts(chat_id, simulated_eval_result, datetime.now(timezone.utc), is_mock=True)
         reset_notice = " (🔄 รีเซ็ต Cache แล้ว)" if do_reset else ""
         await _reply(chat_id, f"🎯 จำลองแจ้งเตือนฝนพิกัด <b>{loc.name}</b> เรียบร้อยแล้ว{reset_notice} (sent={sent}, errors={errors})", message_id_to_edit)
+
+
+async def handle_rain_minimal_command(chat_id: int, command: str = "/rain_minimal", message_id_to_edit: int = None):
+    """Handle /rain_minimal command: renders clean tracking radar map without text labels."""
+    await handle_rain_command(chat_id, command, show_advanced=False, show_labels=False, message_id_to_edit=message_id_to_edit)
 
 

@@ -1,8 +1,8 @@
-# Manual Verification Plan - Unified Event Log Economics & Admin Dashboard (Issues 298-301)
+# Manual Verification Plan - Unified Event Log Economics & /rain_minimal Clean Radar
 
-- **Branch**: `feat/298-301-unified-event-log-economics`
-- **MR / Issue ID**: `#298, #299, #300, #301`
-- **Date**: `2026-09-14`
+- **Branch**: `feat/292-296-dashboard-metrics`
+- **MR / Issue ID**: `#292, #293, #294, #295, #296`
+- **Date**: `2026-09-16`
 
 ---
 
@@ -83,10 +83,35 @@
 
 ---
 
+### Scenario 6: Clean Radar Tracking Image & /rain_minimal Command
+- **Goal**: Verify `/rain_minimal` command and clean tracking image rendering without text labels.
+- **Steps**:
+  1. Run unit tests: `pytest backend/tests/test_clean_radar_command.py`
+  2. Execute sample generation script:
+     ```python
+     import cv2
+     import numpy as np
+     from app.services.tmd_radar_processor import TMDRadarProcessor
+
+     frame = np.zeros((600, 600, 3), dtype=np.uint8)
+     cv2.circle(frame, (300, 300), 20, (0, 0, 255), -1)
+
+     processor = TMDRadarProcessor("skn240")
+     img_bytes = processor.generate_radar_tracking_image(
+         frame=frame, user_x=300, user_y=300, clouds=[],
+         show_clouds=True, show_trajectory=True, show_labels=False
+     )
+     ```
+- **Expected Outcome**:
+  - `test_clean_radar_command.py` tests pass.
+  - Tracking image renders with grid and markers but completely omits text overlay labels.
+
+---
+
 ## 📸 Proof of Verification (Artifacts & Logs)
 - **Automated Verification Summary**:
   - `pytest backend/tests/test_locations_endpoint.py -v`: Verified unauthenticated 401 rejection and authenticated 200 responses.
-  - `pytest backend/tests` result: `537 passed, 4 skipped`
-  - `npm run test` (Frontend Jest): `6 test suites passed, 40 tests passed`
-  - `npm run build` (Next.js Production Build): Compiled with 0 errors across all 13 routes.
-
+  - `pytest backend/tests/test_clean_radar_command.py -v`: Verified clean mode and router bindings pass.
+  - `pytest backend/tests`: Full test suite passes.
+  - `npm run test` (Frontend Jest): `6 test suites passed, 40 tests passed`.
+  - `npm run build` (Next.js Production Build): Compiled cleanly with 0 errors across all routes.

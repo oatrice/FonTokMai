@@ -142,6 +142,7 @@ class TMDTrackingMixin:
         predictions: list = None,
         show_clouds: bool = True,
         show_trajectory: bool = True,
+        show_labels: bool = True,
         time_offset_min: float = 0.0,
         locked_target_id: Optional[str] = None,
         locked_target_cx: Optional[int] = None,
@@ -1222,22 +1223,23 @@ class TMDTrackingMixin:
                             t_lbl['hidden'] = True
                             break
 
-        for lbl in labels:
-            if lbl.get('hidden'):
-                continue
-            tx = int(lbl['cx'] - lbl['w']/2)
-            ty = int(lbl['cy'] + lbl['h']/2)
-            
-            logger.info(f"[TRACKING_IMG] Label '{lbl['text']}' ({lbl['type']}) drawn at x={tx}, y={ty} (w={lbl['w']}, h={lbl['h']})")
-            
-            dist_to_anchor = math.hypot(lbl['cx'] - lbl['anchor_x'], lbl['cy'] - lbl['anchor_y'])
-            if dist_to_anchor > 12 * scale:
-                cv2.line(img, (lbl['anchor_x'], lbl['anchor_y']), (int(lbl['cx']), int(lbl['cy'])), (150, 150, 150), max(2, int(scale * 1.0)))
+        if show_labels:
+            for lbl in labels:
+                if lbl.get('hidden'):
+                    continue
+                tx = int(lbl['cx'] - lbl['w']/2)
+                ty = int(lbl['cy'] + lbl['h']/2)
                 
-            cv2.putText(img, lbl['text'], (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, lbl['scale'], lbl['bg'], max(1, int(lbl['scale'] * 5.0)))
-            cv2.putText(img, lbl['text'], (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, lbl['scale'], lbl['fg'], max(1, int(lbl['scale'] * 1.8)))
+                logger.info(f"[TRACKING_IMG] Label '{lbl['text']}' ({lbl['type']}) drawn at x={tx}, y={ty} (w={lbl['w']}, h={lbl['h']})")
+                
+                dist_to_anchor = math.hypot(lbl['cx'] - lbl['anchor_x'], lbl['cy'] - lbl['anchor_y'])
+                if dist_to_anchor > 12 * scale:
+                    cv2.line(img, (lbl['anchor_x'], lbl['anchor_y']), (int(lbl['cx']), int(lbl['cy'])), (150, 150, 150), max(2, int(scale * 1.0)))
+                    
+                cv2.putText(img, lbl['text'], (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, lbl['scale'], lbl['bg'], max(1, int(lbl['scale'] * 5.0)))
+                cv2.putText(img, lbl['text'], (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, lbl['scale'], lbl['fg'], max(1, int(lbl['scale'] * 1.8)))
 
-        if time_utc:
+        if time_utc and show_labels:
             try:
                 img_pil = Image.fromarray(img).convert("RGBA")
                 time_str_idc = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')

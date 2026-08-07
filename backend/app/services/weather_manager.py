@@ -326,9 +326,9 @@ class WeatherManager:
         lng: float,
         mock_state: Optional[str] = None,
         force_endpoint: Optional[str] = None,
-        location_name: Optional[str] = None,
         chat_id: Optional[Union[str, int]] = None,
         message_id_to_edit: Optional[Union[str, int]] = None,
+        show_labels: bool = True,
     ) -> dict:
         """
         ดึงข้อมูลพยากรณ์ฝนโดยผ่านระบบ Fallback อัตโนมัติ:
@@ -343,11 +343,12 @@ class WeatherManager:
             "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
             "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
             "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit),
-            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit),
-            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit),
-            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit)
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit, show_labels=show_labels),
+            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit, show_labels=show_labels),
+            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit, show_labels=show_labels),
+            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit, show_labels=show_labels)
         }
+
 
         # --- โหมดบังคับ endpoint (ไม่ผ่าน fallback) ---
         if force_endpoint and force_endpoint in service_map:
@@ -690,8 +691,10 @@ class WeatherManager:
         self, lat: float, lng: float, force_station: Optional[str] = None,
         mock_state: Optional[str] = None, location_name: Optional[str] = None,
         chat_id: Optional[Union[str, int]] = None,
-        message_id_to_edit: Optional[Union[str, int]] = None
+        message_id_to_edit: Optional[Union[str, int]] = None,
+        show_labels: bool = True
     ) -> dict:
+
         """
         Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
         Uses dot-product approach vector filter to find approaching cloud clusters,
@@ -1578,7 +1581,7 @@ class WeatherManager:
                     tracking_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
-                        all_rain_clusters, predictions, True, _DEV_CONFIG.get("show_trajectory", True), time_offset_min,
+                        all_rain_clusters, predictions, True, _DEV_CONFIG.get("show_trajectory", True), show_labels, time_offset_min,
                         locked_target_id,
                         locked_target_cx,
                         locked_target_cy,
