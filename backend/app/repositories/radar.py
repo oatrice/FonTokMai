@@ -1,7 +1,7 @@
 # backend/app/repositories/radar.py
 
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import RadarStationModel
@@ -29,7 +29,7 @@ class RadarStationRepository:
         code = data["code"]
         existing = await self.get_station(code)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()  # naive UTC — matches TIMESTAMP WITHOUT TIME ZONE in Neon/Postgres
         if not existing:
             station = RadarStationModel(
                 code=code,
@@ -81,7 +81,7 @@ class RadarStationRepository:
         station = await self.get_station(code)
         if station:
             station.is_active = 1 if is_active else 0
-            station.updated_at = datetime.now(timezone.utc)
+            station.updated_at = datetime.utcnow()
             await self.session.commit()
             await self.session.refresh(station)
         return station

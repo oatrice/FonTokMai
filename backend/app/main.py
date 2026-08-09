@@ -112,6 +112,16 @@ async def lifespan(app: FastAPI):
                 res = await session.execute(stmt)
                 if res.scalar_one_or_none() is None:
                     session.add(SystemConfig(key=key, value_json=val))
+            
+            # Seed Initial Radar Stations into DB if empty
+            from app.repositories.radar import RadarStationRepository
+            from app.services.tmd_radar_catalog import KNOWN_TMD_RADAR_PRESETS
+            radar_repo = RadarStationRepository(session)
+            existing_stations = await radar_repo.get_all_stations()
+            if not existing_stations:
+                logging.info(f"Seeding {len(KNOWN_TMD_RADAR_PRESETS)} initial radar stations into DB...")
+                for preset in KNOWN_TMD_RADAR_PRESETS:
+                    await radar_repo.upsert_station(preset)
             await session.commit()
     except Exception as e:
         logging.error(f"Failed to initialize database tables during startup: {e}")

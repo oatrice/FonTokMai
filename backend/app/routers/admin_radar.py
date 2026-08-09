@@ -62,21 +62,40 @@ async def preview_radar_calibration(req: RadarPreviewRequest):
     """
     Downloads radar image, detects/fine-tunes circle & crops, and returns Base64 preview image with bounding overlay.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     try:
         async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
             resp = await client.get(req.image_url, headers={
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
             })
-            if resp.status_code != 200:
-                raise HTTPException(status_code=400, detail=f"Failed to fetch image from URL: HTTP {resp.status_code}")
-            image_data = resp.content
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"[preview] Download error for {req.image_url}: {e}")
         raise HTTPException(status_code=400, detail=f"Error downloading radar image: {str(e)}")
+
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Radar image URL returned HTTP {resp.status_code}. URL: {req.image_url}"
+        )
+
+    image_data = resp.content
+    if not image_data or len(image_data) < 100:
+        raise HTTPException(status_code=400, detail=f"Downloaded image is empty or too small ({len(image_data)} bytes). URL may not be a direct image link.")
 
     nparr = np.frombuffer(image_data, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
-        raise HTTPException(status_code=400, detail="Failed to decode downloaded image bytes.")
+        # Check if response is HTML (common if URL redirects to page, not image)
+        sample = image_data[:200].decode('utf-8', errors='replace')
+        logger.error(f"[preview] Image decode failed. Content sample: {sample[:80]}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to decode image. The URL may return HTML instead of a JPEG/PNG. First bytes: {sample[:80]!r}"
+        )
 
     service = AutoCalibrationService()
     circle = service.detect_radar_circle(img)
@@ -143,9 +162,36 @@ async def preview_radar_calibration(req: RadarPreviewRequest):
         "preview_image_base64": base64_preview,
         "code_snippet": snippet
     }
+@router.get("/presets")
+async def get_radar_presets():
+    """Returns catalog of known TMD radar station presets for Admin quick-select."""
+    from app.services.tmd_radar_catalog import KNOWN_TMD_RADAR_PRESETS
+    return KNOWN_TMD_RADAR_PRESETS
+
+@router.post("/seed")
+async def seed_radar_stations_to_db(db=Depends(get_async_db)):
+    """Seeds codebase TMD radar stations into DB if missing, ensuring tables exist first."""
+    from app.database import engine, Base
+    import app.models # Ensure models registered
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    from app.services.tmd_radar_catalog import KNOWN_TMD_RADAR_PRESETS
+    repo = RadarStationRepository(db)
+    count = 0
+    for preset in KNOWN_TMD_RADAR_PRESETS:
+        await repo.upsert_station(preset)
+        count += 1
+    radar_registry.invalidate_cache()
+    return {"status": "ok", "message": f"Successfully seeded {count} radar stations into DB."}
 
 @router.get("/stations")
 async def list_radar_stations(db=Depends(get_async_db)):
+    from app.database import engine, Base
+    import app.models
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     repo = RadarStationRepository(db)
     stations = await repo.get_all_stations()
     return [
