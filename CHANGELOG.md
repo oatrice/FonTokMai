@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.0] - 2026-08-09
+
+### Added
+- **Neon DB Radar Persistence**: Created `radar_stations` table model (`RadarStationModel`) and `RadarStationRepository` in backend for storing dynamic TMD radar configurations in Neon Postgres.
+- **Dynamic Radar Registry**: Implemented `DynamicRadarRegistry` service with in-memory caching and automatic fallback to hardcoded `STATIONS` defaults if database is unreadable.
+- **Admin Radar Management API**: Introduced `/api/v1/admin/radar/` routes (`/preview`, `/stations`, `/stations/{code}/toggle`) for auto-detection, interactive fine-tuning, and station CRUD.
+- **Interactive Fine-Tuning Web Portal**: Created Next.js Admin Radar Page (`/admin/radar`) featuring live image preview, interactive crop sliders (Crop X, Y, Width, Height), status toggling, and DB submission.
+- **Telegram Admin Command (`/calibrate`)**: Added `/calibrate <code|url> <lat> <lng> [radius]` command returning base64 verification overlay image in chat for mobile admins.
+
 ## [0.71.0] - 2026-08-02
 
 ### Added

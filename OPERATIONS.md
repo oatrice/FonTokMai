@@ -13,6 +13,8 @@ Admin and on-call operational reference for the FonMaYang system.
 5. [System Status & Monitoring](#5-system-status--monitoring)
 6. [Cloud Run & IAM](#6-cloud-run--iam)
 7. [Scheduler Jobs](#7-scheduler-jobs)
+8. [Future Identity & KYC Strategy](#8-future-identity--kyc-strategy)
+9. [Dynamic Radar Station Management (Neon DB + Admin Web Portal)](#9-dynamic-radar-station-management-neon-db--admin-web-portal)
 
 ---
 
@@ -198,32 +200,106 @@ python3 backend/scripts/sync_schedulers.py
 bash backend/scripts/setup_schedulers.sh
 ```
 
+
 ---
 
-## 8. Future Identity & KYC Strategy
+## 9. Dynamic Radar Station Management (Neon DB + Admin Web Portal)
 
-Operational overview of identity verification tiers for future product roadmap expansion.
+Operational guide for managing TMD radar stations dynamically without codebase redeployment.
 
-### Identity Verification Tiers
+### Architecture Overview
 
-| Tier | Method | Primary Use Case | Privacy Impact |
-|---|---|---|---|
-| **Tier 0: Zero-PII** | Token (`Fon-XXXX-XXXX`) | Anonymous donations, 30-day Supporter Badge | Zero PII stored |
-| **Tier 1: Soft KYC** | LINE / Telegram Auth / Email | Account binding, cross-device sync, recurring billing | Pseudonymous / Low PII |
-| **Tier 2: Hard KYC** | Personal ID Card / NDID / Tax ID | Legal, financial, high-trust governance, emergency operations | High PII (Strict PDPA compliance) |
+```mermaid
+flowchart TD
+    subgraph AdminInterfaces["Admin Interfaces"]
+        A1["Web Admin Portal (/admin/radar)"] 
+        A2["Telegram Admin Bot (/calibrate)"]
+    end
 
-### Extreme Cases Requiring Personal ID Card (Tier 2 / Hard KYC)
+    subgraph BackendServices["Backend API Services (Cloud Run)"]
+        API["FastAPI Admin Service (/api/v1/admin/radar)"]
+        AutoCal["AutoCalibrationService (OpenCV Hough)"]
+        PreviewEngine["Preview & Interactive Adjuster Engine"]
+    end
 
-#### 1. Official Tax Deduction Receipts (ใบกำกับภาษี / ลดหย่อนภาษี สรรพากร)
-- **Why ID Card is mandatory**: Revenue Dept of Thailand requires 13-digit Thai National ID (เลขประจำตัวประชาชน 13 หลัก) or Tax ID for official E-Donation submission.
+    subgraph Database["Database"]
+        Neon[("Neon Postgres DB (radar_stations)")]
+    end
 
-#### 2. High-Stakes Financial Payouts & Grants (ระบบทุนสนับสนุนภัยพิบัติ)
-- **Why ID Card is mandatory**: If FonMaYang expands to distribute direct financial relief / grants to affected farmers or flood victims, Anti-Money Laundering (AML) laws and Bank of Thailand regulations mandate strict KYC/NDID.
+    subgraph CoreEngine["Core Engine"]
+        Engine["TMDRadarProcessor & WeatherManager"]
+        Cache["DynamicRadarRegistry (In-Memory Cache)"]
+    end
 
-#### 3. Critical Disaster Emergency Operations (ระบบประสานงานกู้ภัยระดับจังหวัด)
-- **Why ID Card is mandatory**: Authorized emergency responders who issue official evacuation warnings or command local rescue operations must be legally verified to prevent panic and sabotage.
+    A1 -->|1. Submit URL and Coordinates| API
+    A2 -->|1. /calibrate URL Lat Lng| API
+    API --> AutoCal
+    AutoCal -->|2. Detect Circles and Crops| PreviewEngine
+    PreviewEngine -->|3. Return Interactive Preview| A1
+    PreviewEngine -->|3. Return Photo Preview Overlay| A2
+    A1 -->|4. Fine-Tune Adjustments and Submit| API
+    A2 -->|4. Confirm and Save| API
+    API -->|5. Save Station Data| Neon
+    Neon -->|6. Refresh Cache| Cache
+    Cache -->|7. Read Active Stations| Engine
+```
 
-#### 4. High-Value Commercial Data Partnerships (B2B Enterprise Contracts)
-- **Why ID Card is mandatory**: Signing legally binding SLAs and customized radar data access agreements for corporate clients (insurance companies, large-scale agriculture firms).
+```
+Admin Interface (Telegram / Web Portal) ──► Admin API (/api/v1/admin/radar) ──► AutoCalibrationService
+                                                                                      │
+                                                                                      ▼
+TMDRadarProcessor ◄── DynamicRadarRegistry (In-Memory Cache) ◄── RadarStationRepository (Neon DB)
+```
 
-> ⚠️ **Principle**: Tier 2 (ID Card) must ALWAYS remain strictly optional and isolated from standard donor operations. General donors continue under Tier 0 (Zero-PII Token).
+### 1. Telegram Admin Bot (`/calibrate`)
+
+Admins can trigger auto-calibration and preview boundary overlays directly in Telegram:
+
+```
+/calibrate <code|url> <lat> <lng> [radius_km]
+
+# Example:
+/calibrate svp240 https://weather.tmd.go.th/svp/svp240_latest.jpg 13.6860 100.7486 240
+```
+
+- **Output**: Returns a photo preview overlay with green radar scope boundary & red center crosshair, plus auto-detected crop dimensions.
+
+### 2. Web Admin Portal (`/admin/radar`)
+
+Access the Next.js Admin Portal at `http://localhost:3000/admin/radar` (or production host) to:
+- Fill station metadata (Code, Name, Image URL, Lat, Lng, Radius).
+- Interactively fine-tune Crop X/Y/Width/Height sliders in real time.
+- View live preview canvas before saving.
+- Click **Submit to Neon DB** to persist config to `radar_stations` PostgreSQL table.
+- Toggle active/disabled states for maintenance without downtime.
+
+
+### 🏗️ สถาปัตยกรรม Dynamic Radar Management (Telegram Bot + Web Admin Portal)
+
+```mermaid
+flowchart TD
+    subgraph Admin Interfaces
+        A1[🌐 Web Admin Portal - React / Next.js]
+        A2[📱 Telegram Admin Bot Command /calibrate]
+    end
+
+    subgraph Backend API Services (Cloud Run)
+        API[FastAPI Admin Service]
+        AutoCal[AutoCalibrationService OpenCV Hough]
+        PreviewEngine[Preview & Interactive Adjuster Engine]
+    end
+
+    subgraph Database
+        Neon[(🐘 Neon Postgres DB: radar_stations)]
+    end
+
+    A1 -->|1. Submit URL/Coords| API
+    A2 -->|1. /calibrate URL Lat Lng| API
+    API --> AutoCal
+    AutoCal -->|2. Detect Circles & Crops| PreviewEngine
+    PreviewEngine -->|3. Return Interactive Preview & BBox Coordinates| A1
+    PreviewEngine -->|3. Return Image Preview & Adjusted BBox| A2
+    A1 -->|4. Fine-Tune Adjustments & Submit| API
+    A2 -->|4. Confirm & Save| API
+    API -->|5. UPSERT Station Data| Neon
+```

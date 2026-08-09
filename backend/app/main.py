@@ -55,6 +55,7 @@ logging.getLogger("httpx").addFilter(sensitive_filter)
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from app.routers import weather, webhook, metrics
+from app.routers.admin_radar import router as admin_radar_router
 
 from contextlib import asynccontextmanager
 from app.database import engine, Base, AsyncSessionLocal
@@ -211,6 +212,7 @@ app.include_router(weather.router)
 app.include_router(webhook.router)
 app.include_router(scheduler.router)
 app.include_router(metrics.router)
+app.include_router(admin_radar_router, prefix="/api/v1/admin/radar")
 app.include_router(worker.router)
 app.include_router(budget_webhook.router)
 app.include_router(line_webhook.router)

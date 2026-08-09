@@ -65,6 +65,38 @@ class RadarLatestCache(Base):
     last_gif_fallback_time = Column(Float, default=0.0, nullable=False)
     source = Column(String, default="api")
 
+class RadarStationModel(Base):
+    __tablename__ = "radar_stations"
+
+    code = Column(String(32), primary_key=True, index=True)
+    name = Column(String(128), nullable=False)
+    static_image_url = Column(Text, nullable=False)
+    loop_page_url = Column(Text, nullable=True)
+    loop_gif_url = Column(Text, nullable=True)
+    center_lat = Column(Float, nullable=False)
+    center_lng = Column(Float, nullable=False)
+    radius_km = Column(Float, default=240.0, nullable=False)
+
+    lat_max = Column(Float, nullable=False)
+    lng_min = Column(Float, nullable=False)
+    lat_min = Column(Float, nullable=False)
+    lng_max = Column(Float, nullable=False)
+
+    static_crop_x = Column(Integer, default=0, nullable=False)
+    static_crop_y = Column(Integer, default=0, nullable=False)
+    static_crop_width = Column(Integer, default=800, nullable=False)
+    static_crop_height = Column(Integer, default=800, nullable=False)
+
+    loop_crop_x = Column(Integer, default=0, nullable=False)
+    loop_crop_y = Column(Integer, default=0, nullable=False)
+    loop_crop_width = Column(Integer, default=680, nullable=False)
+    loop_crop_height = Column(Integer, default=680, nullable=False)
+
+    projection_type = Column(String(32), default="azimuthal", nullable=False)
+    is_active = Column(Integer, default=1, nullable=False) # 1 = True, 0 = False for SQL compatibility
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
 class SystemConfig(Base):
     __tablename__ = "system_config"
 

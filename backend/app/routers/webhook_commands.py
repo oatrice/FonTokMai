@@ -596,3 +596,60 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
         force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
         show_advanced=show_advanced, location_name=loc_display
     )
+
+@cmd_router.bind("/calibrate ", requires_admin=True, loading_text="⏳ กำลังวิเคราะห์และ Calibrate เรดาร์...")
+async def handle_calibrate_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    Telegram Admin Command: /calibrate <code|url> <lat> <lng> [radius_km]
+    """
+    raw_args = command.removeprefix("/calibrate").strip().split()
+    if len(raw_args) < 3:
+        usage_msg = (
+            "⚠️ รูปแบบคำสั่งไม่ถูกต้อง\n\n"
+            "**การใช้งาน:**\n"
+            "`/calibrate <code|url> <lat> <lng> [radius_km]`\n\n"
+            "**ตัวอย่าง:**\n"
+            "`/calibrate svp240 https://weather.tmd.go.th/svp/svp240_latest.jpg 13.6860 100.7486`"
+        )
+        await _reply(chat_id, usage_msg, message_id_to_edit)
+        return
+
+    code_or_url = raw_args[0]
+    try:
+        lat = float(raw_args[1])
+        lng = float(raw_args[2])
+        radius_km = float(raw_args[3]) if len(raw_args) > 3 else 240.0
+    except ValueError:
+        await _reply(chat_id, "⚠️ ค่า lat, lng หรือ radius_km ต้องเป็นตัวเลขครับ", message_id_to_edit)
+        return
+
+    image_url = code_or_url if code_or_url.startswith("http") else f"https://weather.tmd.go.th/{code_or_url[:3]}/{code_or_url}_latest.jpg"
+    station_code = code_or_url[:6] if not code_or_url.startswith("http") else "custom"
+
+    from app.routers.admin_radar import preview_radar_calibration, RadarPreviewRequest
+    req = RadarPreviewRequest(
+        code=station_code,
+        name=f"Radar Station ({station_code})",
+        image_url=image_url,
+        lat=lat,
+        lng=lng,
+        radius_km=radius_km
+    )
+    
+    try:
+        res = await preview_radar_calibration(req)
+        b64_img = res["preview_image_base64"].split(",")[-1]
+        import base64
+        img_bytes = base64.b64decode(b64_img)
+
+        caption = (
+            f"🎯 **ผลการ Auto-Calibrate สำหรับ [{station_code}]**\n\n"
+            f"📍 ศูนย์กลาง: `{lat}, {lng}` (รัศมี {radius_km} km)\n"
+            f"📐 Crop Area: `{res['crop_info']['static_crop_width']}x{res['crop_info']['static_crop_height']}` px\n"
+            f"⭕ Circle Detected: `{'สำเร็จ' if res['circle_detected'] else 'ใช้ค่าตั้งต้น'}`\n\n"
+            f"เกร็ด: สามารถกด Submit หรือปรับผ่าน Admin Web Portal ได้ครับ"
+        )
+        await telegram.send_telegram_photo(chat_id, photo_bytes=img_bytes, caption=caption)
+    except Exception as e:
+        await _reply(chat_id, f"❌ เกิดข้อผิดพลาดในการ Calibrate: {str(e)}", message_id_to_edit)
+

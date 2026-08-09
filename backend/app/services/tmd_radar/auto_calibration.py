@@ -127,25 +127,36 @@ class AutoCalibrationService:
     )'''
         return f"{bbox_const}\n\n{config_entry}"
 
-    def draw_verification_overlay(
+    def draw_crop_preview(
         self,
         img: np.ndarray,
-        circle: Tuple[int, int, int],
-        center_pixel: Optional[Tuple[int, int]] = None
+        crop_x: int,
+        crop_y: int,
+        crop_w: int,
+        crop_h: int,
+        circle: Optional[Tuple[int, int, int]] = None
     ) -> np.ndarray:
         """
-        Draws the detected circle and optional calculated center pin onto a copy of the image.
+        Draws the active crop rectangle, grid crosshair, and circle boundary onto the image.
         """
-        overlay = img.copy()
-        cx, cy, r = circle
-        # Green circle for detected radar boundary
-        cv2.circle(overlay, (cx, cy), r, (0, 255, 0), 2)
-        cv2.circle(overlay, (cx, cy), 5, (0, 255, 0), -1)
+        preview = img.copy()
+        # Draw Crop Rectangle (cyan)
+        cv2.rectangle(preview, (crop_x, crop_y), (crop_x + crop_w, crop_y + crop_h), (255, 255, 0), 2)
+        
+        # Center Crosshair inside crop
+        cx = crop_x + crop_w // 2
+        cy = crop_y + crop_h // 2
+        cv2.line(preview, (cx - 15, cy), (cx + 15, cy), (0, 0, 255), 2)
+        cv2.line(preview, (cx, cy - 15), (cx, cy + 15), (0, 0, 255), 2)
 
-        if center_pixel:
-            px, py = center_pixel
-            # Red pin for lat/lng projected center
-            cv2.circle(overlay, (px, py), 6, (0, 0, 255), -1)
-            cv2.line(overlay, (px - 10, py), (px + 10, py), (0, 0, 255), 2)
-            cv2.line(overlay, (px, py - 10), (px, py + 10), (0, 0, 255), 2)
-        return overlay
+        if circle:
+            ccx, ccy, r = circle
+            cv2.circle(preview, (ccx, ccy), r, (0, 255, 0), 2)
+
+        return preview
+
+    def to_base64_jpeg(self, img: np.ndarray) -> str:
+        import base64
+        _, buffer = cv2.imencode('.jpg', img)
+        return f"data:image/jpeg;base64,{base64.b64encode(buffer).decode('utf-8')}"
+
