@@ -70,7 +70,7 @@ KKN240_BBOX = BoundingBox(
 )
 
 # Bounding Boxes for Nationwide TMD Stations (~240km radius, ~2.16 deg offset)
-BKK240_BBOX = BoundingBox(lat_max=15.86, lng_min=98.34, lat_min=11.54, lng_max=102.66)
+SVP240_BBOX = BoundingBox(lat_max=15.85, lng_min=98.59, lat_min=11.53, lng_max=102.91)
 NTP240_BBOX = BoundingBox(lat_max=16.03, lng_min=98.37, lat_min=11.71, lng_max=102.69)
 CMI240_BBOX = BoundingBox(lat_max=20.93, lng_min=96.81, lat_min=16.61, lng_max=101.13)
 PHS240_BBOX = BoundingBox(lat_max=18.94, lng_min=98.11, lat_min=14.62, lng_max=102.43)
@@ -142,25 +142,25 @@ STATIONS = {
         loop_crop_height=728,
         legend_bboxes=[(50, 100, 75, 650), (0, 740, 800, 800), (0, 0, 400, 60)]
     ),
-    "bkk240": StationConfig(
-        code="bkk240",
+    "svp240": StationConfig(
+        code="svp240",
         name="Bangkok Suvarnabhumi (240km)",
-        static_image_url="https://weather.tmd.go.th/bkk/bkk240_latest.jpg",
-        loop_page_url="https://weather.tmd.go.th/bkkLoop.php",
-        loop_gif_url="https://weather.tmd.go.th/bkk/bkkloop.gif",
-        bbox=BKK240_BBOX,
+        static_image_url="https://weather.tmd.go.th/svp/svp240_latest.jpg",
+        loop_page_url="https://weather.tmd.go.th/svpLoop.php",
+        loop_gif_url="https://weather.tmd.go.th/svp/svp240_HQ_Loop.gif",
+        bbox=SVP240_BBOX,
         projection_type="azimuthal",
-        center_lat=13.70,
-        center_lng=100.50,
+        center_lat=13.6860,
+        center_lng=100.7486,
         radius_km=240.0,
-        static_crop_x=72,
-        static_crop_y=28,
-        static_crop_width=728,
-        static_crop_height=728,
-        loop_crop_x=72,
-        loop_crop_y=28,
-        loop_crop_width=728,
-        loop_crop_height=728
+        static_crop_x=267,
+        static_crop_y=197,
+        static_crop_width=402,
+        static_crop_height=402,
+        loop_crop_x=267,
+        loop_crop_y=197,
+        loop_crop_width=402,
+        loop_crop_height=402
     ),
     "ntp240": StationConfig(
         code="ntp240",

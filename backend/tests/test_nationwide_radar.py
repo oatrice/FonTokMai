@@ -7,7 +7,7 @@ def test_nationwide_stations_present():
     """Ensure key regional TMD radar stations are configured across Thailand."""
     required_stations = [
         "kkn120", "kkn240", "skn240", # Northeast
-        "bkk240", "ntp240",           # Central / Bangkok Metro
+        "svp240", "ntp240",           # Central / Bangkok Metro
         "cmi240", "phs240",           # North
         "ubn240",                     # East Northeast
         "srt240", "pkt240"            # South

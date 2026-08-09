@@ -26,7 +26,10 @@ def main():
 
     print(f"Downloading static image from: {args.url} ...")
     try:
-        req = urllib.request.Request(args.url, headers={'User-Agent': 'Mozilla/5.0'})
+        req = urllib.request.Request(
+            args.url, 
+            headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        )
         with urllib.request.urlopen(req) as resp:
             image_data = resp.read()
     except Exception as e:
