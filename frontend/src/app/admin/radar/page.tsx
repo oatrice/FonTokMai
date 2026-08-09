@@ -237,7 +237,7 @@ export default function AdminRadarPage() {
   };
 
   // Accurate Mouse Coordinate Translation (Natural Image 800x800 vs Rendered Size)
-  const getNaturalCoords = (e: React.MouseEvent<HTMLImageElement>) => {
+  const getNaturalCoords = (e: MouseEvent | React.MouseEvent) => {
     if (!imgRef.current) return { x: 0, y: 0 };
     const rect = imgRef.current.getBoundingClientRect();
     const naturalWidth = imgRef.current.naturalWidth || 800;
@@ -246,16 +246,42 @@ export default function AdminRadarPage() {
     const scaleX = naturalWidth / rect.width;
     const scaleY = naturalHeight / rect.height;
 
-    const mouseX = Math.round(Math.max(0, Math.min(rect.width, e.clientX - rect.left)) * scaleX);
-    const mouseY = Math.round(Math.max(0, Math.min(rect.height, e.clientY - rect.top)) * scaleY);
+    // Clamp mouse position within image bounds and scale to natural 800x800 coords
+    const mouseX = Math.round(Math.max(0, Math.min(naturalWidth, (e.clientX - rect.left) * scaleX)));
+    const mouseY = Math.round(Math.max(0, Math.min(naturalHeight, (e.clientY - rect.top) * scaleY)));
 
     return { x: mouseX, y: mouseY, rectWidth: rect.width, rectHeight: rect.height, naturalWidth, naturalHeight };
+  };
+
+  // Dragging active handle: 'create' | 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+  const [activeHandle, setActiveHandle] = useState<string | null>(null);
+  const [handleDragStart, setHandleDragStart] = useState<{ mouseX: number; mouseY: number; initX: number; initY: number; initW: number; initH: number; natW: number; natH: number } | null>(null);
+
+  const startHandleDrag = (handle: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!imgRef.current) return;
+    const coords = getNaturalCoords(e);
+    const natW = imgRef.current.naturalWidth || 800;
+    const natH = imgRef.current.naturalHeight || 800;
+    setActiveHandle(handle);
+    setHandleDragStart({
+      mouseX: coords.x,
+      mouseY: coords.y,
+      initX: cropX ?? 0,
+      initY: cropY ?? 0,
+      initW: cropW ?? natW,
+      initH: cropH ?? natH,
+      natW,
+      natH
+    });
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
     e.preventDefault();
     const coords = getNaturalCoords(e);
     setIsDragging(true);
+    setActiveHandle("create");
     setDragStart({ x: coords.x, y: coords.y });
     setCurrentDragBox({ x: coords.x, y: coords.y, w: 0, h: 0 });
   };
@@ -271,38 +297,90 @@ export default function AdminRadarPage() {
       const relY = e.clientY - rect.top;
       setHoverPos({ pixelX: coords.x, pixelY: coords.y, relX, relY });
     }
-
-    if (!isDragging || !dragStart) return;
-
-    const x = Math.min(dragStart.x, coords.x);
-    const y = Math.min(dragStart.y, coords.y);
-    const w = Math.abs(coords.x - dragStart.x);
-    const h = Math.abs(coords.y - dragStart.y);
-
-    setCurrentDragBox({ x, y, w, h });
   };
+
+  // Global Window-level MouseMove & MouseUp listeners to prevent drag loss when mouse leaves container
+  useEffect(() => {
+    if (!isDragging && !activeHandle) return;
+
+    const onGlobalMouseMove = (e: MouseEvent) => {
+      const coords = getNaturalCoords(e);
+
+      if (activeHandle && handleDragStart && activeHandle !== "create") {
+        const dx = coords.x - handleDragStart.mouseX;
+        const dy = coords.y - handleDragStart.mouseY;
+
+        let newX = handleDragStart.initX;
+        let newY = handleDragStart.initY;
+        let newW = handleDragStart.initW;
+        let newH = handleDragStart.initH;
+
+        const natW = handleDragStart.natW;
+        const natH = handleDragStart.natH;
+
+        if (activeHandle.includes("left")) {
+          newX = Math.max(0, Math.min(handleDragStart.initX + handleDragStart.initW - 20, handleDragStart.initX + dx));
+          newW = handleDragStart.initX + handleDragStart.initW - newX;
+        }
+        if (activeHandle.includes("right")) {
+          // Max width: from initX to the far edge of the image
+          newW = Math.max(20, Math.min(natW - handleDragStart.initX, handleDragStart.initW + dx));
+        }
+        if (activeHandle.includes("top")) {
+          newY = Math.max(0, Math.min(handleDragStart.initY + handleDragStart.initH - 20, handleDragStart.initY + dy));
+          newH = handleDragStart.initY + handleDragStart.initH - newY;
+        }
+        if (activeHandle.includes("bottom")) {
+          newH = Math.max(20, Math.min(natH - handleDragStart.initY, handleDragStart.initH + dy));
+        }
+
+        setCropX(newX);
+        setCropY(newY);
+        setCropW(newW);
+        setCropH(newH);
+      } else if (isDragging && dragStart) {
+        const x = Math.min(dragStart.x, coords.x);
+        const y = Math.min(dragStart.y, coords.y);
+        const w = Math.abs(coords.x - dragStart.x);
+        const h = Math.abs(coords.y - dragStart.y);
+        setCurrentDragBox({ x, y, w, h });
+      }
+    };
+
+    const onGlobalMouseUp = () => {
+      if (activeHandle && activeHandle !== "create") {
+        setActiveHandle(null);
+        setHandleDragStart(null);
+        handlePreview(cropX ?? 0, cropY ?? 0, cropW ?? 800, cropH ?? 800);
+      } else if (isDragging) {
+        setIsDragging(false);
+        setActiveHandle(null);
+        if (currentDragBox && currentDragBox.w > 10 && currentDragBox.h > 10) {
+          setCropX(currentDragBox.x);
+          setCropY(currentDragBox.y);
+          setCropW(currentDragBox.w);
+          setCropH(currentDragBox.h);
+          handlePreview(currentDragBox.x, currentDragBox.y, currentDragBox.w, currentDragBox.h);
+        }
+        setCurrentDragBox(null);
+      }
+    };
+
+    window.addEventListener("mousemove", onGlobalMouseMove);
+    window.addEventListener("mouseup", onGlobalMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", onGlobalMouseMove);
+      window.removeEventListener("mouseup", onGlobalMouseUp);
+    };
+  }, [isDragging, activeHandle, handleDragStart, dragStart, cropX, cropY, cropW, cropH, currentDragBox]);
 
   const handleMouseLeave = () => {
     setHoverPos(null);
-    if (isDragging) {
-      handleMouseUp();
-    }
   };
 
   const handleMouseUp = () => {
-    if (isDragging && currentDragBox && currentDragBox.w > 10 && currentDragBox.h > 10) {
-      setIsDragging(false);
-      setCropX(currentDragBox.x);
-      setCropY(currentDragBox.y);
-      setCropW(currentDragBox.w);
-      setCropH(currentDragBox.h);
-      setCurrentDragBox(null);
-      // Trigger preview update with new crop coordinates
-      handlePreview(currentDragBox.x, currentDragBox.y, currentDragBox.w, currentDragBox.h);
-    } else {
-      setIsDragging(false);
-      setCurrentDragBox(null);
-    }
+    // Handled by global listener
   };
 
   // Calculate visual style for dragging overlay box
@@ -330,15 +408,53 @@ export default function AdminRadarPage() {
   };
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "2rem", fontFamily: "sans-serif", color: "#1e293b" }}>
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "2rem", fontFamily: "sans-serif", color: "#1e293b", position: "relative" }}>
+      {/* Full-screen Loading Modal Overlay during image processing */}
+      {loading && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(15, 23, 42, 0.65)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+          color: "#ffffff"
+        }}>
+          <div style={{
+            width: 50,
+            height: 50,
+            border: "5px solid rgba(255, 255, 255, 0.2)",
+            borderTopColor: "#38bdf8",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite"
+          }} />
+          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+          <p style={{ marginTop: "1.25rem", fontSize: "1.125rem", fontWeight: 600, color: "#f8fafc" }}>
+            ⏳ กำลังดาวน์โหลดและประมวลผลคำนวณขอบเขตเรดาร์...
+          </p>
+          <p style={{ fontSize: "0.875rem", color: "#cbd5e1", marginTop: "0.25rem" }}>
+            โปรดรอสักครู่ ระบบกำลังปรับจูนรูปภาพและวิเคราะห์ Hough Circle
+          </p>
+        </div>
+      )}
+
       <header style={{ marginBottom: "2rem", borderBottom: "2px solid #e2e8f0", paddingBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h1 style={{ fontSize: "1.875rem", fontWeight: "bold", color: "#0f172a" }}>📡 Dynamic Radar Management Portal</h1>
           <p style={{ color: "#64748b" }}>เพิ่ม/แก้ไข/ปรับแต่งขอบเขตสถานีเรดาร์ TMD ทั่วไทย เชื่อมต่อฐานข้อมูล Neon Postgres DB</p>
         </div>
-        <button onClick={handleSeedDatabase} disabled={loading} style={{ padding: "0.75rem 1.25rem", backgroundColor: "#0284c7", color: "#fff", fontWeight: 600, border: "none", borderRadius: 8, cursor: "pointer" }}>
-          📦 นำเข้าข้อมูลเรดาร์ตั้งต้นเข้า Neon DB
-        </button>
+        {/* Only show Seed button if DB has no stations */}
+        {stations.length === 0 && (
+          <button onClick={handleSeedDatabase} disabled={loading} style={{ padding: "0.75rem 1.25rem", backgroundColor: "#0284c7", color: "#fff", fontWeight: 600, border: "none", borderRadius: 8, cursor: "pointer" }}>
+            📦 นำเข้าข้อมูลเรดาร์ตั้งต้นเข้า Neon DB
+          </button>
+        )}
       </header>
 
       {message && (
@@ -459,7 +575,7 @@ export default function AdminRadarPage() {
                       bottom: 0,
                       left: `${hoverPos.relX}px`,
                       width: "1px",
-                      borderLeft: "1px dashed #ef4444",
+                      borderLeft: "3px dashed #ef4444",
                       pointerEvents: "none",
                       zIndex: 8
                     }}
@@ -472,7 +588,7 @@ export default function AdminRadarPage() {
                       right: 0,
                       top: `${hoverPos.relY}px`,
                       height: "1px",
-                      borderTop: "1px dashed #ef4444",
+                      borderTop: "3px dashed #ef4444",
                       pointerEvents: "none",
                       zIndex: 8
                     }}
@@ -499,10 +615,52 @@ export default function AdminRadarPage() {
                 </>
               )}
 
-              {/* Dynamic Drag Box Overlay */}
+              {/* Dynamic Drag Box Overlay (While Drag-Creating New Box) */}
               <div style={getDragOverlayStyle()} />
+
+              {/* Active Crop Box with Interactive 4-Edge & 4-Corner Handles */}
+              {cropX !== null && cropY !== null && cropW !== null && cropH !== null && imgRef.current && (
+                (() => {
+                  const rect = imgRef.current.getBoundingClientRect();
+                  const scaleX = rect.width / (imgRef.current.naturalWidth || 800);
+                  const scaleY = rect.height / (imgRef.current.naturalHeight || 800);
+                  const boxLeft = cropX * scaleX;
+                  const boxTop = cropY * scaleY;
+                  const boxW = cropW * scaleX;
+                  const boxH = cropH * scaleY;
+
+                  return (
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: `${boxLeft}px`,
+                        top: `${boxTop}px`,
+                        width: `${boxW}px`,
+                        height: `${boxH}px`,
+                        border: "2px solid #3b82f6",
+                        backgroundColor: "rgba(59, 130, 246, 0.1)",
+                        boxSizing: "border-box",
+                        zIndex: 9
+                      }}
+                    >
+                      {/* Edge Handles */}
+                      <div onMouseDown={(e) => startHandleDrag("top", e)} style={{ position: "absolute", top: -4, left: "20%", right: "20%", height: 8, cursor: "ns-resize", backgroundColor: "rgba(59, 130, 246, 0.6)", borderRadius: 4 }} />
+                      <div onMouseDown={(e) => startHandleDrag("bottom", e)} style={{ position: "absolute", bottom: -4, left: "20%", right: "20%", height: 8, cursor: "ns-resize", backgroundColor: "rgba(59, 130, 246, 0.6)", borderRadius: 4 }} />
+                      <div onMouseDown={(e) => startHandleDrag("left", e)} style={{ position: "absolute", left: -4, top: "20%", bottom: "20%", width: 8, cursor: "ew-resize", backgroundColor: "rgba(59, 130, 246, 0.6)", borderRadius: 4 }} />
+                      <div onMouseDown={(e) => startHandleDrag("right", e)} style={{ position: "absolute", right: -4, top: "20%", bottom: "20%", width: 8, cursor: "ew-resize", backgroundColor: "rgba(59, 130, 246, 0.6)", borderRadius: 4 }} />
+
+                      {/* Corner Handles */}
+                      <div onMouseDown={(e) => startHandleDrag("top-left", e)} style={{ position: "absolute", top: -5, left: -5, width: 10, height: 10, cursor: "nwse-resize", backgroundColor: "#1d4ed8", border: "1px solid #fff", borderRadius: "50%" }} />
+                      <div onMouseDown={(e) => startHandleDrag("top-right", e)} style={{ position: "absolute", top: -5, right: -5, width: 10, height: 10, cursor: "nesw-resize", backgroundColor: "#1d4ed8", border: "1px solid #fff", borderRadius: "50%" }} />
+                      <div onMouseDown={(e) => startHandleDrag("bottom-left", e)} style={{ position: "absolute", bottom: -5, left: -5, width: 10, height: 10, cursor: "nesw-resize", backgroundColor: "#1d4ed8", border: "1px solid #fff", borderRadius: "50%" }} />
+                      <div onMouseDown={(e) => startHandleDrag("bottom-right", e)} style={{ position: "absolute", bottom: -5, right: -5, width: 10, height: 10, cursor: "nwse-resize", backgroundColor: "#1d4ed8", border: "1px solid #fff", borderRadius: "50%" }} />
+                    </div>
+                  );
+                })()
+              )}
+
               <p style={{ marginTop: "0.75rem", fontSize: "0.875rem", color: "#475569", textAlign: "center" }}>
-                🔴 <b>เส้นสีแดง</b>: เส้นเล็งเลเซอร์ (Crosshair Guide) | 🟡 <b>เส้นสีส้ม</b>: กรอบที่จะนำไป Crop ตัดขอบ
+                🔴 <b>เส้นสีแดง</b>: เส้นเล็งเลเซอร์ | 🔵 <b>กรอบสีน้ำเงิน</b>: ขอบ Crop พร้อมปุ่มจับลากทั้ง 4 ด้านและ 4 มุม | 🟡 <b>เส้นสีส้ม</b>: กรอบสร้างใหม่
               </p>
             </div>
           ) : (

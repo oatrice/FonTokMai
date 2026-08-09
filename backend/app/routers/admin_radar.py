@@ -170,20 +170,28 @@ async def get_radar_presets():
 
 @router.post("/seed")
 async def seed_radar_stations_to_db(db=Depends(get_async_db)):
-    """Seeds codebase TMD radar stations into DB if missing, ensuring tables exist first."""
+    """Seeds validated TMD radar stations into DB (cleaning unvalidated ones first)."""
     from app.database import engine, Base
-    import app.models # Ensure models registered
+    import app.models
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     from app.services.tmd_radar_catalog import KNOWN_TMD_RADAR_PRESETS
+    from sqlalchemy import delete
+    from app.models import RadarStationModel
+
+    # Delete existing stations to reset to validated list only
+    valid_codes = [p["code"] for p in KNOWN_TMD_RADAR_PRESETS]
+    await db.execute(delete(RadarStationModel).where(RadarStationModel.code.not_in(valid_codes)))
+    await db.commit()
+
     repo = RadarStationRepository(db)
     count = 0
     for preset in KNOWN_TMD_RADAR_PRESETS:
         await repo.upsert_station(preset)
         count += 1
     radar_registry.invalidate_cache()
-    return {"status": "ok", "message": f"Successfully seeded {count} radar stations into DB."}
+    return {"status": "ok", "message": f"Successfully synced DB to {count} validated radar stations."}
 
 @router.get("/stations")
 async def list_radar_stations(db=Depends(get_async_db)):
