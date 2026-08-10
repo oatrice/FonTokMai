@@ -338,8 +338,8 @@ class TMDCacheMixin:
                 needs_fallback = True
                 fallback_reason = f"Cache has <6 frames ({len(frames)})"
 
-        # If not outdated/dead and unchanged, return early
-        if not needs_fallback and ((ts and ts <= latest_ts) or not static_bytes):
+        # If not force, not outdated/dead and unchanged, return early
+        if not force and not needs_fallback and ((ts and ts <= latest_ts) or not static_bytes):
             logger.debug(f"[{station}] Image unchanged or unavailable (ts {ts}). Skipping.")
             result["reason"] = "unchanged"
             return result
@@ -365,8 +365,6 @@ class TMDCacheMixin:
                 base_ts = ts if ts else now_ts
                 for i, f_img in enumerate(recent_fallback):
                     f_ts = await ocr_svc.get_frame_timestamp(f_img, fallback_ts=base_ts - i * 900)
-                    if f_img.shape[0] != 800 or f_img.shape[1] != 800:
-                        f_img = cv2.resize(f_img, (800, 800), interpolation=cv2.INTER_NEAREST)
                     is_success, buffer = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
                     if is_success:
                         f_url = await self.save_polled_frame(buffer.tobytes())

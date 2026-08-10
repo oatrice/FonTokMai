@@ -270,7 +270,7 @@ class TMDClusteringMixin:
           cx, cy, dbz_now, dbz_prev, growth_rate, predicted_dbz, dist, eta_min
         """
         # Restrict search to the valid radar crop area to exclude legend strips
-        is_loop = flow.shape[0] < 800 or flow.shape[1] < 800
+        is_loop = flow.shape[0] < 600 or flow.shape[1] < 600
         crop_x0 = self.config.loop_crop_x if is_loop else self.config.static_crop_x
         crop_y0 = self.config.loop_crop_y if is_loop else self.config.static_crop_y
         crop_w  = self.config.loop_crop_width if is_loop else self.config.static_crop_width

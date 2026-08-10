@@ -515,7 +515,7 @@ class WeatherManager:
                 if len(frame_timestamps) >= 2:
                     data_gap_minutes = (frame_timestamps[-1] - frame_timestamps[-2]) / 60.0
                 
-                is_loop = frames[-1].shape[0] < 800 or frames[-1].shape[1] < 800
+                is_loop = frames[-1].shape[0] < 600 or frames[-1].shape[1] < 600
                 frame_source = "loop_gif" if is_loop else "static_cache"
                 
                 _GLOBAL_TMD_CACHE[station_code] = (
@@ -636,7 +636,7 @@ class WeatherManager:
             # Normalize flow to represent exactly 15 minutes of displacement
             flow = flow / (data_gap_minutes / 15.0)
             
-        is_loop = frames[-1].shape[0] < 800 or frames[-1].shape[1] < 800
+        is_loop = frames[-1].shape[0] < 600 or frames[-1].shape[1] < 600
         frame_source = "loop_gif" if is_loop else "static_cache"
         logger.info(
             f"[{station_code}] 🗃️  Firestore cache LOADED — "
@@ -790,10 +790,6 @@ class WeatherManager:
                                 saved_frames = []
                                 try:
                                     for f_img, f_ts in zip(frames, frame_timestamps):
-                                        # Resize to 800×800 so is_loop detection (frame.shape < 800)
-                                        # returns False when reloaded — ensuring static pixel coords.
-                                        if f_img.shape[0] != 800 or f_img.shape[1] != 800:
-                                            f_img = cv2.resize(f_img, (800, 800), interpolation=cv2.INTER_NEAREST)
                                         is_ok, buf = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
                                         if is_ok:
                                             f_url = await processor.save_polled_frame(buf.tobytes())
