@@ -648,13 +648,13 @@ class WeatherManager:
             stations_to_check = [force_station]
         else:
             from app.services.tmd_radar_registry import radar_registry
-            from app.database import get_async_db
+            from app.database import AsyncSessionLocal
             
             # Fetch stations dynamically from Neon DB (or registry cache)
             stations_map = {}
             try:
-                async with get_repo_context() as repo:
-                    stations_map = await radar_registry.get_all_stations(repo.session)
+                async with AsyncSessionLocal() as session:
+                    stations_map = await radar_registry.get_all_stations(session)
             except Exception as _e:
                 logger.warning(f"Failed to fetch dynamic radar stations, falling back to static config: {_e}")
                 from app.services.tmd_radar_config import STATIONS
@@ -670,15 +670,16 @@ class WeatherManager:
 
         for station_code in stations_to_check:
             try:
-                processor = TMDRadarProcessor(station_code)
+                st_conf = stations_map.get(station_code)
+                processor = TMDRadarProcessor(station_code, config=st_conf)
                 px, py = processor.latlng_to_pixel(lat, lng, is_loop=False)
                 if px is None or py is None:
                     continue
 
                 # Use module-level cache and lock to prevent cache stampede
-                lock = _GLOBAL_TMD_LOCKS.get(station_code)
-                if lock is None:
-                    continue
+                if station_code not in _GLOBAL_TMD_LOCKS:
+                    _GLOBAL_TMD_LOCKS[station_code] = asyncio.Lock()
+                lock = _GLOBAL_TMD_LOCKS[station_code]
                 
                 async with lock:
                     cached_data = _GLOBAL_TMD_CACHE.get(station_code)
@@ -1398,6 +1399,7 @@ class WeatherManager:
                     except Exception as e:
                         logger.error(f"Failed to generate multiframe PNG: {e}")
                 
+                logger.info(f"[TMD_RADAR] ✅ Using station={station_code} | frames={len(frames)} | source={frame_source}")
                 return {
                     "predictions":       predictions,
                     "intensity":         intensity,

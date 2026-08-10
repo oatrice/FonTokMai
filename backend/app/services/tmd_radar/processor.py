@@ -63,11 +63,18 @@ from .multiframe import TMDMultiframeMixin
 from .cache import TMDCacheMixin
 
 class TMDRadarProcessor(TMDCacheMixin, TMDTrackingMixin, TMDMultiframeMixin, TMDClusteringMixin):
-    def __init__(self, station_code: str):
+    def __init__(self, station_code: str, config: Optional["StationConfig"] = None):
         self.station_code = station_code
-        if station_code not in STATIONS:
-            raise ValueError(f"Unknown station code: {station_code}")
-        self.config = STATIONS[station_code]
+        if config:
+            self.config = config
+        elif station_code in STATIONS:
+            self.config = STATIONS[station_code]
+        else:
+            from app.services.tmd_radar_registry import radar_registry
+            if station_code in radar_registry._cached_stations:
+                self.config = radar_registry._cached_stations[station_code]
+            else:
+                raise ValueError(f"Unknown station code: {station_code}")
         self.storage_dir = os.path.join(os.getcwd(), "backend", "tmp")
 
     def latlng_to_pixel(self, lat: float, lng: float, is_loop: bool = True, projection: str = None) -> Tuple[Optional[int], Optional[int]]:
