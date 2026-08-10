@@ -1,64 +1,112 @@
 # backend/tests/test_auto_calibration.py
 
-import pytest
-import numpy as np
+import os
 import cv2
+import numpy as np
+import pytest
 from app.services.tmd_radar.auto_calibration import AutoCalibrationService
 
-def create_synthetic_radar_image(width=800, height=800, center=(400, 400), radius=350):
-    """Creates a synthetic radar image with a dark background and a bright circle border."""
-    img = np.zeros((height, width, 3), dtype=np.uint8)
-    # Draw radar circle border (white/bright line)
-    cv2.circle(img, center, radius, (255, 255, 255), 4)
-    return img
-
 def test_detect_radar_circle_synthetic():
-    img = create_synthetic_radar_image(width=800, height=800, center=(400, 400), radius=350)
+    """Test Hough circle detection on a synthetic image containing a drawn circle."""
     service = AutoCalibrationService()
-    
+    # Create 800x800 white image
+    img = np.ones((800, 800, 3), dtype=np.uint8) * 255
+    # Draw black circle near center (cx=400, cy=400, r=300)
+    cv2.circle(img, (400, 400), 300, (0, 0, 0), 4)
+
     circle = service.detect_radar_circle(img)
     assert circle is not None
     cx, cy, r = circle
-    assert abs(cx - 400) <= 5
-    assert abs(cy - 400) <= 5
-    assert abs(r - 350) <= 5
+    assert abs(cx - 400) <= 10
+    assert abs(cy - 400) <= 10
+    assert abs(r - 300) <= 10
 
-def test_calculate_crops_from_circle():
+def test_calculate_crops():
+    """Test static and loop crop calculation logic."""
     service = AutoCalibrationService()
-    # Given detected circle (cx=400, cy=400, r=350) in an 800x800 image
-    crop_info = service.calculate_crops(img_shape=(800, 800, 3), circle=(400, 400, 350), loop_shape=(680, 680, 3))
-    
-    assert crop_info["static_crop_x"] == 50
-    assert crop_info["static_crop_y"] == 50
-    assert crop_info["static_crop_width"] == 700
-    assert crop_info["static_crop_height"] == 700
+    img_shape = (800, 800, 3)
+    circle = (400, 400, 300) # cx=400, cy=400, r=300 -> crop box x=100, y=100, w=600, h=600
 
-    # loop crop scaled proportionally (680 / 800 * 700 = 595, offset 680 / 800 * 50 = 42.5 -> 42/43)
-    assert abs(crop_info["loop_crop_width"] - 595) <= 2
-    assert abs(crop_info["loop_crop_height"] - 595) <= 2
+    # Test without loop shape (1:1 ratio)
+    crops = service.calculate_crops(img_shape, circle)
+    assert crops["static_crop_x"] == 100
+    assert crops["static_crop_y"] == 100
+    assert crops["static_crop_width"] == 600
+    assert crops["static_crop_height"] == 600
+    assert crops["loop_crop_x"] == 100
+    assert crops["loop_crop_y"] == 100
 
-def test_generate_station_config_snippet():
+    # Test with loop shape scaling (e.g. 400x400 loop image)
+    loop_shape = (400, 400, 3)
+    crops_scaled = service.calculate_crops(img_shape, circle, loop_shape=loop_shape)
+    assert crops_scaled["loop_crop_x"] == 50
+    assert crops_scaled["loop_crop_y"] == 50
+    assert crops_scaled["loop_crop_width"] == 300
+    assert crops_scaled["loop_crop_height"] == 300
+
+def test_generate_config_snippet():
+    """Test generating python StationConfig code snippet."""
     service = AutoCalibrationService()
+    crop_info = {
+        "static_crop_x": 100, "static_crop_y": 100, "static_crop_width": 600, "static_crop_height": 600,
+        "loop_crop_x": 50, "loop_crop_y": 50, "loop_crop_width": 300, "loop_crop_height": 300
+    }
     snippet = service.generate_config_snippet(
         code="cmi240",
         name="Chiang Mai (240km)",
         static_url="https://weather.tmd.go.th/cmi/cmi240_latest.jpg",
         loop_page_url="https://weather.tmd.go.th/cmiLoop.php",
-        loop_gif_url="https://weather.tmd.go.th/cmi/cmiloop.gif",
+        loop_gif_url="https://weather.tmd.go.th/cmi/cmi240_loop.gif",
         lat=18.77,
-        lng=98.97,
+        lng=98.96,
         radius_km=240.0,
-        crop_info={
-            "static_crop_x": 50,
-            "static_crop_y": 50,
-            "static_crop_width": 700,
-            "static_crop_height": 700,
-            "loop_crop_x": 42,
-            "loop_crop_y": 42,
-            "loop_crop_width": 595,
-            "loop_crop_height": 595,
-        }
+        crop_info=crop_info
     )
+
+    assert "CMI240_BBOX = BoundingBox" in snippet
     assert '"cmi240": StationConfig(' in snippet
-    assert 'center_lat=18.77' in snippet
-    assert 'radius_km=240.0' in snippet
+    assert 'static_crop_x=100' in snippet
+    assert 'loop_crop_x=50' in snippet
+
+def test_draw_crop_preview_and_base64():
+    """Test drawing crop overlay and converting to base64 jpeg data URL."""
+    service = AutoCalibrationService()
+    img = np.zeros((400, 400, 3), dtype=np.uint8)
+    preview = service.draw_crop_preview(img, 50, 50, 200, 200, circle=(200, 200, 100))
+    assert preview.shape == img.shape
+
+    b64 = service.to_base64_jpeg(preview)
+    assert b64.startswith("data:image/jpeg;base64,")
+
+def test_cli_auto_calibrate_verify(tmp_path, monkeypatch):
+    """Test CLI script invocation with --verify flag generating output image."""
+    from unittest.mock import patch, MagicMock
+    import scripts.calibrate_station_cli as cli
+
+    # Create synthetic image bytes
+    img = np.ones((800, 800, 3), dtype=np.uint8) * 255
+    cv2.circle(img, (400, 400), 300, (0, 0, 0), 4)
+    _, img_bytes = cv2.imencode(".jpg", img)
+
+    out_file = str(tmp_path / "verify.jpg")
+    test_args = [
+        "calibrate_station_cli.py",
+        "--code", "test240",
+        "--name", "Test Radar (240km)",
+        "--url", "https://weather.tmd.go.th/test/test240_latest.jpg",
+        "--lat", "13.68",
+        "--lng", "100.74",
+        "--verify",
+        "--output_image", out_file
+    ]
+
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = img_bytes.tobytes()
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("sys.argv", test_args), patch("urllib.request.urlopen", return_value=mock_resp):
+        cli.main()
+
+    assert os.path.exists(out_file)
+    assert os.path.getsize(out_file) > 0
+

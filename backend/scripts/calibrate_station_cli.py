@@ -71,7 +71,14 @@ def main():
     print("="*60 + "\n")
 
     if args.verify:
-        overlay = service.draw_verification_overlay(img, circle, (circle[0], circle[1]))
+        overlay = service.draw_crop_preview(
+            img,
+            crop_info["static_crop_x"],
+            crop_info["static_crop_y"],
+            crop_info["static_crop_width"],
+            crop_info["static_crop_height"],
+            circle=circle
+        )
         cv2.imwrite(args.output_image, overlay)
         print(f"Verification overlay image saved to: {args.output_image}")
 

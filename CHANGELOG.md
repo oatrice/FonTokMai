@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.73.0] - 2026-08-10
+
+### Added
+- **TMD Radar Auto-Calibration Pipeline & CLI (Issue #99)**: Built `AutoCalibrationService` and CLI tool (`backend/scripts/calibrate_station_cli.py`) utilizing Hough Circle Detection (`cv2.HoughCircles`) to automatically detect radar circle boundaries, calculate static/loop crop coordinates, and output StationConfig snippets with `--verify` overlay image generation.
+- **Auto-Calibration Unit Test Suite**: Added `backend/tests/test_auto_calibration.py` covering synthetic circle detection, crop scaling, snippet formatting, and CLI execution.
+
+### Changed
+- **Neon DB Database Migration**: Migrated `api_reliability` and radar caching logic from Firestore to Neon DB PostgreSQL via SQLAlchemy/`SQLiteLocationRepository`.
+- **Weather Source Fallback Priority**: Refactored `WeatherManager` fallback priority ordering using `WeatherEndpoint(StrEnum)` to enforce local `tmd-radar` as the top priority tie-breaker when accuracy scores tie.
+
 ## [0.72.0] - 2026-08-09
 
 ### Added
