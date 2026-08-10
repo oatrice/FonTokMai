@@ -9,11 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **TMD Radar Auto-Calibration Pipeline & CLI (Issue #99)**: Built `AutoCalibrationService` and CLI tool (`backend/scripts/calibrate_station_cli.py`) utilizing Hough Circle Detection (`cv2.HoughCircles`) to automatically detect radar circle boundaries, calculate static/loop crop coordinates, and output StationConfig snippets with `--verify` overlay image generation.
-- **Auto-Calibration Unit Test Suite**: Added `backend/tests/test_auto_calibration.py` covering synthetic circle detection, crop scaling, snippet formatting, and CLI execution.
+- **Auto-Calibration Unit Test Suite**: Added `backend/tests/test_auto_calibration.py` covering synthetic circle detection, crop scaling, snippet formatting, and CLI execution (5 passing tests).
+- **Admin UI Loop URL Configuration**: Added explicit `Loop Page URL` and `Loop GIF URL` input fields in Web Admin UI (`/admin/radar`) with auto-generation and dynamic catalog seeding for stations like `ubn240` and `svp240`.
 
 ### Changed
+- **Native Image Aspect Ratio Preservation**: Removed hardcoded `800x800` image resizing in `cache.py` and `weather_manager.py` to preserve native image aspect ratios (e.g., `936x797` for Ubon Ratchathani `ubn240`) across all rendered radar maps (`radar_latest.png`, `radar_tracking.png`, `radar_multiframe.png`).
+- **Cache Sliding Window Expansion**: Updated cache freshness threshold and fallback condition from 2 to 6 frames in `cache.py` to ensure complete 6-frame historical sequence accumulation.
 - **Neon DB Database Migration**: Migrated `api_reliability` and radar caching logic from Firestore to Neon DB PostgreSQL via SQLAlchemy/`SQLiteLocationRepository`.
 - **Weather Source Fallback Priority**: Refactored `WeatherManager` fallback priority ordering using `WeatherEndpoint(StrEnum)` to enforce local `tmd-radar` as the top priority tie-breaker when accuracy scores tie.
+
+### Fixed
+- **OCR Space-less Timestamp Extraction**: Fixed `_extract_timestamp_from_text` regex in `ocr_service.py` to support OCR timestamp strings lacking whitespace separators (e.g., `2026-08-1013:15:00`).
+- **GIF Bootstrap Cache Invalidation**: Fixed `is_bootstrap` check in `cache.py` to match dynamic `Cache has <` prefix so full 6-frame GIF sequences are properly adopted into cache.
 
 ## [0.72.0] - 2026-08-09
 

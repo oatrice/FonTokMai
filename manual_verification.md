@@ -63,12 +63,23 @@
 ---
 
 ## 📸 Proof of Verification (Artifacts & Logs)
-- **Automated Unit Test Results**:
+
+### 1. Automated Test Suite Execution (9 Passed)
+```text
+backend/tests/test_auto_calibration.py .....                             [ 41%]
+backend/tests/test_ocr_service.py ...ss.s                                [100%]
+
+========================= 9 passed, 3 skipped in 0.41s =========================
+```
+
+### 2. Live Telegram Bot & Ubon Radar (`ubn240`) Verification
+- **6-Frame Sequence Accumulation**:
   ```text
-  tests/test_auto_calibration.py::test_detect_radar_circle_synthetic PASSED [ 20%]
-  tests/test_auto_calibration.py::test_calculate_crops PASSED              [ 40%]
-  tests/test_auto_calibration.py::test_generate_config_snippet PASSED      [ 60%]
-  tests/test_auto_calibration.py::test_draw_crop_preview_and_base64 PASSED [ 80%]
-  tests/test_auto_calibration.py::test_cli_auto_calibrate_verify PASSED    [100%]
-  ============================== 5 passed in 0.18s ===============================
+  INFO:app.services.weather_manager:[ubn240] 🗃️ Firestore cache LOADED — 6 frames, source=static_cache, latest_ts=1786372200
+  INFO:app.services.weather_manager:[FRAME_ID] station=ubn240, source=static_cache, n_frames=6 (last_ts=1786372200), timestamps=[1786365000, 1786365900, 1786366800, 1786371300, 1786372200]
+  ```
+- **Native Widescreen Aspect Ratio Preservation (`936 x 797`)**:
+  ```text
+  Latest loaded curr_frame shape for full radar: (797, 936, 3)
+  Rendered full radar (radar_latest.png) HQ dimension: width=2808, height=2391 (Ratio: 1.174 Widescreen)
   ```
