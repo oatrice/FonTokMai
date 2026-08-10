@@ -33,6 +33,8 @@ export default function AdminRadarPage() {
   const [code, setCode] = useState("ubn240");
   const [name, setName] = useState("Ubon Ratchathani (240km) / อุบลราชธานี");
   const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/ubn/ubn240_latest.jpg");
+  const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/ubnLoop.php");
+  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/ubn/ubnloop.gif");
   const [lat, setLat] = useState(15.2447);
   const [lng, setLng] = useState(104.8711);
   const [radiusKm, setRadiusKm] = useState(240.0);
@@ -74,18 +76,20 @@ export default function AdminRadarPage() {
     }
   };
 
-  const handleSelectStationFromTable = (st: any) => {
+  const handleSelectStationFromTable = (st: Station) => {
     setCode(st.code);
     setName(st.name);
-    setImageUrl(st.static_image_url || `https://weather.tmd.go.th/${st.code.substring(0, 3)}/${st.code}_latest.jpg`);
+    setImageUrl(st.static_image_url);
+    setLoopPageUrl(st.loop_page_url || `https://weather.tmd.go.th/${st.code.substring(0, 3)}Loop.php`);
+    setLoopGifUrl(st.loop_gif_url || `https://weather.tmd.go.th/${st.code.substring(0, 3)}/${st.code.substring(0, 3)}loop.gif`);
     setLat(st.center_lat);
     setLng(st.center_lng);
     setRadiusKm(st.radius_km);
 
-    const cX = st.static_crop?.x ?? 0;
-    const cY = st.static_crop?.y ?? 0;
-    const cW = st.static_crop?.width ?? 800;
-    const cH = st.static_crop?.height ?? 800;
+    const cX = st.static_crop.x;
+    const cY = st.static_crop.y;
+    const cW = st.static_crop.width;
+    const cH = st.static_crop.height;
 
     setCropX(cX);
     setCropY(cY);
@@ -121,6 +125,8 @@ export default function AdminRadarPage() {
       setCode(preset.code);
       setName(preset.name);
       setImageUrl(preset.static_image_url);
+      setLoopPageUrl(preset.loop_page_url || `https://weather.tmd.go.th/${preset.code.substring(0, 3)}Loop.php`);
+      setLoopGifUrl(preset.loop_gif_url || `https://weather.tmd.go.th/${preset.code.substring(0, 3)}/${preset.code.substring(0, 3)}loop.gif`);
       setLat(preset.center_lat);
       setLng(preset.center_lng);
       setRadiusKm(preset.radius_km);
@@ -221,8 +227,8 @@ export default function AdminRadarPage() {
         code,
         name,
         static_image_url: imageUrl,
-        loop_page_url: `https://weather.tmd.go.th/${code.substring(0, 3)}Loop.php`,
-        loop_gif_url: `https://weather.tmd.go.th/${code.substring(0, 3)}/${code.substring(0, 3)}loop.gif`,
+        loop_page_url: loopPageUrl || `https://weather.tmd.go.th/${code.substring(0, 3)}Loop.php`,
+        loop_gif_url: loopGifUrl || `https://weather.tmd.go.th/${code.substring(0, 3)}/${code.substring(0, 3)}loop.gif`,
         center_lat: Number(lat),
         center_lng: Number(lng),
         radius_km: Number(radiusKm),
@@ -532,6 +538,16 @@ export default function AdminRadarPage() {
             <div>
               <label style={{ fontSize: "0.875rem", fontWeight: 600 }}>Static Radar Image URL</label>
               <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://weather.tmd.go.th/svp/svp240_latest.jpg" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.875rem", fontWeight: 600 }}>Loop Page URL (HTML Web Page)</label>
+              <input value={loopPageUrl} onChange={(e) => setLoopPageUrl(e.target.value)} placeholder="https://weather.tmd.go.th/ubnLoop.php" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.875rem", fontWeight: 600 }}>Loop GIF URL (Direct Animated GIF)</label>
+              <input value={loopGifUrl} onChange={(e) => setLoopGifUrl(e.target.value)} placeholder="https://weather.tmd.go.th/ubn/ubnloop.gif" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
