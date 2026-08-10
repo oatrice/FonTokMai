@@ -164,3 +164,16 @@ class LocationRepository(ABC):
     ) -> None:
         """อัปเดตโหมดการติดตามเป้าก้อนเมฆ (auto หรือ manual) และข้อมูล target ที่ล็อคไว้"""
         pass
+
+    @abstractmethod
+    async def get_radar_timestamp_cache(self, frame_hash: str) -> Optional[int]:
+        pass
+
+    @abstractmethod
+    async def set_radar_timestamp_cache(self, frame_hash: str, timestamp: int) -> None:
+        pass
+
+    @abstractmethod
+    async def check_and_increment_vision_quota(self, limit: int = 1000) -> bool:
+        pass
+

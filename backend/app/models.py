@@ -152,3 +152,17 @@ class Payout(Base):
     failure_message = Column(String, nullable=True)
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=False)
+
+class RadarFrameCache(Base):
+    __tablename__ = "radar_frame_cache"
+
+    frame_hash = Column(String, primary_key=True, index=True)
+    timestamp = Column(BigInteger, nullable=False)
+    created_at = Column(DateTime, nullable=False)
+
+class ApiQuota(Base):
+    __tablename__ = "api_quotas"
+
+    quota_key = Column(String, primary_key=True, index=True)
+    count = Column(Integer, default=0, nullable=False)
+

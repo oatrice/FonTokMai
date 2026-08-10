@@ -325,7 +325,21 @@ class WeatherManager:
         async with get_repo_context() as repo:
             reliabilities = await repo.get_all_api_reliability()
             
-        sorted_endpoints = sorted(reliabilities.keys(), key=lambda k: reliabilities[k], reverse=True)
+        priority_order = [
+            "tmd-radar",
+            "rainbow-local",
+            "tomorrow",
+            "rainbow-global",
+            "xweather",
+            "open-meteo",
+        ]
+        
+        def sort_key(k):
+            score = reliabilities.get(k, 0.0)
+            idx = priority_order.index(k) if k in priority_order else 999
+            return (score, -idx)
+
+        sorted_endpoints = sorted(reliabilities.keys(), key=sort_key, reverse=True)
         
         for ep in sorted_endpoints:
             if ep not in service_map:
@@ -644,22 +658,22 @@ class WeatherManager:
         then ranks by ETA and generates a smart summary with growth/decay rates.
         """
         
+        from app.services.tmd_radar_registry import radar_registry
+        from app.database import AsyncSessionLocal
+        
+        # Fetch stations dynamically from Neon DB (or registry cache)
+        stations_map = {}
+        try:
+            async with AsyncSessionLocal() as session:
+                stations_map = await radar_registry.get_all_stations(session)
+        except Exception as _e:
+            logger.warning(f"Failed to fetch dynamic radar stations, falling back to static config: {_e}")
+            from app.services.tmd_radar_config import STATIONS
+            stations_map = STATIONS
+
         if force_station:
             stations_to_check = [force_station]
         else:
-            from app.services.tmd_radar_registry import radar_registry
-            from app.database import AsyncSessionLocal
-            
-            # Fetch stations dynamically from Neon DB (or registry cache)
-            stations_map = {}
-            try:
-                async with AsyncSessionLocal() as session:
-                    stations_map = await radar_registry.get_all_stations(session)
-            except Exception as _e:
-                logger.warning(f"Failed to fetch dynamic radar stations, falling back to static config: {_e}")
-                from app.services.tmd_radar_config import STATIONS
-                stations_map = STATIONS
-
             def get_dist(code):
                 conf = stations_map.get(code)
                 if not conf: return float('inf')

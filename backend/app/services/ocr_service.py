@@ -30,11 +30,12 @@ try:
 except ImportError:
     pytesseract = None
 
-from app.repositories.firestore import FirestoreLocationRepository
+from contextlib import asynccontextmanager
+from app.dependencies import get_repo_context
 
 class OCRService:
-    def __init__(self):
-        self.repo = FirestoreLocationRepository()
+    def __init__(self, repo=None):
+        self.repo = repo
         
         # Initialize Gemini API if key is present and package is installed
         self.gemini_key = os.environ.get("GEMINI_API_KEY")
@@ -43,6 +44,14 @@ class OCRService:
             self.gemini_client = genai.Client(api_key=self.gemini_key)
             
         self.ocr_space_key = os.environ.get("OCR_SPACE_API_KEY")
+
+    @asynccontextmanager
+    async def _get_repo(self):
+        if self.repo is not None:
+            yield self.repo
+        else:
+            async with get_repo_context() as repo:
+                yield repo
 
     def _hash_frame(self, frame: np.ndarray) -> str:
         """Hash only the bottom timestamp crop for cache keying.
@@ -298,16 +307,18 @@ class OCRService:
         """
         frame_hash = self._hash_frame(frame)
         if not skip_hash_cache:
-            cached_ts = await self.repo.get_radar_timestamp_cache(frame_hash)
-            if cached_ts is not None:
-                return cached_ts
+            async with self._get_repo() as repo:
+                cached_ts = await repo.get_radar_timestamp_cache(frame_hash)
+                if cached_ts is not None:
+                    return cached_ts
 
         ts = await self._run_live_ocr(frame)
         if ts is None and use_crop:
             ts = await self._run_live_ocr(self.timestamp_crop(frame))
 
         if ts is not None:
-            await self.repo.set_radar_timestamp_cache(frame_hash, ts)
+            async with self._get_repo() as repo:
+                await repo.set_radar_timestamp_cache(frame_hash, ts)
 
         return ts
 
@@ -331,11 +342,12 @@ class OCRService:
         short_hash = frame_hash[:8]
 
         if not skip_hash_cache:
-            cached_ts = await self.repo.get_radar_timestamp_cache(frame_hash)
-            if cached_ts is not None:
-                cached_dt = datetime.fromtimestamp(cached_ts, BKK).strftime("%H:%M:%S")
-                logger.info(f"[OCR] hash={short_hash}  CACHE HIT  ts={cached_ts}  ({cached_dt} BKK)")
-                return cached_ts
+            async with self._get_repo() as repo:
+                cached_ts = await repo.get_radar_timestamp_cache(frame_hash)
+                if cached_ts is not None:
+                    cached_dt = datetime.fromtimestamp(cached_ts, BKK).strftime("%H:%M:%S")
+                    logger.info(f"[OCR] hash={short_hash}  CACHE HIT  ts={cached_ts}  ({cached_dt} BKK)")
+                    return cached_ts
 
         logger.info(f"[OCR] hash={short_hash}  CACHE MISS  — running live OCR")
 
@@ -397,6 +409,7 @@ class OCRService:
         if ts is not None:
             # Only cache successful OCR parses — never persist poll-time fallback values.
             if fallback_ts is None or ts != fallback_ts:
-                await self.repo.set_radar_timestamp_cache(frame_hash, ts)
+                async with self._get_repo() as repo:
+                    await repo.set_radar_timestamp_cache(frame_hash, ts)
 
         return ts

@@ -14,14 +14,12 @@ from app.services.ocr_service import OCRService
 
 @pytest.fixture
 def ocr_service():
-    # Mock Firestore dependency inside the constructor
-    with patch('app.services.ocr_service.FirestoreLocationRepository') as MockRepo:
-        mock_repo_instance = MockRepo.return_value
-        mock_repo_instance.get_radar_timestamp_cache = AsyncMock(return_value=None)
-        mock_repo_instance.set_radar_timestamp_cache = AsyncMock()
-        mock_repo_instance.check_and_increment_vision_quota = AsyncMock(return_value=True)
-        service = OCRService()
-        return service
+    mock_repo_instance = AsyncMock()
+    mock_repo_instance.get_radar_timestamp_cache = AsyncMock(return_value=None)
+    mock_repo_instance.set_radar_timestamp_cache = AsyncMock()
+    mock_repo_instance.check_and_increment_vision_quota = AsyncMock(return_value=True)
+    service = OCRService(repo=mock_repo_instance)
+    return service
 
 def test_frame_to_png_bytes(ocr_service):
     img = np.zeros((10, 10, 3), dtype=np.uint8)
