@@ -44,5 +44,18 @@ KNOWN_TMD_RADAR_PRESETS = [
         "lat_max": 19.32, "lng_min": 101.95, "lat_min": 15.00, "lng_max": 106.35,
         "static_crop_x": 72, "static_crop_y": 28, "static_crop_width": 728, "static_crop_height": 728,
         "loop_crop_x": 72, "loop_crop_y": 28, "loop_crop_width": 728, "loop_crop_height": 728
+    },
+    {
+        "code": "ubn240",
+        "name": "Ubon Ratchathani (240km) / อุบลราชธานี",
+        "static_image_url": "https://weather.tmd.go.th/ubn/ubn240_latest.jpg",
+        "loop_page_url": "https://weather.tmd.go.th/ubnLoop.php",
+        "loop_gif_url": "https://weather.tmd.go.th/ubn/ubnloop.gif",
+        "center_lat": 15.2447,
+        "center_lng": 104.8711,
+        "radius_km": 240.0,
+        "lat_max": 17.40, "lng_min": 102.71, "lat_min": 13.08, "lng_max": 107.03,
+        "static_crop_x": 0, "static_crop_y": 0, "static_crop_width": 800, "static_crop_height": 800,
+        "loop_crop_x": 0, "loop_crop_y": 0, "loop_crop_width": 680, "loop_crop_height": 680
     }
 ]

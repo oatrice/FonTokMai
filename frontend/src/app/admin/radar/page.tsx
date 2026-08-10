@@ -30,11 +30,11 @@ export default function AdminRadarPage() {
   const [stations, setStations] = useState<Station[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
 
-  const [code, setCode] = useState("svp240");
-  const [name, setName] = useState("Bangkok Suvarnabhumi (240km)");
-  const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/svp/svp240_latest.jpg");
-  const [lat, setLat] = useState(13.6860);
-  const [lng, setLng] = useState(100.7486);
+  const [code, setCode] = useState("ubn240");
+  const [name, setName] = useState("Ubon Ratchathani (240km) / อุบลราชธานี");
+  const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/ubn/ubn240_latest.jpg");
+  const [lat, setLat] = useState(15.2447);
+  const [lng, setLng] = useState(104.8711);
   const [radiusKm, setRadiusKm] = useState(240.0);
 
   // Crop Controls
