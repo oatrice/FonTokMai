@@ -334,7 +334,7 @@ class TMDCacheMixin:
                     fallback_reason = "Cache is empty"
 
         if enable_fallback and not needs_fallback and len(frames) < 6:
-            if (now_ts - last_gif_fallback_time) > 1800.0:
+            if force or (now_ts - last_gif_fallback_time) > 1800.0:
                 needs_fallback = True
                 fallback_reason = f"Cache has <6 frames ({len(frames)})"
 
@@ -375,7 +375,7 @@ class TMDCacheMixin:
                 if new_frames_list:
                     gif_newest_ts = new_frames_list[0]["timestamp"]
                     current_newest_ts = frames[0]["timestamp"] if frames else 0
-                    is_bootstrap = fallback_reason.startswith("Cache has <2") or fallback_reason == "Cache is empty"
+                    is_bootstrap = fallback_reason.startswith("Cache has <") or fallback_reason == "Cache is empty"
 
                     if is_bootstrap:
                         if ts and ts > gif_newest_ts:
