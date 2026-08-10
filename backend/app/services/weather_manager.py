@@ -9,8 +9,21 @@ import io
 import numpy as np
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List, Union
+from enum import StrEnum
 from PIL import Image, ImageDraw, ImageFont
 from zoneinfo import ZoneInfo
+
+class WeatherEndpoint(StrEnum):
+    TMD_RADAR = "tmd-radar"
+    RAINBOW_LOCAL = "rainbow-local"
+    TOMORROW = "tomorrow"
+    RAINBOW_GLOBAL = "rainbow-global"
+    XWEATHER = "xweather"
+    OPEN_METEO = "open-meteo"
+
+    @classmethod
+    def priority_order(cls) -> list[str]:
+        return [e.value for e in cls]
 from .tomorrow import TomorrowService
 from .rainbow import RainbowService
 from .xweather import XweatherService
@@ -325,14 +338,7 @@ class WeatherManager:
         async with get_repo_context() as repo:
             reliabilities = await repo.get_all_api_reliability()
             
-        priority_order = [
-            "tmd-radar",
-            "rainbow-local",
-            "tomorrow",
-            "rainbow-global",
-            "xweather",
-            "open-meteo",
-        ]
+        priority_order = WeatherEndpoint.priority_order()
         
         def sort_key(k):
             score = reliabilities.get(k, 0.0)
