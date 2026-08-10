@@ -200,12 +200,12 @@ class OCRService:
         # Clean text first: sometimes OCR mis-detects colons as spaces or other symbols,
         # e.g., "13 0004" instead of "13:00:04" or similar.
         # Let's try standard regex search first
-        match = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}(?::\d{2})?)', text)
+        match = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\s*(\d{2}:\d{2}(?::\d{2})?)', text)
         
         # If not found, look for space-separated time blocks after a date string: "YYYY-MM-DD HH MM SS"
         if not match:
             # Match date followed by 2 or 3 groups of digits (e.g. HH MM or HH MM SS)
-            match_loose = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\s+(\d{2})\s+(\d{2})(?:\s+(\d{2}))?', text)
+            match_loose = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\s*(\d{2})\s+(\d{2})(?:\s+(\d{2}))?', text)
             if match_loose:
                 date_str = match_loose.group(1)
                 h = match_loose.group(2)

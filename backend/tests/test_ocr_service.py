@@ -34,6 +34,11 @@ def test_extract_timestamp_from_text(ocr_service):
     
     expected_dt1 = datetime(2026, 6, 6, 9, 30, 0, tzinfo=timezone.utc)
     assert ts1 == int(expected_dt1.timestamp())
+
+    # Test OCR text where space between date and time is omitted
+    ts_nospace = ocr_service._extract_timestamp_from_text("2026-08-1013:15:00")
+    expected_dt_nospace = datetime(2026, 8, 10, 13, 15, 0, tzinfo=timezone.utc)
+    assert ts_nospace == int(expected_dt_nospace.timestamp())
     
     # Test YYYY-MM-DD HH:MM:SS
     text2 = "TMD RADAR 2026-06-06 09:30:15"
