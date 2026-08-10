@@ -647,17 +647,26 @@ class WeatherManager:
         if force_station:
             stations_to_check = [force_station]
         else:
-            from app.services.tmd_radar_config import STATIONS
-            stations = ["kkn120", "kkn240", "skn240"]
+            from app.services.tmd_radar_registry import radar_registry
+            from app.database import get_async_db
             
+            # Fetch stations dynamically from Neon DB (or registry cache)
+            stations_map = {}
+            try:
+                async with get_repo_context() as repo:
+                    stations_map = await radar_registry.get_all_stations(repo.session)
+            except Exception as _e:
+                logger.warning(f"Failed to fetch dynamic radar stations, falling back to static config: {_e}")
+                from app.services.tmd_radar_config import STATIONS
+                stations_map = STATIONS
+
             def get_dist(code):
-                conf = STATIONS.get(code)
+                conf = stations_map.get(code)
                 if not conf: return float('inf')
-                # Simple euclidean distance for sorting priority
                 import math
                 return math.hypot(lat - conf.center_lat, lng - conf.center_lng)
                 
-            stations_to_check = sorted(stations, key=get_dist)
+            stations_to_check = sorted(list(stations_map.keys()), key=get_dist)
 
         for station_code in stations_to_check:
             try:

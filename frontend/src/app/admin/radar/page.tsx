@@ -48,6 +48,9 @@ export default function AdminRadarPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  // Table & Initial Fetch Loading State
+  const [tableLoading, setTableLoading] = useState(true);
+
   // Mouse Drag & Canvas Overlay State
   const imgRef = useRef<HTMLImageElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -57,6 +60,7 @@ export default function AdminRadarPage() {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
   const fetchStations = async () => {
+    setTableLoading(true);
     try {
       const res = await fetch(`${backendUrl}/api/v1/admin/radar/stations`);
       if (res.ok) {
@@ -65,7 +69,30 @@ export default function AdminRadarPage() {
       }
     } catch (err) {
       console.error("Failed to fetch stations", err);
+    } finally {
+      setTableLoading(false);
     }
+  };
+
+  const handleSelectStationFromTable = (st: any) => {
+    setCode(st.code);
+    setName(st.name);
+    setImageUrl(st.static_image_url || `https://weather.tmd.go.th/${st.code.substring(0, 3)}/${st.code}_latest.jpg`);
+    setLat(st.center_lat);
+    setLng(st.center_lng);
+    setRadiusKm(st.radius_km);
+
+    const cX = st.static_crop?.x ?? 0;
+    const cY = st.static_crop?.y ?? 0;
+    const cW = st.static_crop?.width ?? 800;
+    const cH = st.static_crop?.height ?? 800;
+
+    setCropX(cX);
+    setCropY(cY);
+    setCropW(cW);
+    setCropH(cH);
+
+    handlePreview(cX, cY, cW, cH, st.code, st.name, st.static_image_url, st.center_lat, st.center_lng, st.radius_km);
   };
 
   const fetchPresets = async () => {
@@ -126,7 +153,18 @@ export default function AdminRadarPage() {
     }
   };
 
-  const handlePreview = async (overrideX?: number, overrideY?: number, overrideW?: number, overrideH?: number) => {
+  const handlePreview = async (
+    overrideX?: number,
+    overrideY?: number,
+    overrideW?: number,
+    overrideH?: number,
+    overrideCode?: string,
+    overrideName?: string,
+    overrideImageUrl?: string,
+    overrideLat?: number,
+    overrideLng?: number,
+    overrideRadiusKm?: number
+  ) => {
     setLoading(true);
     setMessage("");
     try {
@@ -136,12 +174,12 @@ export default function AdminRadarPage() {
       const targetH = overrideH !== undefined ? overrideH : cropH;
 
       const payload: any = {
-        code,
-        name,
-        image_url: imageUrl,
-        lat: Number(lat),
-        lng: Number(lng),
-        radius_km: Number(radiusKm)
+        code: overrideCode || code,
+        name: overrideName || name,
+        image_url: overrideImageUrl || imageUrl,
+        lat: Number(overrideLat !== undefined ? overrideLat : lat),
+        lng: Number(overrideLng !== undefined ? overrideLng : lng),
+        radius_km: Number(overrideRadiusKm !== undefined ? overrideRadiusKm : radiusKm)
       };
       if (targetX !== null) payload.crop_x = targetX;
       if (targetY !== null) payload.crop_y = targetY;
@@ -475,39 +513,39 @@ export default function AdminRadarPage() {
                 <option value="">-- เลือกสถานีเรดาร์ที่มีอยู่ในระบบเพื่อค้นหา Lat/Lng อัตโนมัติ --</option>
                 {presets.map((p) => (
                   <option key={p.code} value={p.code}>
-                    [{p.code}] {p.name} — Lat: {p.center_lat}, Lng: {p.center_lng}
+                    {p.name} [{p.code}] (Lat: {p.center_lat}, Lng: {p.center_lng})
                   </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: 4 }}>รหัสสถานี (Station Code)</label>
-              <input type="text" value={code} onChange={(e) => setCode(e.target.value)} style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1" }} />
+              <label style={{ fontSize: "0.875rem", fontWeight: 600 }}>รหัสสถานี (Code)</label>
+              <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="เช่น svp240, kkn120" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: 4 }}>ชื่อสถานี (Station Name)</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1" }} />
+              <label style={{ fontSize: "0.875rem", fontWeight: 600 }}>ชื่อสถานี (Name)</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น Bangkok Suvarnabhumi (240km)" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: 4 }}>URL ภาพเรดาร์ (Static Image URL)</label>
-              <input type="text" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1" }} />
+              <label style={{ fontSize: "0.875rem", fontWeight: 600 }}>Static Radar Image URL</label>
+              <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://weather.tmd.go.th/svp/svp240_latest.jpg" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
               <div>
-                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: 4 }}>Latitude</label>
-                <input type="number" step="0.0001" value={lat} onChange={(e) => setLat(parseFloat(e.target.value))} style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1" }} />
+                <label style={{ fontSize: "0.875rem", fontWeight: 600 }}>Center Lat</label>
+                <input type="number" step="0.0001" value={lat} onChange={(e) => setLat(e.target.value ? parseFloat(e.target.value) : "")} placeholder="13.6860" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: 4 }}>Longitude</label>
-                <input type="number" step="0.0001" value={lng} onChange={(e) => setLng(parseFloat(e.target.value))} style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1" }} />
+                <label style={{ fontSize: "0.875rem", fontWeight: 600 }}>Center Lng</label>
+                <input type="number" step="0.0001" value={lng} onChange={(e) => setLng(e.target.value ? parseFloat(e.target.value) : "")} placeholder="100.7486" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, marginBottom: 4 }}>Radius (km)</label>
-                <input type="number" value={radiusKm} onChange={(e) => setRadiusKm(parseFloat(e.target.value))} style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1" }} />
+                <label style={{ fontSize: "0.875rem", fontWeight: 600 }}>Radius (km)</label>
+                <input type="number" value={radiusKm} onChange={(e) => setRadiusKm(e.target.value ? parseFloat(e.target.value) : "")} placeholder="240" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
               </div>
             </div>
 
@@ -666,7 +704,7 @@ export default function AdminRadarPage() {
           ) : (
             <div style={{ color: "#94a3b8", textAlign: "center", padding: "4rem 0" }}>
               <p style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🖼️</p>
-              <p>กดปุ่ม <b>Preview & Auto-Detect</b> หรือเลือก Preset เพื่อดูภาพพรีวิว</p>
+              <p>กดปุ่ม <b>Preview & Auto-Detect</b> หรือเลือกรายการในตารางด้านล่างเพื่อดูภาพพรีวิว</p>
             </div>
           )}
         </div>
@@ -674,7 +712,10 @@ export default function AdminRadarPage() {
 
       {/* Active Stations Table */}
       <section style={{ marginTop: "3rem", background: "#ffffff", padding: "1.5rem", borderRadius: 12, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", border: "1px solid #e2e8f0" }}>
-        <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1rem" }}>📋 รายการสถานีเรดาร์ใน Neon DB ({stations.length} สถานี)</h2>
+        <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "0.5rem" }}>📋 รายการสถานีเรดาร์ ({stations.length} สถานี)</h2>
+        <p style={{ fontSize: "0.875rem", color: "#64748b", marginBottom: "1rem" }}>
+          💡 <b>เคล็ดลับ:</b> คุณสามารถ <b>คลิกแถวรายการสถานีในตาราง</b> เพื่อโหลดการตั้งค่าและภาพพรีวิวขึ้นมาตรวจสอบ/แก้ไขขอบเขตได้ทันที
+        </p>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
             <thead>
@@ -689,27 +730,58 @@ export default function AdminRadarPage() {
               </tr>
             </thead>
             <tbody>
-              {stations.length === 0 ? (
+              {tableLoading ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: "2.5rem 1.5rem", textAlign: "center", color: "#0284c7" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
+                      <div style={{
+                        width: 32,
+                        height: 32,
+                        border: "3px solid #e0f2fe",
+                        borderTopColor: "#0284c7",
+                        borderRadius: "50%",
+                        animation: "spin 0.8s linear infinite"
+                      }} />
+                      <span style={{ fontWeight: 600, fontSize: "0.95rem" }}>🔄 กำลังโหลดข้อมูลสถานีเรดาร์จาก Neon DB...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : stations.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ padding: "1.5rem", textAlign: "center", color: "#64748b" }}>
-                    ไม่พบสถานีเรดาร์ใน Neon DB — กดปุ่ม <b>"📦 นำเข้าข้อมูลเรดาร์ตั้งต้นเข้า Neon DB"</b> ด้านบนเพื่อดึงข้อมูลสำเร็จรูปเข้าระบบ
+                    ไม่พบสถานีเรดาร์ — กดปุ่ม <b>"📦 นำเข้าข้อมูลเรดาร์ตั้งต้นเข้า Neon DB"</b> ด้านบนเพื่อดึงข้อมูลสำเร็จรูปเข้าระบบ
                   </td>
                 </tr>
               ) : (
                 stations.map((st) => (
-                  <tr key={st.code} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "0.75rem", fontFamily: "monospace", fontWeight: 600 }}>{st.code}</td>
-                    <td style={{ padding: "0.75rem" }}>{st.name}</td>
+                  <tr
+                    key={st.code}
+                    onClick={() => handleSelectStationFromTable(st)}
+                    style={{
+                      borderBottom: "1px solid #f1f5f9",
+                      cursor: "pointer",
+                      backgroundColor: code === st.code ? "#eff6ff" : "transparent",
+                      transition: "background-color 0.15s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      if (code !== st.code) e.currentTarget.style.backgroundColor = "#f8fafc";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (code !== st.code) e.currentTarget.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    <td style={{ padding: "0.75rem", fontFamily: "monospace", fontWeight: 600, color: code === st.code ? "#2563eb" : "#0f172a" }}>{st.code}</td>
+                    <td style={{ padding: "0.75rem", fontWeight: code === st.code ? 600 : 400 }}>{st.name}</td>
                     <td style={{ padding: "0.75rem" }}>{st.center_lat}, {st.center_lng}</td>
                     <td style={{ padding: "0.75rem" }}>{st.radius_km} km</td>
-                    <td style={{ padding: "0.75rem" }}>{st.static_crop.x}, {st.static_crop.y}, {st.static_crop.width}, {st.static_crop.height}</td>
+                    <td style={{ padding: "0.75rem", fontFamily: "monospace" }}>{st.static_crop.x}, {st.static_crop.y}, {st.static_crop.width}, {st.static_crop.height}</td>
                     <td style={{ padding: "0.75rem" }}>
                       <span style={{ padding: "0.25rem 0.5rem", borderRadius: 9999, fontSize: "0.75rem", fontWeight: 600, background: st.is_active ? "#dcfce7" : "#f1f5f9", color: st.is_active ? "#15803d" : "#64748b" }}>
                         {st.is_active ? "Active" : "Disabled"}
                       </span>
                     </td>
-                    <td style={{ padding: "0.75rem" }}>
-                      <button onClick={() => handleToggle(st.code, st.is_active)} style={{ padding: "0.25rem 0.75rem", borderRadius: 6, border: "1px solid #cbd5e1", background: "#f8fafc", cursor: "pointer" }}>
+                    <td style={{ padding: "0.75rem" }} onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => handleToggle(st.code, st.is_active)} style={{ padding: "0.25rem 0.75rem", borderRadius: 6, border: "1px solid #cbd5e1", background: "#f8fafc", cursor: "cursor" }}>
                         {st.is_active ? "Disable" : "Enable"}
                       </button>
                     </td>
