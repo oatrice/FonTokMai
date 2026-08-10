@@ -273,8 +273,8 @@ class TMDCacheMixin:
             )
             latest_ts = 0
 
-        # Skip fetch if cache is fresh, has enough frames, and force is False
-        if not force and len(frames) >= 2 and (now_ts - latest_ts) < 1200:
+        # Skip fetch if cache is fresh, has full 6 frames, and force is False
+        if not force and len(frames) >= 6 and (now_ts - latest_ts) < 1200:
             logger.debug(f"[{station}] Cache is fresh (latest_ts={latest_ts}, age={now_ts - latest_ts}s). Skipping update.")
             result["reason"] = "fresh"
             return result
@@ -333,10 +333,10 @@ class TMDCacheMixin:
                     needs_fallback = True
                     fallback_reason = "Cache is empty"
 
-        if enable_fallback and not needs_fallback and len(frames) < 2:
+        if enable_fallback and not needs_fallback and len(frames) < 6:
             if (now_ts - last_gif_fallback_time) > 1800.0:
                 needs_fallback = True
-                fallback_reason = f"Cache has <2 frames ({len(frames)})"
+                fallback_reason = f"Cache has <6 frames ({len(frames)})"
 
         # If not outdated/dead and unchanged, return early
         if not needs_fallback and ((ts and ts <= latest_ts) or not static_bytes):
