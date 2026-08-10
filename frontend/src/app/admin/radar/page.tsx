@@ -222,7 +222,7 @@ export default function AdminRadarPage() {
         name,
         static_image_url: imageUrl,
         loop_page_url: `https://weather.tmd.go.th/${code.substring(0, 3)}Loop.php`,
-        loop_gif_url: "",
+        loop_gif_url: `https://weather.tmd.go.th/${code.substring(0, 3)}/${code.substring(0, 3)}loop.gif`,
         center_lat: Number(lat),
         center_lng: Number(lng),
         radius_km: Number(radiusKm),
