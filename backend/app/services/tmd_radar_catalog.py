@@ -57,5 +57,18 @@ KNOWN_TMD_RADAR_PRESETS = [
         "lat_max": 17.40, "lng_min": 102.71, "lat_min": 13.08, "lng_max": 107.03,
         "static_crop_x": 0, "static_crop_y": 0, "static_crop_width": 800, "static_crop_height": 800,
         "loop_crop_x": 0, "loop_crop_y": 0, "loop_crop_width": 680, "loop_crop_height": 680
+    },
+    {
+        "code": "svp240",
+        "name": "Bangkok Suvarnabhumi (240km) / สุวรรณภูมิ",
+        "static_image_url": "https://weather.tmd.go.th/svp/svp240_latest.jpg",
+        "loop_page_url": "https://weather.tmd.go.th/svpLoop.php",
+        "loop_gif_url": "https://weather.tmd.go.th/svp/svploop.gif",
+        "center_lat": 13.6860,
+        "center_lng": 100.7486,
+        "radius_km": 240.0,
+        "lat_max": 15.85, "lng_min": 98.58, "lat_min": 11.52, "lng_max": 102.91,
+        "static_crop_x": 0, "static_crop_y": 0, "static_crop_width": 800, "static_crop_height": 800,
+        "loop_crop_x": 0, "loop_crop_y": 0, "loop_crop_width": 680, "loop_crop_height": 680
     }
 ]
