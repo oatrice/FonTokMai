@@ -14,7 +14,6 @@ from zoneinfo import ZoneInfo
 from typing import List, Tuple, Optional
 from app.dependencies import get_repo_context
 from app.services.ocr_service import OCRService
-from google.cloud import storage
 from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING, IGNORED_COLORS
 
 logger = logging.getLogger(__name__)
@@ -199,6 +198,7 @@ class TMDCacheMixin:
         bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
         
         # Use sync GCS upload with asyncio.to_thread
+        from google.cloud import storage
         client = storage.Client()
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(filename)
@@ -218,6 +218,7 @@ class TMDCacheMixin:
         
         def _delete_sync():
             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
+            from google.cloud import storage
             client = storage.Client()
             bucket = client.bucket(bucket_name)
             prefix = f"radar/{self.station_code}/"
