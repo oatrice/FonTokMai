@@ -126,6 +126,27 @@ class OCRService:
             print(f"Gemini Exception: {e}")
             return None
 
+    def _compress_for_ocr_space(self, content: bytes, max_dim: int = 1024) -> bytes:
+        """Downscale image bytes if dimension exceeds max_dim or payload is large to avoid HTTP 413 Payload Too Large."""
+        if len(content) <= 500_000:
+            return content
+        try:
+            nparr = np.frombuffer(content, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is None:
+                return content
+            h, w = img.shape[:2]
+            if max(h, w) > max_dim:
+                scale = max_dim / float(max(h, w))
+                new_w, new_h = int(w * scale), int(h * scale)
+                img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            success, encoded_img = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+            if success:
+                return encoded_img.tobytes()
+        except Exception as e:
+            logger.warning(f"[OCR] Failed to compress image for OCR space: {e}")
+        return content
+
     async def _call_ocr_space(self, content: bytes) -> Optional[str]:
         """Call OCR.space API."""
         if not self.ocr_space_key:
@@ -133,6 +154,7 @@ class OCRService:
             return None
             
         try:
+            content = self._compress_for_ocr_space(content, max_dim=1024)
             url = "https://api.ocr.space/parse/image"
             payload = {
                 'apikey': self.ocr_space_key,
@@ -140,7 +162,7 @@ class OCRService:
                 'OCREngine': '2' # Engine 2 is better for special characters
             }
             files = {
-                'file': ('radar.png', content, 'image/png')
+                'file': ('radar.jpg', content, 'image/jpeg')
             }
             from app.dependencies import get_http_client
             client = get_http_client()

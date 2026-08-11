@@ -27,6 +27,23 @@ def test_frame_to_png_bytes(ocr_service):
     assert isinstance(png_bytes, bytes)
     assert len(png_bytes) > 0
 
+def test_compress_for_ocr_space_large_image(ocr_service):
+    # Create large 1600x1920 image with random noise simulating real radar image
+    np.random.seed(42)
+    large_img = np.random.randint(0, 256, (1600, 1920, 3), dtype=np.uint8)
+    large_bytes = cv2.imencode('.png', large_img)[1].tobytes()
+    assert len(large_bytes) > 500_000
+
+    compressed_bytes = ocr_service._compress_for_ocr_space(large_bytes, max_dim=1024)
+    assert len(compressed_bytes) < len(large_bytes)
+
+    # Verify compressed image dimensions
+    nparr = np.frombuffer(compressed_bytes, np.uint8)
+    img_decompressed = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    assert img_decompressed is not None
+    h, w = img_decompressed.shape[:2]
+    assert max(h, w) <= 1024
+
 def test_extract_timestamp_from_text(ocr_service):
     # Test DD/MM/YYYY HH:MM
     text1 = "some radar text 06/06/2026 09:30 some other text"
