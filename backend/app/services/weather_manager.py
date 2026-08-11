@@ -636,7 +636,7 @@ class WeatherManager:
             # Normalize flow to represent exactly 15 minutes of displacement
             flow = flow / (data_gap_minutes / 15.0)
             
-        is_loop = frames[-1].shape[0] < 600 or frames[-1].shape[1] < 600
+        is_loop = frames[-1].shape[0] <= 1000 or frames[-1].shape[1] <= 1000
         frame_source = "loop_gif" if is_loop else "static_cache"
         logger.info(
             f"[{station_code}] 🗃️  Firestore cache LOADED — "

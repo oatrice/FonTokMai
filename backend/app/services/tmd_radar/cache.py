@@ -296,7 +296,7 @@ class TMDCacheMixin:
             ts = await ocr_svc.get_frame_timestamp(frame, fallback_ts=now_ts)
             ocr_ok = ts is not None and ts != now_ts
             if not ocr_ok:
-                logger.warning(f"[{station}] ⚠️ OCR failed — frame will NOT be saved to avoid corrupting sliding window")
+                logger.warning(f"[{station}] ⚠️ OCR failed on static image — frame will NOT be saved directly, forcing GIF fallback check")
                 ts = None
         else:
             logger.warning(f"[{station}] ❌ Static fetch FAILED — will attempt GIF fallback if enabled")
@@ -329,10 +329,13 @@ class TMDCacheMixin:
                 elif ts and (ts - latest_ts) > 1800.0:
                     needs_fallback = True
                     fallback_reason = f"Large time gap detected ({int((ts - latest_ts)/60)}m) between {latest_ts} and {ts}"
-            else:
-                if (now_ts - last_gif_fallback_time) > 1800.0:
-                    needs_fallback = True
-                    fallback_reason = "Cache is empty"
+        if enable_fallback and not static_bytes and not frames:
+            needs_fallback = True
+            fallback_reason = "Static fetch failed and cache empty"
+        elif enable_fallback and static_bytes and not ts:
+            if (now_ts - last_gif_fallback_time) > 300.0:
+                needs_fallback = True
+                fallback_reason = "Static fetch OCR failed"
 
         if enable_fallback and not needs_fallback and len(frames) < 6:
             if force or (now_ts - last_gif_fallback_time) > 1800.0:

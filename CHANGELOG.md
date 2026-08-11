@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.6] - 2026-08-11
+
+### Fixed
+- **Persistent Cache Frame Mapping Alignment**: Updated `is_loop` detection in `load_persistent_cache_to_memory` (`weather_manager.py`) to match `width <= 1000px`, preventing Firestore-cached $800\times 800$ frames from misidentifying as static 1600x1920 images and producing out-of-bounds user pixel coordinates (`1326, 637`).
+- **Static OCR Failure GIF Fallback Trigger**: Added automated GIF fallback triggering in `update_radar_cache` (`cache.py`) when static image fetch OCR parsing fails, ensuring fresh frames are retrieved without corrupting the sliding window cache.
+
 ## [0.72.5] - 2026-08-11
 
 ### Fixed
