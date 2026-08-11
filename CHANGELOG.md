@@ -5,17 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.73.1] - 2026-08-11
-
-### Added
-- **Chainat (chn) Radar Station Preset**: Added Chainat 240km (`chn`) radar preset to `tmd_radar_catalog.py`, `tmd_radar_config.py`, and prefilled metadata in Web Admin UI (`/admin/radar`).
-
-## [0.73.0] - 2026-08-10
+## [0.72.0] - 2026-08-11
 
 ### Added
 - **TMD Radar Auto-Calibration Pipeline & CLI (Issue #99)**: Built `AutoCalibrationService` and CLI tool (`backend/scripts/calibrate_station_cli.py`) utilizing Hough Circle Detection (`cv2.HoughCircles`) to automatically detect radar circle boundaries, calculate static/loop crop coordinates, and output StationConfig snippets with `--verify` overlay image generation.
-- **Auto-Calibration Unit Test Suite**: Added `backend/tests/test_auto_calibration.py` covering synthetic circle detection, crop scaling, snippet formatting, and CLI execution (5 passing tests).
-- **Admin UI Loop URL Configuration**: Added explicit `Loop Page URL` and `Loop GIF URL` input fields in Web Admin UI (`/admin/radar`) with auto-generation and dynamic catalog seeding for stations like `ubn240` and `svp240`.
+- **Nationwide TMD Radar Registry & Catalog (Issue #52)**: Implemented `DynamicRadarRegistry` and `tmd_radar_catalog.py` with in-memory caching and Neon DB PostgreSQL (`radar_stations`) persistence supporting nationwide TMD radar stations (`kkn120`, `kkn240`, `skn240`, `ubn240`, `svp240`, `chn`, etc.).
+- **Chainat (chn) Radar Station Preset**: Added Chainat 240km (`chn`) radar preset to `tmd_radar_catalog.py`, `tmd_radar_config.py`, and prefilled metadata in Web Admin UI (`/admin/radar`).
+- **Interactive Fine-Tuning Web Portal**: Created Next.js Admin Radar Page (`/admin/radar`) featuring live image preview, interactive crop sliders (Crop X, Y, Width, Height), status toggling, explicit `Loop Page URL`/`Loop GIF URL` inputs, and DB submission.
+- **Telegram Admin Command (`/calibrate`)**: Added `/calibrate <code|url> <lat> <lng> [radius]` command returning base64 verification overlay image in chat for mobile admins.
+- **Auto-Calibration & Catalog Test Suite**: Added unit & integration test suite (`test_auto_calibration.py`, `test_nationwide_radar.py`) with 363 passing tests.
 
 ### Changed
 - **Native Image Aspect Ratio Preservation**: Removed hardcoded `800x800` image resizing in `cache.py` and `weather_manager.py` to preserve native image aspect ratios (e.g., `936x797` for Ubon Ratchathani `ubn240`) across all rendered radar maps (`radar_latest.png`, `radar_tracking.png`, `radar_multiframe.png`).
@@ -26,15 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **OCR Space-less Timestamp Extraction**: Fixed `_extract_timestamp_from_text` regex in `ocr_service.py` to support OCR timestamp strings lacking whitespace separators (e.g., `2026-08-1013:15:00`).
 - **GIF Bootstrap Cache Invalidation**: Fixed `is_bootstrap` check in `cache.py` to match dynamic `Cache has <` prefix so full 6-frame GIF sequences are properly adopted into cache.
-
-## [0.72.0] - 2026-08-09
-
-### Added
-- **Neon DB Radar Persistence**: Created `radar_stations` table model (`RadarStationModel`) and `RadarStationRepository` in backend for storing dynamic TMD radar configurations in Neon Postgres.
-- **Dynamic Radar Registry**: Implemented `DynamicRadarRegistry` service with in-memory caching and automatic fallback to hardcoded `STATIONS` defaults if database is unreadable.
-- **Admin Radar Management API**: Introduced `/api/v1/admin/radar/` routes (`/preview`, `/stations`, `/stations/{code}/toggle`) for auto-detection, interactive fine-tuning, and station CRUD.
-- **Interactive Fine-Tuning Web Portal**: Created Next.js Admin Radar Page (`/admin/radar`) featuring live image preview, interactive crop sliders (Crop X, Y, Width, Height), status toggling, and DB submission.
-- **Telegram Admin Command (`/calibrate`)**: Added `/calibrate <code|url> <lat> <lng> [radius]` command returning base64 verification overlay image in chat for mobile admins.
 
 ## [0.71.0] - 2026-08-02
 
