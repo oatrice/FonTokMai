@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.73.1] - 2026-08-11
+
+### Added
+- **Chainat (chn) Radar Station Preset**: Added Chainat 240km (`chn`) radar preset to `tmd_radar_catalog.py`, `tmd_radar_config.py`, and prefilled metadata in Web Admin UI (`/admin/radar`).
+
 ## [0.73.0] - 2026-08-10
 
 ### Added
