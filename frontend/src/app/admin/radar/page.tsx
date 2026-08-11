@@ -12,6 +12,7 @@ interface Station {
   center_lng: number;
   radius_km: number;
   static_crop: { x: number; y: number; width: number; height: number };
+  loop_crop?: { x: number; y: number; width: number; height: number };
   is_active: boolean;
 }
 
@@ -49,12 +50,14 @@ export default function AdminRadarPage() {
   const [cropW, setCropW] = useState<number | null>(null);
   const [cropH, setCropH] = useState<number | null>(null);
 
-  const [loopCropX, setLoopCropX] = useState<number | null>(null);
-  const [loopCropY, setLoopCropY] = useState<number | null>(null);
-  const [loopCropW, setLoopCropW] = useState<number | null>(null);
-  const [loopCropH, setLoopCropH] = useState<number | null>(null);
+  const [loopOffsetX, setLoopOffsetX] = useState<number>(0);
+  const [loopOffsetY, setLoopOffsetY] = useState<number>(0);
+  const [loopOffsetW, setLoopOffsetW] = useState<number>(0);
+  const [loopOffsetH, setLoopOffsetH] = useState<number>(0);
 
   const [previewB64, setPreviewB64] = useState<string | null>(null);
+  const [loopPreviewB64, setLoopPreviewB64] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"static" | "loop">("static");
   const [calculatedBbox, setCalculatedBbox] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -106,15 +109,15 @@ export default function AdminRadarPage() {
     setCropH(cH);
 
     if (st.loop_crop) {
-      setLoopCropX(st.loop_crop.x);
-      setLoopCropY(st.loop_crop.y);
-      setLoopCropW(st.loop_crop.width);
-      setLoopCropH(st.loop_crop.height);
+      setLoopOffsetX(st.loop_crop.x - st.static_crop.x);
+      setLoopOffsetY(st.loop_crop.y - st.static_crop.y);
+      setLoopOffsetW(st.loop_crop.width - st.static_crop.width);
+      setLoopOffsetH(st.loop_crop.height - st.static_crop.height);
     } else {
-      setLoopCropX(cX);
-      setLoopCropY(cY);
-      setLoopCropW(cW);
-      setLoopCropH(cH);
+      setLoopOffsetX(0);
+      setLoopOffsetY(0);
+      setLoopOffsetW(0);
+      setLoopOffsetH(0);
     }
 
     handlePreview(cX, cY, cW, cH, st.code, st.name, st.static_image_url, st.center_lat, st.center_lng, st.radius_km);
@@ -181,10 +184,10 @@ export default function AdminRadarPage() {
   };
 
   const handlePreview = async (
-    overrideX?: number,
-    overrideY?: number,
-    overrideW?: number,
-    overrideH?: number,
+    overrideX?: number | null,
+    overrideY?: number | null,
+    overrideW?: number | null,
+    overrideH?: number | null,
     overrideCode?: string,
     overrideName?: string,
     overrideImageUrl?: string,
@@ -209,10 +212,16 @@ export default function AdminRadarPage() {
         lng: Number(overrideLng !== undefined ? overrideLng : lng),
         radius_km: Number(overrideRadiusKm !== undefined ? overrideRadiusKm : radiusKm)
       };
-      if (targetX !== null) payload.crop_x = targetX;
-      if (targetY !== null) payload.crop_y = targetY;
-      if (targetW !== null) payload.crop_width = targetW;
-      if (targetH !== null) payload.crop_height = targetH;
+      if (targetX !== null) {
+        payload.crop_x = targetX;
+        payload.crop_y = targetY;
+        payload.crop_width = targetW;
+        payload.crop_height = targetH;
+        payload.loop_crop_x = (targetX ?? 0) + loopOffsetX;
+        payload.loop_crop_y = (targetY ?? 0) + loopOffsetY;
+        payload.loop_crop_width = (targetW ?? 800) + loopOffsetW;
+        payload.loop_crop_height = (targetH ?? 800) + loopOffsetH;
+      }
 
       const res = await fetch(`${backendUrl}/api/v1/admin/radar/preview`, {
         method: "POST",
@@ -223,16 +232,19 @@ export default function AdminRadarPage() {
       const data = await res.json();
       if (res.ok) {
         setPreviewB64(data.preview_image_base64);
+        setLoopPreviewB64(data.loop_preview_image_base64 || null);
         setCalculatedBbox(data.calculated_bbox);
         setCropX(data.crop_info.static_crop_x);
         setCropY(data.crop_info.static_crop_y);
         setCropW(data.crop_info.static_crop_width);
         setCropH(data.crop_info.static_crop_height);
 
-        setLoopCropX(data.crop_info.loop_crop_x);
-        setLoopCropY(data.crop_info.loop_crop_y);
-        setLoopCropW(data.crop_info.loop_crop_width);
-        setLoopCropH(data.crop_info.loop_crop_height);
+        if (targetX === null) {
+          setLoopOffsetX(data.crop_info.loop_crop_x - data.crop_info.static_crop_x);
+          setLoopOffsetY(data.crop_info.loop_crop_y - data.crop_info.static_crop_y);
+          setLoopOffsetW(data.crop_info.loop_crop_width - data.crop_info.static_crop_width);
+          setLoopOffsetH(data.crop_info.loop_crop_height - data.crop_info.static_crop_height);
+        }
       } else {
         setMessage(`⚠️ Error: ${data.detail || "Failed to generate preview"}`);
       }
@@ -267,10 +279,10 @@ export default function AdminRadarPage() {
         static_crop_y: cropY ?? 0,
         static_crop_width: cropW ?? 800,
         static_crop_height: cropH ?? 800,
-        loop_crop_x: loopCropX ?? cropX ?? 0,
-        loop_crop_y: loopCropY ?? cropY ?? 0,
-        loop_crop_width: loopCropW ?? cropW ?? 680,
-        loop_crop_height: loopCropH ?? cropH ?? 680,
+        loop_crop_x: (cropX ?? 0) + loopOffsetX,
+        loop_crop_y: (cropY ?? 0) + loopOffsetY,
+        loop_crop_width: (cropW ?? 680) + loopOffsetW,
+        loop_crop_height: (cropH ?? 680) + loopOffsetH,
         is_active: true
       };
 
@@ -336,13 +348,19 @@ export default function AdminRadarPage() {
     const natW = imgRef.current.naturalWidth || 800;
     const natH = imgRef.current.naturalHeight || 800;
     setActiveHandle(handle);
+
+    const initX = activeTab === "loop" ? (cropX ?? 0) + loopOffsetX : (cropX ?? 0);
+    const initY = activeTab === "loop" ? (cropY ?? 0) + loopOffsetY : (cropY ?? 0);
+    const initW = activeTab === "loop" ? (cropW ?? natW) + loopOffsetW : (cropW ?? natW);
+    const initH = activeTab === "loop" ? (cropH ?? natH) + loopOffsetH : (cropH ?? natH);
+
     setHandleDragStart({
       mouseX: coords.x,
       mouseY: coords.y,
-      initX: cropX ?? 0,
-      initY: cropY ?? 0,
-      initW: cropW ?? natW,
-      initH: cropH ?? natH,
+      initX,
+      initY,
+      initW,
+      initH,
       natW,
       natH
     });
@@ -405,10 +423,17 @@ export default function AdminRadarPage() {
           newH = Math.max(20, Math.min(natH - handleDragStart.initY, handleDragStart.initH + dy));
         }
 
-        setCropX(newX);
-        setCropY(newY);
-        setCropW(newW);
-        setCropH(newH);
+        if (activeTab === "loop") {
+          setLoopOffsetX(newX - (cropX ?? 0));
+          setLoopOffsetY(newY - (cropY ?? 0));
+          setLoopOffsetW(newW - (cropW ?? 800));
+          setLoopOffsetH(newH - (cropH ?? 800));
+        } else {
+          setCropX(newX);
+          setCropY(newY);
+          setCropW(newW);
+          setCropH(newH);
+        }
       } else if (isDragging && dragStart) {
         const x = Math.min(dragStart.x, coords.x);
         const y = Math.min(dragStart.y, coords.y);
@@ -426,10 +451,17 @@ export default function AdminRadarPage() {
         setIsDragging(false);
         setActiveHandle(null);
         if (currentDragBox && currentDragBox.w > 10 && currentDragBox.h > 10) {
-          setCropX(currentDragBox.x);
-          setCropY(currentDragBox.y);
-          setCropW(currentDragBox.w);
-          setCropH(currentDragBox.h);
+          if (activeTab === "loop") {
+            setLoopOffsetX(currentDragBox.x - (cropX ?? 0));
+            setLoopOffsetY(currentDragBox.y - (cropY ?? 0));
+            setLoopOffsetW(currentDragBox.w - (cropW ?? 800));
+            setLoopOffsetH(currentDragBox.h - (cropH ?? 800));
+          } else {
+            setCropX(currentDragBox.x);
+            setCropY(currentDragBox.y);
+            setCropW(currentDragBox.w);
+            setCropH(currentDragBox.h);
+          }
         }
         setCurrentDragBox(null);
       }
@@ -636,11 +668,49 @@ export default function AdminRadarPage() {
             💡 <b>เคล็ดลับ:</b> คุณสามารถใช้เมาส์ <b>คลิกแล้วลากกรอบบนภาพพรีวิว</b> เพื่อกำหนดพื้นที่ Crop ได้ทันที
           </p>
 
+          {/* Tab Selection between Static and Loop GIFs */}
+          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", alignSelf: "flex-start" }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab("static")}
+              style={{
+                padding: "0.4rem 0.8rem",
+                borderRadius: 6,
+                border: "1px solid #cbd5e1",
+                backgroundColor: activeTab === "static" ? "#2563eb" : "#f8fafc",
+                color: activeTab === "static" ? "#ffffff" : "#475569",
+                fontWeight: 600,
+                fontSize: "0.85rem",
+                cursor: "pointer"
+              }}
+            >
+              📷 Static Image (latest.gif)
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("loop")}
+              disabled={!loopPreviewB64}
+              style={{
+                padding: "0.4rem 0.8rem",
+                borderRadius: 6,
+                border: "1px solid #cbd5e1",
+                backgroundColor: activeTab === "loop" ? "#2563eb" : "#f8fafc",
+                color: activeTab === "loop" ? "#ffffff" : "#475569",
+                fontWeight: 600,
+                fontSize: "0.85rem",
+                cursor: loopPreviewB64 ? "pointer" : "not-allowed",
+                opacity: loopPreviewB64 ? 1 : 0.5
+              }}
+            >
+              🌀 Loop GIF Frame (loop.gif) {loopPreviewB64 ? "" : "(ไม่พบคลิป Loop)"}
+            </button>
+          </div>
+
           {previewB64 ? (
             <div style={{ position: "relative", display: "inline-block", userSelect: "none" }}>
               <img
                 ref={imgRef}
-                src={previewB64}
+                src={activeTab === "loop" && loopPreviewB64 ? loopPreviewB64 : previewB64}
                 alt="Radar Preview Overlay"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
@@ -706,13 +776,18 @@ export default function AdminRadarPage() {
               {/* Active Crop Box with Interactive 4-Edge & 4-Corner Handles */}
               {cropX !== null && cropY !== null && cropW !== null && cropH !== null && imgRef.current && (
                 (() => {
+                  const targetCropX = activeTab === "loop" ? (cropX ?? 0) + loopOffsetX : cropX;
+                  const targetCropY = activeTab === "loop" ? (cropY ?? 0) + loopOffsetY : cropY;
+                  const targetCropW = activeTab === "loop" ? (cropW ?? 800) + loopOffsetW : cropW;
+                  const targetCropH = activeTab === "loop" ? (cropH ?? 800) + loopOffsetH : cropH;
+
                   const rect = imgRef.current.getBoundingClientRect();
                   const scaleX = rect.width / (imgRef.current.naturalWidth || 800);
                   const scaleY = rect.height / (imgRef.current.naturalHeight || 800);
-                  const boxLeft = cropX * scaleX;
-                  const boxTop = cropY * scaleY;
-                  const boxW = cropW * scaleX;
-                  const boxH = cropH * scaleY;
+                  const boxLeft = targetCropX * scaleX;
+                  const boxTop = targetCropY * scaleY;
+                  const boxW = targetCropW * scaleX;
+                  const boxH = targetCropH * scaleY;
 
                   return (
                     <div

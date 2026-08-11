@@ -279,6 +279,15 @@ _GLOBAL_TMD_LOCKS = {
     "skn240": asyncio.Lock(),
 }
 
+
+def invalidate_station_memory_cache(station_code: str) -> None:
+    """Evict a station from the in-process TMD frame cache.
+    Call this whenever crop calibration values are updated in DB so that
+    the next bot request forces a fresh Firestore / live download."""
+    if station_code in _GLOBAL_TMD_CACHE:
+        del _GLOBAL_TMD_CACHE[station_code]
+        logger.info(f"[CACHE INVALIDATE] In-memory cache cleared for station={station_code}")
+
 class WeatherManager:
     LAST_USED_STATION: dict[int, str] = {}
 

@@ -13,6 +13,7 @@ from app.database import AsyncSessionLocal
 from app.repositories.radar import RadarStationRepository
 from app.services.tmd_radar.auto_calibration import AutoCalibrationService
 from app.services.tmd_radar_registry import radar_registry
+from app.services.weather_manager import invalidate_station_memory_cache
 
 router = APIRouter(tags=["Admin Radar"])
 
@@ -34,6 +35,10 @@ class RadarPreviewRequest(BaseModel):
     crop_y: Optional[int] = None
     crop_width: Optional[int] = None
     crop_height: Optional[int] = None
+    loop_crop_x: Optional[int] = None
+    loop_crop_y: Optional[int] = None
+    loop_crop_width: Optional[int] = None
+    loop_crop_height: Optional[int] = None
 
 class RadarStationSaveRequest(BaseModel):
     code: str
@@ -60,8 +65,15 @@ class RadarStationSaveRequest(BaseModel):
     is_active: bool = True
 
 class RadarPreviewResponse(BaseModel):
-    preview_b64: str
+    code: str
+    name: str
+    circle_detected: bool
+    detected_circle: Optional[Any] = None
     crop_info: Dict[str, Any]
+    calculated_bbox: Dict[str, float]
+    preview_image_base64: str
+    loop_preview_image_base64: Optional[str] = None
+    code_snippet: str
     detail: Optional[str] = None
 
 logger = logging.getLogger(__name__)
@@ -111,16 +123,24 @@ async def preview_radar_crop(req: RadarPreviewRequest):
     if static_img is None:
         raise HTTPException(status_code=400, detail=f"Failed to fetch or decode static image from {req.image_url}")
 
+    loop_img = None
+    loop_circle = None
+
+    if req.loop_gif_url:
+        loop_img, loop_crop_auto, loop_circle = _fetch_and_detect(req.loop_gif_url, service)
+    else:
+        loop_crop_auto = None
+
     if req.crop_x is not None and req.crop_y is not None and req.crop_width is not None and req.crop_height is not None:
         crop_info = {
             "static_crop_x": req.crop_x,
             "static_crop_y": req.crop_y,
             "static_crop_width": req.crop_width,
             "static_crop_height": req.crop_height,
-            "loop_crop_x": req.crop_x,
-            "loop_crop_y": req.crop_y,
-            "loop_crop_width": req.crop_width,
-            "loop_crop_height": req.crop_height
+            "loop_crop_x": req.loop_crop_x if req.loop_crop_x is not None else req.crop_x,
+            "loop_crop_y": req.loop_crop_y if req.loop_crop_y is not None else req.crop_y,
+            "loop_crop_width": req.loop_crop_width if req.loop_crop_width is not None else req.crop_width,
+            "loop_crop_height": req.loop_crop_height if req.loop_crop_height is not None else req.crop_height
         }
         override_cx = req.crop_x + req.crop_width // 2
         override_cy = req.crop_y + req.crop_height // 2
@@ -128,8 +148,6 @@ async def preview_radar_crop(req: RadarPreviewRequest):
         static_circle = (override_cx, override_cy, override_r)
     else:
         # Auto-Detect mode
-        loop_img, loop_crop, loop_circle = _fetch_and_detect(req.loop_gif_url, service)
-        
         crop_info = {}
         if static_crop:
             crop_info.update(static_crop)
@@ -138,13 +156,13 @@ async def preview_radar_crop(req: RadarPreviewRequest):
                 "static_crop_x": 0, "static_crop_y": 0,
                 "static_crop_width": static_img.shape[1], "static_crop_height": static_img.shape[0]
             })
-            
-        if loop_crop:
+
+        if loop_crop_auto:
             crop_info.update({
-                "loop_crop_x": loop_crop["static_crop_x"],
-                "loop_crop_y": loop_crop["static_crop_y"],
-                "loop_crop_width": loop_crop["static_crop_width"],
-                "loop_crop_height": loop_crop["static_crop_height"]
+                "loop_crop_x": loop_crop_auto["static_crop_x"],
+                "loop_crop_y": loop_crop_auto["static_crop_y"],
+                "loop_crop_width": loop_crop_auto["static_crop_width"],
+                "loop_crop_height": loop_crop_auto["static_crop_height"]
             })
         else:
             # Fallback to static crop if loop crop fails
@@ -155,8 +173,9 @@ async def preview_radar_crop(req: RadarPreviewRequest):
                 "loop_crop_height": crop_info["static_crop_height"]
             })
 
+    loop_shape_str = str(loop_img.shape[:2]) if loop_img is not None else "None"
     logger.info(
-        f"[PREVIEW] station={req.code} | static_img_shape={static_img.shape[:2]} (h,w) | "
+        f"[PREVIEW] station={req.code} | static_img_shape={static_img.shape[:2]} (h,w) | loop_img_shape={loop_shape_str} | "
         f"static_circle_detected={static_circle} | crop_info={crop_info}"
     )
 
@@ -170,6 +189,18 @@ async def preview_radar_crop(req: RadarPreviewRequest):
     )
 
     base64_preview = service.to_base64_jpeg(preview_img)
+
+    base64_loop_preview = None
+    if loop_img is not None:
+        loop_prev_img = service.draw_crop_preview(
+            loop_img,
+            crop_info["loop_crop_x"],
+            crop_info["loop_crop_y"],
+            crop_info["loop_crop_width"],
+            crop_info["loop_crop_height"],
+            circle=loop_circle
+        )
+        base64_loop_preview = service.to_base64_jpeg(loop_prev_img)
 
     snippet = service.generate_config_snippet(
         code=req.code,
@@ -199,6 +230,7 @@ async def preview_radar_crop(req: RadarPreviewRequest):
         "crop_info": crop_info,
         "calculated_bbox": calc_bbox,
         "preview_image_base64": base64_preview,
+        "loop_preview_image_base64": base64_loop_preview,
         "code_snippet": snippet
     }
 @router.get("/presets")
@@ -274,6 +306,20 @@ async def save_radar_station(req: RadarStationSaveRequest, db=Depends(get_async_
     repo = RadarStationRepository(db)
     saved = await repo.upsert_station(req.model_dump())
     radar_registry.invalidate_cache()
+
+    # Invalidate in-memory frame cache so next bot request downloads fresh
+    # frames re-cropped with the new calibration values just saved to DB
+    invalidate_station_memory_cache(req.code)
+
+    # Also wipe Firestore frames for this station so stale frames are gone
+    try:
+        from app.dependencies import get_repo_context
+        async with get_repo_context() as _repo:
+            await _repo.set_latest_radar_cache(station_code=req.code, frames=[])
+        logger.info(f"[ADMIN] Firestore cache cleared for station={req.code} after calibration update")
+    except Exception as _e:
+        logger.warning(f"[ADMIN] Could not clear Firestore cache for {req.code}: {_e}")
+
     return {"status": "ok", "code": saved.code, "message": "Radar station saved successfully to DB."}
 
 @router.patch("/stations/{code}/toggle")
