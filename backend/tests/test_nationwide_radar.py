@@ -31,7 +31,7 @@ def test_chainat_preset_in_catalog():
     assert chn_preset["radius_km"] == 240.0
     assert chn_preset["static_image_url"] == "https://weather.tmd.go.th/chn/chn240_latest.gif"
     assert chn_preset["loop_page_url"] == "https://weather.tmd.go.th/chn.php"
-    assert chn_preset["loop_gif_url"] == "https://weather.tmd.go.th/chn/chn240_loop.gif"
+    assert chn_preset["loop_gif_url"] == "https://weather.tmd.go.th/chn/chnloop.gif"
 
 def test_bounding_box_validity():
     """Verify all bounding boxes have max > min for lat and lng."""
