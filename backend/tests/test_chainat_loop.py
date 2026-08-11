@@ -5,6 +5,7 @@ import httpx
 import io
 import cv2
 import numpy as np
+from unittest.mock import AsyncMock
 from PIL import Image, ImageSequence
 from app.services.tmd_radar_catalog import KNOWN_TMD_RADAR_PRESETS
 from app.services.tmd_radar_config import STATIONS
@@ -55,9 +56,13 @@ async def test_chainat_loop_gif_frame_extraction_and_transcribe():
         assert isinstance(frame, np.ndarray)
         assert frame.shape[0] > 100 and frame.shape[1] > 100
 
-    # Test OCR service transcribe on the last frame
-    ocr_service = OCRService()
+    # Test OCR service transcribe with mock repo to avoid uninitialized DB errors
+    mock_repo = AsyncMock()
+    mock_repo.get_radar_timestamp_cache = AsyncMock(return_value=None)
+    mock_repo.set_radar_timestamp_cache = AsyncMock()
+    ocr_service = OCRService(repo=mock_repo)
     fallback_ts = 1786426400
+
     timestamp = await ocr_service.get_frame_timestamp(frames[-1], fallback_ts=fallback_ts)
     assert timestamp is not None and isinstance(timestamp, int)
     print(f"[INTEGRATION TEST] Transcribe timestamp result for last frame: {timestamp}")
