@@ -60,6 +60,20 @@
   - HTTP Status: `200 OK`
   - Response contains `"circle_detected": true`, `"crop_info": {...}`, `"preview_image_base64": "data:image/jpeg;base64,..."`.
 
+### Scenario 3: Chainat (chn) Radar Station Preset & Frontend Prefill Verification
+- **Goal**: Verify that Chainat (`chn`) 240km radar preset is available in `KNOWN_TMD_RADAR_PRESETS` and prefilled in Web Admin UI `/admin/radar`.
+- **Steps**:
+  1. Access Web Admin UI `/admin/radar`.
+  2. Verify form input fields are prefilled with:
+     - Code: `chn`
+     - Name: `Chainat (240km) / ชัยนาท`
+     - Static Image URL: `https://weather.tmd.go.th/chn/chn240_latest.gif`
+     - Loop Page URL: `https://weather.tmd.go.th/chn.php`
+     - Loop GIF URL: `https://weather.tmd.go.th/chn/chn240_loop.gif`
+     - Lat: `15.1833`, Lng: `100.1167`, Radius: `240`
+- **Expected Outcome**:
+  - Web Admin UI renders prefilled values cleanly and TypeScript type check / build succeeds.
+
 ---
 
 ## 📸 Proof of Verification (Artifacts & Logs)
