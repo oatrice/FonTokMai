@@ -185,8 +185,8 @@ unit_tests:
   extends:
     - .telegram_notify
   before_script:
-    - *notify_start_script
     - apt-get update && apt-get install -y curl
+    - *notify_start_script
     - cd backend
     - pip install --default-timeout=100 -r requirements.txt
   script:
@@ -201,8 +201,8 @@ test_frontend:
   extends:
     - .telegram_notify
   before_script:
-    - *notify_start_script
     - apk add --no-cache curl
+    - *notify_start_script
     - cd frontend
     - npm ci
   script:
@@ -217,8 +217,8 @@ test_e2e:
   extends:
     - .telegram_notify
   before_script:
-    - *notify_start_script
     - apt-get update && apt-get install -y curl
+    - *notify_start_script
     - cd frontend
     - npm ci
   script:
