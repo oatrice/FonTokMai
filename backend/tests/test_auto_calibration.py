@@ -29,20 +29,23 @@ def test_calculate_crops():
 
     # Test without loop shape (1:1 ratio)
     crops = service.calculate_crops(img_shape, circle)
-    assert crops["static_crop_x"] == 100
-    assert crops["static_crop_y"] == 100
-    assert crops["static_crop_width"] == 600
-    assert crops["static_crop_height"] == 600
-    assert crops["loop_crop_x"] == 100
-    assert crops["loop_crop_y"] == 100
+    padding = 10
+    assert crops["static_crop_x"] == 100 - padding
+    assert crops["static_crop_y"] == 100 - padding
+    assert crops["static_crop_width"] == 600 + padding * 2
+    assert crops["static_crop_height"] == 600 + padding * 2
+    assert crops["loop_crop_x"] == 100 - padding
+    assert crops["loop_crop_y"] == 100 - padding
+    assert crops["loop_crop_width"] == 600 + padding * 2
+    assert crops["loop_crop_height"] == 600 + padding * 2
 
-    # Test with loop shape scaling (e.g. 400x400 loop image)
+    # Test with loop shape scaling (e.g. static is 800x800, loop is 400x400)
     loop_shape = (400, 400, 3)
-    crops_scaled = service.calculate_crops(img_shape, circle, loop_shape=loop_shape)
-    assert crops_scaled["loop_crop_x"] == 50
-    assert crops_scaled["loop_crop_y"] == 50
-    assert crops_scaled["loop_crop_width"] == 300
-    assert crops_scaled["loop_crop_height"] == 300
+    crops = service.calculate_crops(img_shape, circle, loop_shape)
+    assert crops["loop_crop_x"] == (100 - padding) // 2
+    assert crops["loop_crop_y"] == (100 - padding) // 2
+    assert crops["loop_crop_width"] == (600 + padding * 2) // 2
+    assert crops["loop_crop_height"] == (600 + padding * 2) // 2
 
 def test_generate_config_snippet():
     """Test generating python StationConfig code snippet."""

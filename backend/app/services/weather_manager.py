@@ -832,7 +832,11 @@ class WeatherManager:
                 )
                 logger.info(f"DEBUG_NOW_UTC: station={station_code}, now_utc={now_utc}, frame_timestamps={frame_timestamps}")
 
-                use_loop_mapping = (frame_source == "loop_gif") or (curr_frame is not None and curr_frame.shape[1] <= 1000)
+                # Determine if frames came from the loop GIF (vs static image).
+                # We rely on frame_source which is set reliably during loading.
+                # The old shape[1] <= 1000 heuristic was unreliable: raw GIF
+                # frames are 1920×1600 and were mis-classified as static.
+                use_loop_mapping = (frame_source == "loop_gif")
                 actual_frame_shape = curr_frame.shape[:2] if curr_frame is not None else None
                 user_px, user_py = processor.latlng_to_pixel(
                     lat, lng,

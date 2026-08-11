@@ -3,6 +3,8 @@
 import cv2
 import numpy as np
 import httpx
+import logging
+import requests
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -57,48 +59,57 @@ class RadarStationSaveRequest(BaseModel):
     projection_type: str = "azimuthal"
     is_active: bool = True
 
-@router.post("/preview")
-async def preview_radar_calibration(req: RadarPreviewRequest):
-    """
-    Downloads radar image, detects/fine-tunes circle & crops, and returns Base64 preview image with bounding overlay.
-    """
-    import logging
-    logger = logging.getLogger(__name__)
+class RadarPreviewResponse(BaseModel):
+    preview_b64: str
+    crop_info: Dict[str, Any]
+    detail: Optional[str] = None
 
+logger = logging.getLogger(__name__)
+
+def _fetch_and_detect(url: str, service: AutoCalibrationService):
+    if not url:
+        return None, None, None
     try:
-        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
-            resp = await client.get(req.image_url, headers={
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-            })
-    except HTTPException:
-        raise
+        resp = requests.get(url, timeout=10)
+        if resp.status_code != 200:
+            return None, None, None
+            
+        image_data = resp.content
+        if not image_data or len(image_data) < 100:
+            return None, None, None
+            
+        from PIL import Image, ImageSequence
+        import io
+        
+        pil_img = Image.open(io.BytesIO(image_data))
+        first_frame = next(ImageSequence.Iterator(pil_img))
+        img = np.array(first_frame.copy().convert("RGB"))
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        
+        max_dim = 800
+        h, w = img.shape[:2]
+        if h > max_dim or w > max_dim:
+            scale = max_dim / float(max(h, w))
+            new_w = int(w * scale)
+            new_h = int(h * scale)
+            img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            
+        circle = service.detect_radar_circle(img)
+        crop = None
+        if circle:
+            crop = service.calculate_crops(img.shape, circle)
+        return img, crop, circle
     except Exception as e:
-        logger.error(f"[preview] Download error for {req.image_url}: {e}")
-        raise HTTPException(status_code=400, detail=f"Error downloading radar image: {str(e)}")
+        logger.error(f"[preview] Error processing {url}: {e}")
+        return None, None, None
 
-    if resp.status_code != 200:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Radar image URL returned HTTP {resp.status_code}. URL: {req.image_url}"
-        )
-
-    image_data = resp.content
-    if not image_data or len(image_data) < 100:
-        raise HTTPException(status_code=400, detail=f"Downloaded image is empty or too small ({len(image_data)} bytes). URL may not be a direct image link.")
-
-    nparr = np.frombuffer(image_data, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if img is None:
-        # Check if response is HTML (common if URL redirects to page, not image)
-        sample = image_data[:200].decode('utf-8', errors='replace')
-        logger.error(f"[preview] Image decode failed. Content sample: {sample[:80]}")
-        raise HTTPException(
-            status_code=400,
-            detail=f"Failed to decode image. The URL may return HTML instead of a JPEG/PNG. First bytes: {sample[:80]!r}"
-        )
-
+@router.post("/preview", response_model=RadarPreviewResponse)
+async def preview_radar_crop(req: RadarPreviewRequest):
     service = AutoCalibrationService()
-    circle = service.detect_radar_circle(img)
+    
+    static_img, static_crop, static_circle = _fetch_and_detect(req.image_url, service)
+    if static_img is None:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch or decode static image from {req.image_url}")
 
     if req.crop_x is not None and req.crop_y is not None and req.crop_width is not None and req.crop_height is not None:
         crop_info = {
@@ -111,23 +122,51 @@ async def preview_radar_calibration(req: RadarPreviewRequest):
             "loop_crop_width": req.crop_width,
             "loop_crop_height": req.crop_height
         }
-    elif circle:
-        crop_info = service.calculate_crops(img.shape, circle)
+        override_cx = req.crop_x + req.crop_width // 2
+        override_cy = req.crop_y + req.crop_height // 2
+        override_r = min(req.crop_width, req.crop_height) // 2
+        static_circle = (override_cx, override_cy, override_r)
     else:
-        crop_info = {
-            "static_crop_x": 0, "static_crop_y": 0,
-            "static_crop_width": img.shape[1], "static_crop_height": img.shape[0],
-            "loop_crop_x": 0, "loop_crop_y": 0,
-            "loop_crop_width": img.shape[1], "loop_crop_height": img.shape[0]
-        }
+        # Auto-Detect mode
+        loop_img, loop_crop, loop_circle = _fetch_and_detect(req.loop_gif_url, service)
+        
+        crop_info = {}
+        if static_crop:
+            crop_info.update(static_crop)
+        else:
+            crop_info.update({
+                "static_crop_x": 0, "static_crop_y": 0,
+                "static_crop_width": static_img.shape[1], "static_crop_height": static_img.shape[0]
+            })
+            
+        if loop_crop:
+            crop_info.update({
+                "loop_crop_x": loop_crop["static_crop_x"],
+                "loop_crop_y": loop_crop["static_crop_y"],
+                "loop_crop_width": loop_crop["static_crop_width"],
+                "loop_crop_height": loop_crop["static_crop_height"]
+            })
+        else:
+            # Fallback to static crop if loop crop fails
+            crop_info.update({
+                "loop_crop_x": crop_info["static_crop_x"],
+                "loop_crop_y": crop_info["static_crop_y"],
+                "loop_crop_width": crop_info["static_crop_width"],
+                "loop_crop_height": crop_info["static_crop_height"]
+            })
+
+    logger.info(
+        f"[PREVIEW] station={req.code} | static_img_shape={static_img.shape[:2]} (h,w) | "
+        f"static_circle_detected={static_circle} | crop_info={crop_info}"
+    )
 
     preview_img = service.draw_crop_preview(
-        img,
+        static_img,
         crop_info["static_crop_x"],
         crop_info["static_crop_y"],
         crop_info["static_crop_width"],
         crop_info["static_crop_height"],
-        circle=circle
+        circle=static_circle
     )
 
     base64_preview = service.to_base64_jpeg(preview_img)
@@ -155,8 +194,8 @@ async def preview_radar_calibration(req: RadarPreviewRequest):
     return {
         "code": req.code,
         "name": req.name,
-        "circle_detected": circle is not None,
-        "detected_circle": circle,
+        "circle_detected": static_circle is not None,
+        "detected_circle": static_circle,
         "crop_info": crop_info,
         "calculated_bbox": calc_bbox,
         "preview_image_base64": base64_preview,

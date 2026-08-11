@@ -1,5 +1,4 @@
-# backend/app/services/tmd_radar_registry.py
-
+import time
 import logging
 from typing import Dict, Optional
 from app.services.tmd_radar_config import STATIONS as HARDCODED_STATIONS, StationConfig, BoundingBox
@@ -7,16 +6,19 @@ from app.services.tmd_radar_config import STATIONS as HARDCODED_STATIONS, Statio
 logger = logging.getLogger(__name__)
 
 class DynamicRadarRegistry:
-    def __init__(self):
+    def __init__(self, ttl_seconds: float = 60.0):
         self._cached_stations: Dict[str, StationConfig] = {}
         self._loaded_from_db = False
+        self._last_loaded_time = 0.0
+        self._ttl_seconds = ttl_seconds
 
     async def get_all_stations(self, session=None) -> Dict[str, StationConfig]:
         """
         Returns all active stations. Loads from DB (Neon Postgres) if available, 
         with automatic fallback to hardcoded STATIONS defaults.
         """
-        if self._loaded_from_db and self._cached_stations:
+        now = time.time()
+        if self._loaded_from_db and self._cached_stations and (now - self._last_loaded_time < self._ttl_seconds):
             return self._cached_stations
 
         if session:
@@ -56,6 +58,7 @@ class DynamicRadarRegistry:
                         )
                     self._cached_stations = dynamic_map
                     self._loaded_from_db = True
+                    self._last_loaded_time = now
                     logger.info(f"Loaded {len(dynamic_map)} radar stations dynamically from Neon DB.")
                     return self._cached_stations
             except Exception as e:

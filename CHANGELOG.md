@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.11] - 2026-08-11
+
+### Fixed
+- **GPS User Pin Misalignment on Radar Image — 3-Bug Fix** (`cache.py`, `processor.py`, `weather_manager.py`):
+  - **Bug A (cache.py)**: Raw loop GIF frames (e.g. 1920×1600) were saved to Firestore *without cropping*. `latlng_to_pixel` computed coordinates against the 728×728 crop config, so re-loading these full-image frames caused the pin to be misplaced by ~750px. Fixed by cropping each frame to `loop_crop_*` bounds before encoding as PNG and uploading to Firebase Storage.
+  - **Bug B (processor.py)**: The `frame_shape` scaling block used `config_canvas = crop_x + crop_width` as the reference size, but full-image frames are `1920×1600`, making the scale factor 2.4× instead of 1.0×. Fixed by introducing two distinct paths: (a) *cropped frames* — strip the crop offset from px/py; (b) *full-image legacy frames* — re-derive radar circle center and radius in actual-frame pixel space before projecting.
+  - **Bug C (weather_manager.py)**: `use_loop_mapping` used `shape[1] <= 1000` to detect loop frames, but uncropped loop frames at 1920×1600 were mis-classified as static. Fixed to use `frame_source == "loop_gif"` exclusively, which is set reliably during Firestore cache loading.
+
+## [0.72.10] - 2026-08-11
+
+
+### Fixed
+- **Admin Radar Calibration Preview Logging** ([`routers/admin_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/admin_radar.py#L124)): Added structured `[PREVIEW]` info log detailing the downloaded image dimensions (`img_shape`), detected circle coordinates, and applied crop parameters. This helps diagnose crop box alignment mismatches on the Web Admin UI preview canvas.
+
 ## [0.72.9] - 2026-08-11
 
 ### Fixed

@@ -115,6 +115,13 @@ class TMDRadarProcessor(TMDCacheMixin, TMDTrackingMixin, TMDMultiframeMixin, TMD
         config_canvas_w = crop_x + crop_width
         config_canvas_h = crop_y + crop_height
 
+        # Sentinel values — set by azimuthal branch, used by legacy-frame re-projection below
+        pixel_radius: float = 0.0
+        r_px: float = 0.0
+        dx: float = 0.0
+        dy: float = 0.0
+        distance_km: float = 0.0
+
         if projection == "azimuthal" and hasattr(self.config, 'center_lat') and self.config.radius_km > 0:
             # Haversine distance
             R = 6371.0  # Earth radius in km
@@ -159,21 +166,60 @@ class TMDRadarProcessor(TMDCacheMixin, TMDTrackingMixin, TMDMultiframeMixin, TMD
             px = int(x_pct * crop_width) + crop_x
             py = int(y_pct * crop_height) + crop_y
 
-        # ── Scale to actual frame dimensions when they differ from config canvas ──
-        # Firestore-cached frames are often re-encoded (e.g., loop frames saved as 800x800
-        # PNG), so the config crop values may no longer match the actual frame size.
+        # ── Scale to actual frame dimensions when they differ from config ──────
+        # After Option 1 (crop-before-save), new frames are (crop_h × crop_w).
+        # Legacy Firestore frames may still be full-image (e.g. 1920×1600).
+        # In both cases we reconstruct the radar circle position in actual-frame
+        # pixel space rather than blindly scaling px/py by a ratio.
         if frame_shape is not None:
             actual_h, actual_w = frame_shape[0], frame_shape[1]
-            if config_canvas_w > 0 and config_canvas_h > 0:
+            crop_is_frame = (
+                abs(actual_h - crop_height) <= 4 and abs(actual_w - crop_width) <= 4
+            )
+            if crop_is_frame:
+                # ── New (cropped) frame: px/py are already in crop coords ──────
+                # latlng_to_pixel computed px relative to crop_x/crop_y offsets,
+                # so we need to remove those offsets when the frame IS the crop.
+                px = px - crop_x
+                py = py - crop_y
+                logger.debug(
+                    f"latlng_to_pixel: cropped frame ({actual_w}x{actual_h}) — "
+                    f"removed crop offset → ({px},{py})"
+                )
+            else:
+                # ── Legacy (full) frame: re-project onto actual image space ───
+                # The config defines where the radar circle sits in the original
+                # full-image canvas.  Scale that geometry to the actual frame.
                 scale_x = actual_w / config_canvas_w
                 scale_y = actual_h / config_canvas_h
-                if abs(scale_x - 1.0) > 0.02 or abs(scale_y - 1.0) > 0.02:  # only scale if >2% difference
-                    px = int(round(px * scale_x))
-                    py = int(round(py * scale_y))
-                    logger.debug(
-                        f"latlng_to_pixel: scaled ({int(center_x + dx) + crop_x if projection == 'azimuthal' else 'N/A'},{int(center_y + dy) + crop_y if projection == 'azimuthal' else 'N/A'}) "
-                        f"→ ({px},{py}) [frame={actual_w}x{actual_h}, config_canvas={config_canvas_w}x{config_canvas_h}, "
-                        f"scale=({scale_x:.3f},{scale_y:.3f})]"
-                    )
+
+                # Radar circle center in full-image coords, then scaled
+                radar_cx_full = crop_x + crop_width / 2.0
+                radar_cy_full = crop_y + crop_height / 2.0
+                real_center_x = radar_cx_full * scale_x
+                real_center_y = radar_cy_full * scale_y
+                # Radius scales with the x-axis (circles keep aspect ratio)
+                real_radius_px = (crop_width / 2.0) * scale_x
+
+                # Re-derive bearing vectors from the already-computed dx/dy
+                # which are normalised to pixel_radius (= crop_width/2).
+                # dx = r_px * sin(bearing), dy = -r_px * cos(bearing)
+                # → sin_b = dx/r_px, cos_b = -dy/r_px  (when r_px > 0)
+                if pixel_radius > 0 and r_px > 0:
+                    sin_b = dx / pixel_radius
+                    cos_b = -dy / pixel_radius
+                    r_real = (distance_km / self.config.radius_km) * real_radius_px
+                    px = int(round(real_center_x + r_real * sin_b))
+                    py = int(round(real_center_y - r_real * cos_b))
+                else:
+                    px = int(round(real_center_x))
+                    py = int(round(real_center_y))
+
+                logger.debug(
+                    f"latlng_to_pixel: full-image frame ({actual_w}x{actual_h}) — "
+                    f"re-projected → ({px},{py}) "
+                    f"[circle_center=({real_center_x:.0f},{real_center_y:.0f}), "
+                    f"r={real_radius_px:.0f}px, scale=({scale_x:.3f},{scale_y:.3f})]"
+                )
 
         return px, py

@@ -351,7 +351,34 @@ class TMDCacheMixin:
         new_url = None
         if ts and ts > latest_ts:
             logger.info(f"[{station}] 🆕 New frame detected (ts={ts} > latest={latest_ts}) — saving to GCS")
-            new_url = await self.save_polled_frame(static_bytes)
+            
+            # ── Option B: Normalize and Crop ────────────────────────────────
+            # Scale to standard 800px max dimension so Admin crop coords map 1:1
+            max_dim = 800
+            h, w = frame.shape[:2]
+            if h > max_dim or w > max_dim:
+                scale = max_dim / float(max(h, w))
+                new_w = int(w * scale)
+                new_h = int(h * scale)
+                frame_to_save = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            else:
+                frame_to_save = frame
+                
+            scy = self.config.static_crop_y
+            scx = self.config.static_crop_x
+            sch = self.config.static_crop_height
+            scw = self.config.static_crop_width
+            
+            if (scy + sch <= frame_to_save.shape[0]) and (scx + scw <= frame_to_save.shape[1]):
+                frame_to_save = frame_to_save[scy:scy + sch, scx:scx + scw]
+                
+            is_success, buffer = cv2.imencode(".jpg", cv2.cvtColor(frame_to_save, cv2.COLOR_RGB2BGR))
+            if is_success:
+                new_url = await self.save_polled_frame(buffer.tobytes())
+            else:
+                new_url = await self.save_polled_frame(static_bytes)
+            # ────────────────────────────────────────────────────────────────
+            
             frames.insert(0, {"url": new_url, "timestamp": ts})
             frames = sorted(frames, key=lambda f: f["timestamp"])
             frames.reverse() # newest first
@@ -367,9 +394,43 @@ class TMDCacheMixin:
 
                 new_frames_list = []
                 base_ts = ts if ts else now_ts
+                # Crop parameters for loop frames
+                lcy = self.config.loop_crop_y
+                lcx = self.config.loop_crop_x
+                lch = self.config.loop_crop_height
+                lcw = self.config.loop_crop_width
                 for i, f_img in enumerate(recent_fallback):
                     f_ts = await ocr_svc.get_frame_timestamp(f_img, fallback_ts=base_ts - i * 900)
-                    is_success, buffer = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
+                    # ── Crop to loop_crop region before saving ──────────────────
+                    # Raw GIF frames are full-image (e.g. 1920×1600). Saving them
+                    # uncropped causes GPS pin coordinates (computed from 728×728
+                    # crop config) to be wildly misaligned when frames are loaded
+                    # back from Firestore. Crop first so stored frames match config.
+                    # ── Option B: Normalize to 800px max before crop ──────────
+                    max_dim = 800
+                    h, w = f_img.shape[:2]
+                    if h > max_dim or w > max_dim:
+                        scale = max_dim / float(max(h, w))
+                        new_w = int(w * scale)
+                        new_h = int(h * scale)
+                        f_norm = cv2.resize(f_img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                    else:
+                        f_norm = f_img
+
+                    if (lcy + lch <= f_norm.shape[0]) and (lcx + lcw <= f_norm.shape[1]):
+                        f_save = f_norm[lcy:lcy + lch, lcx:lcx + lcw]
+                        logger.debug(
+                            f"[{station}] GIF fallback crop: raw={f_img.shape[:2]} "
+                            f"→ cropped={f_save.shape[:2]} (y={lcy}:{lcy+lch}, x={lcx}:{lcx+lcw})"
+                        )
+                    else:
+                        # Crop region exceeds frame bounds — save full frame as fallback
+                        logger.warning(
+                            f"[{station}] GIF frame too small to crop: {f_norm.shape[:2]} "
+                            f"< crop ({lch},{lcw}). Saving full frame."
+                        )
+                        f_save = f_norm
+                    is_success, buffer = cv2.imencode(".png", cv2.cvtColor(f_save, cv2.COLOR_RGB2BGR))
                     if is_success:
                         f_url = await self.save_polled_frame(buffer.tobytes())
                         new_frames_list.append({"url": f_url, "timestamp": f_ts})

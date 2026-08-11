@@ -53,11 +53,12 @@ class AutoCalibrationService:
         Calculates static_crop and loop_crop bounding boxes from detected radar circle.
         """
         cx, cy, r = circle
-        # Static crop enclosing the circle with small padding or exact box
-        x_min = max(0, cx - r)
-        y_min = max(0, cy - r)
-        width = min(img_shape[1] - x_min, r * 2)
-        height = min(img_shape[0] - y_min, r * 2)
+        # Static crop enclosing the circle with small padding
+        padding = 10
+        x_min = max(0, cx - r - padding)
+        y_min = max(0, cy - r - padding)
+        width = min(img_shape[1] - x_min, (r + padding) * 2)
+        height = min(img_shape[0] - y_min, (r + padding) * 2)
 
         crop_info = {
             "static_crop_x": x_min,

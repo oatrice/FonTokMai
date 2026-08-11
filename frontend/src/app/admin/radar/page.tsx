@@ -49,6 +49,11 @@ export default function AdminRadarPage() {
   const [cropW, setCropW] = useState<number | null>(null);
   const [cropH, setCropH] = useState<number | null>(null);
 
+  const [loopCropX, setLoopCropX] = useState<number | null>(null);
+  const [loopCropY, setLoopCropY] = useState<number | null>(null);
+  const [loopCropW, setLoopCropW] = useState<number | null>(null);
+  const [loopCropH, setLoopCropH] = useState<number | null>(null);
+
   const [previewB64, setPreviewB64] = useState<string | null>(null);
   const [calculatedBbox, setCalculatedBbox] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -99,6 +104,18 @@ export default function AdminRadarPage() {
     setCropY(cY);
     setCropW(cW);
     setCropH(cH);
+
+    if (st.loop_crop) {
+      setLoopCropX(st.loop_crop.x);
+      setLoopCropY(st.loop_crop.y);
+      setLoopCropW(st.loop_crop.width);
+      setLoopCropH(st.loop_crop.height);
+    } else {
+      setLoopCropX(cX);
+      setLoopCropY(cY);
+      setLoopCropW(cW);
+      setLoopCropH(cH);
+    }
 
     handlePreview(cX, cY, cW, cH, st.code, st.name, st.static_image_url, st.center_lat, st.center_lng, st.radius_km);
   };
@@ -183,10 +200,11 @@ export default function AdminRadarPage() {
       const targetW = overrideW !== undefined ? overrideW : cropW;
       const targetH = overrideH !== undefined ? overrideH : cropH;
 
-      const payload: any = {
+        const payload: any = {
         code: overrideCode || code,
         name: overrideName || name,
         image_url: overrideImageUrl || imageUrl,
+        loop_gif_url: loopGifUrl,
         lat: Number(overrideLat !== undefined ? overrideLat : lat),
         lng: Number(overrideLng !== undefined ? overrideLng : lng),
         radius_km: Number(overrideRadiusKm !== undefined ? overrideRadiusKm : radiusKm)
@@ -210,6 +228,11 @@ export default function AdminRadarPage() {
         setCropY(data.crop_info.static_crop_y);
         setCropW(data.crop_info.static_crop_width);
         setCropH(data.crop_info.static_crop_height);
+
+        setLoopCropX(data.crop_info.loop_crop_x);
+        setLoopCropY(data.crop_info.loop_crop_y);
+        setLoopCropW(data.crop_info.loop_crop_width);
+        setLoopCropH(data.crop_info.loop_crop_height);
       } else {
         setMessage(`⚠️ Error: ${data.detail || "Failed to generate preview"}`);
       }
@@ -244,10 +267,10 @@ export default function AdminRadarPage() {
         static_crop_y: cropY ?? 0,
         static_crop_width: cropW ?? 800,
         static_crop_height: cropH ?? 800,
-        loop_crop_x: cropX ?? 0,
-        loop_crop_y: cropY ?? 0,
-        loop_crop_width: cropW ?? 680,
-        loop_crop_height: cropH ?? 680,
+        loop_crop_x: loopCropX ?? cropX ?? 0,
+        loop_crop_y: loopCropY ?? cropY ?? 0,
+        loop_crop_width: loopCropW ?? cropW ?? 680,
+        loop_crop_height: loopCropH ?? cropH ?? 680,
         is_active: true
       };
 
@@ -590,8 +613,14 @@ export default function AdminRadarPage() {
             </div>
 
             <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
-              <button onClick={() => handlePreview()} disabled={loading} style={{ flex: 1, padding: "0.75rem", backgroundColor: "#2563eb", color: "#fff", fontWeight: 600, border: "none", borderRadius: 8, cursor: "pointer" }}>
-                {loading ? "⏳ กำลังประมวลผล..." : "🔍 Preview & Auto-Detect"}
+              <button onClick={() => handlePreview()} disabled={loading} style={{ flex: 1, padding: "0.75rem", backgroundColor: "#64748b", color: "#fff", fontWeight: 600, border: "none", borderRadius: 8, cursor: "pointer" }}>
+                {loading ? "⏳ กำลังประมวลผล..." : "🔍 Preview (Use Sliders)"}
+              </button>
+              <button onClick={() => {
+                setCropX(null); setCropY(null); setCropW(null); setCropH(null);
+                handlePreview(null, null, null, null);
+              }} disabled={loading} style={{ flex: 1, padding: "0.75rem", backgroundColor: "#2563eb", color: "#fff", fontWeight: 600, border: "none", borderRadius: 8, cursor: "pointer" }}>
+                {loading ? "⏳ กำลังประมวลผล..." : "✨ Auto-Detect"}
               </button>
               <button onClick={handleSubmit} disabled={loading || !calculatedBbox} style={{ flex: 1, padding: "0.75rem", backgroundColor: "#16a34a", color: "#fff", fontWeight: 600, border: "none", borderRadius: 8, cursor: "pointer", opacity: calculatedBbox ? 1 : 0.5 }}>
                 💾 Submit to Neon DB
