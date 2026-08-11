@@ -399,7 +399,6 @@ export default function AdminRadarPage() {
       if (activeHandle && activeHandle !== "create") {
         setActiveHandle(null);
         setHandleDragStart(null);
-        handlePreview(cropX ?? 0, cropY ?? 0, cropW ?? 800, cropH ?? 800);
       } else if (isDragging) {
         setIsDragging(false);
         setActiveHandle(null);
@@ -408,7 +407,6 @@ export default function AdminRadarPage() {
           setCropY(currentDragBox.y);
           setCropW(currentDragBox.w);
           setCropH(currentDragBox.h);
-          handlePreview(currentDragBox.x, currentDragBox.y, currentDragBox.w, currentDragBox.h);
         }
         setCurrentDragBox(null);
       }
