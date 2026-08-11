@@ -38,7 +38,7 @@ export default function AdminRadarPage() {
   const [name, setName] = useState("Chainat (240km) / ชัยนาท");
   const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/chn/chn240_latest.gif");
   const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/chn.php");
-  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/chn/chn240_loop.gif");
+  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/chn/chnloop.gif");
   const [lat, setLat] = useState(15.1833);
   const [lng, setLng] = useState(100.1167);
   const [radiusKm, setRadiusKm] = useState(240.0);
