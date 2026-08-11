@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.9] - 2026-08-11
+
+### Fixed
+- **Dynamic Radar Registry Priority in `TMDRadarProcessor`** ([`tmd_radar/processor.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar/processor.py#L70)): Updated `TMDRadarProcessor.__init__` config lookup logic to prioritize `radar_registry._cached_stations` (loaded from Neon DB) before checking hardcoded `STATIONS` defaults. This ensures custom station parameters saved in Neon DB are always picked up across all processor instantiations.
+
+## [0.72.8] - 2026-08-11
+
+### Fixed
+- **Chainat (CHN) Station Radar Crop Calibration** ([`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py#L94)): Calibrated crop parameters for station `chn` from default whole-image coordinates (`crop_x=0, crop_y=0, crop_w=680, crop_h=680`) to standard TMD 240km radar alignment (`crop_x=72, crop_y=28, crop_w=728, crop_h=728`). This accounts for the top/left header margins and radar circle center on TMD radar frames, aligning GPS pin projection accurately on the visual radar map.
+
 ## [0.72.7] - 2026-08-11
 
 ### Fixed

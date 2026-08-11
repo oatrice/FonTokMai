@@ -66,12 +66,12 @@ class TMDRadarProcessor(TMDCacheMixin, TMDTrackingMixin, TMDMultiframeMixin, TMD
         self.station_code = station_code
         if config:
             self.config = config
-        elif station_code in STATIONS:
-            self.config = STATIONS[station_code]
         else:
             from app.services.tmd_radar_registry import radar_registry
             if station_code in radar_registry._cached_stations:
                 self.config = radar_registry._cached_stations[station_code]
+            elif station_code in STATIONS:
+                self.config = STATIONS[station_code]
             else:
                 raise ValueError(f"Unknown station code: {station_code}")
         self.storage_dir = os.path.join(os.getcwd(), "backend", "tmp")
