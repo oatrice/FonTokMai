@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.3] - 2026-08-11
+
+### Fixed
+- **Radar Loop Frame Pixel Mapping**: Dynamically detect loop frame pixel mapping in `weather_manager.py` when frame width $\le 1000$px, ensuring `latlng_to_pixel` returns pixel coordinates within $800\times 800$ frame bounds for stations built via GIF fallback (such as Chainat), fixing OpenCV `resize` assertions on tracking image rendering.
+
 ## [0.72.2] - 2026-08-11
 
 ### Fixed

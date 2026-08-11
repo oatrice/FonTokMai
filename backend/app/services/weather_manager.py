@@ -832,7 +832,7 @@ class WeatherManager:
                 )
                 logger.info(f"DEBUG_NOW_UTC: station={station_code}, now_utc={now_utc}, frame_timestamps={frame_timestamps}")
 
-                use_loop_mapping = frame_source == "loop_gif"
+                use_loop_mapping = (frame_source == "loop_gif") or (curr_frame is not None and curr_frame.shape[1] <= 1000)
                 user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=use_loop_mapping)
                 px, py = user_px, user_py
 
