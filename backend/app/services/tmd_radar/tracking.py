@@ -280,12 +280,18 @@ class TMDTrackingMixin:
 
         crop_r = 120
         h, w = frame.shape[:2]
+        user_x = max(0, min(w - 1, user_x))
+        user_y = max(0, min(h - 1, user_y))
         x1 = max(0, user_x - crop_r)
         y1 = max(0, user_y - crop_r)
         x2 = min(w, user_x + crop_r)
         y2 = min(h, user_y + crop_r)
+        if x2 <= x1 or y2 <= y1:
+            return None
         
         crop_img = frame[y1:y2, x1:x2].copy()
+        if crop_img.size == 0 or crop_img.shape[0] == 0 or crop_img.shape[1] == 0:
+            return None
         scale = 3.0
         
         img = cv2.resize(crop_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)

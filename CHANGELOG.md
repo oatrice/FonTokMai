@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.4] - 2026-08-11
+
+### Fixed
+- **Out-of-Bounds User Coordinate Safety**: Clamped `user_x` and `user_y` to frame boundaries before cropping sub-slices in `generate_radar_tracking_image` (`tracking.py`), preventing OpenCV `resize` assertion errors (`!ssize.empty()`) when pixel coordinates exceed frame dimensions. Added unit test in `test_radar_tracking_out_of_bounds.py`.
+
 ## [0.72.3] - 2026-08-11
 
 ### Fixed
