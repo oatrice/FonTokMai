@@ -833,7 +833,12 @@ class WeatherManager:
                 logger.info(f"DEBUG_NOW_UTC: station={station_code}, now_utc={now_utc}, frame_timestamps={frame_timestamps}")
 
                 use_loop_mapping = (frame_source == "loop_gif") or (curr_frame is not None and curr_frame.shape[1] <= 1000)
-                user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=use_loop_mapping)
+                actual_frame_shape = curr_frame.shape[:2] if curr_frame is not None else None
+                user_px, user_py = processor.latlng_to_pixel(
+                    lat, lng,
+                    is_loop=use_loop_mapping,
+                    frame_shape=actual_frame_shape,
+                )
                 px, py = user_px, user_py
 
                 if chat_id:

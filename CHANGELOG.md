@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.7] - 2026-08-11
+
+### Fixed
+- **Coordinate Scaling for Firestore-Cached Frames** (`tmd_radar/processor.py`, `weather_manager.py`): Added `frame_shape` parameter to `latlng_to_pixel`. When the actual frame dimensions (e.g., $800\times 800$ Firestore-cached PNG) differ from the station config crop size (e.g., $680\times 680$ loop), pixel coordinates are now proportionally scaled to match the real frame. This fixes the root cause of `user_px=1326` being returned for a Chainat $800\times 800$ frame, which caused all downstream `find_approaching_clouds` / `generate_radar_tracking_image` calls to fail or produce garbage results. Scaling is applied only when the deviation exceeds 2%.
+
 ## [0.72.6] - 2026-08-11
 
 ### Fixed
