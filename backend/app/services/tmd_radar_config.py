@@ -77,8 +77,29 @@ PHS240_BBOX = BoundingBox(lat_max=18.94, lng_min=98.11, lat_min=14.62, lng_max=1
 UBN240_BBOX = BoundingBox(lat_max=17.41, lng_min=102.72, lat_min=13.09, lng_max=107.04)
 SRT240_BBOX = BoundingBox(lat_max=11.29, lng_min=97.02, lat_min=6.97, lng_max=101.34)
 PKT240_BBOX = BoundingBox(lat_max=10.04, lng_min=96.16, lat_min=5.72, lng_max=100.48)
+CHN240_BBOX = BoundingBox(lat_max=17.35, lng_min=97.88, lat_min=13.02, lng_max=102.36)
 
 STATIONS = {
+    "chn": StationConfig(
+        code="chn",
+        name="Chainat (240km) / ชัยนาท",
+        static_image_url="https://weather.tmd.go.th/chn/chn240_latest.gif",
+        loop_page_url="https://weather.tmd.go.th/chn.php",
+        loop_gif_url="https://weather.tmd.go.th/chn/chn240_loop.gif",
+        bbox=CHN240_BBOX,
+        projection_type="azimuthal",
+        center_lat=15.1833,
+        center_lng=100.1167,
+        radius_km=240.0,
+        static_crop_x=0,
+        static_crop_y=0,
+        static_crop_width=800,
+        static_crop_height=800,
+        loop_crop_x=0,
+        loop_crop_y=0,
+        loop_crop_width=680,
+        loop_crop_height=680,
+    ),
     "kkn120": StationConfig(
         code="kkn120",
         name="Khon Kaen (120km)",

@@ -6,6 +6,8 @@ interface Station {
   code: string;
   name: string;
   static_image_url: string;
+  loop_page_url?: string;
+  loop_gif_url?: string;
   center_lat: number;
   center_lng: number;
   radius_km: number;
@@ -17,6 +19,8 @@ interface Preset {
   code: string;
   name: string;
   static_image_url: string;
+  loop_page_url?: string;
+  loop_gif_url?: string;
   center_lat: number;
   center_lng: number;
   radius_km: number;
@@ -30,13 +34,13 @@ export default function AdminRadarPage() {
   const [stations, setStations] = useState<Station[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
 
-  const [code, setCode] = useState("ubn240");
-  const [name, setName] = useState("Ubon Ratchathani (240km) / อุบลราชธานี");
-  const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/ubn/ubn240_latest.jpg");
-  const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/ubnLoop.php");
-  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/ubn/ubnloop.gif");
-  const [lat, setLat] = useState(15.2447);
-  const [lng, setLng] = useState(104.8711);
+  const [code, setCode] = useState("chn");
+  const [name, setName] = useState("Chainat (240km) / ชัยนาท");
+  const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/chn/chn240_latest.gif");
+  const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/chn.php");
+  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/chn/chn240_loop.gif");
+  const [lat, setLat] = useState(15.1833);
+  const [lng, setLng] = useState(100.1167);
   const [radiusKm, setRadiusKm] = useState(240.0);
 
   // Crop Controls
@@ -553,15 +557,15 @@ export default function AdminRadarPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
               <div>
                 <label style={{ fontSize: "0.875rem", fontWeight: 600 }}>Center Lat</label>
-                <input type="number" step="0.0001" value={lat} onChange={(e) => setLat(e.target.value ? parseFloat(e.target.value) : "")} placeholder="13.6860" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
+                <input type="number" step="0.0001" value={lat} onChange={(e) => setLat(e.target.value ? parseFloat(e.target.value) : 0)} placeholder="13.6860" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
               </div>
               <div>
                 <label style={{ fontSize: "0.875rem", fontWeight: 600 }}>Center Lng</label>
-                <input type="number" step="0.0001" value={lng} onChange={(e) => setLng(e.target.value ? parseFloat(e.target.value) : "")} placeholder="100.7486" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
+                <input type="number" step="0.0001" value={lng} onChange={(e) => setLng(e.target.value ? parseFloat(e.target.value) : 0)} placeholder="100.7486" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
               </div>
               <div>
                 <label style={{ fontSize: "0.875rem", fontWeight: 600 }}>Radius (km)</label>
-                <input type="number" value={radiusKm} onChange={(e) => setRadiusKm(e.target.value ? parseFloat(e.target.value) : "")} placeholder="240" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
+                <input type="number" value={radiusKm} onChange={(e) => setRadiusKm(e.target.value ? parseFloat(e.target.value) : 0)} placeholder="240" style={{ width: "100%", padding: "0.5rem", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4 }} />
               </div>
             </div>
 
