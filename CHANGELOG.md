@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.18] - 2026-08-12
+
+### Added
+- **Dev Bot Fast Command Suggestion `/rain_pro_d`**:
+  - Added `/rain_pro_d` to dynamic Telegram command suggestions (`setMyCommands`) in [`telegram.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/telegram.py) exclusively for Development environment (`ENVIRONMENT=development`).
+  - Bound `/rain_pro_d` in [`webhook_commands.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/webhook_commands.py) to automatically override command to `/rain_pro d`.
+  - Updated unit tests in `tests/test_telegram_commands.py`.
+
 ## [0.72.17] - 2026-08-12
 
 ### Added

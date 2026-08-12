@@ -291,6 +291,7 @@ async def setup_telegram_commands() -> bool:
     
     if is_dev:
         commands.extend([
+            {"command": "rain_pro_d", "description": "เช็คเรดาร์ฝนพิกัดหลัก (Dev Fast Shortcut)"},
             {"command": "lock", "description": "ล็อคเป้าก้อนเมฆแมนนวล"},
             {"command": "unlock", "description": "ปลดล็อคพื้นที่แจ้งเตือน"},
             {"command": "bypass", "description": "เข้าสู่โหมด Emergency Admin Bypass"},
