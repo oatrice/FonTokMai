@@ -808,8 +808,26 @@ class WeatherManager:
                                 # uses Firestore instead of re-fetching loop GIF again.
                                 saved_frames = []
                                 try:
+                                    # Crop parameters for loop frames
+                                    lcy = processor.config.loop_crop_y
+                                    lcx = processor.config.loop_crop_x
+                                    lch = processor.config.loop_crop_height
+                                    lcw = processor.config.loop_crop_width
                                     for f_img, f_ts in zip(frames, frame_timestamps):
-                                        is_ok, buf = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
+                                        # Max 800 normalize
+                                        h, w = f_img.shape[:2]
+                                        if h > 800 or w > 800:
+                                            scale = 800.0 / float(max(h, w))
+                                            f_norm = cv2.resize(f_img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+                                        else:
+                                            f_norm = f_img
+
+                                        if (lcy + lch <= f_norm.shape[0]) and (lcx + lcw <= f_norm.shape[1]):
+                                            f_save = f_norm[lcy:lcy + lch, lcx:lcx + lcw]
+                                        else:
+                                            f_save = f_norm
+
+                                        is_ok, buf = cv2.imencode(".png", cv2.cvtColor(f_save, cv2.COLOR_RGB2BGR))
                                         if is_ok:
                                             f_url = await processor.save_polled_frame(buf.tobytes())
                                             saved_frames.append({"url": f_url, "timestamp": f_ts})
@@ -822,7 +840,7 @@ class WeatherManager:
                                             )
                                         logger.info(
                                             f"[{station_code}] 🌀 GIF fallback: persisted "
-                                            f"{len(saved_frames)} frames to Firestore"
+                                            f"{len(saved_frames)} cropped frames to Firestore"
                                         )
                                 except Exception as _e:
                                     logger.warning(f"[{station_code}] 🌀 GIF fallback: Firestore persist failed: {_e}")
@@ -856,6 +874,39 @@ class WeatherManager:
                 # The old shape[1] <= 1000 heuristic was unreliable: raw GIF
                 # frames are 1920×1600 and were mis-classified as static.
                 use_loop_mapping = (frame_source == "loop_gif")
+
+                # ── Normalize legacy uncropped loop frames ──────────────────────────
+                # Frames cached in GCS before the crop-before-save fix may still be
+                # full-canvas (e.g. 800×800) instead of the expected loop crop size
+                # (e.g. 720×720).  An uncropped frame causes latlng_to_pixel to enter
+                # the legacy-scaling branch where config_canvas_h (= crop_y + crop_h
+                # = 760 for kkn240) ≠ actual_h (800), leading to scale_y ≈ 1.053
+                # and a ~25 px y-shift in the computed pin position.
+                # We detect this by comparing the actual frame dimensions to the
+                # configured crop size and crop on-the-fly if needed.
+                if use_loop_mapping and curr_frame is not None:
+                    _cfg = processor.config
+                    _lcx, _lcy = _cfg.loop_crop_x, _cfg.loop_crop_y
+                    _lch, _lcw = _cfg.loop_crop_height, _cfg.loop_crop_width
+                    _fh, _fw = curr_frame.shape[:2]
+                    _needs_crop = (
+                        (_fh > _lch or _fw > _lcw)
+                        and (_lcy + _lch <= _fh)
+                        and (_lcx + _lcw <= _fw)
+                    )
+                    if _needs_crop:
+                        logger.info(
+                            f"[{station_code}] 🔧 On-the-fly loop frame crop: "
+                            f"{_fw}×{_fh} → {_lcw}×{_lch} "
+                            f"(legacy GCS frame pre-dates crop-before-save fix)"
+                        )
+                        frames = [
+                            f[_lcy:_lcy + _lch, _lcx:_lcx + _lcw]
+                            for f in frames
+                        ]
+                        curr_frame = frames[-1].copy()
+                        prev_frame = frames[-2].copy()
+
                 actual_frame_shape = curr_frame.shape[:2] if curr_frame is not None else None
                 user_px, user_py = processor.latlng_to_pixel(
                     lat, lng,

@@ -11,7 +11,7 @@ import numpy as np
 from datetime import datetime, timezone, timedelta
 from PIL import Image, ImageDraw, ImageFont, ImageSequence
 from zoneinfo import ZoneInfo
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Any
 from app.dependencies import get_repo_context
 from app.services.ocr_service import OCRService
 from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING, IGNORED_COLORS

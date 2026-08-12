@@ -150,7 +150,8 @@ class TMDTrackingMixin:
 
         lon_diff = self.config.bbox.lng_max - self.config.bbox.lng_min
         width_km = lon_diff * 111.0
-        km_per_pixel = width_km / max(1, self.config.loop_crop_width)
+        frame_w = frame.shape[1] if frame is not None and len(frame.shape) >= 2 else self.config.loop_crop_width
+        km_per_pixel = width_km / max(1, frame_w)
         
         min_area_km2 = getattr(self.config, "min_area_km2", 10.0)
         min_area_px = min_area_km2 / (km_per_pixel ** 2)
