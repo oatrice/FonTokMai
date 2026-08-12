@@ -181,8 +181,8 @@ STATIONS = {
         loop_gif_url="https://weather.tmd.go.th/kkn/kknloop.gif",
         bbox=KKN240_BBOX,
         projection_type="azimuthal",
-        center_lat=16.4023,
-        center_lng=102.8672,
+        center_lat=16.4322,
+        center_lng=102.8236,
         radius_km=240.0,
         # Crop calibrated to exact radar center crosshair at (433, 391):
         # Crop X = 433 - 362 = 71, Crop Y = 391 - 362 = 29
