@@ -8,8 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.72.16] - 2026-08-12
 
 ### Added
-- **Chumphon (`cmp`) TMD Radar Station Integration & Preset**:
+- **Chumphon (`cmp`) TMD Radar Station Integration & Preset Prefill**:
   - Registered `CMP240_BBOX` and `"cmp"` `StationConfig` entry in `tmd_radar_config.py` and `tmd_radar_catalog.py`.
+  - Updated Web Admin frontend (`frontend/src/app/admin/radar/page.tsx`) default form state to prefill Chumphon (`cmp`) station preset parameters.
   - Added TDD unit tests in `tests/test_chumphon_radar.py` verifying station registration, terrain/sea background color filtering, and legitimate rain reflectivity detection.
 
 ## [0.72.15] - 2026-08-12
