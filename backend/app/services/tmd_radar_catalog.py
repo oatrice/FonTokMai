@@ -109,5 +109,18 @@ KNOWN_TMD_RADAR_PRESETS = [
         "lat_max": 18.94, "lng_min": 98.11, "lat_min": 14.62, "lng_max": 102.43,
         "static_crop_x": 72, "static_crop_y": 28, "static_crop_width": 728, "static_crop_height": 728,
         "loop_crop_x": 72, "loop_crop_y": 28, "loop_crop_width": 728, "loop_crop_height": 728
+    },
+    {
+        "code": "cmp",
+        "name": "Chumphon (240km) / ชุมพร",
+        "static_image_url": "https://weather.tmd.go.th/cmp/cmp240_latest.jpg",
+        "loop_page_url": "https://weather.tmd.go.th/cmploop.php",
+        "loop_gif_url": "https://weather.tmd.go.th/cmp/cmpLoop.gif",
+        "center_lat": 10.4931,
+        "center_lng": 99.1800,
+        "radius_km": 240.0,
+        "lat_max": 12.66, "lng_min": 97.02, "lat_min": 8.33, "lng_max": 101.34,
+        "static_crop_x": 72, "static_crop_y": 28, "static_crop_width": 728, "static_crop_height": 728,
+        "loop_crop_x": 72, "loop_crop_y": 28, "loop_crop_width": 728, "loop_crop_height": 728
     }
 ]

@@ -1,38 +1,55 @@
-# Manual Verification Plan: Radar Retry, Failover Notice & Photo Compression
+# Manual Verification Guide: Chumphon Radar Station (`cmp`)
 
-## 1. Retry Logic & Live Telegram Progress Notice
-- **Scenario**: When TMD radar fetching (e.g. `phs`) encounters a timeout or connection issue on local/production.
-- **Verification Steps**:
-  1. Trigger `/rain_pro` or `/rain` for Phitsanulok (`phs`).
-  2. If the static image fetch times out, the backend retries automatically up to 3 times.
-  3. During retry attempts, the Telegram loading message is updated to show retry progress:
-     > `⚠️ ไม่สามารถเชื่อมต่อเรดาร์ พิษณุโลก (phs) ได้ (พยายามใหม่รอบ 2/3)...`
-- **Expected Outcome**: User is kept informed in real-time on Telegram rather than hanging or failing silently.
+## Prerequisites
+- Local Python backend environment set up with `venv/bin/python`.
+- Local FastAPI server or unit test execution environment.
 
----
+## 1. Automated Unit Tests
 
-## 2. Station Failover Notification
-- **Scenario**: When primary station (`phs`) fails after max retries and system falls back to secondary station (`chn` ชัยนาท).
-- **Verification Steps**:
-  1. Run command `/rain_pro default` when PHS radar is offline or timing out.
-  2. System detects failure on PHS and automatically fails over to Chainat (`chn`).
-  3. Verify log output:
-     > `[FAILOVER] Primary station phs (พิษณุโลก) failed. Falling back to station chn (ชัยนาท).`
-  4. Verify Telegram message text contains explicit failover notice:
-     > `⚠️ หมายเหตุ: เรดาร์พิษณุโลก (phs) ขัดข้อง/หมดเวลาเชื่อมต่อ ระบบจึงสลับไปใช้เรดาร์ชัยนาท (chn) แทนชั่วคราว`
+Run the Chumphon radar unit tests:
+```bash
+cd "/Users/oatrice/Software Project/FonMaYang/backend"
+venv/bin/pytest tests/test_chumphon_radar.py -v
+```
+
+**Expected Outcome:**
+- `test_chumphon_station_registered`: PASSED
+- `test_chumphon_terrain_green_not_detected_as_rain`: PASSED
+- `test_chumphon_legitimate_rain_detected`: PASSED
 
 ---
 
-## 3. Telegram Photo Automatic Compression
-- **Scenario**: Generated PNG images (`radar_latest.png`, `radar_tracking.png`) exceed 400KB.
-- **Verification Steps**:
-  1. Send photo via `send_telegram_photo`.
-  2. Verify log output shows size reduction:
-     > `[TELEGRAM] Compressed photo 'radar_latest.png' from 1,399,319 to 245,120 bytes`
-- **Expected Outcome**: Payload size drops by ~80% (from 1.4MB to < 250KB), accelerating Telegram photo delivery.
+## 2. Admin API Preview Verification
+
+Send a preview request to verify image cropping & rendering for Chumphon station:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/admin/radar/preview" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "cmp",
+    "name": "Chumphon (240km) / ชุมพร",
+    "image_url": "https://weather.tmd.go.th/cmp/cmp240_latest.jpg",
+    "loop_gif_url": "https://weather.tmd.go.th/cmp/cmpLoop.gif",
+    "lat": 10.4931,
+    "lng": 99.1800,
+    "radius_km": 240.0
+  }'
+```
+
+**Expected Outcome:**
+- HTTP status 200 OK
+- Returns JSON with cropped image preview & detected center deviation.
 
 ---
 
-## Automated Test Suite Verification
-- Ran `pytest backend/tests/test_radar_retry_and_compression.py`: All 2/2 tests PASSED.
-- Ran `pytest backend/tests/test_phitsanulok_radar.py backend/tests/test_admin_radar_router.py backend/tests/test_nationwide_radar.py backend/tests/test_deploy_env_sync.py`: All 12/12 tests PASSED.
+## 3. Bot Command Integration Verification
+
+Run the radar bot test CLI or send a Telegram command to the local dev bot:
+```
+/rain_pro cmp
+```
+
+**Expected Outcome:**
+- Bot fetches latest Chumphon radar scan (`cmp240_latest.jpg` or `cmpLoop.gif`).
+- Correctly renders rain overlay and trajectory predictions.

@@ -76,6 +76,7 @@ CMI240_BBOX = BoundingBox(lat_max=20.93, lng_min=96.81, lat_min=16.61, lng_max=1
 PHS240_BBOX = BoundingBox(lat_max=18.94, lng_min=98.11, lat_min=14.62, lng_max=102.43)
 UBN240_BBOX = BoundingBox(lat_max=17.41, lng_min=102.72, lat_min=13.09, lng_max=107.04)
 SRT240_BBOX = BoundingBox(lat_max=11.29, lng_min=97.02, lat_min=6.97, lng_max=101.34)
+CMP240_BBOX = BoundingBox(lat_max=12.66, lng_min=97.02, lat_min=8.33, lng_max=101.34)
 PKT240_BBOX = BoundingBox(lat_max=10.04, lng_min=96.16, lat_min=5.72, lng_max=100.48)
 CHN240_BBOX = BoundingBox(lat_max=17.35, lng_min=97.88, lat_min=13.02, lng_max=102.36)
 RYG240_BBOX = BoundingBox(lat_max=14.84, lng_min=99.12, lat_min=10.52, lng_max=103.44)
@@ -323,6 +324,26 @@ STATIONS = {
         loop_crop_y=28,
         loop_crop_width=728,
         loop_crop_height=728
+    ),
+    "cmp": StationConfig(
+        code="cmp",
+        name="Chumphon (240km) / ชุมพร",
+        static_image_url="https://weather.tmd.go.th/cmp/cmp240_latest.jpg",
+        loop_page_url="https://weather.tmd.go.th/cmploop.php",
+        loop_gif_url="https://weather.tmd.go.th/cmp/cmpLoop.gif",
+        bbox=CMP240_BBOX,
+        projection_type="azimuthal",
+        center_lat=10.4931,
+        center_lng=99.1800,
+        radius_km=240.0,
+        static_crop_x=72,
+        static_crop_y=28,
+        static_crop_width=728,
+        static_crop_height=728,
+        loop_crop_x=72,
+        loop_crop_y=28,
+        loop_crop_width=728,
+        loop_crop_height=728,
     ),
     "pkt240": StationConfig(
         code="pkt240",

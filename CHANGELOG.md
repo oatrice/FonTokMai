@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.16] - 2026-08-12
+
+### Added
+- **Chumphon (`cmp`) TMD Radar Station Integration & Preset**:
+  - Registered `CMP240_BBOX` and `"cmp"` `StationConfig` entry in `tmd_radar_config.py` and `tmd_radar_catalog.py`.
+  - Added TDD unit tests in `tests/test_chumphon_radar.py` verifying station registration, terrain/sea background color filtering, and legitimate rain reflectivity detection.
+
 ## [0.72.15] - 2026-08-12
 
 ### Added
