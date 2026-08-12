@@ -367,6 +367,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
             viewBox={`0 0 ${svgWidth} ${svgHeight}`}
             className="w-full h-auto max-h-[620px] drop-shadow-[0_0_20px_rgba(6,182,212,0.15)]"
           >
+            {/* Defs for Grid, Radar Pulse & Dynamic Coverage ClipPath */}
             <defs>
               <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
                 <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.04)" strokeWidth="1" />
@@ -377,38 +378,46 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
                 <stop offset="70%" stopColor="rgba(14, 165, 233, 0.12)" />
                 <stop offset="100%" stopColor="rgba(2, 132, 199, 0.0)" />
               </radialGradient>
+
+              {/* Combined ClipPath of ALL Active Station Radar Coverage Circles */}
+              <clipPath id="allRadarCoverageClip">
+                {stations.filter(s => s.is_active).map(st => {
+                  const pt = latLngToSvg(st.center_lat, st.center_lng);
+                  const r = kmToSvgRadius(st.radius_km);
+                  return <circle key={`clip-${st.code}`} cx={pt.x} cy={pt.y} r={r} />;
+                })}
+              </clipPath>
             </defs>
 
             <rect width={svgWidth} height={svgHeight} fill="url(#grid)" rx="16" />
 
-            {/* Thailand Province Polygon Boundaries — real GeoJSON via d3-geo */}
-            {showProvinceBorders && provincePaths.map((prov) => {
-              const isCovered = provinceCoverageMap.get(prov.id) ?? true;
-              
-              let fillColor = "rgba(15, 23, 42, 0.65)";
-              let strokeColor = "rgba(56, 189, 248, 0.30)";
+            {/* Thailand Province Polygon Boundaries — Base Layer (Default or Uncovered Red) */}
+            {showProvinceBorders && provincePaths.map((prov) => (
+              <path
+                key={`base-${prov.id}`}
+                d={prov.d}
+                fill={showIntersectionMode ? "rgba(244, 63, 94, 0.35)" : "rgba(15, 23, 42, 0.65)"}
+                stroke={showIntersectionMode ? "rgba(251, 113, 133, 0.40)" : "rgba(56, 189, 248, 0.30)"}
+                strokeWidth={showIntersectionMode ? "0.8" : "0.8"}
+                className="transition-all duration-300"
+              />
+            ))}
 
-              if (showIntersectionMode) {
-                if (isCovered) {
-                  fillColor = "rgba(16, 185, 129, 0.25)"; // Covered: Emerald Green
-                  strokeColor = "rgba(52, 211, 153, 0.60)";
-                } else {
-                  fillColor = "rgba(244, 63, 94, 0.35)";  // Uncovered: Rose Red
-                  strokeColor = "rgba(251, 113, 133, 0.70)";
-                }
-              }
-
-              return (
-                <path
-                  key={prov.id}
-                  d={prov.d}
-                  fill={fillColor}
-                  stroke={strokeColor}
-                  strokeWidth={showIntersectionMode ? "1.2" : "0.8"}
-                  className="transition-all duration-300 hover:fill-cyan-950/50 hover:stroke-cyan-400/60"
-                />
-              );
-            })}
+            {/* Thailand Province Polygon Boundaries — Covered Layer (Clipped by Active Radar Circles) */}
+            {showProvinceBorders && showIntersectionMode && (
+              <g clipPath="url(#allRadarCoverageClip)">
+                {provincePaths.map((prov) => (
+                  <path
+                    key={`covered-${prov.id}`}
+                    d={prov.d}
+                    fill="rgba(16, 185, 129, 0.45)"
+                    stroke="rgba(52, 211, 153, 0.80)"
+                    strokeWidth="1.2"
+                    className="transition-all duration-300"
+                  />
+                ))}
+              </g>
+            )}
 
             {/* Render 72 Province Name Labels & Markers */}
             {showProvinceNames && filteredProvinces.map(prov => (
