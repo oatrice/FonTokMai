@@ -697,6 +697,8 @@ class WeatherManager:
                 
             stations_to_check = sorted(list(stations_map.keys()), key=get_dist)
 
+        primary_station = stations_to_check[0] if stations_to_check else None
+
         for station_code in stations_to_check:
             try:
                 st_conf = stations_map.get(station_code)
@@ -704,6 +706,14 @@ class WeatherManager:
                 px, py = processor.latlng_to_pixel(lat, lng, is_loop=False)
                 if px is None or py is None:
                     continue
+
+                async def _status_callback(msg_text: str):
+                    if chat_id and message_id_to_edit:
+                        try:
+                            from app.services import telegram
+                            await telegram.edit_telegram_message(int(chat_id), int(message_id_to_edit), msg_text)
+                        except Exception as _t_err:
+                            logger.warning(f"Failed to update retry status on Telegram: {_t_err}")
 
                 # Use module-level cache and lock to prevent cache stampede
                 if station_code not in _GLOBAL_TMD_LOCKS:
@@ -748,7 +758,7 @@ class WeatherManager:
                         if persistent_stale:
                             logger.info(f"[{station_code}] Persistent cache is stale or missing. Triggering live radar cache update...")
                             try:
-                                await processor.update_radar_cache(force=True)
+                                await processor.update_radar_cache(force=True, status_callback=_status_callback)
                             except Exception as _e:
                                 logger.error(f"[{station_code}] Live cache update failed: {_e}")
                             cached_data = await self.load_persistent_cache_to_memory(station_code, processor)
@@ -768,7 +778,7 @@ class WeatherManager:
                             data_gap_minutes = 15.0
                             frame_urls = []
                         if not frames or len(frames) < 2:
-                            fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
+                            fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames(status_callback=_status_callback)
                             if len(fresh_frames) >= 2:
                                 frames = fresh_frames[-6:]
                                 target_shape = frames[-1].shape[:2]
@@ -1433,6 +1443,14 @@ class WeatherManager:
                     except Exception as e:
                         logger.error(f"Failed to generate multiframe PNG: {e}")
                 
+                failover_notice = None
+                if primary_station and station_code != primary_station:
+                    primary_conf = stations_map.get(primary_station)
+                    primary_name = getattr(primary_conf, 'name', primary_station) if primary_conf else primary_station
+                    used_name = getattr(st_conf, 'name', station_code) if st_conf else station_code
+                    logger.warning(f"[FAILOVER] Primary station {primary_station} ({primary_name}) failed. Falling back to station {station_code} ({used_name}).")
+                    failover_notice = f"⚠️ *หมายเหตุ:* เรดาร์{primary_name} ({primary_station}) ขัดข้อง/หมดเวลาเชื่อมต่อ ระบบจึงสลับไปใช้เรดาร์{used_name} ({station_code}) แทนชั่วคราว"
+
                 logger.info(f"[TMD_RADAR] ✅ Using station={station_code} | frames={len(frames)} | source={frame_source}")
                 return {
                     "predictions":       predictions,
@@ -1448,6 +1466,7 @@ class WeatherManager:
                     "all_rain_clusters":  all_rain_clusters,
                     "rain_summary":      summary_line,
                     "is_outdated":       time_offset_min > 45,
+                    "failover_notice":   failover_notice,
                     "tracking_mode":     tracking_mode,
                     "locked_target_id":   locked_target_id,
                     "radar_gif_bytes":   None,

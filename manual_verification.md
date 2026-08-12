@@ -1,72 +1,38 @@
-# Manual Verification Document — Phitsanulok (`phs`) TMD Radar Station Integration
+# Manual Verification Plan: Radar Retry, Failover Notice & Photo Compression
 
-## 📌 Feature Overview
-This verification document covers the onboarding and integration of the **Phitsanulok (`phs`) TMD Radar Station (240km radius)** into the FonMaYang weather tracking platform (v0.72.15).
-
-- **Station Code**: `phs`
-- **Name**: `Phitsanulok (240km) / พิษณุโลก`
-- **Static Image URL**: `https://weather.tmd.go.th/phs/phs240_latest.jpg`
-- **Loop Page URL**: `https://weather.tmd.go.th/phsloop.php`
-- **Loop GIF URL**: `https://weather.tmd.go.th/phs/phsloop.gif`
-- **Center Coordinates**: Lat `16.7828`, Lng `100.2786`
-- **Radius**: `240.0` km
+## 1. Retry Logic & Live Telegram Progress Notice
+- **Scenario**: When TMD radar fetching (e.g. `phs`) encounters a timeout or connection issue on local/production.
+- **Verification Steps**:
+  1. Trigger `/rain_pro` or `/rain` for Phitsanulok (`phs`).
+  2. If the static image fetch times out, the backend retries automatically up to 3 times.
+  3. During retry attempts, the Telegram loading message is updated to show retry progress:
+     > `⚠️ ไม่สามารถเชื่อมต่อเรดาร์ พิษณุโลก (phs) ได้ (พยายามใหม่รอบ 2/3)...`
+- **Expected Outcome**: User is kept informed in real-time on Telegram rather than hanging or failing silently.
 
 ---
 
-## 🛠️ Prerequisites
-1. Backend environment running with virtualenv at `backend/venv/`.
-2. Access to Web Admin Portal (`frontend/src/app/admin/radar/page.tsx`).
-3. Neon Postgres DB connection for station preset persistence.
+## 2. Station Failover Notification
+- **Scenario**: When primary station (`phs`) fails after max retries and system falls back to secondary station (`chn` ชัยนาท).
+- **Verification Steps**:
+  1. Run command `/rain_pro default` when PHS radar is offline or timing out.
+  2. System detects failure on PHS and automatically fails over to Chainat (`chn`).
+  3. Verify log output:
+     > `[FAILOVER] Primary station phs (พิษณุโลก) failed. Falling back to station chn (ชัยนาท).`
+  4. Verify Telegram message text contains explicit failover notice:
+     > `⚠️ หมายเหตุ: เรดาร์พิษณุโลก (phs) ขัดข้อง/หมดเวลาเชื่อมต่อ ระบบจึงสลับไปใช้เรดาร์ชัยนาท (chn) แทนชั่วคราว`
 
 ---
 
-## 🧪 Automated Verification Results
-
-### 1. Phitsanulok Station Unit & Terrain Rejection Tests
-```bash
-backend/venv/lib/pytest backend/tests/test_phitsanulok_radar.py
-```
-**Outcome:** ✅ `3 passed in 1.82s`
-- `test_phitsanulok_station_registered`: Verified station config registration and catalog preset.
-- `test_phitsanulok_terrain_green_not_detected_as_rain`: Verified mountain/ground background colors are rejected (0.0 dBZ).
-- `test_phitsanulok_legitimate_rain_detected`: Verified legitimate rain green/yellow colors are detected (>= 20.0 dBZ).
-
-### 2. Nationwide Station Registry & Admin Router Verification
-```bash
-backend/venv/lib/pytest backend/tests/test_nationwide_radar.py backend/tests/test_admin_radar_router.py
-```
-**Outcome:** ✅ `6 passed in 2.01s`
-- `test_nationwide_stations_present`: Verified `phs` and `phs240` presence in station registry.
-- `test_phitsanulok_preset_in_catalog`: Verified catalog preset presence and lat/lng values.
-- `test_preview_endpoint` & `test_save_and_list_stations_endpoints`: Verified admin radar endpoints.
-
-### 3. Deploy Environment Sync Check
-```bash
-backend/venv/lib/pytest backend/tests/test_deploy_env_sync.py
-```
-**Outcome:** ✅ `1 passed in 0.03s`
+## 3. Telegram Photo Automatic Compression
+- **Scenario**: Generated PNG images (`radar_latest.png`, `radar_tracking.png`) exceed 400KB.
+- **Verification Steps**:
+  1. Send photo via `send_telegram_photo`.
+  2. Verify log output shows size reduction:
+     > `[TELEGRAM] Compressed photo 'radar_latest.png' from 1,399,319 to 245,120 bytes`
+- **Expected Outcome**: Payload size drops by ~80% (from 1.4MB to < 250KB), accelerating Telegram photo delivery.
 
 ---
 
-## 🔍 Manual Testing Steps
-
-### Step 1: Web Admin Preset Prefill Verification
-1. Navigate to `/admin/radar` on the Web Admin UI.
-2. Verify that the initial form state defaults to **Phitsanulok (`phs`)** station parameters:
-   - Code: `phs`
-   - Name: `Phitsanulok (240km) / พิษณุโลก`
-   - Static Radar Image URL: `https://weather.tmd.go.th/phs/phs240_latest.jpg`
-   - Loop Page URL: `https://weather.tmd.go.th/phsloop.php`
-   - Loop GIF URL: `https://weather.tmd.go.th/phs/phsloop.gif`
-   - Lat: `16.7828`, Lng: `100.2786`, Radius: `240.0`
-3. Select "Phitsanulok (240km) / พิษณุโลก" from the quick-select preset dropdown.
-4. Click **Preview & Auto-Detect**. Verify the radar circle crop and bounding box calculation.
-
-### Step 2: Station DB Seeding & Admin API Verification
-1. Click **Submit to Neon DB** or trigger `/api/v1/admin/radar/seed`.
-2. Verify response `200 OK` confirming `phs` station upserted into `radar_stations` table.
-3. Verify station appears in `GET /api/v1/admin/radar/stations`.
-
-### Step 3: Rain Alerting & Command Verification
-1. Execute `/rain_pro phs` on Telegram/LINE bot interface.
-2. Confirm the radar image crop is centered over Phitsanulok, neon contours align correctly, and ground terrain clutter is suppressed.
+## Automated Test Suite Verification
+- Ran `pytest backend/tests/test_radar_retry_and_compression.py`: All 2/2 tests PASSED.
+- Ran `pytest backend/tests/test_phitsanulok_radar.py backend/tests/test_admin_radar_router.py backend/tests/test_nationwide_radar.py backend/tests/test_deploy_env_sync.py`: All 12/12 tests PASSED.

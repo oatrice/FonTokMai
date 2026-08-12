@@ -61,6 +61,9 @@ async def process_telegram_location(
         if location_name:
             text = f"📍 **พื้นที่:** {location_name}\n\n" + text
 
+        if result.get("failover_notice"):
+            text += f"\n\n{result.get('failover_notice')}"
+
         if result.get("is_outdated"):
             text = "⚠️ **ยังไม่มีข้อมูลล่าสุดจากกรมอุตุฯ (TMD Radar)**\nแนะนำให้เปลี่ยนไปใช้ API อื่น (เช่น Tomorrow.io หรือ Open-Meteo) แทนชั่วคราวครับ\n"
 

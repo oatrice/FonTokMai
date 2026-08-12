@@ -73,43 +73,68 @@ class TMDCacheMixin:
             logger.warning(f"[{self.station_code}] HTML timestamp fetch failed: {e}")
         return None
 
-    async def fetch_latest_image_bytes(self) -> Optional[bytes]:
-        """Fetches the latest static radar image (Polling method)."""
+    async def fetch_latest_image_bytes(
+        self,
+        status_callback: Optional[Any] = None,
+        max_retries: int = 3,
+        retry_delay: float = 1.0
+    ) -> Optional[bytes]:
+        """Fetches the latest static radar image (Polling method) with retries."""
         import time
-        url = f"{self.config.static_image_url}?t={int(time.time())}"
         from app.dependencies import get_http_client
         client = get_http_client()
-        try:
-            response = await client.get(url, timeout=10.0)
-            if response.status_code == 200:
-                return response.content
-            else:
-                logger.warning(f"[{self.station_code}] Failed to fetch static image: HTTP {response.status_code}")
-        except Exception as e:
-            logger.error(f"[{self.station_code}] Exception in fetch_latest_image_bytes: {e}", exc_info=True)
+        url = f"{self.config.static_image_url}?t={int(time.time())}"
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = await client.get(url, timeout=10.0)
+                if response.status_code == 200:
+                    return response.content
+                else:
+                    logger.warning(f"[{self.station_code}] Failed to fetch static image (attempt {attempt}/{max_retries}): HTTP {response.status_code}")
+            except Exception as e:
+                logger.warning(f"[{self.station_code}] Exception in fetch_latest_image_bytes (attempt {attempt}/{max_retries}): {e}")
+                if status_callback and attempt < max_retries:
+                    try:
+                        st_name = getattr(self.config, 'name', self.station_code)
+                        msg = f"⚠️ ไม่สามารถเชื่อมต่อเรดาร์ {st_name} [{self.station_code}] ได้ (พยายามใหม่รอบ {attempt + 1}/{max_retries})..."
+                        res = status_callback(msg)
+                        if asyncio.iscoroutine(res):
+                            await res
+                    except Exception as _cb_err:
+                        logger.warning(f"Status callback error: {_cb_err}")
+
+            if attempt < max_retries:
+                await asyncio.sleep(retry_delay)
+
         return None
 
-    async def fetch_loop_gif_and_extract_frames(self) -> Tuple[List[np.ndarray], Optional['datetime'], Optional[bytes]]:
+    async def fetch_loop_gif_and_extract_frames(
+        self,
+        status_callback: Optional[Any] = None,
+        max_retries: int = 3,
+        retry_delay: float = 1.0
+    ) -> Tuple[List[np.ndarray], Optional['datetime'], Optional[bytes]]:
         """Fetches the Loop.gif and extracts frames, the Last-Modified datetime, and raw GIF bytes."""
         import time
         loop_bytes = None
         dt = None
-                
-        if not loop_bytes:
-            # Use the verified loop_gif_url from station config.
-            # If empty, the station has no loop GIF (e.g. kkn120 → returns 404).
-            url = self.config.loop_gif_url
-            if not url:
-                logger.warning(
-                     f"[{self.station_code}] No loop_gif_url configured "
-                     f"(station has no loop GIF from TMD). Returning empty frames."
-                )
-                return [], None, None
-            url = f"{url}?t={int(time.time())}"
-            from app.dependencies import get_http_client
-            client = get_http_client()
+
+        url = self.config.loop_gif_url
+        if not url:
+            logger.warning(
+                 f"[{self.station_code}] No loop_gif_url configured "
+                 f"(station has no loop GIF from TMD). Returning empty frames."
+            )
+            return [], None, None
+
+        loop_url = f"{url}?t={int(time.time())}"
+        from app.dependencies import get_http_client
+        client = get_http_client()
+
+        for attempt in range(1, max_retries + 1):
             try:
-                response = await client.get(url, timeout=30.0)
+                response = await client.get(loop_url, timeout=30.0)
                 if response.status_code == 200:
                     loop_bytes = response.content
                     last_modified = response.headers.get("last-modified")
@@ -120,19 +145,32 @@ class TMDCacheMixin:
                         if php_resp.status_code == 200:
                             dt = self.parse_html_timestamp(php_resp.text)
                     except Exception as e:
-                        print(f"Error fetching exact timestamp from HTML: {e}")
-                        
+                        logger.warning(f"Error fetching exact timestamp from HTML: {e}")
+
                     if dt is None and last_modified:
                         try:
                             dt = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
                         except Exception as e:
-                            print(f"Error parsing date: {e}")
+                            logger.warning(f"Error parsing date: {e}")
+                    break
                 else:
                     logger.warning(
-                        f"[{self.station_code}] Loop GIF URL returned HTTP {response.status_code}: {url}"
+                        f"[{self.station_code}] Loop GIF URL returned HTTP {response.status_code} (attempt {attempt}/{max_retries})"
                     )
             except Exception as e:
-                logger.error(f"[{self.station_code}] Error fetching loop gif: {e}")
+                logger.warning(f"[{self.station_code}] Error fetching loop gif (attempt {attempt}/{max_retries}): {e}")
+                if status_callback and attempt < max_retries:
+                    try:
+                        st_name = getattr(self.config, 'name', self.station_code)
+                        msg = f"⚠️ ไม่สามารถดึงภาพ Loop เรดาร์ {st_name} [{self.station_code}] ได้ (พยายามใหม่รอบ {attempt + 1}/{max_retries})..."
+                        res = status_callback(msg)
+                        if asyncio.iscoroutine(res):
+                            await res
+                    except Exception as _cb_err:
+                        logger.warning(f"Status callback error: {_cb_err}")
+
+            if attempt < max_retries and not loop_bytes:
+                await asyncio.sleep(retry_delay)
 
                 
         if loop_bytes:
@@ -240,7 +278,7 @@ class TMDCacheMixin:
             
         return await asyncio.to_thread(_delete_sync)
 
-    async def update_radar_cache(self, force: bool = False) -> dict:
+    async def update_radar_cache(self, force: bool = False, status_callback: Optional[Any] = None) -> dict:
         """
         Fetch from TMD and update cache if new image is available or if cache is stale.
         This encapsulates the fetching, OCR, cache validation, loop GIF fallback, and database persistence.
@@ -281,7 +319,7 @@ class TMDCacheMixin:
             return result
 
         # 2. Fetch static image bytes
-        static_bytes = await self.fetch_latest_image_bytes()
+        static_bytes = await self.fetch_latest_image_bytes(status_callback=status_callback)
         
         ocr_svc = OCRService()
         ts = None
