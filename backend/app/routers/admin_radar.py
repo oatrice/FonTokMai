@@ -73,6 +73,8 @@ class RadarPreviewResponse(BaseModel):
     calculated_bbox: Dict[str, float]
     preview_image_base64: str
     loop_preview_image_base64: Optional[str] = None
+    telegram_preview_base64: Optional[str] = None
+    loop_telegram_preview_base64: Optional[str] = None
     code_snippet: str
     detail: Optional[str] = None
 
@@ -165,7 +167,6 @@ async def preview_radar_crop(req: RadarPreviewRequest):
                 "loop_crop_height": loop_crop_auto["static_crop_height"]
             })
         else:
-            # Fallback to static crop if loop crop fails
             crop_info.update({
                 "loop_crop_x": crop_info["static_crop_x"],
                 "loop_crop_y": crop_info["static_crop_y"],
@@ -179,6 +180,7 @@ async def preview_radar_crop(req: RadarPreviewRequest):
         f"static_circle_detected={static_circle} | crop_info={crop_info}"
     )
 
+    # 1. Full image preview with crop overlay (cyan rectangle + red crosshair + detected circle)
     preview_img = service.draw_crop_preview(
         static_img,
         crop_info["static_crop_x"],
@@ -187,10 +189,20 @@ async def preview_radar_crop(req: RadarPreviewRequest):
         crop_info["static_crop_height"],
         circle=static_circle
     )
-
     base64_preview = service.to_base64_jpeg(preview_img)
 
+    # 2. Pure cropped image slice for Telegram simulation card
+    cropped_img = service.crop_image(
+        static_img,
+        crop_info["static_crop_x"],
+        crop_info["static_crop_y"],
+        crop_info["static_crop_width"],
+        crop_info["static_crop_height"]
+    )
+    base64_telegram_preview = service.to_base64_jpeg(cropped_img)
+
     base64_loop_preview = None
+    base64_loop_telegram = None
     if loop_img is not None:
         loop_prev_img = service.draw_crop_preview(
             loop_img,
@@ -201,6 +213,15 @@ async def preview_radar_crop(req: RadarPreviewRequest):
             circle=loop_circle
         )
         base64_loop_preview = service.to_base64_jpeg(loop_prev_img)
+
+        cropped_loop = service.crop_image(
+            loop_img,
+            crop_info["loop_crop_x"],
+            crop_info["loop_crop_y"],
+            crop_info["loop_crop_width"],
+            crop_info["loop_crop_height"]
+        )
+        base64_loop_telegram = service.to_base64_jpeg(cropped_loop)
 
     snippet = service.generate_config_snippet(
         code=req.code,
@@ -231,8 +252,11 @@ async def preview_radar_crop(req: RadarPreviewRequest):
         "calculated_bbox": calc_bbox,
         "preview_image_base64": base64_preview,
         "loop_preview_image_base64": base64_loop_preview,
+        "telegram_preview_base64": base64_telegram_preview,
+        "loop_telegram_preview_base64": base64_loop_telegram,
         "code_snippet": snippet
     }
+
 @router.get("/presets")
 async def get_radar_presets():
     """Returns catalog of known TMD radar station presets for Admin quick-select."""

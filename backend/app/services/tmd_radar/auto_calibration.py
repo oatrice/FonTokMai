@@ -128,6 +128,24 @@ class AutoCalibrationService:
     )'''
         return f"{bbox_const}\n\n{config_entry}"
 
+    def crop_image(
+        self,
+        img: np.ndarray,
+        crop_x: int,
+        crop_y: int,
+        crop_w: int,
+        crop_h: int
+    ) -> np.ndarray:
+        """
+        Crops the specified region from the input image.
+        """
+        h, w = img.shape[:2]
+        x1 = max(0, min(w, crop_x))
+        y1 = max(0, min(h, crop_y))
+        x2 = max(x1, min(w, crop_x + crop_w))
+        y2 = max(y1, min(h, crop_y + crop_h))
+        return img[y1:y2, x1:x2]
+
     def draw_crop_preview(
         self,
         img: np.ndarray,

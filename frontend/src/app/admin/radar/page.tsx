@@ -57,8 +57,13 @@ export default function AdminRadarPage() {
 
   const [previewB64, setPreviewB64] = useState<string | null>(null);
   const [loopPreviewB64, setLoopPreviewB64] = useState<string | null>(null);
+  const [telegramPreviewB64, setTelegramPreviewB64] = useState<string | null>(null);
+  const [loopTelegramPreviewB64, setLoopTelegramPreviewB64] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"static" | "loop">("static");
   const [calculatedBbox, setCalculatedBbox] = useState<any>(null);
+  const [detectedCircle, setDetectedCircle] = useState<number[] | null>(null);
+  // Frozen station center at the time Preview was generated — never changes when crop box is dragged
+  const [frozenStationCenter, setFrozenStationCenter] = useState<{cx: number, cy: number} | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -233,7 +238,19 @@ export default function AdminRadarPage() {
       if (res.ok) {
         setPreviewB64(data.preview_image_base64);
         setLoopPreviewB64(data.loop_preview_image_base64 || null);
+        setTelegramPreviewB64(data.telegram_preview_base64 || null);
+        setLoopTelegramPreviewB64(data.loop_telegram_preview_base64 || null);
         setCalculatedBbox(data.calculated_bbox);
+        setDetectedCircle(data.detected_circle || null);
+        // Freeze station center at preview time so pin stays fixed regardless of crop dragging
+        if (data.detected_circle) {
+          setFrozenStationCenter({ cx: data.detected_circle[0], cy: data.detected_circle[1] });
+        } else {
+          // Fallback: center of the returned crop box
+          const cx = data.crop_info.static_crop_x + data.crop_info.static_crop_width / 2;
+          const cy = data.crop_info.static_crop_y + data.crop_info.static_crop_height / 2;
+          setFrozenStationCenter({ cx, cy });
+        }
         setCropX(data.crop_info.static_crop_x);
         setCropY(data.crop_info.static_crop_y);
         setCropW(data.crop_info.static_crop_width);
@@ -476,12 +493,47 @@ export default function AdminRadarPage() {
     };
   }, [isDragging, activeHandle, handleDragStart, dragStart, cropX, cropY, cropW, cropH, currentDragBox]);
 
-  const handleMouseLeave = () => {
-    setHoverPos(null);
+  // Helper: Convert Image Pixel (X, Y) to Geographic Lat/Lng in Azimuthal Projection
+  const pixelToLatLng = (px: number, py: number) => {
+    const cX = (cropX ?? 0) + (cropW ?? 800) / 2.0;
+    const cY = (cropY ?? 0) + (cropH ?? 800) / 2.0;
+    const dx = px - cX;
+    const dy = cY - py;
+    const rPx = (cropW ?? 800) / 2.0;
+    if (rPx <= 0) return { hoverLat: lat, hoverLng: lng };
+
+    const distKm = (Math.hypot(dx, dy) / rPx) * radiusKm;
+    const bearing = Math.atan2(dx, dy);
+
+    const R = 6371.0;
+    const lat1 = (lat * Math.PI) / 180.0;
+    const lon1 = (lng * Math.PI) / 180.0;
+    const dR = distKm / R;
+
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(dR) + Math.cos(lat1) * Math.sin(dR) * Math.cos(bearing)
+    );
+    const lon2 =
+      lon1 +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(dR) * Math.cos(lat1),
+        Math.cos(dR) - Math.sin(lat1) * Math.sin(lat2)
+      );
+
+    return {
+      hoverLat: (lat2 * 180.0) / Math.PI,
+      hoverLng: (lon2 * 180.0) / Math.PI
+    };
   };
+
+  const hoverCoords = hoverPos ? pixelToLatLng(hoverPos.pixelX, hoverPos.pixelY) : null;
 
   const handleMouseUp = () => {
     // Handled by global listener
+  };
+
+  const handleMouseLeave = () => {
+    setHoverPos(null);
   };
 
   // Calculate visual style for dragging overlay box
@@ -749,24 +801,47 @@ export default function AdminRadarPage() {
                     }}
                   />
                   {/* Live Coordinates Tooltip */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: `${Math.min(hoverPos.relX + 12, (imgRef.current?.getBoundingClientRect().width || 400) - 100)}px`,
-                      top: `${Math.max(hoverPos.relY - 24, 8)}px`,
-                      backgroundColor: "rgba(15, 23, 42, 0.85)",
-                      color: "#38bdf8",
-                      fontSize: "0.75rem",
-                      fontWeight: 600,
-                      padding: "2px 6px",
-                      borderRadius: 4,
-                      pointerEvents: "none",
-                      zIndex: 12,
-                      fontFamily: "monospace"
-                    }}
-                  >
-                    X: {hoverPos.pixelX}, Y: {hoverPos.pixelY}
-                  </div>
+                  {(() => {
+                    const targetCropX = activeTab === "loop" ? (cropX ?? 0) + loopOffsetX : (cropX ?? 0);
+                    const targetCropY = activeTab === "loop" ? (cropY ?? 0) + loopOffsetY : (cropY ?? 0);
+                    const targetCropW = cropW ?? 800;
+                    const targetCropH = cropH ?? 800;
+
+                    const cropRelX = hoverPos.pixelX - targetCropX;
+                    const cropRelY = hoverPos.pixelY - targetCropY;
+                    const inCrop = cropRelX >= 0 && cropRelX <= targetCropW && cropRelY >= 0 && cropRelY <= targetCropH;
+
+                    return (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: `${Math.min(hoverPos.relX + 20, (imgRef.current?.getBoundingClientRect().width || 400) - 290)}px`,
+                          top: `${Math.max(hoverPos.relY - 54, 8)}px`,
+                          backgroundColor: inCrop ? "rgba(14, 165, 233, 0.95)" : "rgba(15, 23, 42, 0.95)",
+                          color: "#ffffff",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          padding: "5px 12px",
+                          borderRadius: 6,
+                          pointerEvents: "none",
+                          zIndex: 12,
+                          fontFamily: "monospace",
+                          boxShadow: "0 6px 16px rgba(0,0,0,0.5)",
+                          border: inCrop ? "1px solid #38bdf8" : "1px solid #475569"
+                        }}
+                      >
+                        {inCrop ? (
+                          <span>
+                            🔵 Crop Rel: (<b>{cropRelX}</b>, <b>{cropRelY}</b>) | Full: ({hoverPos.pixelX}, {hoverPos.pixelY}) {hoverCoords ? `| Lat: ${hoverCoords.hoverLat.toFixed(4)}, Lng: ${hoverCoords.hoverLng.toFixed(4)}` : ""}
+                          </span>
+                        ) : (
+                          <span>
+                            ⚪ Full Radar: ({hoverPos.pixelX}, {hoverPos.pixelY}) {hoverCoords ? `| Lat: ${hoverCoords.hoverLat.toFixed(4)}, Lng: ${hoverCoords.hoverLng.toFixed(4)}` : ""}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </>
               )}
 
@@ -798,29 +873,30 @@ export default function AdminRadarPage() {
                         width: `${boxW}px`,
                         height: `${boxH}px`,
                         border: "2px solid #3b82f6",
-                        backgroundColor: "rgba(59, 130, 246, 0.1)",
+                        backgroundColor: "rgba(59, 130, 246, 0.12)",
                         boxSizing: "border-box",
+                        pointerEvents: "none",
                         zIndex: 9
                       }}
                     >
                       {/* Edge Handles */}
-                      <div onMouseDown={(e) => startHandleDrag("top", e)} style={{ position: "absolute", top: -4, left: "20%", right: "20%", height: 8, cursor: "ns-resize", backgroundColor: "rgba(59, 130, 246, 0.6)", borderRadius: 4 }} />
-                      <div onMouseDown={(e) => startHandleDrag("bottom", e)} style={{ position: "absolute", bottom: -4, left: "20%", right: "20%", height: 8, cursor: "ns-resize", backgroundColor: "rgba(59, 130, 246, 0.6)", borderRadius: 4 }} />
-                      <div onMouseDown={(e) => startHandleDrag("left", e)} style={{ position: "absolute", left: -4, top: "20%", bottom: "20%", width: 8, cursor: "ew-resize", backgroundColor: "rgba(59, 130, 246, 0.6)", borderRadius: 4 }} />
-                      <div onMouseDown={(e) => startHandleDrag("right", e)} style={{ position: "absolute", right: -4, top: "20%", bottom: "20%", width: 8, cursor: "ew-resize", backgroundColor: "rgba(59, 130, 246, 0.6)", borderRadius: 4 }} />
+                      <div onMouseDown={(e) => startHandleDrag("top", e)} style={{ position: "absolute", top: -4, left: "20%", right: "20%", height: 8, cursor: "ns-resize", backgroundColor: "rgba(59, 130, 246, 0.7)", borderRadius: 4, pointerEvents: "auto" }} />
+                      <div onMouseDown={(e) => startHandleDrag("bottom", e)} style={{ position: "absolute", bottom: -4, left: "20%", right: "20%", height: 8, cursor: "ns-resize", backgroundColor: "rgba(59, 130, 246, 0.7)", borderRadius: 4, pointerEvents: "auto" }} />
+                      <div onMouseDown={(e) => startHandleDrag("left", e)} style={{ position: "absolute", left: -4, top: "20%", bottom: "20%", width: 8, cursor: "ew-resize", backgroundColor: "rgba(59, 130, 246, 0.7)", borderRadius: 4, pointerEvents: "auto" }} />
+                      <div onMouseDown={(e) => startHandleDrag("right", e)} style={{ position: "absolute", right: -4, top: "20%", bottom: "20%", width: 8, cursor: "ew-resize", backgroundColor: "rgba(59, 130, 246, 0.7)", borderRadius: 4, pointerEvents: "auto" }} />
 
                       {/* Corner Handles */}
-                      <div onMouseDown={(e) => startHandleDrag("top-left", e)} style={{ position: "absolute", top: -5, left: -5, width: 10, height: 10, cursor: "nwse-resize", backgroundColor: "#1d4ed8", border: "1px solid #fff", borderRadius: "50%" }} />
-                      <div onMouseDown={(e) => startHandleDrag("top-right", e)} style={{ position: "absolute", top: -5, right: -5, width: 10, height: 10, cursor: "nesw-resize", backgroundColor: "#1d4ed8", border: "1px solid #fff", borderRadius: "50%" }} />
-                      <div onMouseDown={(e) => startHandleDrag("bottom-left", e)} style={{ position: "absolute", bottom: -5, left: -5, width: 10, height: 10, cursor: "nesw-resize", backgroundColor: "#1d4ed8", border: "1px solid #fff", borderRadius: "50%" }} />
-                      <div onMouseDown={(e) => startHandleDrag("bottom-right", e)} style={{ position: "absolute", bottom: -5, right: -5, width: 10, height: 10, cursor: "nwse-resize", backgroundColor: "#1d4ed8", border: "1px solid #fff", borderRadius: "50%" }} />
+                      <div onMouseDown={(e) => startHandleDrag("top-left", e)} style={{ position: "absolute", top: -5, left: -5, width: 10, height: 10, cursor: "nwse-resize", backgroundColor: "#1d4ed8", border: "1px solid #fff", borderRadius: "50%", pointerEvents: "auto" }} />
+                      <div onMouseDown={(e) => startHandleDrag("top-right", e)} style={{ position: "absolute", top: -5, right: -5, width: 10, height: 10, cursor: "nesw-resize", backgroundColor: "#1d4ed8", border: "1px solid #fff", borderRadius: "50%", pointerEvents: "auto" }} />
+                      <div onMouseDown={(e) => startHandleDrag("bottom-left", e)} style={{ position: "absolute", bottom: -5, left: -5, width: 10, height: 10, cursor: "nesw-resize", backgroundColor: "#1d4ed8", border: "1px solid #fff", borderRadius: "50%", pointerEvents: "auto" }} />
+                      <div onMouseDown={(e) => startHandleDrag("bottom-right", e)} style={{ position: "absolute", bottom: -5, right: -5, width: 10, height: 10, cursor: "nwse-resize", backgroundColor: "#1d4ed8", border: "1px solid #fff", borderRadius: "50%", pointerEvents: "auto" }} />
                     </div>
                   );
                 })()
               )}
 
               <p style={{ marginTop: "0.75rem", fontSize: "0.875rem", color: "#475569", textAlign: "center" }}>
-                🔴 <b>เส้นสีแดง</b>: เส้นเล็งเลเซอร์ | 🔵 <b>กรอบสีน้ำเงิน</b>: ขอบ Crop พร้อมปุ่มจับลากทั้ง 4 ด้านและ 4 มุม | 🟡 <b>เส้นสีส้ม</b>: กรอบสร้างใหม่
+                🔴 <b>เส้นสีแดง</b>: เส้นเล็งเลเซอร์ | 🔵 <b>กรอบสีน้ำเงิน</b>: ขอบ Crop อ้างอิงพิกัด (สามารถเลื่อนเมาส์ทะลุผ่านได้) | 🟡 <b>เส้นสีส้ม</b>: กรอบสร้างใหม่
               </p>
             </div>
           ) : (
@@ -831,6 +907,293 @@ export default function AdminRadarPage() {
           )}
         </div>
       </div>
+
+      {/* 📱 Telegram Live Preview & Coordinate Inspector Container */}
+      <section style={{ marginTop: "2rem", background: "#0e1621", color: "#ffffff", padding: "1.5rem", borderRadius: 12, boxShadow: "0 6px 16px rgba(0,0,0,0.25)", border: "1px solid #242f3d" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <span style={{ fontSize: "1.5rem" }}>📱</span>
+            <div>
+              <h2 style={{ fontSize: "1.25rem", fontWeight: 600, color: "#f8fafc", margin: 0 }}>
+                Telegram Live Preview & Coordinate Inspector (`/rain_pro`)
+              </h2>
+              <p style={{ fontSize: "0.85rem", color: "#94a3b8", margin: 0 }}>
+                จำลองการตัดรูปภาพและคำนวณพิกัด Pixel (X, Y) กับ Lat/Lng เสมือนส่งลงแชท Telegram จริง
+              </p>
+            </div>
+          </div>
+          <span style={{ padding: "0.25rem 0.75rem", backgroundColor: "#2b5278", color: "#64b5f6", borderRadius: 9999, fontSize: "0.75rem", fontWeight: 600 }}>
+            Telegram Simulated UI
+          </span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: "1.5rem", alignItems: "start" }}>
+          {/* Left simulated Telegram Chat Card */}
+          <div style={{ backgroundColor: "#17212b", padding: "1rem", borderRadius: 12, border: "1px solid #242f3d", display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ width: "100%", display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "#0088cc", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", fontSize: "0.875rem" }}>🌧️</div>
+              <div>
+                <p style={{ fontSize: "0.875rem", fontWeight: 600, color: "#ffffff", margin: 0 }}>FonMaYang Weather Bot</p>
+                <p style={{ fontSize: "0.75rem", color: "#6c7883", margin: 0 }}>bot • /rain_pro {code}</p>
+              </div>
+            </div>
+
+            {/* Cropped Image Preview */}
+            {previewB64 ? (
+              <div style={{ position: "relative", width: "100%", aspectRatio: "1/1", borderRadius: 8, overflow: "hidden", border: "1px solid #2b5278", backgroundColor: "#0b141d" }}>
+                {(() => {
+                  const targetCropX = activeTab === "loop" ? (cropX ?? 0) + loopOffsetX : (cropX ?? 0);
+                  const targetCropY = activeTab === "loop" ? (cropY ?? 0) + loopOffsetY : (cropY ?? 0);
+                  const targetCropW = Math.max(1, cropW ?? 800);
+                  const targetCropH = Math.max(1, cropH ?? 800);
+
+                  const liveImgSrc = activeTab === "loop"
+                    ? (loopGifUrl || loopPreviewB64 || previewB64!)
+                    : (imageUrl || previewB64!);
+
+                  const scaleX = (800 / targetCropW) * 100;
+                  const scaleY = (800 / targetCropH) * 100;
+                  const leftPct = -(targetCropX / targetCropW) * 100;
+                  const topPct = -(targetCropY / targetCropH) * 100;
+
+                  // Use FROZEN center (fixed at Preview time) — never follows crop box dragging
+                  const stationCx = frozenStationCenter ? frozenStationCenter.cx : (detectedCircle ? detectedCircle[0] : 436);
+                  const stationCy = frozenStationCenter ? frozenStationCenter.cy : (detectedCircle ? detectedCircle[1] : 392);
+
+                  const pinLeftPct = Math.max(0, Math.min(100, ((stationCx - targetCropX) / targetCropW) * 100));
+                  const pinTopPct = Math.max(0, Math.min(100, ((stationCy - targetCropY) / targetCropH) * 100));
+
+                  const isCentered = Math.abs(pinLeftPct - 50) < 0.1 && Math.abs(pinTopPct - 50) < 0.1;
+
+                  return (
+                    <>
+                      {/* Real-Time Live CSS Cropped Radar Image */}
+                      <img
+                        src={liveImgSrc}
+                        alt="Telegram Cropped Live Preview"
+                        style={{
+                          position: "absolute",
+                          width: `${scaleX}%`,
+                          height: `${scaleY}%`,
+                          left: `${leftPct}%`,
+                          top: `${topPct}%`,
+                          maxWidth: "none",
+                          maxHeight: "none",
+                          objectFit: "fill"
+                        }}
+                      />
+
+                      {/* Real-time Badge Indicator */}
+                      <div style={{ position: "absolute", top: 8, right: 8, backgroundColor: "rgba(15,23,42,0.85)", color: "#38bdf8", padding: "2px 8px", borderRadius: 12, fontSize: "0.65rem", fontWeight: 600, border: "1px solid rgba(56,189,248,0.4)", backdropFilter: "blur(4px)", pointerEvents: "none", zIndex: 12 }}>
+                        ⚡ Real-Time Live Crop
+                      </div>
+
+                      {/* Crop Box Center Marker (Cyan 🎯) at 50%, 50% */}
+                      <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: 14, height: 14, borderRadius: "50%", border: "1.5px solid #38bdf8", pointerEvents: "none", zIndex: 7, opacity: isCentered ? 0.4 : 0.9 }}>
+                        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: 3, height: 3, borderRadius: "50%", backgroundColor: "#38bdf8" }} />
+                      </div>
+
+                      {/* Red Station Laser Crosshair Lines */}
+                      <div style={{ position: "absolute", left: `${pinLeftPct}%`, top: 0, bottom: 0, width: "1px", borderLeft: "1.5px dashed #ef4444", pointerEvents: "none", zIndex: 8 }} />
+                      <div style={{ position: "absolute", top: `${pinTopPct}%`, left: 0, right: 0, height: "1px", borderTop: "1.5px dashed #ef4444", pointerEvents: "none", zIndex: 8 }} />
+
+                      {/* True Center Station Pin (Fixed to Station Location) */}
+                      <div style={{ position: "absolute", top: `${pinTopPct}%`, left: `${pinLeftPct}%`, transform: "translate(-50%, -50%)", display: "flex", flexDirection: "column", alignItems: "center", zIndex: 10 }}>
+                        <span style={{ fontSize: "1.3rem", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.9))" }}>📍</span>
+                        <span style={{ backgroundColor: isCentered ? "rgba(15,23,42,0.9)" : "rgba(225,29,72,0.9)", color: "#ffffff", fontSize: "0.65rem", padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap", fontFamily: "monospace", border: "1px solid #38bdf8", boxShadow: "0 2px 6px rgba(0,0,0,0.5)" }}>
+                          {code} {isCentered ? "(Exact Center)" : `(Offset: ΔX:${stationCx - (targetCropX + targetCropW / 2)} ΔY:${stationCy - (targetCropY + targetCropH / 2)})`}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            ) : (
+              <div style={{ width: "100%", height: 260, backgroundColor: "#0e1621", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#6c7883", fontSize: "0.875rem" }}>
+                โปรดกด Preview เพื่อดูรูปแชท Telegram
+              </div>
+            )}
+
+            <div style={{ width: "100%", marginTop: "0.75rem", fontSize: "0.75rem", color: "#8e99a4", lineHeight: 1.4 }}>
+              <p style={{ margin: 0, color: "#ffffff", fontWeight: 600 }}>🌧️ รายงานเรดาร์ติดตามกลุ่มฝน [{code}]</p>
+              <p style={{ margin: "2px 0 0 0" }}>ศูนย์กลาง: Lat {lat}, Lng {lng}</p>
+              <p style={{ margin: "2px 0 0 0" }}>รัศมีทำการ: {radiusKm} กม.</p>
+            </div>
+          </div>
+
+          {/* Right Live Coordinate Inspector Details */}
+          <div style={{ backgroundColor: "#17212b", padding: "1.25rem", borderRadius: 12, border: "1px solid #242f3d" }}>
+            <h3 style={{ fontSize: "1rem", fontWeight: 600, color: "#38bdf8", marginTop: 0, marginBottom: "1rem" }}>
+              📐 Live Pixel (X, Y) & Geographic (Lat / Lng) Inspector
+            </h3>
+
+            {/* Radar Center Calibration & Deviation Inspector Debugger Panel */}
+            {(() => {
+              const targetCropX = activeTab === "loop" ? (cropX ?? 0) + loopOffsetX : (cropX ?? 0);
+              const targetCropY = activeTab === "loop" ? (cropY ?? 0) + loopOffsetY : (cropY ?? 0);
+              const targetCropW = cropW ?? 800;
+              const targetCropH = cropH ?? 800;
+
+              const cropCenterX = targetCropX + targetCropW / 2;
+              const cropCenterY = targetCropY + targetCropH / 2;
+
+              const radarCx = detectedCircle ? detectedCircle[0] : cropCenterX;
+              const radarCy = detectedCircle ? detectedCircle[1] : cropCenterY;
+
+              const dx = cropCenterX - radarCx;
+              const dy = cropCenterY - radarCy;
+              const hasDeviation = Math.abs(dx) > 0 || Math.abs(dy) > 0;
+
+              return (
+                <div style={{ backgroundColor: hasDeviation ? "rgba(153, 27, 27, 0.25)" : "rgba(6, 78, 59, 0.25)", padding: "1rem", borderRadius: 8, border: hasDeviation ? "1px solid #ef4444" : "1px solid #10b981", marginBottom: "1.25rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                    <span style={{ fontSize: "0.875rem", fontWeight: 600, color: hasDeviation ? "#fca5a5" : "#6ee7b7" }}>
+                      🎯 Center Radar Alignment Debugger (วิเคราะห์ความคลาดเคลื่อนศูนย์กลางเรดาร์)
+                    </span>
+                    {hasDeviation && (
+                      <button
+                        onClick={() => {
+                          // Max half-size that fits inside 800×800 when centered on radarCx/radarCy
+                          const IMG_SIZE = 800;
+                          const halfW = Math.min(targetCropW / 2, radarCx, IMG_SIZE - radarCx);
+                          const halfH = Math.min(targetCropH / 2, radarCy, IMG_SIZE - radarCy);
+                          // Keep square to preserve radar circle shape
+                          const half = Math.min(halfW, halfH);
+                          const newW = Math.round(half * 2);
+                          const newH = Math.round(half * 2);
+                          const newCropX = Math.round(radarCx - half);
+                          const newCropY = Math.round(radarCy - half);
+                          handlePreview(newCropX, newCropY, newW, newH);
+                        }}
+                        style={{ padding: "0.35rem 0.75rem", backgroundColor: "#0284c7", color: "#ffffff", border: "none", borderRadius: 6, fontSize: "0.75rem", fontWeight: 600, cursor: "pointer" }}
+                      >
+                        🎯 Auto-Center Crop Box to Radar Circle Center
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", fontFamily: "monospace", fontSize: "0.85rem" }}>
+                    <div>
+                      <span style={{ color: "#94a3b8", display: "block", fontSize: "0.75rem" }}>🔵 Center of Blue Crop Box</span>
+                      <b>X: {cropCenterX}</b>, <b>Y: {cropCenterY}</b> px
+                    </div>
+                    <div>
+                      <span style={{ color: "#94a3b8", display: "block", fontSize: "0.75rem" }}>🔴 True Station/Radar Circle Center</span>
+                      <b style={{ color: "#fef08a" }}>X: {radarCx}</b>, <b style={{ color: "#fef08a" }}>Y: {radarCy}</b> px
+                    </div>
+                    <div>
+                      <span style={{ color: "#94a3b8", display: "block", fontSize: "0.75rem" }}>⚖️ Deviation (ΔX, ΔY)</span>
+                      <b style={{ color: hasDeviation ? "#f87171" : "#4ade80", fontSize: "1rem" }}>
+                        ΔX: {dx > 0 ? `+${dx}` : dx}px, ΔY: {dy > 0 ? `+${dy}` : dy}px
+                      </b>
+                    </div>
+                  </div>
+                  {hasDeviation ? (
+                    <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.75rem", color: "#fca5a5" }}>
+                      ⚠️ <b>ข้อสังเกต:</b> ศูนย์กลางกรอบ Crop สีฟ้าเบี่ยงจากจุดศูนย์กลางวงกลมเรดาร์จริง กดปุ่ม Auto-Center ด้านบนเพื่อปรับกรอบให้ตรงกัน 100%
+                    </p>
+                  ) : (
+                    <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.75rem", color: "#6ee7b7" }}>
+                      ✅ <b>สมบูรณ์แบบ:</b> ศูนย์กลางกรอบสีฟ้าตรงกับจุดศูนย์กลางเรดาร์จริง 100% (ΔX = 0, ΔY = 0)
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.25rem" }}>
+              <div style={{ backgroundColor: "#0e1621", padding: "0.85rem", borderRadius: 8, border: "1px solid #242f3d" }}>
+                <span style={{ fontSize: "0.75rem", color: "#8e99a4", display: "block" }}>🎯 Center Radar Coordinates</span>
+                <span style={{ fontSize: "1.1rem", fontWeight: 600, color: "#f8fafc", fontFamily: "monospace" }}>
+                  Lat {lat}, Lng {lng}
+                </span>
+                <span style={{ fontSize: "0.75rem", color: "#64748b", display: "block", marginTop: 4 }}>
+                  Pixel Center: X: {(cropX ?? 0) + (cropW ?? 800) / 2}, Y: {(cropY ?? 0) + (cropH ?? 800) / 2}
+                </span>
+              </div>
+
+              <div style={{ backgroundColor: "#0e1621", padding: "0.85rem", borderRadius: 8, border: "1px solid #242f3d" }}>
+                <span style={{ fontSize: "0.75rem", color: "#8e99a4", display: "block" }}>✂️ Crop Box Settings (Natural 800×800 px)</span>
+                <span style={{ fontSize: "1.1rem", fontWeight: 600, color: "#38bdf8", fontFamily: "monospace" }}>
+                  X: {cropX ?? 0}, Y: {cropY ?? 0} | {cropW ?? 800}×{cropH ?? 800} px
+                </span>
+                <span style={{ fontSize: "0.75rem", color: "#64748b", display: "block", marginTop: 4 }}>
+                  Loop Offset: X: {(cropX ?? 0) + loopOffsetX}, Y: {(cropY ?? 0) + loopOffsetY}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ backgroundColor: "#0e1621", padding: "1rem", borderRadius: 8, border: "1px solid #242f3d", marginBottom: "1.25rem" }}>
+              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#f8fafc", display: "block", marginBottom: "0.5rem" }}>
+                🗺️ Neon DB BoundingBox Coverage
+              </span>
+              {calculatedBbox ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.5rem", fontFamily: "monospace", fontSize: "0.85rem", color: "#7dd3fc" }}>
+                  <div>Top (lat_max):<br /><b style={{ color: "#ffffff" }}>{calculatedBbox.lat_max}</b></div>
+                  <div>Bottom (lat_min):<br /><b style={{ color: "#ffffff" }}>{calculatedBbox.lat_min}</b></div>
+                  <div>Left (lng_min):<br /><b style={{ color: "#ffffff" }}>{calculatedBbox.lng_min}</b></div>
+                  <div>Right (lng_max):<br /><b style={{ color: "#ffffff" }}>{calculatedBbox.lng_max}</b></div>
+                </div>
+              ) : (
+                <span style={{ fontSize: "0.85rem", color: "#64748b" }}>กดปุ่ม Preview & Auto-Detect เพื่อคำนวณ BoundingBox</span>
+              )}
+            </div>
+
+            {/* Hover Live Inspector */}
+            <div style={{ backgroundColor: hoverPos ? "rgba(3, 105, 161, 0.2)" : "#0e1621", padding: "1rem", borderRadius: 8, border: "1px solid #0284c7", transition: "background-color 0.2s ease" }}>
+              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#38bdf8", display: "block", marginBottom: 6 }}>
+                🖱️ Live Hover Cursor Inspector (พิกัดเปรียบเทียบกรอบ Crop vs ภาพเต็ม)
+              </span>
+              {hoverPos && hoverCoords ? (
+                (() => {
+                  const targetCropX = activeTab === "loop" ? (cropX ?? 0) + loopOffsetX : (cropX ?? 0);
+                  const targetCropY = activeTab === "loop" ? (cropY ?? 0) + loopOffsetY : (cropY ?? 0);
+                  const targetCropW = cropW ?? 800;
+                  const targetCropH = cropH ?? 800;
+
+                  const cropRelX = hoverPos.pixelX - targetCropX;
+                  const cropRelY = hoverPos.pixelY - targetCropY;
+                  const inCrop = cropRelX >= 0 && cropRelX <= targetCropW && cropRelY >= 0 && cropRelY <= targetCropH;
+
+                  return (
+                    <div style={{ fontFamily: "monospace", fontSize: "0.9rem", color: "#f8fafc", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem" }}>
+                      <div style={{ backgroundColor: inCrop ? "rgba(2, 132, 199, 0.35)" : "#0f172a", padding: "0.6rem 0.8rem", borderRadius: 6, border: inCrop ? "1px solid #38bdf8" : "1px solid #334155" }}>
+                        <span style={{ fontSize: "0.75rem", color: "#7dd3fc", display: "block", marginBottom: 2 }}>
+                          🔵 Crop Box Pixel (0,0 = มุมซ้ายบนกรอบฟ้า)
+                        </span>
+                        <span>X: <b style={{ color: "#38bdf8", fontSize: "1.05rem" }}>{cropRelX}</b>, Y: <b style={{ color: "#38bdf8", fontSize: "1.05rem" }}>{cropRelY}</b> px</span>
+                        <span style={{ fontSize: "0.7rem", display: "block", marginTop: 2, color: inCrop ? "#4ade80" : "#f87171" }}>
+                          {inCrop ? "✅ ภายในกรอบ Crop" : "⚠️ นอกกรอบ Crop"}
+                        </span>
+                      </div>
+
+                      <div style={{ backgroundColor: "#0f172a", padding: "0.6rem 0.8rem", borderRadius: 6, border: "1px solid #334155" }}>
+                        <span style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block", marginBottom: 2 }}>
+                          🖼️ Full Radar Image Pixel (0,0 = รูปใหญ่)
+                        </span>
+                        <span>X: <b>{hoverPos.pixelX}</b>, Y: <b>{hoverPos.pixelY}</b> px</span>
+                        <span style={{ fontSize: "0.7rem", color: "#64748b", display: "block", marginTop: 2 }}>ภาพดิบ {imgRef.current?.naturalWidth || 800}×{imgRef.current?.naturalHeight || 800} px</span>
+                      </div>
+
+                      <div style={{ backgroundColor: "#0f172a", padding: "0.6rem 0.8rem", borderRadius: 6, border: "1px solid #334155" }}>
+                        <span style={{ fontSize: "0.75rem", color: "#94a3b8", display: "block", marginBottom: 2 }}>
+                          🌐 Geographic GPS Coordinates
+                        </span>
+                        <span style={{ color: "#fef08a" }}>Lat: <b>{hoverCoords.hoverLat.toFixed(5)}</b>, Lng: <b>{hoverCoords.hoverLng.toFixed(5)}</b></span>
+                        <span style={{ fontSize: "0.7rem", color: "#64748b", display: "block", marginTop: 2 }}>Azimuthal Projection</span>
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>
+                  เลื่อนเมาส์บนภาพพรีวิวเรดาร์ (ทั้งภายในและภายนอกกรอบสีฟ้า) เพื่อตรวจสอบค่า Pixel (X, Y) และ Lat/Lng แบบเรียลไทม์
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Active Stations Table */}
       <section style={{ marginTop: "3rem", background: "#ffffff", padding: "1.5rem", borderRadius: 12, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", border: "1px solid #e2e8f0" }}>
