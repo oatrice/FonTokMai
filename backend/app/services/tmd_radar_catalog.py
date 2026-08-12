@@ -96,5 +96,18 @@ KNOWN_TMD_RADAR_PRESETS = [
         "lat_max": 14.84, "lng_min": 99.12, "lat_min": 10.52, "lng_max": 103.44,
         "static_crop_x": 0, "static_crop_y": 0, "static_crop_width": 800, "static_crop_height": 800,
         "loop_crop_x": 0, "loop_crop_y": 0, "loop_crop_width": 680, "loop_crop_height": 680
+    },
+    {
+        "code": "phs",
+        "name": "Phitsanulok (240km) / พิษณุโลก",
+        "static_image_url": "https://weather.tmd.go.th/phs/phs240_latest.jpg",
+        "loop_page_url": "https://weather.tmd.go.th/phsloop.php",
+        "loop_gif_url": "https://weather.tmd.go.th/phs/phsloop.gif",
+        "center_lat": 16.7828,
+        "center_lng": 100.2786,
+        "radius_km": 240.0,
+        "lat_max": 18.94, "lng_min": 98.11, "lat_min": 14.62, "lng_max": 102.43,
+        "static_crop_x": 72, "static_crop_y": 28, "static_crop_width": 728, "static_crop_height": 728,
+        "loop_crop_x": 72, "loop_crop_y": 28, "loop_crop_width": 728, "loop_crop_height": 728
     }
 ]

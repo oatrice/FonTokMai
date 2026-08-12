@@ -53,11 +53,16 @@ async def test_preview_endpoint(client, monkeypatch):
         status_code = 200
         content = buffer.tobytes()
 
+    def mock_requests_get(*args, **kwargs):
+        return MockResponse()
+
     async def mock_get(*args, **kwargs):
         return MockResponse()
 
     import httpx
+    import requests
     monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    monkeypatch.setattr(requests, "get", mock_requests_get)
 
     payload = {
         "code": "test240",

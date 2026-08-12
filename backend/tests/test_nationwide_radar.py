@@ -8,7 +8,7 @@ def test_nationwide_stations_present():
     required_stations = [
         "kkn120", "kkn240", "skn240", # Northeast
         "svp240", "ntp240", "chn",    # Central / Bangkok Metro / Chainat
-        "cmi240", "phs240",           # North
+        "cmi240", "phs240", "phs",     # North
         "ubn240",                     # East Northeast
         "srt240", "pkt240"            # South
     ]
@@ -32,6 +32,18 @@ def test_chainat_preset_in_catalog():
     assert chn_preset["static_image_url"] == "https://weather.tmd.go.th/chn/chn240_latest.gif"
     assert chn_preset["loop_page_url"] == "https://weather.tmd.go.th/chn.php"
     assert chn_preset["loop_gif_url"] == "https://weather.tmd.go.th/chn/chnloop.gif"
+
+def test_phitsanulok_preset_in_catalog():
+    """Verify Phitsanulok (phs) preset is present in KNOWN_TMD_RADAR_PRESETS."""
+    from app.services.tmd_radar_catalog import KNOWN_TMD_RADAR_PRESETS
+    phs_preset = next((p for p in KNOWN_TMD_RADAR_PRESETS if p["code"] == "phs"), None)
+    assert phs_preset is not None, "Phitsanulok (phs) preset missing from KNOWN_TMD_RADAR_PRESETS"
+    assert phs_preset["center_lat"] == 16.7828
+    assert phs_preset["center_lng"] == 100.2786
+    assert phs_preset["radius_km"] == 240.0
+    assert phs_preset["static_image_url"] == "https://weather.tmd.go.th/phs/phs240_latest.jpg"
+    assert phs_preset["loop_page_url"] == "https://weather.tmd.go.th/phsloop.php"
+    assert phs_preset["loop_gif_url"] == "https://weather.tmd.go.th/phs/phsloop.gif"
 
 def test_bounding_box_validity():
     """Verify all bounding boxes have max > min for lat and lng."""
