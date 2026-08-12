@@ -184,14 +184,14 @@ STATIONS = {
         center_lat=16.4322,
         center_lng=102.8236,
         radius_km=240.0,
-        # Crop calibrated via Admin UI (Neon DB source of truth): crop_x=76, crop_y=42.
-        # 76+724 = 800 <= 800 (prevents crop boundary overflow in cache.py)
-        static_crop_x=76,
-        static_crop_y=42,
+        # Crop calibrated to exact radar center crosshair at (433, 391):
+        # Crop X = 433 - 362 = 71, Crop Y = 391 - 362 = 29
+        static_crop_x=71,
+        static_crop_y=29,
         static_crop_width=724,
         static_crop_height=724,
-        loop_crop_x=76,
-        loop_crop_y=42,
+        loop_crop_x=71,
+        loop_crop_y=29,
         loop_crop_width=724,
         loop_crop_height=724,
         legend_bboxes=[(730, 100, 800, 750), (0, 740, 800, 800), (0, 0, 400, 60)]
