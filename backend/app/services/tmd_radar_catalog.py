@@ -122,5 +122,18 @@ KNOWN_TMD_RADAR_PRESETS = [
         "lat_max": 12.66, "lng_min": 97.02, "lat_min": 8.33, "lng_max": 101.34,
         "static_crop_x": 8, "static_crop_y": 13, "static_crop_width": 750, "static_crop_height": 750,
         "loop_crop_x": 8, "loop_crop_y": 13, "loop_crop_width": 750, "loop_crop_height": 750
+    },
+    {
+        "code": "tak",
+        "name": "Doi Muser, Tak Province (240km) / ตาก (ดอยมูเซอ)",
+        "static_image_url": "https://weather.tmd.go.th/tak/tak240_latest.jpg",
+        "loop_page_url": "https://weather.tmd.go.th/takloop.php",
+        "loop_gif_url": "https://weather.tmd.go.th/tak/takloop.gif",
+        "center_lat": 16.7539,
+        "center_lng": 98.9228,
+        "radius_km": 240.0,
+        "lat_max": 18.92, "lng_min": 96.76, "lat_min": 14.59, "lng_max": 101.08,
+        "static_crop_x": 72, "static_crop_y": 28, "static_crop_width": 728, "static_crop_height": 728,
+        "loop_crop_x": 72, "loop_crop_y": 28, "loop_crop_width": 728, "loop_crop_height": 728
     }
 ]

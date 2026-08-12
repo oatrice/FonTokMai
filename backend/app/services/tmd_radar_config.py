@@ -80,8 +80,29 @@ CMP240_BBOX = BoundingBox(lat_max=12.66, lng_min=97.02, lat_min=8.33, lng_max=10
 PKT240_BBOX = BoundingBox(lat_max=10.04, lng_min=96.16, lat_min=5.72, lng_max=100.48)
 CHN240_BBOX = BoundingBox(lat_max=17.35, lng_min=97.88, lat_min=13.02, lng_max=102.36)
 RYG240_BBOX = BoundingBox(lat_max=14.84, lng_min=99.12, lat_min=10.52, lng_max=103.44)
+TAK240_BBOX = BoundingBox(lat_max=18.92, lng_min=96.76, lat_min=14.59, lng_max=101.08)
 
 STATIONS = {
+    "tak": StationConfig(
+        code="tak",
+        name="Doi Muser, Tak Province (240km) / ตาก (ดอยมูเซอ)",
+        static_image_url="https://weather.tmd.go.th/tak/tak240_latest.jpg",
+        loop_page_url="https://weather.tmd.go.th/takloop.php",
+        loop_gif_url="https://weather.tmd.go.th/tak/takloop.gif",
+        bbox=TAK240_BBOX,
+        projection_type="azimuthal",
+        center_lat=16.7539,
+        center_lng=98.9228,
+        radius_km=240.0,
+        static_crop_x=72,
+        static_crop_y=28,
+        static_crop_width=728,
+        static_crop_height=728,
+        loop_crop_x=72,
+        loop_crop_y=28,
+        loop_crop_width=728,
+        loop_crop_height=728,
+    ),
     "ryg": StationConfig(
         code="ryg",
         name="Rayong (240km) / ระยอง",

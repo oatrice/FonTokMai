@@ -35,13 +35,13 @@ export default function AdminRadarPage() {
   const [stations, setStations] = useState<Station[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
 
-  const [code, setCode] = useState("cmp");
-  const [name, setName] = useState("Chumphon (240km) / ชุมพร");
-  const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/cmp/cmp240_latest.jpg");
-  const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/cmploop.php");
-  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/cmp/cmpLoop.gif");
-  const [lat, setLat] = useState(10.4931);
-  const [lng, setLng] = useState(99.1800);
+  const [code, setCode] = useState("tak");
+  const [name, setName] = useState("Doi Muser, Tak Province (240km) / ตาก (ดอยมูเซอ)");
+  const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/tak/tak240_latest.jpg");
+  const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/takloop.php");
+  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/tak/takloop.gif");
+  const [lat, setLat] = useState(16.7539);
+  const [lng, setLng] = useState(98.9228);
   const [radiusKm, setRadiusKm] = useState(240.0);
 
   // Crop Controls

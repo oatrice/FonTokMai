@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.19] - 2026-08-12
+
+### Added
+- **Tak (`tak` / ดอยมูเซอ) TMD Radar Station Integration & Admin Prefill**:
+  - Registered `TAK240_BBOX` and `"tak"` `StationConfig` entry in [`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py) and [`tmd_radar_catalog.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_catalog.py) for Doi Muser radar station in Tak Province (`center_lat=16.7539`, `center_lng=98.9228`, `radius_km=240.0`).
+  - Prefilled Web Admin frontend UI ([`frontend/src/app/admin/radar/page.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/app/admin/radar/page.tsx)) form default state values with Tak station presets.
+  - Added TDD unit test suite [`tests/test_tak_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_tak_radar.py) verifying station registration in configuration and catalog presets, background mountain terrain color exclusion, and legitimate rain detection.
+
 ## [0.72.18] - 2026-08-12
 
 ### Added
