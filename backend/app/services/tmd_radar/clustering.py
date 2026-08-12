@@ -479,8 +479,8 @@ class TMDClusteringMixin:
         user_y: int,
         scan_radius: Optional[int] = None,
         min_dbz: float = 10.0,
-        cluster_dist: int = 12,
-        min_size: int = 5,
+        cluster_dist: int = 8,
+        min_size: int = 3,
     ) -> list:
         """
         Scan for ALL rain clusters (regardless of direction).
@@ -526,12 +526,15 @@ class TMDClusteringMixin:
         if len(x_coords) == 0:
             return []
             
-        # 3. Morphological close to bridge gaps of `cluster_dist`
+        # 3. Morphological close to bridge gaps of `cluster_dist` (with vertical band extension support)
         bin_mask = (rain_pixels * 255).astype(np.uint8)
-        ksize = cluster_dist
-        if ksize % 2 == 0:
-            ksize += 1
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize))
+        kw = cluster_dist
+        kh = cluster_dist
+        if kw % 2 == 0:
+            kw += 1
+        if kh % 2 == 0:
+            kh += 1
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kw, kh))
         closed_mask = cv2.morphologyEx(bin_mask, cv2.MORPH_CLOSE, kernel)
         
         # Check connected components before and after MORPH_CLOSE

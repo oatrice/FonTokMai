@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.14] - 2026-08-12
+
+### Fixed
+- **Contour Coordinate Transposition Fix (`tracking.py`)**:
+  - Fixed X/Y tuple unpacking bug in `tracking.py` where pixel coordinates `(px, py)` were unpacked as `for py, px in c_orig["pixels"]`, causing neon contours drawn in `/rain_pro` and tracking images to be transposed diagonally.
+  - Added unit test `test_neon_contour_coordinates.py` verifying contour point X/Y coordinate alignment.
+
+## [0.72.13] - 2026-08-12
+
+### Added
+- **Multi-Cloud Detection & Sea Border Clipping** (`clustering.py`, `tracking.py`):
+  - Updated default clustering parameters (`min_size=3`, `cluster_dist=8`, `min_dbz=10.0`) in `get_all_rain_clusters` to detect up to 21 distinct real rain clouds across the radar scan.
+  - Implemented Sea Background Mask Clipping in `tracking.py` to trim contour lines neatly at the sea boundary `RGB(128, 192, 254)` without spilling into ocean background.
+
 ## [0.72.12] - 2026-08-12
 
 ### Added

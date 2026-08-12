@@ -480,7 +480,7 @@ class TMDTrackingMixin:
                 color = _dbz_color(dbz)
                 hull_rect = None
                 if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
-                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for py, px in c_orig["pixels"]], dtype=np.int32)
+                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for px, py in c_orig["pixels"]], dtype=np.int32)
                     x, y, w, h = cv2.boundingRect(pts)
                     margin = 2
                     mask_w, mask_h = w + 2 * margin, h + 2 * margin
@@ -501,7 +501,7 @@ class TMDTrackingMixin:
                     raw_mask = mask.copy()
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
                     dilate_kw = max(7, int(11 * scale))
-                    dilate_kh = max(5, int(9 * scale))
+                    dilate_kh = max(19, int(23 * scale))
                     if dilate_kw % 2 == 0:
                         dilate_kw += 1
                     if dilate_kh % 2 == 0:
@@ -815,7 +815,7 @@ class TMDTrackingMixin:
                 
                 # Draw polygon outline & fill for ambient clouds (similar to approaching clouds)
                 if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
-                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for py, px in c_orig["pixels"]], dtype=np.int32)
+                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for px, py in c_orig["pixels"]], dtype=np.int32)
                     bx, by, bw, bh = cv2.boundingRect(pts)
                     margin = 2
                     mask_w, mask_h = bw + 2 * margin, bh + 2 * margin
@@ -836,7 +836,7 @@ class TMDTrackingMixin:
                     raw_mask = mask.copy()
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
                     dilate_kw = max(7, int(11 * scale))
-                    dilate_kh = max(5, int(9 * scale))
+                    dilate_kh = max(19, int(23 * scale))
                     if dilate_kw % 2 == 0:
                         dilate_kw += 1
                     if dilate_kh % 2 == 0:
