@@ -184,14 +184,14 @@ STATIONS = {
         center_lat=16.4322,
         center_lng=102.8236,
         radius_km=240.0,
-        # Mathematically calibrated crop offsets: Center of radar circle on 800x800 image is (439, 403).
-        # For 724x724 crop (radius 362px): Crop X = 439-362 = 77, Crop Y = 403-362 = 41.
-        static_crop_x=77,
-        static_crop_y=41,
+        # Crop calibrated via Admin UI (Neon DB source of truth): crop_x=74, crop_y=31.
+        # Pin placed at center lat/lng (16.4322, 102.8236) gives pixel (362, 362) = exact center of 724×724 crop.
+        static_crop_x=74,
+        static_crop_y=31,
         static_crop_width=724,
         static_crop_height=724,
-        loop_crop_x=77,
-        loop_crop_y=41,
+        loop_crop_x=74,
+        loop_crop_y=31,
         loop_crop_width=724,
         loop_crop_height=724,
         legend_bboxes=[(730, 100, 800, 750), (0, 740, 800, 800), (0, 0, 400, 60)]
