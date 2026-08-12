@@ -951,8 +951,12 @@ export default function AdminRadarPage() {
                     ? (loopGifUrl || loopPreviewB64 || previewB64!)
                     : (imageUrl || previewB64!);
 
-                  const scaleX = (800 / targetCropW) * 100;
-                  const scaleY = (800 / targetCropH) * 100;
+                  // Dynamic natural image dimension scaling (handles images with natural width/height != 800)
+                  const natW = imgRef.current?.naturalWidth || 800;
+                  const natH = imgRef.current?.naturalHeight || 800;
+
+                  const scaleX = (natW / targetCropW) * 100;
+                  const scaleY = (natH / targetCropH) * 100;
                   const leftPct = -(targetCropX / targetCropW) * 100;
                   const topPct = -(targetCropY / targetCropH) * 100;
 

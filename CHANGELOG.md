@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Chumphon (`cmp`) TMD Radar Station Integration & Preset Prefill**:
-  - Registered `CMP240_BBOX` and `"cmp"` `StationConfig` entry in `tmd_radar_config.py` and `tmd_radar_catalog.py`.
-  - Updated Web Admin frontend (`frontend/src/app/admin/radar/page.tsx`) default form state to prefill Chumphon (`cmp`) station preset parameters.
+  - Registered `CMP240_BBOX` and `"cmp"` `StationConfig` entry in `tmd_radar_config.py` and `tmd_radar_catalog.py` with fine-tuned expanded crop parameters (`crop_x=8`, `crop_y=13`, `crop_width=750`, `crop_height=750`).
+  - Updated Web Admin frontend (`frontend/src/app/admin/radar/page.tsx`) default form state to prefill Chumphon (`cmp`) station preset parameters and dynamically scale natural image dimensions in Telegram Simulated preview card.
   - Added TDD unit tests in `tests/test_chumphon_radar.py` verifying station registration, terrain/sea background color filtering, and legitimate rain reflectivity detection.
 
 ## [0.72.15] - 2026-08-12

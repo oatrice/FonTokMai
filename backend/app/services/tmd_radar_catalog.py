@@ -120,7 +120,7 @@ KNOWN_TMD_RADAR_PRESETS = [
         "center_lng": 99.1800,
         "radius_km": 240.0,
         "lat_max": 12.66, "lng_min": 97.02, "lat_min": 8.33, "lng_max": 101.34,
-        "static_crop_x": 72, "static_crop_y": 28, "static_crop_width": 728, "static_crop_height": 728,
-        "loop_crop_x": 72, "loop_crop_y": 28, "loop_crop_width": 728, "loop_crop_height": 728
+        "static_crop_x": 8, "static_crop_y": 13, "static_crop_width": 750, "static_crop_height": 750,
+        "loop_crop_x": 8, "loop_crop_y": 13, "loop_crop_width": 750, "loop_crop_height": 750
     }
 ]
