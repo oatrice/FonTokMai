@@ -35,13 +35,13 @@ export default function AdminRadarPage() {
   const [stations, setStations] = useState<Station[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
 
-  const [code, setCode] = useState("chn");
-  const [name, setName] = useState("Chainat (240km) / ชัยนาท");
-  const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/chn/chn240_latest.gif");
-  const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/chn.php");
-  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/chn/chnloop.gif");
-  const [lat, setLat] = useState(15.1833);
-  const [lng, setLng] = useState(100.1167);
+  const [code, setCode] = useState("ryg");
+  const [name, setName] = useState("Rayong (240km) / ระยอง");
+  const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/ryg/ryg240_latest.jpg");
+  const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/rygloop.php");
+  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/ryg/rygloop.gif");
+  const [lat, setLat] = useState(12.6814);
+  const [lng, setLng] = useState(101.2817);
   const [radiusKm, setRadiusKm] = useState(240.0);
 
   // Crop Controls

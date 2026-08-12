@@ -83,5 +83,18 @@ KNOWN_TMD_RADAR_PRESETS = [
         "lat_max": 17.35, "lng_min": 97.88, "lat_min": 13.02, "lng_max": 102.36,
         "static_crop_x": 0, "static_crop_y": 0, "static_crop_width": 800, "static_crop_height": 800,
         "loop_crop_x": 0, "loop_crop_y": 0, "loop_crop_width": 680, "loop_crop_height": 680
+    },
+    {
+        "code": "ryg",
+        "name": "Rayong (240km) / ระยอง",
+        "static_image_url": "https://weather.tmd.go.th/ryg/ryg240_latest.jpg",
+        "loop_page_url": "https://weather.tmd.go.th/rygloop.php",
+        "loop_gif_url": "https://weather.tmd.go.th/ryg/rygloop.gif",
+        "center_lat": 12.6814,
+        "center_lng": 101.2817,
+        "radius_km": 240.0,
+        "lat_max": 14.84, "lng_min": 99.12, "lat_min": 10.52, "lng_max": 103.44,
+        "static_crop_x": 0, "static_crop_y": 0, "static_crop_width": 800, "static_crop_height": 800,
+        "loop_crop_x": 0, "loop_crop_y": 0, "loop_crop_width": 680, "loop_crop_height": 680
     }
 ]
