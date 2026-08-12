@@ -569,10 +569,10 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
             return
 
         if target_location_name:
-            if target_location_name != "default" and chat_id in LAST_PINNED_LOCATION:
+            if target_location_name not in ("default", "d") and chat_id in LAST_PINNED_LOCATION:
                 LAST_PINNED_LOCATION.pop(chat_id, None)
             for l in locs:
-                if (l.name and l.name.lower() == target_location_name) or (target_location_name == "default" and l.name is None):
+                if (l.name and l.name.lower() == target_location_name) or (target_location_name in ("default", "d") and (l.name is None or l.name.lower() == "default")):
                     loc = l
                     break
             if not loc:

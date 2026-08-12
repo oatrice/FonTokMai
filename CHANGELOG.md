@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.17] - 2026-08-12
+
+### Added
+- **Default Location Alias `d` for Commands**:
+  - Supported `d` as an alias for `default` location name in bot commands (e.g. `/rain_pro d`, `/rain d`) in both Telegram ([`webhook_commands.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/webhook_commands.py)) and LINE ([`line_webhook.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/line_webhook.py)).
+  - Added unit test `test_handle_rain_command_default_alias_d` in `tests/test_webhook.py`.
+
 ## [0.72.16] - 2026-08-12
 
 ### Added
