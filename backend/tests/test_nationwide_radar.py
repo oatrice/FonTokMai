@@ -26,8 +26,8 @@ def test_chainat_preset_in_catalog():
     from app.services.tmd_radar_catalog import KNOWN_TMD_RADAR_PRESETS
     chn_preset = next((p for p in KNOWN_TMD_RADAR_PRESETS if p["code"] == "chn"), None)
     assert chn_preset is not None, "Chainat (chn) preset missing from KNOWN_TMD_RADAR_PRESETS"
-    assert chn_preset["center_lat"] == 15.1833
-    assert chn_preset["center_lng"] == 100.1167
+    assert chn_preset["center_lat"] == 15.158238
+    assert chn_preset["center_lng"] == 100.191207
     assert chn_preset["radius_km"] == 240.0
     assert chn_preset["static_image_url"] == "https://weather.tmd.go.th/chn/chn240_latest.gif"
     assert chn_preset["loop_page_url"] == "https://weather.tmd.go.th/chn.php"

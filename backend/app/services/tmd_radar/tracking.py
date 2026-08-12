@@ -480,7 +480,7 @@ class TMDTrackingMixin:
                 color = _dbz_color(dbz)
                 hull_rect = None
                 if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
-                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for px, py in c_orig["pixels"]], dtype=np.int32)
+                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for py, px in c_orig["pixels"]], dtype=np.int32)
                     x, y, w, h = cv2.boundingRect(pts)
                     margin = 2
                     mask_w, mask_h = w + 2 * margin, h + 2 * margin
@@ -500,6 +500,14 @@ class TMDTrackingMixin:
                     
                     raw_mask = mask.copy()
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+                    dilate_kw = max(7, int(11 * scale))
+                    dilate_kh = max(5, int(9 * scale))
+                    if dilate_kw % 2 == 0:
+                        dilate_kw += 1
+                    if dilate_kh % 2 == 0:
+                        dilate_kh += 1
+                    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dilate_kw, dilate_kh))
+                    mask = cv2.dilate(mask, dilate_kernel)
                     
                     from app.services.weather_manager import _DEV_CONFIG
                     enable_smooth = _DEV_CONFIG.get("enable_raster_smooth", True)
@@ -807,7 +815,7 @@ class TMDTrackingMixin:
                 
                 # Draw polygon outline & fill for ambient clouds (similar to approaching clouds)
                 if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
-                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for px, py in c_orig["pixels"]], dtype=np.int32)
+                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for py, px in c_orig["pixels"]], dtype=np.int32)
                     bx, by, bw, bh = cv2.boundingRect(pts)
                     margin = 2
                     mask_w, mask_h = bw + 2 * margin, bh + 2 * margin
@@ -827,6 +835,22 @@ class TMDTrackingMixin:
                     
                     raw_mask = mask.copy()
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+                    dilate_kw = max(7, int(11 * scale))
+                    dilate_kh = max(5, int(9 * scale))
+                    if dilate_kw % 2 == 0:
+                        dilate_kw += 1
+                    if dilate_kh % 2 == 0:
+                        dilate_kh += 1
+                    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dilate_kw, dilate_kh))
+                    mask = cv2.dilate(mask, dilate_kernel)
+                    
+                    # Trim sea background pixels from mask boundaries
+                    if 'img' in locals() and img is not None:
+                        local_crop = img[max(0, by-margin):min(img.shape[0], by-margin+mask_h), max(0, bx-margin):min(img.shape[1], bx-margin+mask_w)]
+                        if local_crop.shape[:2] == (mask_h, mask_w):
+                            diff_sea = np.abs(local_crop.astype(np.int16) - np.array([128, 192, 254], dtype=np.int16))
+                            is_sea = np.all(diff_sea <= 18, axis=2)
+                            mask[is_sea] = 0
                     
                     from app.services.weather_manager import _DEV_CONFIG
                     enable_smooth = _DEV_CONFIG.get("enable_raster_smooth", True)

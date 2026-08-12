@@ -74,7 +74,6 @@ class TMDClusteringMixin:
             r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
         else:
             return 0.0
-            
         color_tuple = (r, g, b)
         
         # Check ignored colors first (distance)
@@ -103,11 +102,13 @@ class TMDClusteringMixin:
             return best_dbz
             
         return 0.0
+
     @staticmethod
     def _get_dbz_at_pixel_static(img: np.ndarray, x: int, y: int) -> float:
         """Static version of get_dbz_at_pixel for use in classmethod/staticmethod context."""
         pixel = img[y, x]
         r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
+
         min_dist_dbz = float('inf')
         best_dbz = 0.0
         min_dist_ignored = float('inf')

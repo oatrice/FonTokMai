@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.12] - 2026-08-12
+
+### Added
+- **Rayong (`ryg`) Radar Station Integration & Preset Prefill**:
+  - Registered `RYG240_BBOX` and `"ryg"` `StationConfig` in `tmd_radar_config.py`.
+  - Updated Web Admin frontend (`frontend/src/app/admin/radar/page.tsx`) default state to prefill Rayong (`ryg`) preset parameters.
+
+### Fixed
+- **Rayong (`ryg`) Radar Ground Terrain False Positive Filtering** (`tmd_radar_config.py`):
+  - Added Rayong background map terrain green and dark contour green RGB colors to `IGNORED_COLORS` to prevent false positive rain cluster detection on Telegram `/rain_pro`.
+  - Added TDD unit test `test_rayong_terrain_filter.py` verifying ground terrain filtering and rain detection.
+
 ## [0.72.11] - 2026-08-11
 
 ### Fixed

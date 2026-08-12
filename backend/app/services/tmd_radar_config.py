@@ -78,8 +78,29 @@ UBN240_BBOX = BoundingBox(lat_max=17.41, lng_min=102.72, lat_min=13.09, lng_max=
 SRT240_BBOX = BoundingBox(lat_max=11.29, lng_min=97.02, lat_min=6.97, lng_max=101.34)
 PKT240_BBOX = BoundingBox(lat_max=10.04, lng_min=96.16, lat_min=5.72, lng_max=100.48)
 CHN240_BBOX = BoundingBox(lat_max=17.35, lng_min=97.88, lat_min=13.02, lng_max=102.36)
+RYG240_BBOX = BoundingBox(lat_max=14.84, lng_min=99.12, lat_min=10.52, lng_max=103.44)
 
 STATIONS = {
+    "ryg": StationConfig(
+        code="ryg",
+        name="Rayong (240km) / ระยอง",
+        static_image_url="https://weather.tmd.go.th/ryg/ryg240_latest.jpg",
+        loop_page_url="https://weather.tmd.go.th/rygloop.php",
+        loop_gif_url="https://weather.tmd.go.th/ryg/rygloop.gif",
+        bbox=RYG240_BBOX,
+        projection_type="azimuthal",
+        center_lat=12.6814,
+        center_lng=101.2817,
+        radius_km=240.0,
+        static_crop_x=72,
+        static_crop_y=28,
+        static_crop_width=728,
+        static_crop_height=728,
+        loop_crop_x=72,
+        loop_crop_y=28,
+        loop_crop_width=728,
+        loop_crop_height=728,
+    ),
     "chn": StationConfig(
         code="chn",
         name="Chainat (240km) / ชัยนาท",
@@ -309,7 +330,7 @@ STATIONS = {
 # We map typical RGB tuples to dBZ values.
 # Real calibration requires picking the exact RGB from the TMD legend.
 DBZ_COLOR_MAPPING: Dict[Tuple[int, int, int], float] = {
-    # Light Blue
+    # Light Blue / Cyan (10-15 dBZ)
     (0, 255, 255): 10.0,
     # Blue
     (0, 0, 255): 15.0,
@@ -321,21 +342,17 @@ DBZ_COLOR_MAPPING: Dict[Tuple[int, int, int], float] = {
     (36, 212, 41): 20.0,
     (6, 207, 6): 20.0,
     (81, 212, 89): 20.0,
-    (95, 157, 97): 20.0,    # Faint green (JPEG artifact from C4)
     (60, 180, 60): 20.0,    # JPEG artifact green mid
     (45, 195, 45): 20.0,    # JPEG artifact green bright
     (70, 200, 70): 20.0,    # JPEG artifact green bright-2
     (50, 170, 55): 20.0,    # JPEG artifact green-yellow tinge
     # Green (25-30 dBZ)
-    (0, 128, 0): 25.0,
+    (0, 180, 0): 25.0,
     (73, 160, 71): 25.0,
     (42, 157, 37): 25.0,
     (88, 171, 81): 25.0,
     (5, 174, 5): 25.0,
     (84, 198, 52): 25.0,
-    (86, 138, 74): 25.0,    # Green (JPEG artifact from C4)
-    (55, 145, 55): 25.0,    # JPEG artifact dark green
-    (65, 155, 62): 25.0,    # JPEG artifact dark green-2
     # Yellow-green (30 dBZ transition)
     (150, 200, 50): 30.0,
     (160, 210, 40): 30.0,
@@ -367,6 +384,7 @@ DBZ_COLOR_MAPPING: Dict[Tuple[int, int, int], float] = {
 IGNORED_COLORS = [
     (255, 255, 255), # White
     (0, 0, 0),       # Black
+    (0, 128, 0),     # Dark green map contour line
     (204, 204, 204), # Gray
     (32, 45, 93),    # Dark brown/grey map background
     (153, 153, 153), # Gray
@@ -409,5 +427,32 @@ IGNORED_COLORS = [
     (203, 217, 238), # Mekong River light blue
     (90, 118, 71),   # Terrain green-brown (kkn240)
     (86, 139, 75),   # Terrain green (kkn240)
+    # Terrain greens for Rayong (ryg) & Eastern Thailand map background
+    (86, 138, 74),
+    (92, 130, 72),
+    (85, 140, 72),
+    (80, 135, 70),
+    (95, 145, 78),
+    (90, 140, 75),
+    (84, 136, 73),
+    (106, 159, 113),
+    (94, 163, 108),
+    (100, 156, 109),
+    (115, 171, 100),
+    (105, 169, 95),
+    (0, 148, 11),
+    (3, 155, 0),
+    (32, 157, 57),
+    (0, 131, 17),
+    (8, 133, 16),
+    (36, 150, 55),
+    (62, 160, 23),
+    (58, 139, 34),
+    (50, 138, 34),
+    (47, 152, 23),
+    (62, 143, 40),
+    (6, 128, 7),
+    (5, 106, 0),
+    (1, 114, 10),
 ]
 
