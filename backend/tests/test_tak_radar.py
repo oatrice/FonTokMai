@@ -16,16 +16,24 @@ def test_tak_station_registered():
     assert st.static_image_url == "https://weather.tmd.go.th/tak/tak240_latest.jpg"
     assert st.loop_page_url == "https://weather.tmd.go.th/takloop.php"
     assert st.loop_gif_url == "https://weather.tmd.go.th/tak/takloop.gif"
-    assert st.center_lat == 16.7539
-    assert st.center_lng == 98.9228
+    assert st.center_lat == 16.4856
+    assert st.center_lng == 99.1684
     assert st.radius_km == 240.0
     assert isinstance(st.bbox, BoundingBox)
 
     tak_preset = next((p for p in KNOWN_TMD_RADAR_PRESETS if p["code"] == "tak"), None)
     assert tak_preset is not None, "Tak ('tak') preset missing from KNOWN_TMD_RADAR_PRESETS"
-    assert tak_preset["center_lat"] == 16.7539
-    assert tak_preset["center_lng"] == 98.9228
+    assert tak_preset["center_lat"] == 16.4856
+    assert tak_preset["center_lng"] == 99.1684
     assert tak_preset["radius_km"] == 240.0
+
+
+def test_tak_pin_pixel_location():
+    """Verify that location (17.2743, 99.3106) correctly resolves to pixel (459, 259) in full frame scale."""
+    processor = TMDRadarProcessor(station_code="tak")
+    px, py = processor.latlng_to_pixel(17.2743, 99.3106, is_loop=False)
+    assert abs(px - 459) <= 1, f"Expected x ~459, got {px}"
+    assert abs(py - 259) <= 1, f"Expected y ~259, got {py}"
 
 
 def test_tak_terrain_green_not_detected_as_rain():

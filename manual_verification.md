@@ -1,62 +1,43 @@
-# Manual Verification: Tak Radar Station Integration (tak / ดอยมูเซอ)
+# Manual Verification: Dynamic Radar Candidate Station Selection & Tak Pin Accuracy
 
 ## 📋 Verification Overview
-Verified the addition of the Tak (Doi Muser) radar station (`tak`) in FonMaYang backend configuration, catalog, test suite, and Admin frontend UI prefill.
+Verified that updating `candidates = list(STATIONS.keys())` in `webhook_commands.py` enables dynamic selection of all registered radar stations (including `tak`). For test location `(17.2743, 99.3106)`, the system selects `tak` as the #1 nearest station, projecting user pin to exact pixel `(459, 259)`.
 
 ---
 
 ## 🧪 Verification Steps & Automated Commands
 
-### 1. Run Unit Tests (TDD Verification)
-Execute the pytest suite for the Tak radar station and deployment environment synchronization:
+### 1. Run Unit Tests
+Execute the pytest suite for Tak radar station, webhook commands, and e2e radar pipeline:
 
 ```bash
 cd "/Users/oatrice/Software Project/FonMaYang/backend"
-venv/bin/pytest tests/test_tak_radar.py -v
-venv/bin/pytest tests/test_deploy_env_sync.py -v
+venv/bin/pytest tests/test_tak_radar.py tests/test_webhook.py tests/test_tmd_radar_e2e.py -v
 ```
 
 **Expected Result:**
-- All 3 tests in `test_tak_radar.py` pass:
-  - `test_tak_station_registered`: PASSED
-  - `test_tak_terrain_green_not_detected_as_rain`: PASSED
-  - `test_tak_legitimate_rain_detected`: PASSED
-- `test_deploy_env_sync.py` passes (100%).
+- All tests pass 100%.
 
 ---
 
-### 2. Verify Station Preset API Endpoint
-Run Python inline check against catalog preset loader:
+### 2. Verify Candidate Station Selection Logic
+Run Python CLI test to verify distance sorting across all registered STATIONS for location `(17.2743, 99.3106)`:
 
 ```bash
 cd "/Users/oatrice/Software Project/FonMaYang/backend"
 venv/bin/python3 -c "
-from app.services.tmd_radar_catalog import KNOWN_TMD_RADAR_PRESETS
+import math
 from app.services.tmd_radar_config import STATIONS
 
-tak_station = STATIONS.get('tak')
-print('STATIONS tak:', tak_station.code, tak_station.name, tak_station.center_lat, tak_station.center_lng)
+lat, lng = 17.2743, 99.3106
+def station_distance(code):
+    conf = STATIONS[code]
+    return math.hypot(lat - conf.center_lat, lng - conf.center_lng)
 
-tak_preset = next((p for p in KNOWN_TMD_RADAR_PRESETS if p['code'] == 'tak'), None)
-print('Catalog preset tak:', tak_preset['code'], tak_preset['name'])
+sorted_stations = sorted(STATIONS.keys(), key=station_distance)
+print('Selected primary station:', sorted_stations[0])
 "
 ```
 
-**Expected Result:**
-- Output displays `tak` details: `Doi Muser, Tak Province (240km) / ตาก (ดอยมูเซอ)` with `center_lat=16.7539` and `center_lng=98.9228`.
-
----
-
-### 3. Frontend Admin UI Verification
-1. Launch Frontend dev server if not running (`cd frontend && npm run dev`).
-2. Navigate to `http://localhost:3000/admin/radar`.
-3. Check the default form fields.
-
-**Expected Result:**
-- Station Code: `tak`
-- Station Name: `Doi Muser, Tak Province (240km) / ตาก (ดอยมูเซอ)`
-- Static Radar Image URL: `https://weather.tmd.go.th/tak/tak240_latest.jpg`
-- Loop Page URL: `https://weather.tmd.go.th/takloop.php`
-- Loop GIF URL: `https://weather.tmd.go.th/tak/takloop.gif`
-- Center Lat / Lng: `16.7539` / `98.9228`
-- Radius: `240 km`
+**Expected Output:**
+- `Selected primary station: tak`

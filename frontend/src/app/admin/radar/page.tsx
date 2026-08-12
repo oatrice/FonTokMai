@@ -40,8 +40,8 @@ export default function AdminRadarPage() {
   const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/tak/tak240_latest.jpg");
   const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/takloop.php");
   const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/tak/takloop.gif");
-  const [lat, setLat] = useState(16.7539);
-  const [lng, setLng] = useState(98.9228);
+  const [lat, setLat] = useState(16.4856);
+  const [lng, setLng] = useState(99.1684);
   const [radiusKm, setRadiusKm] = useState(240.0);
 
   // Crop Controls

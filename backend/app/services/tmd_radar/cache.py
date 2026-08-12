@@ -401,6 +401,27 @@ class TMDCacheMixin:
                 frame_to_save = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
             else:
                 frame_to_save = frame
+
+            # ── Pad to square (800×800) if station requires it ────────────
+            # Some stations have non-square raw images (e.g. Tak: 937×797 → 800×680).
+            # Without padding, crop_h=728 > 680 would fail and the frame would be
+            # saved uncropped, causing GPS pin misalignment.
+            if getattr(self.config, 'pad_to_square', False):
+                fh, fw = frame_to_save.shape[:2]
+                if fh != fw:
+                    target = max(fh, fw)
+                    pad_top = (target - fh) // 2
+                    pad_bottom = target - fh - pad_top
+                    pad_left = (target - fw) // 2
+                    pad_right = target - fw - pad_left
+                    frame_to_save = cv2.copyMakeBorder(
+                        frame_to_save, pad_top, pad_bottom, pad_left, pad_right,
+                        cv2.BORDER_CONSTANT, value=(0, 0, 0)
+                    )
+                    logger.info(
+                        f"[{station}] pad_to_square: {fw}x{fh} → {frame_to_save.shape[1]}x{frame_to_save.shape[0]}"
+                    )
+            # ─────────────────────────────────────────────────────────────────
                 
             scy = self.config.static_crop_y
             scx = self.config.static_crop_x
@@ -454,6 +475,24 @@ class TMDCacheMixin:
                         f_norm = cv2.resize(f_img, (new_w, new_h), interpolation=cv2.INTER_AREA)
                     else:
                         f_norm = f_img
+
+                    # ── Pad to square (800×800) if station requires it ────────
+                    if getattr(self.config, 'pad_to_square', False):
+                        fh, fw = f_norm.shape[:2]
+                        if fh != fw:
+                            target = max(fh, fw)
+                            pad_top = (target - fh) // 2
+                            pad_bottom = target - fh - pad_top
+                            pad_left = (target - fw) // 2
+                            pad_right = target - fw - pad_left
+                            f_norm = cv2.copyMakeBorder(
+                                f_norm, pad_top, pad_bottom, pad_left, pad_right,
+                                cv2.BORDER_CONSTANT, value=(0, 0, 0)
+                            )
+                            logger.info(
+                                f"[{station}] GIF pad_to_square: {fw}x{fh} → {f_norm.shape[1]}x{f_norm.shape[0]}"
+                            )
+                    # ─────────────────────────────────────────────────────────
 
                     if (lcy + lch <= f_norm.shape[0]) and (lcx + lcw <= f_norm.shape[1]):
                         f_save = f_norm[lcy:lcy + lch, lcx:lcx + lcw]

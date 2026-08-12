@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.21] - 2026-08-12
+
+### Fixed
+- **Dynamic Candidate Station Selection in Webhook Commands**:
+  - Replaced hardcoded `candidates` list (`["kkn120", "kkn240", "skn240"]`) in [`webhook_commands.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/webhook_commands.py) with `list(STATIONS.keys())` to dynamically evaluate all registered TMD radar stations.
+  - Ensured Tak (`tak`) station is correctly selected as top candidate for Northern/Western coordinates (e.g. `17.2743, 99.3106`), resolving user location pin to exact pixel `(459, 259)`.
+  - Updated e2e test suite stubs in [`tests/test_tmd_radar_e2e.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_tmd_radar_e2e.py).
+
+## [0.72.20] - 2026-08-12
+
+### Fixed
+- **Tak (`tak` / ดอยมูเซอ) Radar Center Coordinates Calibration**:
+  - Corrected station center coordinates from `16.7539° N, 98.9228° E` to `16.4856° N, 99.1684° E` in [`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py), [`tmd_radar_catalog.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_catalog.py), and [`frontend/src/app/admin/radar/page.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/app/admin/radar/page.tsx).
+  - Updated `TAK240_BBOX` to `lat_max=18.65, lng_min=97.01, lat_min=14.32, lng_max=101.33`.
+  - Added unit test `test_tak_pin_pixel_location` in [`test_tak_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_tak_radar.py) verifying test location `(17.2743, 99.3106)` resolves precisely to user location pin pixel `(459, 259)`.
+
 ## [0.72.19] - 2026-08-12
 
 ### Added

@@ -117,9 +117,9 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping(monkeypatch):
     calls = []
     original_latlng_to_pixel = TMDRadarProcessor.latlng_to_pixel
 
-    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None):
+    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None, **kwargs):
         calls.append((self.station_code, is_loop))
-        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection)
+        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection, **kwargs)
 
     monkeypatch.setattr(TMDRadarProcessor, "latlng_to_pixel", record_latlng_to_pixel)
 
@@ -164,9 +164,9 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping_skn(monkeypatch
     calls = []
     original_latlng_to_pixel = TMDRadarProcessor.latlng_to_pixel
 
-    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None):
+    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None, **kwargs):
         calls.append((self.station_code, is_loop))
-        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection)
+        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection, **kwargs)
 
     monkeypatch.setattr(TMDRadarProcessor, "latlng_to_pixel", record_latlng_to_pixel)
 
@@ -214,11 +214,11 @@ async def test_tmd_radar_fresh_loop_fallback_works(monkeypatch):
     calls = []
     original_latlng_to_pixel = TMDRadarProcessor.latlng_to_pixel
 
-    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None):
+    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None, **kwargs):
         calls.append((self.station_code, is_loop))
-        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection)
+        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection, **kwargs)
 
-    async def fake_fetch(self, use_cache=True):
+    async def fake_fetch(self, status_callback=None, use_cache=True):
         if self.station_code == "kkn240":
             return [frame_a, frame_b], datetime.now(timezone.utc), b"fresh-loop-bytes"
         return [], None, None

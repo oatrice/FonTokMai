@@ -144,7 +144,7 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
         station_code = None
         
         last_used = weather_manager.WeatherManager.LAST_USED_STATION.get(int(chat_id))
-        candidates = ["kkn120", "kkn240", "skn240"]
+        candidates = list(STATIONS.keys())
         if last_used and last_used in candidates:
             candidates_to_check = [last_used] + [c for c in sorted(candidates, key=station_distance) if c != last_used]
         else:

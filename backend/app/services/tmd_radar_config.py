@@ -42,6 +42,10 @@ class StationConfig:
     calibration_points: Dict[Tuple[float, float], Tuple[float, float]] = None
     min_area_km2: float = 10.0
     legend_bboxes: list = None
+    # When True, letterbox-pad the raw image to 800×800 before applying crop.
+    # Required for stations whose images have a non-square aspect ratio (e.g. 937×797)
+    # that scale to a non-800×800 result, which causes the standard crop to overflow.
+    pad_to_square: bool = False
 
 # Approximate bounding boxes for 120km radius.
 # 1 degree is roughly 111km. 120km is ~1.08 degrees.
@@ -80,7 +84,7 @@ CMP240_BBOX = BoundingBox(lat_max=12.66, lng_min=97.02, lat_min=8.33, lng_max=10
 PKT240_BBOX = BoundingBox(lat_max=10.04, lng_min=96.16, lat_min=5.72, lng_max=100.48)
 CHN240_BBOX = BoundingBox(lat_max=17.35, lng_min=97.88, lat_min=13.02, lng_max=102.36)
 RYG240_BBOX = BoundingBox(lat_max=14.84, lng_min=99.12, lat_min=10.52, lng_max=103.44)
-TAK240_BBOX = BoundingBox(lat_max=18.92, lng_min=96.76, lat_min=14.59, lng_max=101.08)
+TAK240_BBOX = BoundingBox(lat_max=18.65, lng_min=97.01, lat_min=14.32, lng_max=101.33)
 
 STATIONS = {
     "tak": StationConfig(
@@ -91,17 +95,22 @@ STATIONS = {
         loop_gif_url="https://weather.tmd.go.th/tak/takloop.gif",
         bbox=TAK240_BBOX,
         projection_type="azimuthal",
-        center_lat=16.7539,
-        center_lng=98.9228,
+        # Actual geographic location of the Doi Muser radar tower (Tak Province)
+        center_lat=16.750,
+        center_lng=98.930,
         radius_km=240.0,
-        static_crop_x=72,
-        static_crop_y=28,
-        static_crop_width=728,
-        static_crop_height=728,
-        loop_crop_x=72,
-        loop_crop_y=28,
-        loop_crop_width=728,
-        loop_crop_height=728,
+        # Tak radar image is 937×797 (wider than tall), which scales to 800×680
+        # after standard max-800 resize.
+        # Radar crosshair center detected at x=400, y=340.
+        # Crop 680×680 centered at (400, 340): crop_x = 400 - 340 = 60, crop_y = 0
+        static_crop_x=60,
+        static_crop_y=0,
+        static_crop_width=680,
+        static_crop_height=680,
+        loop_crop_x=60,
+        loop_crop_y=0,
+        loop_crop_width=680,
+        loop_crop_height=680,
     ),
     "ryg": StationConfig(
         code="ryg",
