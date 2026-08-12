@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { RadarCoverageMap, DEFAULT_STATIONS, RadarStationCoverage } from "@/components/RadarCoverageMap";
 
 interface Station {
   code: string;
@@ -615,6 +616,30 @@ export default function AdminRadarPage() {
           {message}
         </div>
       )}
+
+      {/* National Coverage Map Section */}
+      <section style={{ marginBottom: "2rem" }}>
+        <RadarCoverageMap
+          stations={stations.length > 0 ? stations.map(s => ({
+            code: s.code,
+            name: s.name,
+            center_lat: s.center_lat,
+            center_lng: s.center_lng,
+            radius_km: s.radius_km,
+            is_active: s.is_active,
+            region: s.code.startsWith("cmi") || s.code.startsWith("phs") || s.code === "tak" ? "north"
+                  : s.code.startsWith("kkn") || s.code.startsWith("skn") || s.code.startsWith("ubn") ? "northeast"
+                  : s.code.startsWith("chn") || s.code.startsWith("svp") || s.code.startsWith("ntp") ? "central"
+                  : s.code.startsWith("ryg") ? "east" : "south"
+          })) : DEFAULT_STATIONS}
+          onSelectStation={(stCode) => {
+            const found = stations.find(s => s.code === stCode);
+            if (found) {
+              handleSelectStationFromTable(found);
+            }
+          }}
+        />
+      </section>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem" }}>
         {/* Left Form Column */}
