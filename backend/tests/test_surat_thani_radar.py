@@ -13,7 +13,7 @@ def test_surat_thani_station_registered():
     st = STATIONS["srt"]
     assert st.code == "srt"
     assert st.name == "Surat Thani (240km) / สุราษฎร์ธานี"
-    assert st.static_image_url == "https://weather.tmd.go.th/srt/srt240_latest.jpg"
+    assert st.static_image_url == "https://weather.tmd.go.th/srt/srt240_latest.png"
     assert st.loop_page_url == "https://weather.tmd.go.th/srtloop.php"
     assert st.loop_gif_url == "https://weather.tmd.go.th/srt/srtloop.gif"
     assert st.center_lat == 9.1333
@@ -29,16 +29,21 @@ def test_surat_thani_station_registered():
 
 
 def test_surat_thani_pin_pixel_location():
-    """Verify center coordinates (9.1333, 99.3333) land accurately near the center of the radar frame."""
+    """Verify center coordinates (9.1333, 99.3333) land accurately at (358, 359) in cropped frame space."""
     processor = TMDRadarProcessor(station_code="srt")
     config = STATIONS["srt"]
-    center_lat = (config.bbox.lat_max + config.bbox.lat_min) / 2
-    center_lng = (config.bbox.lng_max + config.bbox.lng_min) / 2
-    px, py = processor.latlng_to_pixel(center_lat, center_lng, is_loop=False)
-    expected_x = config.static_crop_x + (config.static_crop_width // 2)
-    expected_y = config.static_crop_y + (config.static_crop_height // 2)
-    assert abs(px - expected_x) <= 2, f"Expected x {expected_x}, got {px}"
-    assert abs(py - expected_y) <= 2, f"Expected y {expected_y}, got {py}"
+
+    # In full uncropped canvas (800x800)
+    full_px, full_py = processor.latlng_to_pixel(config.center_lat, config.center_lng, is_loop=True)
+    expected_full_x = config.loop_crop_x + (config.loop_crop_width // 2)
+    expected_full_y = config.loop_crop_y + (config.loop_crop_height // 2)
+    assert abs(full_px - expected_full_x) <= 2, f"Expected full x {expected_full_x}, got {full_px}"
+    assert abs(full_py - expected_full_y) <= 2, f"Expected full y {expected_full_y}, got {full_py}"
+
+    # In cropped frame space (744x736 or 724x724)
+    crop_px, crop_py = processor.latlng_to_pixel(config.center_lat, config.center_lng, is_loop=True, frame_shape=(724, 724))
+    assert crop_px == 362, f"Expected cropped center_x 362, got {crop_px}"
+    assert crop_py == 362, f"Expected cropped center_y 362, got {crop_py}"
 
 
 def test_surat_thani_maritime_and_terrain_colors_not_detected_as_rain():
