@@ -125,6 +125,7 @@ export const DEFAULT_STATIONS: RadarStationCoverage[] = [
   { code: "ryg", name: "ระยอง", center_lat: 12.6814, center_lng: 101.2817, radius_km: 240, is_active: true, region: "east" },
   { code: "cmp", name: "ชุมพร", center_lat: 10.4931, center_lng: 99.18, radius_km: 240, is_active: true, region: "south" },
   { code: "srt", name: "สุราษฎร์ธานี", center_lat: 9.1333, center_lng: 99.3333, radius_km: 240, is_active: true, region: "south" },
+  { code: "hyi", name: "หาดใหญ่", center_lat: 6.9248, center_lng: 100.4385, radius_km: 240, is_active: true, region: "south" },
   { code: "pkt240", name: "ภูเก็ต", center_lat: 7.88, center_lng: 98.32, radius_km: 240, is_active: true, region: "south" }
 ];
 

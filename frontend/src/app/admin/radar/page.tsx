@@ -36,13 +36,13 @@ export default function AdminRadarPage() {
   const [stations, setStations] = useState<Station[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
 
-  const [code, setCode] = useState("srt");
-  const [name, setName] = useState("Surat Thani (240km) / สุราษฎร์ธานี");
-  const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/srt/srt240_latest.png");
-  const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/srtloop.php");
-  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/srt/srtloop.gif");
-  const [lat, setLat] = useState(9.1333);
-  const [lng, setLng] = useState(99.3333);
+  const [code, setCode] = useState("hyi");
+  const [name, setName] = useState("Hat Yai (240km) / หาดใหญ่");
+  const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/hyi/hyi240_latest.jpg");
+  const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/hyiloop.php");
+  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/hyi/hyiloop.gif");
+  const [lat, setLat] = useState(6.9248);
+  const [lng, setLng] = useState(100.4385);
   const [radiusKm, setRadiusKm] = useState(240.0);
 
   // Crop Controls

@@ -1,53 +1,41 @@
-# Manual Verification Document: Surat Thani (`srt`) TMD Radar Station Integration
+# Manual Verification: Hat Yai Radar Station (`hyi`) Integration
 
-**Date**: 2026-08-13  
-**Version**: `v0.72.28`  
-**Station Code**: `srt`  
-**Station Name**: Surat Thani (240km) / สุราษฎร์ธานี  
+## 📌 Scope
+Integration of Hat Yai TMD Radar Station (`hyi` 240km) into FonMaYang backend, catalog, admin interface, and coverage map.
 
 ---
 
-## 🎯 Scope of Changes
-- Integrated Surat Thani TMD Radar station (`srt`) with center coordinates `(9.1333, 99.3333)` and radius `240.0 km`.
-- Configured bounding box `SRT240_BBOX` (`lat_max=11.29, lng_min=97.17, lat_min=6.97, lng_max=101.49`) in [`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py) and [`tmd_radar_catalog.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_catalog.py).
-- Created TDD unit test suite [`backend/tests/test_surat_thani_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_surat_thani_radar.py).
-- Prefilled Web Admin Frontend form state in [`frontend/src/app/admin/radar/page.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/app/admin/radar/page.tsx).
-- Updated [`RadarCoverageMap.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/components/RadarCoverageMap.tsx) preset station list (`"srt"`, region: `"south"`).
+## 🛠️ Verification Steps & Commands
 
----
+### 1. Backend Unit Tests (TDD Verification)
+Run the unit test suite dedicated to Hat Yai station and adjacent southern radar stations:
 
-## 🧪 Verification Commands & Test Results
-
-### 1. Pytest Verification
-Executed automated test commands:
 ```bash
-./backend/venv/bin/pytest backend/tests/test_surat_thani_radar.py backend/tests/test_nationwide_radar.py backend/tests/test_deploy_env_sync.py -v
+backend/.venv/bin/pytest backend/tests/test_hat_yai_radar.py backend/tests/test_surat_thani_radar.py
 ```
 
-#### Output:
-```text
-============================= test session starts ==============================
-platform darwin -- Python 3.14.6, pytest-9.1.0, pluggy-1.6.0
-rootdir: /Users/oatrice/Software Project/FonMaYang
-collected 9 items
+**Expected Result:**
+- All 8 unit tests pass cleanly in ~1.5s.
+- `test_hat_yai_station_registered`: Verified registration in `STATIONS` and `KNOWN_TMD_RADAR_PRESETS`.
+- `test_hat_yai_pin_pixel_location`: Verified center coordinates (`6.9248`, `100.4385`) map to pixel `(362, 362)` in cropped space.
+- `test_hat_yai_maritime_and_terrain_colors_not_detected_as_rain`: Sea background and terrain green colors resolve to 0 dBZ.
+- `test_hat_yai_legitimate_rain_detected`: Rain green/yellow colors detected as >= 20 dBZ.
 
-backend/tests/test_surat_thani_radar.py :: test_surat_thani_station_registered PASSED
-backend/tests/test_surat_thani_radar.py :: test_surat_thani_pin_pixel_location PASSED
-backend/tests/test_surat_thani_radar.py :: test_surat_thani_maritime_and_terrain_colors_not_detected_as_rain PASSED
-backend/tests/test_surat_thani_radar.py :: test_surat_thani_legitimate_rain_detected PASSED
-backend/tests/test_nationwide_radar.py :: test_nationwide_stations_present PASSED
-backend/tests/test_nationwide_radar.py :: test_chainat_preset_in_catalog PASSED
-backend/tests/test_nationwide_radar.py :: test_phitsanulok_preset_in_catalog PASSED
-backend/tests/test_nationwide_radar.py :: test_chumphon_preset_in_catalog PASSED
-backend/tests/test_deploy_env_sync.py :: test_deploy_env_sync PASSED
+### 2. Version & Documentation Synchronization
+Verify version consistency across components:
 
-========================= 9 passed in 1.68s =========================
+```bash
+cat VERSION
+cat backend/VERSION
+grep '"version"' frontend/package.json
+head -n 20 CHANGELOG.md
 ```
+
+**Expected Result:**
+- Version string is synchronized to `0.72.29`.
+- `CHANGELOG.md` lists `[0.72.29]` release notes.
 
 ---
 
-## 📋 Checklist
-- [x] TDD Red-Green-Refactor cycle verified for `srt` radar station
-- [x] Sea/maritime and terrain background colors correctly ignored (0 dBZ)
-- [x] Admin frontend default form state and coverage map presets updated
-- [x] Version synced across `VERSION`, `backend/VERSION`, `frontend/package.json`, and `CHANGELOG.md` (`0.72.28`)
+## 📸 Screenshots / Artifacts
+- Unit test verification log: All 8 tests passed in `test_hat_yai_radar.py` & `test_surat_thani_radar.py`.

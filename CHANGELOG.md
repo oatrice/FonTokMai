@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.29] - 2026-08-13
+
+### Added
+- **Hat Yai (`hyi` / หาดใหญ่) 240km TMD Radar Station Integration**:
+  - Registered `HYI240_BBOX` (`lat_max=9.08, lng_min=98.28, lat_min=4.76, lng_max=102.60`) and `"hyi"` `StationConfig` entry in [`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py) and [`tmd_radar_catalog.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_catalog.py) for Hat Yai radar station (`center_lat=6.9248`, `center_lng=100.4385`, `radius_km=240.0`, `static_image_url="https://weather.tmd.go.th/hyi/hyi240_latest.jpg"`).
+  - Added TDD unit test suite [`tests/test_hat_yai_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_hat_yai_radar.py) verifying station registration, center coordinate exactness, background sea/maritime color filtering, and dBZ rain detection.
+  - Prefilled Web Admin Frontend form default state in [`frontend/src/app/admin/radar/page.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/app/admin/radar/page.tsx) and updated [`RadarCoverageMap.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/components/RadarCoverageMap.tsx) preset list (`"hyi"`, region: `"south"`).
+
 ## [0.72.28] - 2026-08-13
 
 ### Added
