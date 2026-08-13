@@ -79,7 +79,7 @@ NTP240_BBOX = BoundingBox(lat_max=16.03, lng_min=98.37, lat_min=11.71, lng_max=1
 CMI240_BBOX = BoundingBox(lat_max=20.93, lng_min=96.81, lat_min=16.61, lng_max=101.13)
 PHS240_BBOX = BoundingBox(lat_max=18.94, lng_min=98.11, lat_min=14.62, lng_max=102.43)
 UBN240_BBOX = BoundingBox(lat_max=17.41, lng_min=102.72, lat_min=13.09, lng_max=107.04)
-SRT240_BBOX = BoundingBox(lat_max=11.29, lng_min=97.02, lat_min=6.97, lng_max=101.34)
+SRT240_BBOX = BoundingBox(lat_max=11.29, lng_min=97.17, lat_min=6.97, lng_max=101.49)
 CMP240_BBOX = BoundingBox(lat_max=12.66, lng_min=97.02, lat_min=8.33, lng_max=101.34)
 PKT240_BBOX = BoundingBox(lat_max=10.04, lng_min=96.16, lat_min=5.72, lng_max=100.48)
 CHN240_BBOX = BoundingBox(lat_max=17.35, lng_min=97.88, lat_min=13.02, lng_max=102.36)
@@ -88,6 +88,26 @@ TAK240_BBOX = BoundingBox(lat_max=18.65, lng_min=97.01, lat_min=14.32, lng_max=1
 CRI240_BBOX = BoundingBox(lat_max=22.12, lng_min=97.72, lat_min=17.80, lng_max=102.04)
 
 STATIONS = {
+    "srt": StationConfig(
+        code="srt",
+        name="Surat Thani (240km) / สุราษฎร์ธานี",
+        static_image_url="https://weather.tmd.go.th/srt/srt240_latest.png",
+        loop_page_url="https://weather.tmd.go.th/srtloop.php",
+        loop_gif_url="https://weather.tmd.go.th/srt/srtloop.gif",
+        bbox=SRT240_BBOX,
+        projection_type="azimuthal",
+        center_lat=9.1333,
+        center_lng=99.3333,
+        radius_km=240.0,
+        static_crop_x=71,
+        static_crop_y=29,
+        static_crop_width=724,
+        static_crop_height=724,
+        loop_crop_x=71,
+        loop_crop_y=29,
+        loop_crop_width=724,
+        loop_crop_height=724,
+    ),
     "cri": StationConfig(
         code="cri",
         name="Chiang Rai (240km) / เชียงราย",
@@ -348,26 +368,6 @@ STATIONS = {
         projection_type="azimuthal",
         center_lat=15.25,
         center_lng=104.88,
-        radius_km=240.0,
-        static_crop_x=72,
-        static_crop_y=28,
-        static_crop_width=728,
-        static_crop_height=728,
-        loop_crop_x=72,
-        loop_crop_y=28,
-        loop_crop_width=728,
-        loop_crop_height=728
-    ),
-    "srt240": StationConfig(
-        code="srt240",
-        name="Surat Thani (240km)",
-        static_image_url="https://weather.tmd.go.th/srt/srt240_latest.jpg",
-        loop_page_url="https://weather.tmd.go.th/srtLoop.php",
-        loop_gif_url="https://weather.tmd.go.th/srt/srtloop.gif",
-        bbox=SRT240_BBOX,
-        projection_type="azimuthal",
-        center_lat=9.13,
-        center_lng=99.18,
         radius_km=240.0,
         static_crop_x=72,
         static_crop_y=28,

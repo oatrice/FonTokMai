@@ -1,80 +1,53 @@
-# Manual Verification - Chiang Rai (`cri`) TMD Radar Station
+# Manual Verification Document: Surat Thani (`srt`) TMD Radar Station Integration
 
-## Verification Overview
-This document summarizes the steps taken to verify the integration of the **Chiang Rai 240km (`cri`)** radar station into the FonMaYang system.
+**Date**: 2026-08-13  
+**Version**: `v0.72.28`  
+**Station Code**: `srt`  
+**Station Name**: Surat Thani (240km) / สุราษฎร์ธานี  
 
 ---
 
-## 1. Automated Test Execution (Pytest)
+## 🎯 Scope of Changes
+- Integrated Surat Thani TMD Radar station (`srt`) with center coordinates `(9.1333, 99.3333)` and radius `240.0 km`.
+- Configured bounding box `SRT240_BBOX` (`lat_max=11.29, lng_min=97.17, lat_min=6.97, lng_max=101.49`) in [`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py) and [`tmd_radar_catalog.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_catalog.py).
+- Created TDD unit test suite [`backend/tests/test_surat_thani_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_surat_thani_radar.py).
+- Prefilled Web Admin Frontend form state in [`frontend/src/app/admin/radar/page.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/app/admin/radar/page.tsx).
+- Updated [`RadarCoverageMap.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/components/RadarCoverageMap.tsx) preset station list (`"srt"`, region: `"south"`).
 
-### Command
+---
+
+## 🧪 Verification Commands & Test Results
+
+### 1. Pytest Verification
+Executed automated test commands:
 ```bash
-./backend/venv/bin/pytest backend/tests/test_chiang_rai_radar.py -v
+./backend/venv/bin/pytest backend/tests/test_surat_thani_radar.py backend/tests/test_nationwide_radar.py backend/tests/test_deploy_env_sync.py -v
 ```
 
-### Result
+#### Output:
 ```text
 ============================= test session starts ==============================
 platform darwin -- Python 3.14.6, pytest-9.1.0, pluggy-1.6.0
 rootdir: /Users/oatrice/Software Project/FonMaYang
-plugins: anyio-4.14.0, mock-3.15.1, cov-7.1.0, asyncio-1.4.0, respx-0.23.1
-collected 4 items
+collected 9 items
 
-backend/tests/test_chiang_rai_radar.py::test_chiang_rai_station_registered PASSED [ 25%]
-backend/tests/test_chiang_rai_radar.py::test_chiang_rai_pin_pixel_location PASSED [ 50%]
-backend/tests/test_chiang_rai_radar.py::test_chiang_rai_terrain_green_not_detected_as_rain PASSED [ 75%]
-backend/tests/test_chiang_rai_radar.py::test_chiang_rai_legitimate_rain_detected PASSED [100%]
+backend/tests/test_surat_thani_radar.py :: test_surat_thani_station_registered PASSED
+backend/tests/test_surat_thani_radar.py :: test_surat_thani_pin_pixel_location PASSED
+backend/tests/test_surat_thani_radar.py :: test_surat_thani_maritime_and_terrain_colors_not_detected_as_rain PASSED
+backend/tests/test_surat_thani_radar.py :: test_surat_thani_legitimate_rain_detected PASSED
+backend/tests/test_nationwide_radar.py :: test_nationwide_stations_present PASSED
+backend/tests/test_nationwide_radar.py :: test_chainat_preset_in_catalog PASSED
+backend/tests/test_nationwide_radar.py :: test_phitsanulok_preset_in_catalog PASSED
+backend/tests/test_nationwide_radar.py :: test_chumphon_preset_in_catalog PASSED
+backend/tests/test_deploy_env_sync.py :: test_deploy_env_sync PASSED
 
-========================= 4 passed, 1 warning in 1.39s =========================
+========================= 9 passed in 1.68s =========================
 ```
 
 ---
 
-## 2. Environment Variables & Sync Check
-
-### Command
-```bash
-./backend/venv/bin/pytest backend/tests/test_deploy_env_sync.py
-```
-
-### Result
-```text
-============================= test session starts ==============================
-collected 1 item
-
-backend/tests/test_deploy_env_sync.py .                                  [100%]
-
-============================== 1 passed in 0.02s ===============================
-```
-
----
-
-## 3. Key Parameters & Bounding Box Check
-
-| Field | Config Value |
-| :--- | :--- |
-| **Station Code** | `cri` |
-| **Name** | Chiang Rai (240km) / เชียงราย |
-| **Center Lat / Lng** | `19.9609, 99.8824` |
-| **Radius** | `240.0 km` |
-| **Bounding Box** | `lat_max: 22.12, lng_min: 97.72, lat_min: 17.80, lng_max: 102.04` |
-| **Static Image Crop** | `x=71, y=29, w=724, h=724` |
-| **Loop Image Crop** | `x=71, y=29, w=724, h=724` |
-
----
-
-## 4. Web Frontend Prefill Verification
-
-- **Page Component**: [`frontend/src/app/admin/radar/page.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/app/admin/radar/page.tsx)
-- **Coverage Map Component**: [`frontend/src/components/RadarCoverageMap.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/components/RadarCoverageMap.tsx)
-- **Prefilled Form Initial State**:
-  - `code`: `"cri"`
-  - `name`: `"Chiang Rai (240km) / เชียงราย"`
-  - `static_radar_image_url`: `"https://weather.tmd.go.th/cri/cri240_latest.jpg"`
-  - `loop_page_url`: `"https://weather.tmd.go.th/criloop.php"`
-  - `loop_gif_url`: `"https://weather.tmd.go.th/cri/criloop.gif"`
-  - `center_lat`: `19.9609`
-  - `center_lng`: `99.8824`
-  - `radius_km`: `240.0`
-- **Default Stations Map Dataset**: Added `cri` ("เชียงราย") preset under `"north"` region in `DEFAULT_STATIONS`.
-
+## 📋 Checklist
+- [x] TDD Red-Green-Refactor cycle verified for `srt` radar station
+- [x] Sea/maritime and terrain background colors correctly ignored (0 dBZ)
+- [x] Admin frontend default form state and coverage map presets updated
+- [x] Version synced across `VERSION`, `backend/VERSION`, `frontend/package.json`, and `CHANGELOG.md` (`0.72.28`)

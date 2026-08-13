@@ -10,7 +10,7 @@ def test_nationwide_stations_present():
         "svp240", "ntp240", "chn",    # Central / Bangkok Metro / Chainat
         "cmi240", "phs240", "phs",     # North
         "ubn240",                     # East Northeast
-        "srt240", "pkt240"            # South
+        "srt", "pkt240"            # South
     ]
     for code in required_stations:
         assert code in STATIONS, f"Station {code} missing from STATIONS registry"

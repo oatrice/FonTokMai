@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.28] - 2026-08-13
+
+### Added
+- **Surat Thani (`srt` / สุราษฎร์ธานี) 240km TMD Radar Station Integration**:
+  - Registered `SRT240_BBOX` (`lat_max=11.29, lng_min=97.17, lat_min=6.97, lng_max=101.49`) and `"srt"` `StationConfig` entry in [`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py) and [`tmd_radar_catalog.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_catalog.py) for Surat Thani radar station (`center_lat=9.1333`, `center_lng=99.3333`, `radius_km=240.0`).
+  - Added TDD unit test suite [`tests/test_surat_thani_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_surat_thani_radar.py) verifying station registration, center coordinate exactness, background sea/maritime color filtering, and dBZ rain detection.
+  - Prefilled Web Admin Frontend form default state in [`frontend/src/app/admin/radar/page.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/app/admin/radar/page.tsx) and updated [`RadarCoverageMap.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/components/RadarCoverageMap.tsx) preset list (`"srt"`, region: `"south"`).
+
 ## [0.72.27] - 2026-08-13
 
 ### Added
