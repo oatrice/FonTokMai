@@ -29,8 +29,8 @@ KNOWN_TMD_RADAR_PRESETS = [
         "center_lng": 102.8236,
         "radius_km": 240.0,
         "lat_max": 18.59, "lng_min": 100.67, "lat_min": 14.27, "lng_max": 104.99,
-        "static_crop_x": 80, "static_crop_y": 40, "static_crop_width": 720, "static_crop_height": 720,
-        "loop_crop_x": 80, "loop_crop_y": 40, "loop_crop_width": 720, "loop_crop_height": 720
+        "static_crop_x": 71, "static_crop_y": 29, "static_crop_width": 724, "static_crop_height": 724,
+        "loop_crop_x": 71, "loop_crop_y": 29, "loop_crop_width": 724, "loop_crop_height": 724
     },
     {
         "code": "skn240",
