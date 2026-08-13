@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.27] - 2026-08-13
+
+### Added
+- **Chiang Rai (`cri` / เชียงราย) 240km TMD Radar Station Integration**:
+  - Registered `CRI240_BBOX` and `"cri"` `StationConfig` entry in [`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py) and [`tmd_radar_catalog.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_catalog.py) for Chiang Rai radar station (`center_lat=19.9609`, `center_lng=99.8824`, `radius_km=240.0`).
+  - Added TDD unit test suite [`tests/test_chiang_rai_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_chiang_rai_radar.py) verifying station registration, center coordinate exactness, background terrain green color filtering, and dBZ rain detection.
+
 ## [0.72.21] - 2026-08-12
 
 ### Fixed

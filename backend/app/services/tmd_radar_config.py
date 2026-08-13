@@ -85,8 +85,29 @@ PKT240_BBOX = BoundingBox(lat_max=10.04, lng_min=96.16, lat_min=5.72, lng_max=10
 CHN240_BBOX = BoundingBox(lat_max=17.35, lng_min=97.88, lat_min=13.02, lng_max=102.36)
 RYG240_BBOX = BoundingBox(lat_max=14.84, lng_min=99.12, lat_min=10.52, lng_max=103.44)
 TAK240_BBOX = BoundingBox(lat_max=18.65, lng_min=97.01, lat_min=14.32, lng_max=101.33)
+CRI240_BBOX = BoundingBox(lat_max=22.12, lng_min=97.72, lat_min=17.80, lng_max=102.04)
 
 STATIONS = {
+    "cri": StationConfig(
+        code="cri",
+        name="Chiang Rai (240km) / เชียงราย",
+        static_image_url="https://weather.tmd.go.th/cri/cri240_latest.jpg",
+        loop_page_url="https://weather.tmd.go.th/criloop.php",
+        loop_gif_url="https://weather.tmd.go.th/cri/criloop.gif",
+        bbox=CRI240_BBOX,
+        projection_type="azimuthal",
+        center_lat=19.9609,
+        center_lng=99.8824,
+        radius_km=240.0,
+        static_crop_x=71,
+        static_crop_y=29,
+        static_crop_width=724,
+        static_crop_height=724,
+        loop_crop_x=71,
+        loop_crop_y=29,
+        loop_crop_width=724,
+        loop_crop_height=724,
+    ),
     "tak": StationConfig(
         code="tak",
         name="Doi Muser, Tak Province (240km) / ตาก (ดอยมูเซอ)",

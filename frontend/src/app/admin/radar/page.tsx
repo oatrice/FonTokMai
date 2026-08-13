@@ -36,13 +36,13 @@ export default function AdminRadarPage() {
   const [stations, setStations] = useState<Station[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
 
-  const [code, setCode] = useState("tak");
-  const [name, setName] = useState("Doi Muser, Tak Province (240km) / ตาก (ดอยมูเซอ)");
-  const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/tak/tak240_latest.jpg");
-  const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/takloop.php");
-  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/tak/takloop.gif");
-  const [lat, setLat] = useState(16.4856);
-  const [lng, setLng] = useState(99.1684);
+  const [code, setCode] = useState("cri");
+  const [name, setName] = useState("Chiang Rai (240km) / เชียงราย");
+  const [imageUrl, setImageUrl] = useState("https://weather.tmd.go.th/cri/cri240_latest.jpg");
+  const [loopPageUrl, setLoopPageUrl] = useState("https://weather.tmd.go.th/criloop.php");
+  const [loopGifUrl, setLoopGifUrl] = useState("https://weather.tmd.go.th/cri/criloop.gif");
+  const [lat, setLat] = useState(19.9609);
+  const [lng, setLng] = useState(99.8824);
   const [radiusKm, setRadiusKm] = useState(240.0);
 
   // Crop Controls
@@ -627,7 +627,7 @@ export default function AdminRadarPage() {
             center_lng: s.center_lng,
             radius_km: s.radius_km,
             is_active: s.is_active,
-            region: s.code.startsWith("cmi") || s.code.startsWith("phs") || s.code === "tak" ? "north"
+            region: s.code.startsWith("cmi") || s.code.startsWith("phs") || s.code === "tak" || s.code === "cri" ? "north"
                   : s.code.startsWith("kkn") || s.code.startsWith("skn") || s.code.startsWith("ubn") ? "northeast"
                   : s.code.startsWith("chn") || s.code.startsWith("svp") || s.code.startsWith("ntp") ? "central"
                   : s.code.startsWith("ryg") ? "east" : "south"

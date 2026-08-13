@@ -135,5 +135,18 @@ KNOWN_TMD_RADAR_PRESETS = [
         "lat_max": 18.65, "lng_min": 97.01, "lat_min": 14.32, "lng_max": 101.33,
         "static_crop_x": 72, "static_crop_y": 28, "static_crop_width": 728, "static_crop_height": 728,
         "loop_crop_x": 72, "loop_crop_y": 28, "loop_crop_width": 728, "loop_crop_height": 728
+    },
+    {
+        "code": "cri",
+        "name": "Chiang Rai (240km) / เชียงราย",
+        "static_image_url": "https://weather.tmd.go.th/cri/cri240_latest.jpg",
+        "loop_page_url": "https://weather.tmd.go.th/criloop.php",
+        "loop_gif_url": "https://weather.tmd.go.th/cri/criloop.gif",
+        "center_lat": 19.9609,
+        "center_lng": 99.8824,
+        "radius_km": 240.0,
+        "lat_max": 22.12, "lng_min": 97.72, "lat_min": 17.80, "lng_max": 102.04,
+        "static_crop_x": 71, "static_crop_y": 29, "static_crop_width": 724, "static_crop_height": 724,
+        "loop_crop_x": 71, "loop_crop_y": 29, "loop_crop_width": 724, "loop_crop_height": 724
     }
 ]

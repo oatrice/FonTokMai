@@ -111,6 +111,7 @@ export const PROVINCE_MARKERS: ProvinceMarker[] = [
 
 // Preset active stations data matching FonMaYang backend config
 export const DEFAULT_STATIONS: RadarStationCoverage[] = [
+  { code: "cri", name: "เชียงราย", center_lat: 19.9609, center_lng: 99.8824, radius_km: 240, is_active: true, region: "north" },
   { code: "tak", name: "ตาก (ดอยมูเซอ)", center_lat: 16.75, center_lng: 98.93, radius_km: 240, is_active: true, region: "north" },
   { code: "cmi240", name: "เชียงใหม่", center_lat: 18.77, center_lng: 98.97, radius_km: 240, is_active: true, region: "north" },
   { code: "phs240", name: "พิษณุโลก", center_lat: 16.7828, center_lng: 100.2786, radius_km: 240, is_active: true, region: "north" },
