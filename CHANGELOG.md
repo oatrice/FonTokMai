@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.0] - 2026-08-14
+
+### Added
+- **Dedicated Telegram `/multiframe` Command**: Added `/multiframe` to return strictly the 6-frame radar analysis strip (`radar_multiframe.png`) without heavy batch attachments (Issue #263).
+- **Historical Wind Vector Ghosting & Timestamps**: Overlaid fading historical wind vectors (3–5 past frames) and clean OpenCV frame timestamps onto cropped radar graphics (Issue #70).
+- **Admin Radar Station Health Map (`/admin/radar`)**: Interactive Thailand map showing real-time operational status (Online, Delayed, Offline) for all radar stations (Issue #270).
+- **Cloud Cluster Hover Trajectory Preview**: Interactive web map hover effect displaying historical movement and trajectory vectors for cloud clusters (Issue #188).
+- **Unified Webhook Response Architecture**: Created `Shared Message & Media Processor` (`webhook_utils.py`) standardizing text and media delivery for Telegram and LINE webhooks (Issue #185).
+
+### Changed
+- **2-Subimage Composite Graphic**: Refactored tracking composite graphic from 4 panels down to 2 panels (`Raw Context with grid` vs `Final Prediction overlay`) for `/rain_pro` and `/tracking` (Issue #263).
+
+### Fixed
+- **Orphaned Trajectory Suppression**: Suppressed blue/yellow trajectory lines and false rain alerts when the source cloud is not detected in the latest frame (Issue #268).
+- **Deterministic Trajectory Testing**: Decoupled `datetime.now()` wall-clock from radar extrapolation and summary calculations using pure `anchor_time` parameters (Issue #183).
+
 ## [0.71.0] - 2026-08-02
 
 ### Added
