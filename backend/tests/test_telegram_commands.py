@@ -28,6 +28,7 @@ async def test_setup_telegram_commands_production():
         command_names = [c["command"] for c in commands]
         
         assert "rain" in command_names
+        assert "multiframe" in command_names
         assert "check" in command_names
         assert "radar" in command_names
         assert "mylocation" in command_names
