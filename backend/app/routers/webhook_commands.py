@@ -565,7 +565,8 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
                 await process_telegram_location(
                     chat_id, lat=l.latitude, lng=l.longitude,
                     force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
-                    show_advanced=show_advanced, location_name=loc_display
+                    show_advanced=show_advanced, location_name=loc_display,
+                    is_saved_location=True
                 )
             return
 
@@ -595,7 +596,8 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
     await process_telegram_location(
         chat_id, lat=loc.latitude, lng=loc.longitude,
         force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
-        show_advanced=show_advanced, location_name=loc_display
+        show_advanced=show_advanced, location_name=loc_display,
+        is_saved_location=True
     )
 
 @cmd_router.bind("/calibrate ", requires_admin=True, loading_text="⏳ กำลังวิเคราะห์และ Calibrate เรดาร์...")
