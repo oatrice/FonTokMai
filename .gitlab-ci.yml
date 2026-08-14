@@ -65,8 +65,9 @@ check_docs_updated:
   script:
     - echo "🔍 Checking documentation updates against MR diff only..."
     - TARGET_BRANCH=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-dev}
-    - git fetch origin $TARGET_BRANCH:$TARGET_BRANCH || git fetch origin main:main || true
-    - CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only $TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only HEAD~5)
+    - git fetch --unshallow 2>/dev/null || true
+    - git fetch origin $TARGET_BRANCH || git fetch origin main || true
+    - CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only $TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only origin/main...HEAD 2>/dev/null || git diff --name-only HEAD~5)
     - echo "Changed files in this MR/branch:"
     - echo "$CHANGED_FILES"
     - MISSING=0
