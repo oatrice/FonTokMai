@@ -144,7 +144,8 @@ class TMDTrackingMixin:
         locked_target_cx: Optional[int] = None,
         locked_target_cy: Optional[int] = None,
         cluster_dist_approaching: int = 10,
-        cluster_dist_ambient: int = 6
+        cluster_dist_ambient: int = 6,
+        historical_vectors: Optional[list] = None
     ) -> Optional[bytes]:
         import math
 
@@ -638,6 +639,24 @@ class TMDTrackingMixin:
                     arrow_sx = hull_rect[0] + hull_rect[2] // 2
                     arrow_sy = hull_rect[1] + hull_rect[3] // 2
                 
+                # Issue #70: Draw historical wind vectors (Ghosting effect 3-5 frames back)
+                if historical_vectors:
+                    num_h = len(historical_vectors)
+                    for h_idx, hv in enumerate(historical_vectors):
+                        hcx = int((hv.get("cx", 0) - x1) * scale)
+                        hcy = int((hv.get("cy", 0) - y1) * scale)
+                        hvx = int(hv.get("vx", 0.0) * scale * 3.0)
+                        hvy = int(hv.get("vy", 0.0) * scale * 3.0)
+                        # Fading opacity / grayscale for older frames
+                        alpha_factor = (h_idx + 1) / (num_h + 1)
+                        faded_color = (int(100 * alpha_factor), int(100 * alpha_factor), int(100 * alpha_factor))
+                        cv2.circle(img, (hcx, hcy), int(4 * scale), faded_color, max(1, int(1.0 * scale)))
+                        cv2.arrowedLine(img, (hcx, hcy), (hcx + hvx, hcy + hvy), faded_color, max(1, int(1.0 * scale)), tipLength=0.25)
+                
+                v_mag = math.hypot(vx_s, vy_s)
+                if v_mag > 2:
+                    cv2.arrowedLine(img, (arrow_sx, arrow_sy), (arrow_sx + vx_s, arrow_sy + vy_s), color, max(1, int(scale * 1.0)), tipLength=0.3)
+                    obstacles.append((arrow_sx + vx_s - 5, arrow_sy + vy_s - 5, 10, 10))      
                 if vx_s == 0 and vy_s == 0:
                     cv2.arrowedLine(img, (arrow_sx, arrow_sy), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.15)
                 else:
