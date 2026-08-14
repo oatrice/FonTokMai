@@ -275,7 +275,7 @@ class TMDTrackingMixin:
         if _DEV_CONFIG.get("verbose"):
             logger.info(f"[TRACKING_IMG] display_clouds={len(display_clouds)}, ambient_clouds={len(ambient_clouds)}")
         
-        if frame is None or (not display_clouds and not ambient_clouds and not locked_target_id):
+        if frame is None or (not display_clouds and not ambient_clouds and not locked_target_id and not predictions):
             return None
 
         crop_r = 120
@@ -329,34 +329,24 @@ class TMDTrackingMixin:
         obstacles.append((ux - int(12 * scale), uy - int(12 * scale), int(24 * scale), int(24 * scale)))
         
         has_predicted_rain = predictions and any(p.get("dbz", 0) >= 10.0 for p in predictions)
-        if show_trajectory and predictions and has_predicted_rain:
-            from app.services.weather_manager import _DEV_CONFIG
-            show_backward = _DEV_CONFIG.get("show_backward_trajectory", True)
-            pts = []
-            for p in predictions:
-                if not show_backward and p.get("time_offset", 0) > time_offset_min:
-                    continue
-                px_pred = p["src_x"]
-                py_pred = p["src_y"]
-                cx = int((px_pred - x1) * scale)
-                cy = int((py_pred - y1) * scale)
-                pts.append((cx, cy, p))
-            
-            if len(pts) > 1:
-                last_labeled_pt = None
-                for i, (cx, cy, p) in enumerate(pts):
-                    dbz_val = p.get("dbz", 0.0)
-                    dot_color = _dbz_color(dbz_val) if dbz_val >= 10.0 else (200, 200, 200)
-                    cv2.circle(img, (cx, cy), int(3.5 * scale), (0, 0, 0), -1)
-                    cv2.circle(img, (cx, cy), int(2.2 * scale), dot_color, -1)
-                    obstacles.append((cx - int(2 * scale), cy - int(2 * scale), int(4 * scale), int(4 * scale)))
-                    
-                    if i > 0:
-                        prev_cx, prev_cy, _ = pts[i-1]
-                        cv2.line(img, (prev_cx, prev_cy), (cx, cy), (0, 255, 255), int(1.2 * scale))
-                        
-                    eta = p.get("time_offset", 0)
-                    should_label = False  # Disabled trajectory text (15m, 90m) as requested
+        # Issue #268: Validate that the predicted cloud is actively present in current frame
+        active_cloud_labels = {c.get("label") for c in (clouds or []) if c.get("label")}
+        if all_rain_clusters:
+            active_cloud_labels.update(c.get("label") for c in all_rain_clusters if c.get("label"))
+        
+        has_active_cloud_source = True
+        if predictions:
+            predicted_clusters = {p.get("cluster") for p in predictions if p.get("cluster")}
+            if predicted_clusters:
+                # If predictions specify clusters, at least one must be in active_cloud_labels (or if no active clouds at all, suppress)
+                has_active_cloud_source = bool(active_cloud_labels.intersection(predicted_clusters))
+            elif clouds is not None and len(clouds) == 0 and (all_rain_clusters is not None and len(all_rain_clusters) == 0):
+                # If no clouds exist in current frame at all, cannot have valid trajectory
+                has_active_cloud_source = False
+        else:
+            has_active_cloud_source = False
+
+        # Trajectory drawing moved to after contour rendering to prevent overwrites
                     # if eta > 0 and (i == 1 or i == len(pts)-1 or (eta % 45 == 0)):
                     #     if last_labeled_pt is None:
                     #         should_label = True
@@ -1062,8 +1052,31 @@ class TMDTrackingMixin:
             p2 = (int(ux + hit_r * math.cos(a2)), int(uy + hit_r * math.sin(a2)))
             cv2.line(img, p1, p2, (0, 165, 255), int(1.2 * scale))
             
-        cv2.circle(img, (ux, uy), radius=int(6 * scale), color=(255, 255, 255), thickness=int(3 * scale))
-        cv2.drawMarker(img, (ux, uy), (0, 0, 255), cv2.MARKER_CROSS, int(10 * scale), int(3 * scale))
+        # Trajectory rendering (rendered on top of cloud contours so it stays visible)
+        if show_trajectory and predictions and has_predicted_rain and has_active_cloud_source:
+            from app.services.weather_manager import _DEV_CONFIG
+            show_backward = _DEV_CONFIG.get("show_backward_trajectory", True)
+            pts = []
+            for p in predictions:
+                if not show_backward and p.get("time_offset", 0) > time_offset_min:
+                    continue
+                px_pred = p["src_x"]
+                py_pred = p["src_y"]
+                cx = int((px_pred - x1) * scale)
+                cy = int((py_pred - y1) * scale)
+                pts.append((cx, cy, p))
+            
+            if len(pts) > 1:
+                for i, (cx, cy, p) in enumerate(pts):
+                    dbz_val = p.get("dbz", 0.0)
+                    dot_color = _dbz_color(dbz_val) if dbz_val >= 10.0 else (200, 200, 200)
+                    cv2.circle(img, (cx, cy), int(3.5 * scale), (0, 0, 0), -1)
+                    cv2.circle(img, (cx, cy), int(2.2 * scale), dot_color, -1)
+                    obstacles.append((cx - int(2 * scale), cy - int(2 * scale), int(4 * scale), int(4 * scale)))
+                    
+                    if i > 0:
+                        prev_cx, prev_cy, _ = pts[i-1]
+                        cv2.line(img, (prev_cx, prev_cy), (cx, cy), (255, 255, 0), int(1.2 * scale))
 
         # Draw subtle 8x8 grid overlay for manual coordinate locking
         gh, gw = img.shape[0], img.shape[1]
@@ -1185,47 +1198,27 @@ class TMDTrackingMixin:
 
         from app.services.weather_manager import _DEV_CONFIG
         if _DEV_CONFIG.get("draw_debug_grid"):
-            # 1. Raw Mask Generation
-            raw_mask_crop = self.extract_rain_mask(crop_img)
-            raw_mask_large = cv2.resize(raw_mask_crop, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_NEAREST)
-            raw_mask_rgb = cv2.cvtColor(raw_mask_large, cv2.COLOR_GRAY2RGB)
-            
-            # 2. Smooth Mask Generation (GaussianBlur + Threshold)
-            ksize_val = _DEV_CONFIG.get("gaussian_kernel_size", 25)
-            if ksize_val % 2 == 0:
-                ksize_val += 1
-            smooth_mask_large = cv2.GaussianBlur(raw_mask_large, (ksize_val, ksize_val), 0)
-            _, smooth_mask_large = cv2.threshold(smooth_mask_large, 127, 255, cv2.THRESH_BINARY)
-            smooth_mask_rgb = cv2.cvtColor(smooth_mask_large, cv2.COLOR_GRAY2RGB)
-            
-            # Add text labels on each quadrant
+            # Issue #263: 2 sub-images layout:
+            # Sub-image 1: Raw image with grid overlay (no user pin)
+            # Sub-image 2: Final prediction overlay (Cropped radar with grid, user pin, motion vectors, clouds)
             fs = max(0.6, 0.5 * scale)
             th = max(2, int(1.5 * scale))
-            cv2.putText(img_raw_orig, "1. Raw Image", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), th * 2, cv2.LINE_AA)
-            cv2.putText(img_raw_orig, "1. Raw Image", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 255, 255), th, cv2.LINE_AA)
+            cv2.putText(img_raw_orig, "1. Raw Context", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), th * 2, cv2.LINE_AA)
+            cv2.putText(img_raw_orig, "1. Raw Context", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 255, 255), th, cv2.LINE_AA)
             
-            cv2.putText(raw_mask_rgb, "2. Raw Mask", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), th * 2, cv2.LINE_AA)
-            cv2.putText(raw_mask_rgb, "2. Raw Mask", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 255, 255), th, cv2.LINE_AA)
-            
-            cv2.putText(smooth_mask_rgb, "3. Smooth Mask", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), th * 2, cv2.LINE_AA)
-            cv2.putText(smooth_mask_rgb, "3. Smooth Mask", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 255, 0), th, cv2.LINE_AA)
-            
-            # Keep final overlay as a separate copy with its own text label
             img_final = img.copy()
-            cv2.putText(img_final, "4. Final Overlay", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), th * 2, cv2.LINE_AA)
-            cv2.putText(img_final, "4. Final Overlay", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 0, 255), th, cv2.LINE_AA)
+            cv2.putText(img_final, "2. Final Prediction", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), th * 2, cv2.LINE_AA)
+            cv2.putText(img_final, "2. Final Prediction", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 0, 255), th, cv2.LINE_AA)
             
-            # Build 2x2 Grid Layout
-            top_row = np.hstack([img_raw_orig, raw_mask_rgb])
-            bottom_row = np.hstack([smooth_mask_rgb, img_final])
-            img = np.vstack([top_row, bottom_row])
+            # Side-by-side 1x2 Grid Layout
+            img = np.hstack([img_raw_orig, img_final])
 
         img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         is_success, buffer = cv2.imencode(".png", img_bgr)
         return buffer.tobytes() if is_success else None
 
     @staticmethod
-    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None, locked_target_id: str = None, all_rain_clusters: list = None, v_close_kmh: float = None, v_actual_kmh: float = None, v_avg_kmh: float = None) -> str:
+    def render_rain_summary(predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None, locked_target_id: str = None, all_rain_clusters: list = None, v_close_kmh: float = None, v_actual_kmh: float = None, v_avg_kmh: float = None, anchor_time: datetime = None) -> str:
         """
         Generates a smart, non-redundant rain summary line for Telegram based on the pixel's time-series predictions.
         """
@@ -1265,12 +1258,21 @@ class TMDTrackingMixin:
             m = int(round(minutes_offset - time_offset_min))
             if m < 0:
                 m = 0
-            bkk_now = datetime.now(timezone(timedelta(hours=7)))
-            target = bkk_now + timedelta(minutes=m)
+            base_time = anchor_time if anchor_time is not None else datetime.now(timezone(timedelta(hours=7)))
+            if base_time.tzinfo is None:
+                base_time = base_time.replace(tzinfo=timezone(timedelta(hours=7)))
+            else:
+                base_time = base_time.astimezone(ZoneInfo('Asia/Bangkok'))
+            target = base_time + timedelta(minutes=m)
             return target.strftime('%H:%M น.')
 
         if not predictions:
             return f"ℹ️ ไม่สามารถพยากรณ์ล่วงหน้าได้{prox_msg}{warning}"
+
+        # Issue #268: Filter active rain events to suppress alerts when source cloud is missing from current frame
+        active_cloud_labels = {c.get("label") for c in (approaching_clouds or []) if c.get("label")}
+        if all_rain_clusters:
+            active_cloud_labels.update(c.get("label") for c in all_rain_clusters if c.get("label"))
 
         rain_events = []
         in_rain = False
@@ -1280,15 +1282,21 @@ class TMDTrackingMixin:
         
         for i, p in enumerate(predictions):
             dbz = p["dbz"]
-            if dbz >= 15.0:
+            cluster = p.get("cluster")
+            # If a cluster is labeled in prediction but missing from active_cloud_labels (and cloud lists were provided), treat dbz as 0
+            is_orphaned_cloud = (cluster is not None and active_cloud_labels and cluster not in active_cloud_labels) or \
+                                (cluster is not None and approaching_clouds is not None and len(approaching_clouds) == 0 and all_rain_clusters is not None and len(all_rain_clusters) == 0)
+            
+            effective_dbz = 0.0 if is_orphaned_cloud else dbz
+            if effective_dbz >= 15.0:
                 if not in_rain:
                     in_rain = True
                     start_idx = i
-                    max_dbz = dbz
+                    max_dbz = effective_dbz
                     max_idx = i
                 else:
-                    if dbz > max_dbz:
-                        max_dbz = dbz
+                    if effective_dbz > max_dbz:
+                        max_dbz = effective_dbz
                         max_idx = i
             else:
                 if in_rain:

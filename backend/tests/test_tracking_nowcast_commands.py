@@ -108,3 +108,63 @@ async def test_handle_tracking_command_execution():
             await handle_rain_command(chat_id=99999, command="/nowcast home")
             assert mock_photo.called
             assert mock_doc.called
+
+
+def test_command_router_matches_multiframe():
+    """
+    Test that cmd_router matches /multiframe variants (Issue #263).
+    """
+    assert cmd_router.match("/multiframe") is not None
+    assert cmd_router.match("/multiframe home") is not None
+
+    match_multiframe = cmd_router.match("/multiframe home")
+    assert match_multiframe[0] == "/multiframe"
+    assert match_multiframe[1]["task_route"] == "worker/handle-multiframe"
+
+
+@pytest.mark.asyncio
+async def test_handle_multiframe_command_execution():
+    """
+    Test executing handle_multiframe_command for /multiframe (Issue #263).
+    """
+    loc_home = make_mock_location(13.75, 100.5, "home")
+
+    mock_repo = AsyncMock()
+    mock_repo.get_user_locations.return_value = [loc_home]
+    mock_repo.get_mock_state.return_value = None
+    mock_repo.get_all_api_reliability.return_value = {"tomorrow": 0.9}
+    mock_repo.get_location.return_value = None
+
+    @asynccontextmanager
+    async def mock_repo_ctx():
+        yield mock_repo
+
+    mock_weather_result = {
+        "endpoint": "tmd-radar",
+        "radar_multiframe_bytes": b"multiframe_strip_bytes",
+        "radar_static_bytes": b"static_bytes",
+        "radar_tracking_bytes": b"tracking_bytes",
+    }
+
+    with patch("app.services.weather_manager.get_repo_context", mock_repo_ctx), \
+         patch("app.dependencies.get_repo_context", mock_repo_ctx):
+
+        with patch("app.services.weather_manager.WeatherManager") as MockWeatherManager, \
+             patch("app.services.telegram.send_telegram_message_return_id", new_callable=AsyncMock) as mock_loading, \
+             patch("app.services.telegram.send_telegram_photo", new_callable=AsyncMock) as mock_photo, \
+             patch("app.services.telegram.send_telegram_message", new_callable=AsyncMock) as mock_send:
+
+            mock_loading.return_value = 11111
+            mock_instance = MockWeatherManager.return_value
+            mock_instance.predict_rain = AsyncMock(return_value=mock_weather_result)
+
+            from app.routers.webhook_commands import handle_multiframe_command
+
+            await handle_multiframe_command(chat_id=99999, command="/multiframe")
+            assert mock_photo.called
+            assert mock_photo.call_count == 1
+            photo_args = mock_photo.call_args[0]
+            assert photo_args[0] == 99999
+            assert photo_args[1] == b"multiframe_strip_bytes"
+            assert photo_args[2] == "radar_multiframe.png"
+

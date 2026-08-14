@@ -596,3 +596,42 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
         force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
         show_advanced=show_advanced, location_name=loc_display
     )
+
+
+@cmd_router.bind("/multiframe", task_route="worker/handle-multiframe", loading_text="⏳ กำลังสร้างภาพวิเคราะห์เรดาร์ 6 เฟรม...")
+async def handle_multiframe_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    Issue #263: Dedicated command to return only the 6-frame radar analysis strip (radar_multiframe.png).
+    """
+    parts = command.strip().split()
+    target_location_name = parts[1].lower() if len(parts) > 1 else None
+
+    async with get_repo_context() as repo:
+        locs = await repo.get_user_locations(chat_id)
+
+    if not locs:
+        await telegram.send_telegram_message(chat_id, "⚠️ ไม่พบพิกัดที่บันทึกไว้ กรุณาส่ง Location ให้บอทก่อนครับ")
+        return
+
+    loc = None
+    if target_location_name:
+        for l in locs:
+            if (l.name and l.name.lower() == target_location_name) or (target_location_name == "default" and l.name is None):
+                loc = l
+                break
+        if not loc:
+            available_locs = ", ".join([l.name for l in locs if l.name])
+            await telegram.send_telegram_message(chat_id, f"⚠️ ไม่พบพิกัดชื่อ '{target_location_name}'\nพิกัดที่มี: {available_locs or 'default'}")
+            return
+    else:
+        loc = locs[0]
+
+    wm = weather_manager.WeatherManager()
+    result = await wm.predict_rain(loc.latitude, loc.longitude, force_endpoint="tmd-radar")
+
+    multiframe_bytes = result.get("radar_multiframe_bytes")
+    if multiframe_bytes:
+        await telegram.send_telegram_photo(chat_id, multiframe_bytes, "radar_multiframe.png")
+    else:
+        await telegram.send_telegram_message(chat_id, "⚠️ ไม่สามารถสร้างภาพวิเคราะห์ 6 เฟรมได้ในขณะนี้")
+
