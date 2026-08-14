@@ -168,3 +168,11 @@ async def test_handle_multiframe_command_execution():
             assert photo_args[1] == b"multiframe_strip_bytes"
             assert photo_args[2] == "radar_multiframe.png"
 
+            # Test /multiframe with custom lat lng coordinates
+            mock_photo.reset_mock()
+            await handle_multiframe_command(chat_id=99999, command="/multiframe 13.75 100.5")
+            assert mock_photo.called
+            assert mock_photo.call_count == 1
+            assert mock_instance.predict_rain.call_args[0][0] == 13.75
+            assert mock_instance.predict_rain.call_args[0][1] == 100.5
+
