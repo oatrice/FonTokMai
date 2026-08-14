@@ -4,9 +4,10 @@ import "@testing-library/jest-dom";
 import AdminRadarPage from "@/app/admin/radar/page";
 
 jest.mock("@/components/RadarCoverageMap", () => ({
-  RadarCoverageMap: ({ onSelectStation }: any) => (
+  RadarCoverageMap: ({ onSelectStation, stations }: any) => (
     <div data-testid="mock-coverage-map">
       <button onClick={() => onSelectStation?.("kkn120")}>Select KKN120</button>
+      <div data-testid="mock-stations-count">{stations?.length || 0}</div>
     </div>
   ),
   DEFAULT_STATIONS: [],
@@ -96,13 +97,14 @@ afterEach(() => {
 });
 
 describe("Admin Radar Page (/admin/radar) Unified Interactive Experience", () => {
-  it("renders nationwide coverage map, calibration controls, and station list", async () => {
+  it("renders nationwide coverage map, calibration controls, Telegram simulated UI, and station list", async () => {
     render(<AdminRadarPage />);
 
     expect(screen.getByText(/TMD Radar Administration & Live Operations/i)).toBeInTheDocument();
     expect(screen.getByText(/1\. แผนที่เรดาร์และขอบเขตความคุ้มครองประเทศไทย/i)).toBeInTheDocument();
     expect(screen.getByText(/2\. เครื่องมือปรับจูนขอบเขตเรดาร์สด/i)).toBeInTheDocument();
-    expect(screen.getByText(/3\. รายการสถานีเรดาร์ทั้งหมดในระบบ/i)).toBeInTheDocument();
+    expect(screen.getByText(/3\. Telegram Live Preview & Coordinate Inspector/i)).toBeInTheDocument();
+    expect(screen.getByText(/4\. รายการสถานีเรดาร์ทั้งหมดในระบบ/i)).toBeInTheDocument();
 
     // Wait for stations to load
     await waitFor(() => {

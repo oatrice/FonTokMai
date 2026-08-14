@@ -17,7 +17,10 @@ import {
   Save,
   Wand2,
   Layers,
-  Search
+  Search,
+  MessageSquare,
+  Crosshair,
+  Target
 } from "lucide-react";
 
 interface Station {
@@ -96,22 +99,35 @@ export default function AdminRadarPage() {
   const [loopPreviewB64, setLoopPreviewB64] = useState<string | null>(null);
   const [telegramPreviewB64, setTelegramPreviewB64] = useState<string | null>(null);
   const [loopTelegramPreviewB64, setLoopTelegramPreviewB64] = useState<string | null>(null);
-  const [activePreviewTab, setActivePreviewTab] = useState<"static" | "loop">("static");
+  const [activeTab, setActiveTab] = useState<"static" | "loop">("static");
   const [calculatedBbox, setCalculatedBbox] = useState<any>(null);
   const [detectedCircle, setDetectedCircle] = useState<number[] | null>(null);
   const [frozenStationCenter, setFrozenStationCenter] = useState<{ cx: number; cy: number } | null>(null);
 
-  // Interactive Drag & Hover Coordinates
+  // Interactive Mouse Drag & Handles State
   const imgRef = useRef<HTMLImageElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [currentDragBox, setCurrentDragBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const [hoverPos, setHoverPos] = useState<{ pixelX: number; pixelY: number } | null>(null);
+  const [activeHandle, setActiveHandle] = useState<string | null>(null);
+  const [handleDragStart, setHandleDragStart] = useState<{
+    mouseX: number;
+    mouseY: number;
+    initX: number;
+    initY: number;
+    initW: number;
+    initH: number;
+    natW: number;
+    natH: number;
+  } | null>(null);
+
+  // Hover Crosshair & Coordinate Inspector
+  const [hoverPos, setHoverPos] = useState<{ pixelX: number; pixelY: number; relX: number; relY: number } | null>(null);
 
   const calibrationSectionRef = useRef<HTMLDivElement>(null);
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
-  // Fetch DB Stations and Live Statuses
+  // Fetch DB Stations, Live Statuses and Presets
   const fetchAllData = useCallback(async () => {
     setTableLoading(true);
     try {
@@ -264,6 +280,10 @@ export default function AdminRadarPage() {
         setDetectedCircle(data.detected_circle || null);
         if (data.detected_circle) {
           setFrozenStationCenter({ cx: data.detected_circle[0], cy: data.detected_circle[1] });
+        } else {
+          const cx = data.crop_info.static_crop_x + data.crop_info.static_crop_width / 2;
+          const cy = data.crop_info.static_crop_y + data.crop_info.static_crop_height / 2;
+          setFrozenStationCenter({ cx, cy });
         }
         setCropX(data.crop_info.static_crop_x);
         setCropY(data.crop_info.static_crop_y);
@@ -370,6 +390,157 @@ export default function AdminRadarPage() {
     }
   };
 
+  // Natural Coordinates Helpers for Mouse Dragging & Resizing
+  const getNaturalCoords = (e: React.MouseEvent | MouseEvent) => {
+    if (!imgRef.current) return { x: 0, y: 0 };
+    const rect = imgRef.current.getBoundingClientRect();
+    const naturalWidth = imgRef.current.naturalWidth || 800;
+    const naturalHeight = imgRef.current.naturalHeight || 800;
+
+    const scaleX = naturalWidth / rect.width;
+    const scaleY = naturalHeight / rect.height;
+
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    const x = Math.max(0, Math.min(naturalWidth, Math.round((clientX - rect.left) * scaleX)));
+    const y = Math.max(0, Math.min(naturalHeight, Math.round((clientY - rect.top) * scaleY)));
+
+    return { x, y };
+  };
+
+  const startHandleDrag = (handle: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveHandle(handle);
+
+    const coords = getNaturalCoords(e);
+    const natW = imgRef.current?.naturalWidth || 800;
+    const natH = imgRef.current?.naturalHeight || 800;
+
+    const initX = activeTab === "loop" ? (cropX ?? 0) + loopOffsetX : (cropX ?? 0);
+    const initY = activeTab === "loop" ? (cropY ?? 0) + loopOffsetY : (cropY ?? 0);
+    const initW = activeTab === "loop" ? (cropW ?? natW) + loopOffsetW : (cropW ?? natW);
+    const initH = activeTab === "loop" ? (cropH ?? natH) + loopOffsetH : (cropH ?? natH);
+
+    setHandleDragStart({
+      mouseX: coords.x,
+      mouseY: coords.y,
+      initX,
+      initY,
+      initW,
+      initH,
+      natW,
+      natH,
+    });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
+    e.preventDefault();
+    const coords = getNaturalCoords(e);
+    setIsDragging(true);
+    setActiveHandle("create");
+    setDragStart({ x: coords.x, y: coords.y });
+    setCurrentDragBox({ x: coords.x, y: coords.y, w: 0, h: 0 });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLImageElement>) => {
+    const coords = getNaturalCoords(e);
+    if (imgRef.current) {
+      const rect = imgRef.current.getBoundingClientRect();
+      const relX = e.clientX - rect.left;
+      const relY = e.clientY - rect.top;
+      setHoverPos({ pixelX: coords.x, pixelY: coords.y, relX, relY });
+    }
+  };
+
+  // Global Window-level MouseMove & MouseUp listeners
+  useEffect(() => {
+    if (!isDragging && !activeHandle) return;
+
+    const onGlobalMouseMove = (e: MouseEvent) => {
+      const coords = getNaturalCoords(e);
+
+      if (activeHandle && handleDragStart && activeHandle !== "create") {
+        const dx = coords.x - handleDragStart.mouseX;
+        const dy = coords.y - handleDragStart.mouseY;
+
+        let newX = handleDragStart.initX;
+        let newY = handleDragStart.initY;
+        let newW = handleDragStart.initW;
+        let newH = handleDragStart.initH;
+
+        const natW = handleDragStart.natW;
+        const natH = handleDragStart.natH;
+
+        if (activeHandle.includes("left")) {
+          newX = Math.max(0, Math.min(handleDragStart.initX + handleDragStart.initW - 20, handleDragStart.initX + dx));
+          newW = handleDragStart.initX + handleDragStart.initW - newX;
+        }
+        if (activeHandle.includes("right")) {
+          newW = Math.max(20, Math.min(natW - handleDragStart.initX, handleDragStart.initW + dx));
+        }
+        if (activeHandle.includes("top")) {
+          newY = Math.max(0, Math.min(handleDragStart.initY + handleDragStart.initH - 20, handleDragStart.initY + dy));
+          newH = handleDragStart.initY + handleDragStart.initH - newY;
+        }
+        if (activeHandle.includes("bottom")) {
+          newH = Math.max(20, Math.min(natH - handleDragStart.initY, handleDragStart.initH + dy));
+        }
+
+        if (activeTab === "loop") {
+          setLoopOffsetX(newX - (cropX ?? 0));
+          setLoopOffsetY(newY - (cropY ?? 0));
+          setLoopOffsetW(newW - (cropW ?? 800));
+          setLoopOffsetH(newH - (cropH ?? 800));
+        } else {
+          setCropX(newX);
+          setCropY(newY);
+          setCropW(newW);
+          setCropH(newH);
+        }
+      } else if (isDragging && dragStart) {
+        const x = Math.min(dragStart.x, coords.x);
+        const y = Math.min(dragStart.y, coords.y);
+        const w = Math.abs(coords.x - dragStart.x);
+        const h = Math.abs(coords.y - dragStart.y);
+        setCurrentDragBox({ x, y, w, h });
+      }
+    };
+
+    const onGlobalMouseUp = () => {
+      if (activeHandle && activeHandle !== "create") {
+        setActiveHandle(null);
+        setHandleDragStart(null);
+      } else if (isDragging) {
+        setIsDragging(false);
+        setActiveHandle(null);
+        if (currentDragBox && currentDragBox.w > 10 && currentDragBox.h > 10) {
+          if (activeTab === "loop") {
+            setLoopOffsetX(currentDragBox.x - (cropX ?? 0));
+            setLoopOffsetY(currentDragBox.y - (cropY ?? 0));
+            setLoopOffsetW(currentDragBox.w - (cropW ?? 800));
+            setLoopOffsetH(currentDragBox.h - (cropH ?? 800));
+          } else {
+            setCropX(currentDragBox.x);
+            setCropY(currentDragBox.y);
+            setCropW(currentDragBox.w);
+            setCropH(currentDragBox.h);
+          }
+        }
+        setCurrentDragBox(null);
+      }
+    };
+
+    window.addEventListener("mousemove", onGlobalMouseMove);
+    window.addEventListener("mouseup", onGlobalMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", onGlobalMouseMove);
+      window.removeEventListener("mouseup", onGlobalMouseUp);
+    };
+  }, [isDragging, activeHandle, handleDragStart, dragStart, cropX, cropY, cropW, cropH, currentDragBox, activeTab, loopOffsetX, loopOffsetY, loopOffsetW, loopOffsetH]);
+
   // Convert Pixel on Radar image to Lat/Lng
   const pixelToLatLng = (px: number, py: number) => {
     const cX = (cropX ?? 0) + (cropW ?? 800) / 2.0;
@@ -404,6 +575,29 @@ export default function AdminRadarPage() {
   };
 
   const hoverCoords = hoverPos ? pixelToLatLng(hoverPos.pixelX, hoverPos.pixelY) : null;
+
+  // Calculate visual style for dragging overlay box
+  const getDragOverlayStyle = (): React.CSSProperties => {
+    if (!currentDragBox || !imgRef.current) return { display: "none" };
+    const rect = imgRef.current.getBoundingClientRect();
+    const naturalWidth = imgRef.current.naturalWidth || 800;
+    const naturalHeight = imgRef.current.naturalHeight || 800;
+
+    const scaleX = rect.width / naturalWidth;
+    const scaleY = rect.height / naturalHeight;
+
+    return {
+      position: "absolute",
+      left: `${currentDragBox.x * scaleX}px`,
+      top: `${currentDragBox.y * scaleY}px`,
+      width: `${currentDragBox.w * scaleX}px`,
+      height: `${currentDragBox.h * scaleY}px`,
+      border: "2px dashed #f59e0b",
+      backgroundColor: "rgba(245, 158, 11, 0.2)",
+      pointerEvents: "none",
+      zIndex: 10,
+    };
+  };
 
   // KPI Metrics
   const onlineCount = stationStatuses.filter((st) => st.status === "online").length;
@@ -494,16 +688,16 @@ export default function AdminRadarPage() {
           </div>
         </div>
 
-        {/* Section 2: Interactive SVG Thailand Nationwide Map */}
+        {/* Section 2: Interactive SVG Thailand Nationwide Map (Live Status Aware) */}
         <section className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
             <div>
               <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                1. แผนที่เรดาร์และขอบเขตความคุ้มครองประเทศไทย (Nationwide SVG Coverage Map)
+                1. แผนที่เรดาร์และขอบเขตความคุ้มครองประเทศไทย (Nationwide SVG Coverage & Live Status)
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                💡 <b>เคล็ดลับ:</b> คุณสามารถ <b>คลิกที่หมุดสถานีเรดาร์บนแผนที่</b> เพื่อโหลดข้อมูลขึ้นมาปรับจูนในเครื่องมือด้านล่างได้ทันที
+                💡 <b>เคล็ดลับ:</b> สีของหมุดและวงรัศมีจะแสดงสถานะสด (เขียว = Online, ส้ม = Delayed, แดง = Offline) คลิกเพื่อปรับจูนได้ทันที
               </p>
             </div>
           </div>
@@ -511,24 +705,30 @@ export default function AdminRadarPage() {
           <RadarCoverageMap
             stations={
               stations.length > 0
-                ? stations.map((s) => ({
-                    code: s.code,
-                    name: s.name,
-                    center_lat: s.center_lat,
-                    center_lng: s.center_lng,
-                    radius_km: s.radius_km,
-                    is_active: s.is_active,
-                    region:
-                      s.code.startsWith("cmi") || s.code.startsWith("phs") || s.code === "tak" || s.code === "cri"
-                        ? "north"
-                        : s.code.startsWith("kkn") || s.code.startsWith("skn") || s.code.startsWith("ubn")
-                        ? "northeast"
-                        : s.code.startsWith("chn") || s.code.startsWith("svp") || s.code.startsWith("ntp")
-                        ? "central"
-                        : s.code.startsWith("ryg")
-                        ? "east"
-                        : "south",
-                  }))
+                ? stations.map((s) => {
+                    const stStatus = stationStatuses.find(st => st.code === s.code);
+                    return {
+                      code: s.code,
+                      name: s.name,
+                      center_lat: s.center_lat,
+                      center_lng: s.center_lng,
+                      radius_km: s.radius_km,
+                      is_active: s.is_active,
+                      status: stStatus ? stStatus.status : (s.is_active ? "online" : "offline"),
+                      latency_minutes: stStatus?.latency_minutes,
+                      last_frame_timestamp: stStatus?.last_frame_timestamp,
+                      region:
+                        s.code.startsWith("cmi") || s.code.startsWith("phs") || s.code === "tak" || s.code === "cri"
+                          ? "north"
+                          : s.code.startsWith("kkn") || s.code.startsWith("skn") || s.code.startsWith("ubn")
+                          ? "northeast"
+                          : s.code.startsWith("chn") || s.code.startsWith("svp") || s.code.startsWith("ntp")
+                          ? "central"
+                          : s.code.startsWith("ryg")
+                          ? "east"
+                          : "south",
+                    };
+                  })
                 : DEFAULT_STATIONS
             }
             onSelectStation={(stCode) => {
@@ -740,95 +940,362 @@ export default function AdminRadarPage() {
               </div>
             </div>
 
-            {/* Live Image Preview Column */}
+            {/* Live Image Preview Column & Interactive Mouse Drag */}
             <div className="lg:col-span-6 bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
                   <Layers className="w-4 h-4 text-sky-400" />
-                  ภาพพรีวิวขอบเขต & พิกัด Lat/Lng เรียลไทม์
+                  ภาพพรีวิวขอบเขต & Interactive Mouse Crop
                 </h3>
                 <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
                   <button
-                    onClick={() => setActivePreviewTab("static")}
-                    className={`px-3 py-1 rounded-md transition ${activePreviewTab === "static" ? "bg-slate-800 text-white" : "text-slate-400"}`}
+                    onClick={() => setActiveTab("static")}
+                    className={`px-3 py-1 rounded-md transition ${activeTab === "static" ? "bg-sky-600 text-white font-semibold" : "text-slate-400"}`}
                   >
-                    Static Frame
+                    📷 Static Frame
                   </button>
                   <button
-                    onClick={() => setActivePreviewTab("loop")}
-                    className={`px-3 py-1 rounded-md transition ${activePreviewTab === "loop" ? "bg-slate-800 text-white" : "text-slate-400"}`}
+                    onClick={() => setActiveTab("loop")}
+                    disabled={!loopPreviewB64}
+                    className={`px-3 py-1 rounded-md transition ${activeTab === "loop" ? "bg-sky-600 text-white font-semibold" : "text-slate-400 disabled:opacity-40"}`}
                   >
-                    Loop Preview
+                    🌀 Loop GIF
                   </button>
                 </div>
               </div>
 
-              {/* Interactive Image Container */}
-              <div className="relative border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center min-h-[380px]">
-                {activePreviewTab === "static" ? (
-                  previewB64 ? (
-                    <div
-                      className="relative inline-block select-none cursor-crosshair"
-                      onMouseMove={(e) => {
-                        if (!imgRef.current) return;
-                        const rect = imgRef.current.getBoundingClientRect();
-                        const naturalW = imgRef.current.naturalWidth || 800;
-                        const naturalH = imgRef.current.naturalHeight || 800;
-                        const px = Math.round(((e.clientX - rect.left) / rect.width) * naturalW);
-                        const py = Math.round(((e.clientY - rect.top) / rect.height) * naturalH);
-                        setHoverPos({ pixelX: px, pixelY: py });
-                      }}
+              {/* Interactive Image Container with Crosshair & Resizable Box */}
+              <div className="relative border border-slate-800 rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center min-h-[380px] p-2">
+                {previewB64 ? (
+                  <div className="relative inline-block select-none cursor-crosshair">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      ref={imgRef}
+                      src={activeTab === "loop" && loopPreviewB64 ? loopPreviewB64 : previewB64}
+                      alt="Radar Preview"
+                      onMouseDown={handleMouseDown}
+                      onMouseMove={handleMouseMove}
                       onMouseLeave={() => setHoverPos(null)}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        ref={imgRef}
-                        src={previewB64}
-                        alt="Radar Preview"
-                        className="max-w-full max-h-[500px] object-contain"
-                      />
-                    </div>
-                  ) : (
-                    <div className="text-center p-8 text-slate-500">
-                      <Radio className="w-12 h-12 mx-auto mb-2 text-slate-700" />
-                      <p className="text-xs">กดปุ่ม <b>"Auto-Detect"</b> หรือ <b>"Preview Sliders"</b> เพื่อโหลดภาพเรดาร์</p>
-                    </div>
-                  )
-                ) : loopPreviewB64 ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={loopPreviewB64} alt="Loop Preview" className="max-w-full max-h-[500px] object-contain" />
+                      className="max-w-full max-h-[460px] object-contain block rounded-lg"
+                    />
+
+                    {/* Laser Crosshair Guide Lines on Hover */}
+                    {hoverPos && (
+                      <>
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            bottom: 0,
+                            left: `${hoverPos.relX}px`,
+                            width: "1px",
+                            borderLeft: "2px dashed #ef4444",
+                            pointerEvents: "none",
+                            zIndex: 8,
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: 0,
+                            right: 0,
+                            top: `${hoverPos.relY}px`,
+                            height: "1px",
+                            borderTop: "2px dashed #ef4444",
+                            pointerEvents: "none",
+                            zIndex: 8,
+                          }}
+                        />
+                        {/* Live Coordinates Tooltip */}
+                        {(() => {
+                          const targetCropX = activeTab === "loop" ? (cropX ?? 0) + loopOffsetX : (cropX ?? 0);
+                          const targetCropY = activeTab === "loop" ? (cropY ?? 0) + loopOffsetY : (cropY ?? 0);
+                          const targetCropW = cropW ?? 800;
+                          const targetCropH = cropH ?? 800;
+
+                          const cropRelX = hoverPos.pixelX - targetCropX;
+                          const cropRelY = hoverPos.pixelY - targetCropY;
+                          const inCrop = cropRelX >= 0 && cropRelX <= targetCropW && cropRelY >= 0 && cropRelY <= targetCropH;
+
+                          return (
+                            <div
+                              style={{
+                                position: "absolute",
+                                left: `${Math.min(hoverPos.relX + 15, (imgRef.current?.getBoundingClientRect().width || 400) - 270)}px`,
+                                top: `${Math.max(hoverPos.relY - 50, 8)}px`,
+                                backgroundColor: inCrop ? "rgba(14, 165, 233, 0.95)" : "rgba(15, 23, 42, 0.95)",
+                                color: "#ffffff",
+                                fontSize: "0.72rem",
+                                fontWeight: 600,
+                                padding: "4px 10px",
+                                borderRadius: 6,
+                                pointerEvents: "none",
+                                zIndex: 12,
+                                fontFamily: "monospace",
+                                boxShadow: "0 6px 16px rgba(0,0,0,0.5)",
+                                border: inCrop ? "1px solid #38bdf8" : "1px solid #475569",
+                              }}
+                            >
+                              {inCrop ? (
+                                <span>
+                                  🔵 Crop: (<b>{cropRelX}</b>, <b>{cropRelY}</b>) | Full: ({hoverPos.pixelX}, {hoverPos.pixelY})
+                                </span>
+                              ) : (
+                                <span>
+                                  ⚪ Full Radar: ({hoverPos.pixelX}, {hoverPos.pixelY})
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </>
+                    )}
+
+                    {/* Dynamic Drag Box Overlay */}
+                    <div style={getDragOverlayStyle()} />
+
+                    {/* Active Crop Box with Interactive 4-Edge & 4-Corner Handles */}
+                    {cropX !== null && cropY !== null && cropW !== null && cropH !== null && imgRef.current && (
+                      (() => {
+                        const targetCropX = activeTab === "loop" ? (cropX ?? 0) + loopOffsetX : cropX;
+                        const targetCropY = activeTab === "loop" ? (cropY ?? 0) + loopOffsetY : cropY;
+                        const targetCropW = activeTab === "loop" ? (cropW ?? 800) + loopOffsetW : cropW;
+                        const targetCropH = activeTab === "loop" ? (cropH ?? 800) + loopOffsetH : cropH;
+
+                        const rect = imgRef.current.getBoundingClientRect();
+                        const scaleX = rect.width / (imgRef.current.naturalWidth || 800);
+                        const scaleY = rect.height / (imgRef.current.naturalHeight || 800);
+                        const boxLeft = targetCropX * scaleX;
+                        const boxTop = targetCropY * scaleY;
+                        const boxW = targetCropW * scaleX;
+                        const boxH = targetCropH * scaleY;
+
+                        return (
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: `${boxLeft}px`,
+                              top: `${boxTop}px`,
+                              width: `${boxW}px`,
+                              height: `${boxH}px`,
+                              border: "2px solid #38bdf8",
+                              backgroundColor: "rgba(56, 189, 248, 0.12)",
+                              boxSizing: "border-box",
+                              pointerEvents: "none",
+                              zIndex: 9,
+                            }}
+                          >
+                            {/* Edge Handles */}
+                            <div onMouseDown={(e) => startHandleDrag("top", e)} style={{ position: "absolute", top: -4, left: "20%", right: "20%", height: 8, cursor: "ns-resize", backgroundColor: "rgba(56, 189, 248, 0.7)", borderRadius: 4, pointerEvents: "auto" }} />
+                            <div onMouseDown={(e) => startHandleDrag("bottom", e)} style={{ position: "absolute", bottom: -4, left: "20%", right: "20%", height: 8, cursor: "ns-resize", backgroundColor: "rgba(56, 189, 248, 0.7)", borderRadius: 4, pointerEvents: "auto" }} />
+                            <div onMouseDown={(e) => startHandleDrag("left", e)} style={{ position: "absolute", left: -4, top: "20%", bottom: "20%", width: 8, cursor: "ew-resize", backgroundColor: "rgba(56, 189, 248, 0.7)", borderRadius: 4, pointerEvents: "auto" }} />
+                            <div onMouseDown={(e) => startHandleDrag("right", e)} style={{ position: "absolute", right: -4, top: "20%", bottom: "20%", width: 8, cursor: "ew-resize", backgroundColor: "rgba(56, 189, 248, 0.7)", borderRadius: 4, pointerEvents: "auto" }} />
+
+                            {/* Corner Handles */}
+                            <div onMouseDown={(e) => startHandleDrag("top-left", e)} style={{ position: "absolute", top: -5, left: -5, width: 10, height: 10, cursor: "nwse-resize", backgroundColor: "#0284c7", border: "1px solid #fff", borderRadius: "50%", pointerEvents: "auto" }} />
+                            <div onMouseDown={(e) => startHandleDrag("top-right", e)} style={{ position: "absolute", top: -5, right: -5, width: 10, height: 10, cursor: "nesw-resize", backgroundColor: "#0284c7", border: "1px solid #fff", borderRadius: "50%", pointerEvents: "auto" }} />
+                            <div onMouseDown={(e) => startHandleDrag("bottom-left", e)} style={{ position: "absolute", bottom: -5, left: -5, width: 10, height: 10, cursor: "nesw-resize", backgroundColor: "#0284c7", border: "1px solid #fff", borderRadius: "50%", pointerEvents: "auto" }} />
+                            <div onMouseDown={(e) => startHandleDrag("bottom-right", e)} style={{ position: "absolute", bottom: -5, right: -5, width: 10, height: 10, cursor: "nwse-resize", backgroundColor: "#0284c7", border: "1px solid #fff", borderRadius: "50%", pointerEvents: "auto" }} />
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
                 ) : (
                   <div className="text-center p-8 text-slate-500">
-                    <p className="text-xs">ไม่มีภาพ Loop GIF พรีวิวสำหรับสถานีนี้</p>
+                    <Radio className="w-12 h-12 mx-auto mb-2 text-slate-700" />
+                    <p className="text-xs">กดปุ่ม <b>"Auto-Detect"</b> หรือ <b>"Preview Sliders"</b> เพื่อโหลดภาพเรดาร์</p>
                   </div>
                 )}
               </div>
 
-              {/* Coordinates Inspector Readout */}
-              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-3.5 text-xs text-slate-400">
-                {hoverCoords && hoverPos ? (
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-mono text-slate-300">
-                      🖼️ Pixel: <b>({hoverPos.pixelX}, {hoverPos.pixelY})</b> px
-                    </span>
-                    <span className="font-mono text-sky-400">
-                      🌐 GPS: <b>{hoverCoords.hoverLat.toFixed(5)}°N, {hoverCoords.hoverLng.toFixed(5)}°E</b>
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-slate-500">
-                    เลื่อนเมาส์บนภาพพรีวิวเรดาร์ด้านบนเพื่อตรวจสอบค่า Pixel (X, Y) และพิกัด Lat/Lng แบบเรียลไทม์
+              {/* Coordinates & Alignment Inspector Readout */}
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 space-y-3 text-xs">
+                {/* Live Hover Readout */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+                  <span className="font-mono text-slate-300">
+                    🖼️ Cursor Pixel: <b>{hoverPos ? `(${hoverPos.pixelX}, ${hoverPos.pixelY})` : "-"}</b> px
                   </span>
-                )}
+                  <span className="font-mono text-sky-400">
+                    🌐 GPS: <b>{hoverCoords ? `${hoverCoords.hoverLat.toFixed(5)}°N, ${hoverCoords.hoverLng.toFixed(5)}°E` : "-"}</b>
+                  </span>
+                </div>
+
+                {/* Alignment Debugger */}
+                {(() => {
+                  const targetCropX = activeTab === "loop" ? (cropX ?? 0) + loopOffsetX : (cropX ?? 0);
+                  const targetCropY = activeTab === "loop" ? (cropY ?? 0) + loopOffsetY : (cropY ?? 0);
+                  const targetCropW = cropW ?? 800;
+                  const targetCropH = cropH ?? 800;
+
+                  const cropCenterX = targetCropX + targetCropW / 2;
+                  const cropCenterY = targetCropY + targetCropH / 2;
+
+                  const radarCx = detectedCircle ? detectedCircle[0] : cropCenterX;
+                  const radarCy = detectedCircle ? detectedCircle[1] : cropCenterY;
+
+                  const dx = cropCenterX - radarCx;
+                  const dy = cropCenterY - radarCy;
+                  const hasDeviation = Math.abs(dx) > 0 || Math.abs(dy) > 0;
+
+                  return (
+                    <div className={`p-3 rounded-xl border ${hasDeviation ? "bg-rose-950/30 border-rose-800/50" : "bg-emerald-950/30 border-emerald-800/50"}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`font-semibold flex items-center gap-1.5 ${hasDeviation ? "text-rose-300" : "text-emerald-300"}`}>
+                          <Crosshair className="w-3.5 h-3.5" /> Center Radar Alignment
+                        </span>
+                        {hasDeviation && (
+                          <button
+                            onClick={() => {
+                              const IMG_SIZE = 800;
+                              const halfW = Math.min(targetCropW / 2, radarCx, IMG_SIZE - radarCx);
+                              const halfH = Math.min(targetCropH / 2, radarCy, IMG_SIZE - radarCy);
+                              const half = Math.min(halfW, halfH);
+                              const newW = Math.round(half * 2);
+                              const newH = Math.round(half * 2);
+                              const newCropX = Math.round(radarCx - half);
+                              const newCropY = Math.round(radarCy - half);
+                              handlePreview(newCropX, newCropY, newW, newH);
+                            }}
+                            className="bg-sky-600 hover:bg-sky-500 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold"
+                          >
+                            🎯 Auto-Center Crop Box
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 font-mono text-[11px]">
+                        <div>🔵 Crop Center: <b>{cropCenterX}, {cropCenterY}</b></div>
+                        <div>🔴 Radar Center: <b className="text-amber-300">{radarCx}, {radarCy}</b></div>
+                        <div>⚖️ Offset: <b className={hasDeviation ? "text-rose-400" : "text-emerald-400"}>ΔX:{dx}, ΔY:{dy}</b></div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Section 4: All Stations Table */}
+        {/* Section 4: Telegram Simulated UI (`/rain_pro`) Container */}
+        <section className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-sky-400" />
+                3. Telegram Live Preview & Coordinate Inspector (`/rain_pro`)
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                จำลองการตัดรูปภาพและคำนวณพิกัด Pixel (X, Y) กับ Lat/Lng เสมือนส่งลงแชท Telegram จริง
+              </p>
+            </div>
+            <span className="text-xs font-semibold px-3 py-1 rounded-lg bg-sky-950/60 border border-sky-800 text-sky-300">
+              Telegram Simulated UI
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left simulated Telegram Chat Card */}
+            <div className="lg:col-span-5 bg-[#17212b] border border-[#242f3d] rounded-3xl p-5 shadow-2xl space-y-4">
+              <div className="flex items-center gap-3 border-b border-[#242f3d] pb-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center font-bold text-white text-sm shadow">
+                  FM
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                    FonMaYang Bot <span className="text-[10px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded font-mono">BOT</span>
+                  </h3>
+                  <span className="text-xs text-sky-400 font-mono">/rain_pro {lat.toFixed(4)} {lng.toFixed(4)}</span>
+                </div>
+              </div>
+
+              {/* Telegram Cropped Image Box */}
+              <div className="relative rounded-2xl overflow-hidden bg-[#0e1621] border border-[#242f3d] flex items-center justify-center min-h-[260px]">
+                {telegramPreviewB64 || loopTelegramPreviewB64 ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={activeTab === "loop" && loopTelegramPreviewB64 ? loopTelegramPreviewB64 : (telegramPreviewB64 || previewB64 || "")}
+                    alt="Telegram Cropped Preview"
+                    className="w-full h-auto object-cover block"
+                  />
+                ) : (
+                  <div className="text-center p-8 text-slate-500 text-xs">
+                    โปรดกด Preview เพื่อดูภาพจำลองแชท Telegram
+                  </div>
+                )}
+              </div>
+
+              {/* Telegram Message Caption */}
+              <div className="bg-[#0e1621] p-3.5 rounded-xl border border-[#242f3d] text-xs text-slate-300 space-y-1">
+                <p className="font-bold text-white">🌧️ รายงานเรดาร์ติดตามกลุ่มฝน [{code}]</p>
+                <p>📍 จุดศูนย์กลางเรดาร์: Lat {lat}, Lng {lng}</p>
+                <p>📡 รัศมีครอบคลุม: {radiusKm} กม.</p>
+                <p className="text-[11px] text-slate-500 mt-1 font-mono">Timestamp: {new Date().toISOString()}</p>
+              </div>
+            </div>
+
+            {/* Right Bounding Box & Alignment Breakdown */}
+            <div className="lg:col-span-7 bg-slate-950/60 border border-slate-800 rounded-3xl p-6 space-y-6">
+              <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                <Target className="w-4 h-4 text-sky-400" />
+                สรุป BoundingBox & พิกัดเรดาร์ใน Neon Database
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl">
+                  <span className="text-xs text-slate-400 block mb-1">🎯 Center Radar Coordinates</span>
+                  <div className="text-base font-bold font-mono text-white">Lat {lat}, Lng {lng}</div>
+                  <span className="text-[11px] text-slate-500 block mt-1">
+                    Pixel Center: X: {(cropX ?? 0) + (cropW ?? 800) / 2}, Y: {(cropY ?? 0) + (cropH ?? 800) / 2}
+                  </span>
+                </div>
+
+                <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl">
+                  <span className="text-xs text-slate-400 block mb-1">✂️ Static Crop Settings</span>
+                  <div className="text-base font-bold font-mono text-sky-400">
+                    X: {cropX ?? 0}, Y: {cropY ?? 0} | {cropW ?? 800}×{cropH ?? 800} px
+                  </div>
+                  <span className="text-[11px] text-slate-500 block mt-1">
+                    Loop Offset: X: {(cropX ?? 0) + loopOffsetX}, Y: {(cropY ?? 0) + loopOffsetY}
+                  </span>
+                </div>
+              </div>
+
+              {/* Geographic Bounding Box */}
+              <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl space-y-2">
+                <span className="text-xs font-semibold text-slate-300 block">
+                  🗺️ Neon DB BoundingBox Coverage
+                </span>
+                {calculatedBbox ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs text-sky-300">
+                    <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                      <span className="text-[10px] text-slate-500 block">Top (lat_max)</span>
+                      <b className="text-white text-sm">{calculatedBbox.lat_max}</b>
+                    </div>
+                    <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                      <span className="text-[10px] text-slate-500 block">Bottom (lat_min)</span>
+                      <b className="text-white text-sm">{calculatedBbox.lat_min}</b>
+                    </div>
+                    <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                      <span className="text-[10px] text-slate-500 block">Left (lng_min)</span>
+                      <b className="text-white text-sm">{calculatedBbox.lng_min}</b>
+                    </div>
+                    <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                      <span className="text-[10px] text-slate-500 block">Right (lng_max)</span>
+                      <b className="text-white text-sm">{calculatedBbox.lng_max}</b>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-500">กดปุ่ม Preview & Auto-Detect เพื่อคำนวณ BoundingBox</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 5: All Stations Table */}
         <section className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur">
           <h2 className="text-lg font-bold text-slate-100 mb-1 flex items-center gap-2">
-            📋 3. รายการสถานีเรดาร์ทั้งหมดในระบบ ({stations.length} สถานี)
+            📋 4. รายการสถานีเรดาร์ทั้งหมดในระบบ ({stations.length} สถานี)
           </h2>
           <p className="text-xs text-slate-400 mb-4">
             💡 คลิกแถวสถานีในตารางเพื่อเลือกและเลื่อนไปยังเครื่องมือปรับจูนขอบเขตทันที
@@ -864,6 +1331,9 @@ export default function AdminRadarPage() {
                 ) : (
                   stations.map((st) => {
                     const isSelected = code === st.code;
+                    const stStatus = stationStatuses.find(s => s.code === st.code);
+                    const statusLabel = stStatus?.status || (st.is_active ? "online" : "offline");
+
                     return (
                       <tr
                         key={st.code}
@@ -882,12 +1352,14 @@ export default function AdminRadarPage() {
                         <td className="py-3 px-4">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                              st.is_active
+                              statusLabel === "online"
                                 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                : "bg-slate-800 text-slate-400"
+                                : statusLabel === "delayed"
+                                ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                                : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
                             }`}
                           >
-                            {st.is_active ? "Active" : "Disabled"}
+                            {statusLabel}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
