@@ -22,13 +22,13 @@ async def get_async_db():
         yield session
 
 class RadarPreviewRequest(BaseModel):
-    code: str = Field(..., example="svp240")
-    name: str = Field(..., example="Bangkok Suvarnabhumi (240km)")
-    image_url: str = Field(..., example="https://weather.tmd.go.th/svp/svp240_latest.jpg")
+    code: str = Field(..., json_schema_extra={"example": "svp240"})
+    name: str = Field(..., json_schema_extra={"example": "Bangkok Suvarnabhumi (240km)"})
+    image_url: str = Field(..., json_schema_extra={"example": "https://weather.tmd.go.th/svp/svp240_latest.jpg"})
     loop_page_url: Optional[str] = Field(default="")
     loop_gif_url: Optional[str] = Field(default="")
-    lat: float = Field(..., example=13.6860)
-    lng: float = Field(..., example=100.7486)
+    lat: float = Field(..., json_schema_extra={"example": 13.6860})
+    lng: float = Field(..., json_schema_extra={"example": 100.7486})
     radius_km: float = Field(default=240.0)
     # Optional manual override crop coordinates for fine-tuning
     crop_x: Optional[int] = None

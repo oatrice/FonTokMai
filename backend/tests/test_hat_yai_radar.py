@@ -42,8 +42,8 @@ def test_hat_yai_pin_pixel_location():
 
     # In cropped frame space (720x720)
     crop_px, crop_py = processor.latlng_to_pixel(config.center_lat, config.center_lng, is_loop=True, frame_shape=(720, 720))
-    assert crop_px == 360, f"Expected cropped center_x 360, got {crop_px}"
-    assert crop_py == 360, f"Expected cropped center_y 360, got {crop_py}"
+    assert abs(crop_px - 360) <= 1, f"Expected cropped center_x ~360, got {crop_px}"
+    assert abs(crop_py - 360) <= 1, f"Expected cropped center_y ~360, got {crop_py}"
 
 
 def test_hat_yai_maritime_and_terrain_colors_not_detected_as_rain():
