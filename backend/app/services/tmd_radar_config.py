@@ -1,7 +1,7 @@
 # backend/app/services/tmd_radar_config.py
 
-from dataclasses import dataclass
-from typing import Dict, Tuple
+from dataclasses import dataclass, field
+from typing import Dict, Tuple, List
 
 @dataclass
 class BoundingBox:
@@ -41,7 +41,7 @@ class StationConfig:
     # dict mapping "lat,lng" to "pixel_x,pixel_y" for affine calibration
     calibration_points: Dict[Tuple[float, float], Tuple[float, float]] = None
     min_area_km2: float = 10.0
-    legend_bboxes: list = None
+    legend_bboxes: list = field(default_factory=list)
     # When True, letterbox-pad the raw image to 800×800 before applying crop.
     # Required for stations whose images have a non-square aspect ratio (e.g. 937×797)
     # that scale to a non-800×800 result, which causes the standard crop to overflow.
