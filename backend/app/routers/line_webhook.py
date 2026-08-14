@@ -196,7 +196,7 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
                 
             if target_location_name:
                 for l in locs:
-                    if (l.name and l.name.lower() == target_location_name) or (target_location_name == "default" and l.name is None):
+                    if (l.name and l.name.lower() == target_location_name) or (target_location_name in ("default", "d") and (l.name is None or l.name.lower() == "default")):
                         loc = l
                         break
                 if not loc:

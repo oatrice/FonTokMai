@@ -19,6 +19,7 @@ async def process_telegram_location(
     show_advanced: bool = False,
     location_name: str = None,
     is_lock_command: bool = False,
+    is_saved_location: bool = False,
 ):
     """
     ดึงข้อมูลพยากรณ์ฝนผ่าน WeatherManager (รองรับ fallback chain อัตโนมัติ)
@@ -28,6 +29,7 @@ async def process_telegram_location(
       force_endpoint: ถ้าระบุ ("global"/"local") จะบังคับใช้ endpoint นั้นโดยตรง
       message_id_to_edit: ถ้ามี ให้แก้ไขข้อความเดิม (loading state) แทนการส่งใหม่
       location_name: ชื่อของสถานที่ที่จะแสดงในข้อความผลลัพธ์
+      is_saved_location: ถ้าเป็น True แสดงว่าเป็น location ที่มีในระบบแล้ว ไม่ต้องถามบันทึกพิกัดซ้ำ
     """
     try:
         if location_name:
@@ -61,6 +63,9 @@ async def process_telegram_location(
         if location_name:
             text = f"📍 **พื้นที่:** {location_name}\n\n" + text
 
+        if result.get("failover_notice"):
+            text += f"\n\n{result.get('failover_notice')}"
+
         if result.get("is_outdated"):
             text = "⚠️ **ยังไม่มีข้อมูลล่าสุดจากกรมอุตุฯ (TMD Radar)**\nแนะนำให้เปลี่ยนไปใช้ API อื่น (เช่น Tomorrow.io หรือ Open-Meteo) แทนชั่วคราวครับ\n"
 
@@ -73,12 +78,13 @@ async def process_telegram_location(
             await _reply(chat_id, error_text, message_id_to_edit)
             return
 
-        # ตรวจสอบ location ที่บันทึกไว้
+        # ตรวจสอบ location ที่บันทึกไว้ (แสดงถามบันทึกเฉพาะกรณีที่ไม่ได้เรียกดูจากพิกัดที่บันทึกไว้แล้ว)
         has_existing_loc = False
-        async with get_repo_context() as repo:
-            existing_loc = await repo.get_location(chat_id)
-            if existing_loc:
-                has_existing_loc = True
+        if not is_saved_location and not location_name:
+            async with get_repo_context() as repo:
+                existing_loc = await repo.get_location(chat_id)
+                if existing_loc:
+                    has_existing_loc = True
 
         # Round สำหรับ callback_data
         r_lat = round(lat, 4)
@@ -86,35 +92,36 @@ async def process_telegram_location(
 
         keyboard = []
 
-        if has_existing_loc:
-            text += "\n(คุณมีพิกัดเดิมบันทึกไว้อยู่แล้ว ต้องการบันทึกพิกัดนี้เป็นอะไร หรือลบของเดิมทิ้ง?)"
-            keyboard.append([
-                {"text": "🏠 บ้าน (2 ด.)", "callback_data": f"loc_save_Home_2m_{r_lat}_{r_lng}"},
-                {"text": "🏠 บ้าน (ตป.)", "callback_data": f"loc_save_Home_inf_{r_lat}_{r_lng}"}
-            ])
-            keyboard.append([
-                {"text": "💼 ที่ทำงาน (2 ด.)", "callback_data": f"loc_save_Work_2m_{r_lat}_{r_lng}"},
-                {"text": "💼 ที่ทำงาน (ตป.)", "callback_data": f"loc_save_Work_inf_{r_lat}_{r_lng}"}
-            ])
-            keyboard.append([
-                {"text": "📍 ทั่วไป (2 ด.)", "callback_data": f"loc_save_Default_2m_{r_lat}_{r_lng}"},
-                {"text": "📍 ทั่วไป (ตป.)", "callback_data": f"loc_save_Default_inf_{r_lat}_{r_lng}"}
-            ])
-        else:
-            text += "(คุณต้องการให้ระบบจดจำตำแหน่งนี้สำหรับการแจ้งเตือนอัตโนมัติไหม?)"
-            keyboard.append([
-                {"text": "🏠 บ้าน (2 ด.)", "callback_data": f"loc_save_Home_2m_{r_lat}_{r_lng}"},
-                {"text": "🏠 บ้าน (ตป.)", "callback_data": f"loc_save_Home_inf_{r_lat}_{r_lng}"}
-            ])
-            keyboard.append([
-                {"text": "💼 ที่ทำงาน (2 ด.)", "callback_data": f"loc_save_Work_2m_{r_lat}_{r_lng}"},
-                {"text": "💼 ที่ทำงาน (ตป.)", "callback_data": f"loc_save_Work_inf_{r_lat}_{r_lng}"}
-            ])
-            keyboard.append([
-                {"text": "📍 ทั่วไป (2 ด.)", "callback_data": f"loc_save_Default_2m_{r_lat}_{r_lng}"},
-                {"text": "📍 ทั่วไป (ตป.)", "callback_data": f"loc_save_Default_inf_{r_lat}_{r_lng}"}
-            ])
-            keyboard.append([{"text": "❌ ไม่เป็นไร", "callback_data": "loc_no"}])
+        if not is_saved_location and not location_name:
+            if has_existing_loc:
+                text += "\n(คุณมีพิกัดเดิมบันทึกไว้อยู่แล้ว ต้องการบันทึกพิกัดนี้เป็นอะไร หรือลบของเดิมทิ้ง?)"
+                keyboard.append([
+                    {"text": "🏠 บ้าน (2 ด.)", "callback_data": f"loc_save_Home_2m_{r_lat}_{r_lng}"},
+                    {"text": "🏠 บ้าน (ตป.)", "callback_data": f"loc_save_Home_inf_{r_lat}_{r_lng}"}
+                ])
+                keyboard.append([
+                    {"text": "💼 ที่ทำงาน (2 ด.)", "callback_data": f"loc_save_Work_2m_{r_lat}_{r_lng}"},
+                    {"text": "💼 ที่ทำงาน (ตป.)", "callback_data": f"loc_save_Work_inf_{r_lat}_{r_lng}"}
+                ])
+                keyboard.append([
+                    {"text": "📍 ทั่วไป (2 ด.)", "callback_data": f"loc_save_Default_2m_{r_lat}_{r_lng}"},
+                    {"text": "📍 ทั่วไป (ตป.)", "callback_data": f"loc_save_Default_inf_{r_lat}_{r_lng}"}
+                ])
+            else:
+                text += "(คุณต้องการให้ระบบจดจำตำแหน่งนี้สำหรับการแจ้งเตือนอัตโนมัติไหม?)"
+                keyboard.append([
+                    {"text": "🏠 บ้าน (2 ด.)", "callback_data": f"loc_save_Home_2m_{r_lat}_{r_lng}"},
+                    {"text": "🏠 บ้าน (ตป.)", "callback_data": f"loc_save_Home_inf_{r_lat}_{r_lng}"}
+                ])
+                keyboard.append([
+                    {"text": "💼 ที่ทำงาน (2 ด.)", "callback_data": f"loc_save_Work_2m_{r_lat}_{r_lng}"},
+                    {"text": "💼 ที่ทำงาน (ตป.)", "callback_data": f"loc_save_Work_inf_{r_lat}_{r_lng}"}
+                ])
+                keyboard.append([
+                    {"text": "📍 ทั่วไป (2 ด.)", "callback_data": f"loc_save_Default_2m_{r_lat}_{r_lng}"},
+                    {"text": "📍 ทั่วไป (ตป.)", "callback_data": f"loc_save_Default_inf_{r_lat}_{r_lng}"}
+                ])
+                keyboard.append([{"text": "❌ ไม่เป็นไร", "callback_data": "loc_no"}])
 
         # ปุ่มเปรียบเทียบข้อมูล (Issue #53)
         keyboard.append([{"text": "📊 เปรียบเทียบข้อมูลจากทุกแหล่ง", "callback_data": f"compare_api_{r_lat}_{r_lng}"}])

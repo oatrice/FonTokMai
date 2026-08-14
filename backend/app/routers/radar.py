@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 from datetime import datetime, timezone
-from app.services.tmd_radar_config import STATIONS
+from app.services.tmd_radar_registry import radar_registry
 from app.dependencies import get_repo_context
+from app.database import AsyncSessionLocal
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,14 +15,17 @@ router = APIRouter(
 @router.get("/stations")
 async def get_radar_stations():
     """
-    Get operational status and metadata for all Thailand rain radar stations.
+    Get operational status and metadata for all Thailand rain radar stations (13 stations).
     """
     now = datetime.now(timezone.utc)
     station_statuses = []
 
     try:
+        async with AsyncSessionLocal() as session:
+            all_stations = await radar_registry.get_all_stations(session)
+
         async with get_repo_context() as repo:
-            for code, station in STATIONS.items():
+            for code, station in all_stations.items():
                 last_updated = None
                 try:
                     cache = await repo.get_latest_radar_cache(code)
