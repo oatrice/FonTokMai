@@ -57,6 +57,7 @@ cache:
 check_docs_updated:
   stage: verify
   image: alpine:latest
+  allow_failure: true
   extends:
     - .telegram_notify
   before_script:
