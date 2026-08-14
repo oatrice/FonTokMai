@@ -133,8 +133,8 @@ KNOWN_TMD_RADAR_PRESETS = [
         "center_lng": 98.930,
         "radius_km": 240.0,
         "lat_max": 18.65, "lng_min": 97.01, "lat_min": 14.32, "lng_max": 101.33,
-        "static_crop_x": 72, "static_crop_y": 28, "static_crop_width": 728, "static_crop_height": 728,
-        "loop_crop_x": 72, "loop_crop_y": 28, "loop_crop_width": 728, "loop_crop_height": 728
+        "static_crop_x": 60, "static_crop_y": 0, "static_crop_width": 680, "static_crop_height": 680,
+        "loop_crop_x": 60, "loop_crop_y": 0, "loop_crop_width": 680, "loop_crop_height": 680
     },
     {
         "code": "cri",
