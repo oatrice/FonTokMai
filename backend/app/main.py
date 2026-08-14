@@ -55,6 +55,7 @@ logging.getLogger("httpx").addFilter(sensitive_filter)
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from app.routers import weather, webhook, metrics
+from app.routers.admin_radar import router as admin_radar_router
 
 from contextlib import asynccontextmanager
 from app.database import engine, Base, AsyncSessionLocal
@@ -111,6 +112,16 @@ async def lifespan(app: FastAPI):
                 res = await session.execute(stmt)
                 if res.scalar_one_or_none() is None:
                     session.add(SystemConfig(key=key, value_json=val))
+            
+            # Seed Initial Radar Stations into DB if empty
+            from app.repositories.radar import RadarStationRepository
+            from app.services.tmd_radar_catalog import KNOWN_TMD_RADAR_PRESETS
+            radar_repo = RadarStationRepository(session)
+            existing_stations = await radar_repo.get_all_stations()
+            if not existing_stations:
+                logging.info(f"Seeding {len(KNOWN_TMD_RADAR_PRESETS)} initial radar stations into DB...")
+                for preset in KNOWN_TMD_RADAR_PRESETS:
+                    await radar_repo.upsert_station(preset)
             await session.commit()
     except Exception as e:
         logging.error(f"Failed to initialize database tables during startup: {e}")
@@ -211,6 +222,7 @@ app.include_router(weather.router)
 app.include_router(webhook.router)
 app.include_router(scheduler.router)
 app.include_router(metrics.router)
+app.include_router(admin_radar_router, prefix="/api/v1/admin/radar")
 app.include_router(worker.router)
 app.include_router(budget_webhook.router)
 app.include_router(line_webhook.router)

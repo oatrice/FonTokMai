@@ -1,94 +1,106 @@
-# Manual Verification Plan - GCP Billing Policy Consistency
+# Manual Verification Plan - TMD Radar Dynamic Station Integration & Calibration (Hat Yai `hyi`)
 
-- **Branch**: `feat/dashboard-ux-recovery-batch`
-- **MR / Issue ID**: `#211`
-- **Date**: `2026-08-03`
+- **Branch**: `feat/99-tmd-radar-auto-calibration`
+- **MR / Issue ID**: `Issue #99`, `Issue #273`
+- **Version**: `0.72.0`
+- **Date**: `2026-08-14`
 
 ---
 
 ## 📌 Prerequisites & Environment Setup
-1. Backend local environment is configured and can start with Uvicorn.
-2. Frontend local environment is configured and points to the local backend.
-3. `DATABASE_URL` is available for the target environment:
-   - local/dev may use Neon or local DB
-   - staging/prod should use Neon Postgres
-4. Relevant env vars:
-   - `ENVIRONMENT`
-   - `FORCE_GCP_REAL_DATA`
-   - `GCP_PROJECT_ID`
-   - `GCP_BILLING_BIGQUERY_DATASET`
-   - `CRON_SECRET`
-5. Start backend:
+1. **Environment Setup:**
+   - PostgreSQL (Neon DB) or SQLite database connected.
+   - Python virtualenv activated (`backend/.venv/bin/activate`).
+2. **Backend Server Launch:**
    ```bash
-   cd backend
    uvicorn app.main:app --reload --port 8000
    ```
-6. Start frontend:
+3. **Database Seed Sync (Required for new radar configurations):**
    ```bash
-   cd frontend
-   npm run dev
+   curl -X POST http://localhost:8000/api/v1/admin/radar/seed
    ```
 
 ---
 
 ## 🧪 Verification Scenarios
 
-### Scenario 1: Local Mock-Only Path
-- **Goal**: Verify that local/dev can stay on mock data when the policy resolves to mock-only.
+### Scenario 1: Seed & Sync Dynamic Radar Stations into Database (Happy Path)
+- **Goal**: Verify that all 13 validated TMD radar stations (including Hat Yai `hyi`, Surat Thani `srt`, and Chiang Rai `cri`) are seeded into Neon DB with their respective crop offsets and projection settings.
 - **Steps**:
-  1. Set `ENVIRONMENT=development`.
-  2. Set `FORCE_GCP_REAL_DATA=false`.
-  3. Ensure the frontend points to the local backend.
-  4. Open `http://localhost:3000/dashboard`.
-  5. Refresh the page and inspect the GCP Infrastructure Costs card.
+  1. Trigger the seed endpoint:
+     ```bash
+     curl -X POST http://localhost:8000/api/v1/admin/radar/seed
+     ```
+  2. Query active stations:
+     ```bash
+     curl -X GET http://localhost:8000/api/v1/admin/radar/stations
+     ```
 - **Expected Outcome**:
-  - The backend log shows policy resolution and mock-only mode.
-  - The dashboard displays mock data.
-  - `is_mock=true` in the response.
-
-### Scenario 2: Local Explicit Real Override
-- **Goal**: Verify that local/dev can still force real data when explicitly requested.
-- **Steps**:
-  1. Set `ENVIRONMENT=development`.
-  2. Set `FORCE_GCP_REAL_DATA=true`.
-  3. Ensure `GCP_PROJECT_ID` and `GCP_BILLING_BIGQUERY_DATASET` are configured.
-  4. Refresh `http://localhost:3000/dashboard`.
-- **Expected Outcome**:
-  - The backend logs show real-data path selection.
-  - The endpoint queries BigQuery.
-  - `is_mock=false` when BigQuery data is returned.
-
-### Scenario 3: Neon-Driven Policy
-- **Goal**: Verify that Neon `system_config.gcp_force_real_data` can drive the result when local env does not force real data.
-- **Steps**:
-  1. Set `ENVIRONMENT=development`.
-  2. Set `FORCE_GCP_REAL_DATA=false`.
-  3. Set Neon `system_config.gcp_force_real_data=true`.
-  4. Refresh `http://localhost:3000/dashboard`.
-- **Expected Outcome**:
-  - The backend logs show the Neon override being read.
-  - The GCP billing route uses the Neon value.
-  - The card shows real data if BigQuery credentials are valid.
-
-### Scenario 4: Backend Fallback Safety
-- **Goal**: Verify that the endpoint still fails safely when real data is requested but BigQuery config is missing or invalid.
-- **Steps**:
-  1. Set the policy to real-data mode.
-  2. Remove or invalidate `GCP_PROJECT_ID` or `GCP_BILLING_BIGQUERY_DATASET`.
-  3. Call `GET /api/v1/metrics/gcp-costs`.
-- **Expected Outcome**:
-  - The backend raises a clear error for missing config in real-data mode.
-  - No silent false-positive real-data state is returned.
+  - HTTP Status: `200 OK`
+  - Response Body contains `{"status": "ok", "message": "Successfully synced DB to 13 validated radar stations."}`
+  - Station list contains `hyi` with `projection_type: "linear"`, `static_crop_x: 55`, `static_crop_y: 34`, `static_crop_width: 720`, `static_crop_height: 720`.
 
 ---
 
-## 📸 Proof of Verification (Artifacts & Logs)
-- **Backend Test Result**
-  - `pytest backend/tests/test_gcp_billing.py -q`
-  - Expected: `12 passed`
-- **Log Snippet**
-  ```text
-  [GCP_BILLING] resolve_force_real_data(local) ...
-  [GCP_BILLING] Neon override resolved ...
-  [GCP_BILLING] get_current_month_costs ...
-  ```
+### Scenario 2: Hat Yai Radar Pin Location & Rainfall Prediction (Happy Path)
+- **Goal**: Verify that user coordinates in the Hat Yai area accurately map to pixel coordinates on the radar image without offset drift.
+- **Steps**:
+  1. In Telegram bot (or Webhook Dev Mock), send:
+     ```text
+     /rain_pro_d tmd radar
+     ```
+  2. Inspect generated `radar_latest.png` and `radar_tracking.jpg`.
+- **Expected Outcome**:
+  - Center of Radar crosshair aligns with center circle at `(640, 638)`.
+  - User default location crosshair maps to `(857, 738)`.
+  - Image generation returns valid rain tracking vectors without out-of-bounds clipping.
+
+---
+
+### Scenario 3: Marine & Terrain Green False-Positive Filtering (Edge Case)
+- **Goal**: Verify that sea background (Gulf of Thailand / Andaman Sea) and mountainous terrain colors in Hat Yai scans are ignored and do not trigger false rain alerts.
+- **Steps**:
+  1. Run automated color extractor test:
+     ```bash
+     backend/.venv/bin/pytest backend/tests/test_hat_yai_radar.py -k "test_hat_yai_maritime_and_terrain_colors_not_detected_as_rain"
+     ```
+- **Expected Outcome**:
+  - Test passes: all terrain greens and maritime blues resolve to `0.0 dBZ`.
+
+---
+
+## 📸 Proof of Verification (Automated Test & Build Logs)
+
+### 1. Backend Radar Unit Test Suite
+```text
+============================= test session starts ==============================
+backend/tests/test_admin_radar_router.py::test_preview_endpoint PASSED   [ 16%]
+backend/tests/test_admin_radar_router.py::test_save_and_list_stations_endpoints PASSED [ 33%]
+backend/tests/test_hat_yai_radar.py::test_hat_yai_station_registered PASSED [ 50%]
+backend/tests/test_hat_yai_radar.py::test_hat_yai_pin_pixel_location PASSED [ 66%]
+backend/tests/test_hat_yai_radar.py::test_hat_yai_maritime_and_terrain_colors_not_detected_as_rain PASSED [ 83%]
+backend/tests/test_hat_yai_radar.py::test_hat_yai_legitimate_rain_detected PASSED [100%]
+backend/tests/test_surat_thani_radar.py .... PASSED
+backend/tests/test_chiang_rai_radar.py .... PASSED
+backend/tests/test_tak_radar.py .... PASSED
+backend/tests/test_deploy_env_sync.py . PASSED
+========================= 20 passed in 3.42s =========================
+```
+
+### 2. Frontend Production Build Verification
+```text
+▲ Next.js 16.2.11 (Turbopack)
+- Environments: .env
+✓ Compiled successfully in 6.1s
+✓ Generating static pages using 9 workers (9/9) in 471ms
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin/radar
+├ ƒ /api/metrics/gcp-costs
+├ ƒ /api/milestones
+├ ƒ /api/runway
+└ ○ /dashboard
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+```

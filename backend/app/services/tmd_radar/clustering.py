@@ -14,7 +14,6 @@ from zoneinfo import ZoneInfo
 from typing import List, Tuple, Optional
 from app.dependencies import get_repo_context
 from app.services.ocr_service import OCRService
-from google.cloud import storage
 from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING, IGNORED_COLORS
 
 logger = logging.getLogger(__name__)
@@ -74,7 +73,6 @@ class TMDClusteringMixin:
             r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
         else:
             return 0.0
-            
         color_tuple = (r, g, b)
         
         # Check ignored colors first (distance)
@@ -103,11 +101,13 @@ class TMDClusteringMixin:
             return best_dbz
             
         return 0.0
+
     @staticmethod
     def _get_dbz_at_pixel_static(img: np.ndarray, x: int, y: int) -> float:
         """Static version of get_dbz_at_pixel for use in classmethod/staticmethod context."""
         pixel = img[y, x]
         r, g, b = int(pixel[0]), int(pixel[1]), int(pixel[2])
+
         min_dist_dbz = float('inf')
         best_dbz = 0.0
         min_dist_ignored = float('inf')
@@ -270,7 +270,7 @@ class TMDClusteringMixin:
           cx, cy, dbz_now, dbz_prev, growth_rate, predicted_dbz, dist, eta_min
         """
         # Restrict search to the valid radar crop area to exclude legend strips
-        is_loop = flow.shape[0] < 800 or flow.shape[1] < 800
+        is_loop = flow.shape[0] < 600 or flow.shape[1] < 600
         crop_x0 = self.config.loop_crop_x if is_loop else self.config.static_crop_x
         crop_y0 = self.config.loop_crop_y if is_loop else self.config.static_crop_y
         crop_w  = self.config.loop_crop_width if is_loop else self.config.static_crop_width
@@ -478,8 +478,8 @@ class TMDClusteringMixin:
         user_y: int,
         scan_radius: Optional[int] = None,
         min_dbz: float = 10.0,
-        cluster_dist: int = 12,
-        min_size: int = 5,
+        cluster_dist: int = 8,
+        min_size: int = 3,
     ) -> list:
         """
         Scan for ALL rain clusters (regardless of direction).
@@ -525,12 +525,15 @@ class TMDClusteringMixin:
         if len(x_coords) == 0:
             return []
             
-        # 3. Morphological close to bridge gaps of `cluster_dist`
+        # 3. Morphological close to bridge gaps of `cluster_dist` (with vertical band extension support)
         bin_mask = (rain_pixels * 255).astype(np.uint8)
-        ksize = cluster_dist
-        if ksize % 2 == 0:
-            ksize += 1
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize))
+        kw = cluster_dist
+        kh = cluster_dist
+        if kw % 2 == 0:
+            kw += 1
+        if kh % 2 == 0:
+            kh += 1
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kw, kh))
         closed_mask = cv2.morphologyEx(bin_mask, cv2.MORPH_CLOSE, kernel)
         
         # Check connected components before and after MORPH_CLOSE

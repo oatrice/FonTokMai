@@ -14,20 +14,35 @@ from app.services.ocr_service import OCRService
 
 @pytest.fixture
 def ocr_service():
-    # Mock Firestore dependency inside the constructor
-    with patch('app.services.ocr_service.FirestoreLocationRepository') as MockRepo:
-        mock_repo_instance = MockRepo.return_value
-        mock_repo_instance.get_radar_timestamp_cache = AsyncMock(return_value=None)
-        mock_repo_instance.set_radar_timestamp_cache = AsyncMock()
-        mock_repo_instance.check_and_increment_vision_quota = AsyncMock(return_value=True)
-        service = OCRService()
-        return service
+    mock_repo_instance = AsyncMock()
+    mock_repo_instance.get_radar_timestamp_cache = AsyncMock(return_value=None)
+    mock_repo_instance.set_radar_timestamp_cache = AsyncMock()
+    mock_repo_instance.check_and_increment_vision_quota = AsyncMock(return_value=True)
+    service = OCRService(repo=mock_repo_instance)
+    return service
 
 def test_frame_to_png_bytes(ocr_service):
     img = np.zeros((10, 10, 3), dtype=np.uint8)
     png_bytes = ocr_service._frame_to_png_bytes(img)
     assert isinstance(png_bytes, bytes)
     assert len(png_bytes) > 0
+
+def test_compress_for_ocr_space_large_image(ocr_service):
+    # Create large 1600x1920 image with random noise simulating real radar image
+    np.random.seed(42)
+    large_img = np.random.randint(0, 256, (1600, 1920, 3), dtype=np.uint8)
+    large_bytes = cv2.imencode('.png', large_img)[1].tobytes()
+    assert len(large_bytes) > 500_000
+
+    compressed_bytes = ocr_service._compress_for_ocr_space(large_bytes, max_dim=1024)
+    assert len(compressed_bytes) < len(large_bytes)
+
+    # Verify compressed image dimensions
+    nparr = np.frombuffer(compressed_bytes, np.uint8)
+    img_decompressed = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    assert img_decompressed is not None
+    h, w = img_decompressed.shape[:2]
+    assert max(h, w) <= 1024
 
 def test_extract_timestamp_from_text(ocr_service):
     # Test DD/MM/YYYY HH:MM
@@ -36,6 +51,11 @@ def test_extract_timestamp_from_text(ocr_service):
     
     expected_dt1 = datetime(2026, 6, 6, 9, 30, 0, tzinfo=timezone.utc)
     assert ts1 == int(expected_dt1.timestamp())
+
+    # Test OCR text where space between date and time is omitted
+    ts_nospace = ocr_service._extract_timestamp_from_text("2026-08-1013:15:00")
+    expected_dt_nospace = datetime(2026, 8, 10, 13, 15, 0, tzinfo=timezone.utc)
+    assert ts_nospace == int(expected_dt_nospace.timestamp())
     
     # Test YYYY-MM-DD HH:MM:SS
     text2 = "TMD RADAR 2026-06-06 09:30:15"
