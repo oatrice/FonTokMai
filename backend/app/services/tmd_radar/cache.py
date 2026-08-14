@@ -228,6 +228,11 @@ class TMDCacheMixin:
         # For now, return an empty list to fallback to polling
         return []
 
+    def _get_storage_client(self):
+        """Helper to obtain a Google Cloud Storage client (mock-friendly)."""
+        from google.cloud import storage
+        return storage.Client()
+
     async def save_polled_frame(self, image_bytes: bytes) -> str:
         """Saves a polled image byte sequence to Google Cloud Storage with a timestamp."""
         
@@ -236,8 +241,7 @@ class TMDCacheMixin:
         bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
         
         # Use sync GCS upload with asyncio.to_thread
-        from google.cloud import storage
-        client = storage.Client()
+        client = self._get_storage_client()
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(filename)
         
@@ -256,8 +260,7 @@ class TMDCacheMixin:
         
         def _delete_sync():
             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
-            from google.cloud import storage
-            client = storage.Client()
+            client = self._get_storage_client()
             bucket = client.bucket(bucket_name)
             prefix = f"radar/{self.station_code}/"
             
