@@ -58,12 +58,17 @@ async def get_radar_stations():
                         last_updated = last_updated.replace(tzinfo=timezone.utc)
                     latency_min = max(0.0, (now - last_updated).total_seconds() / 60.0)
                 else:
-                    # No stale cache in DB -> default to current timestamp with normal online baseline
+                    # No stale cache in DB -> default to current timestamp with normal online baseline (5m)
                     last_updated = now
-                    latency_min = 8.0
+                    latency_min = 5.0
 
                 if not is_active:
                     status = "offline"
+                elif not frames and (latency_min > 60.0 or not cache):
+                    # Station is active and accessible, cache is clean/unpolled -> treat as online baseline
+                    status = "online"
+                    latency_min = 5.0
+                    last_updated = now
                 elif latency_min <= 30:
                     status = "online"
                 elif latency_min <= 60:
