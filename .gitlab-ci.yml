@@ -64,10 +64,15 @@ check_docs_updated:
     - *notify_start_script
   script:
     - echo "🔍 Checking documentation updates against MR diff only..."
-    - TARGET_BRANCH=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-dev}
+    - TARGET_BRANCH=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-main}
     - git fetch --unshallow 2>/dev/null || true
-    - git fetch origin $TARGET_BRANCH || git fetch origin main || true
-    - CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only $TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only origin/main...HEAD 2>/dev/null || git diff --name-only HEAD~5)
+    - git fetch origin $TARGET_BRANCH:origin/$TARGET_BRANCH 2>/dev/null || git fetch origin $TARGET_BRANCH 2>/dev/null || true
+    - if [ -n "$CI_MERGE_REQUEST_DIFF_BASE_SHA" ]; then
+        CHANGED_FILES=$(git diff --name-only $CI_MERGE_REQUEST_DIFF_BASE_SHA HEAD 2>/dev/null);
+      fi
+    - if [ -z "$CHANGED_FILES" ]; then
+        CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only origin/main...HEAD 2>/dev/null || git diff --name-only HEAD~10);
+      fi
     - echo "Changed files in this MR/branch:"
     - echo "$CHANGED_FILES"
     - MISSING=0
