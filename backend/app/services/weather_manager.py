@@ -697,7 +697,19 @@ class WeatherManager:
                 import math
                 return math.hypot(lat - conf.center_lat, lng - conf.center_lng)
                 
-            stations_to_check = sorted(list(stations_map.keys()), key=get_dist)
+            # Filter stations to only those whose coverage bounding box actually covers (lat, lng)
+            covering_stations = []
+            for code in stations_map.keys():
+                conf = stations_map.get(code)
+                if conf:
+                    processor = TMDRadarProcessor(code, config=conf)
+                    px, py = processor.latlng_to_pixel(lat, lng, is_loop=False)
+                    if px is not None and py is not None:
+                        covering_stations.append(code)
+            
+            # If covering stations exist, only check those sorted by distance; otherwise check all sorted by distance
+            target_stations = covering_stations if covering_stations else list(stations_map.keys())
+            stations_to_check = sorted(target_stations, key=get_dist)
 
         primary_station = stations_to_check[0] if stations_to_check else None
 
