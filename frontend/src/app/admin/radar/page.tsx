@@ -223,7 +223,7 @@ export default function AdminRadarPage() {
                 <RadarCloudMap
                   stations={filteredStations}
                   clusters={DEMO_CLUSTERS}
-                  selectedStation={selectedStation}
+                  selectedStationCode={selectedStation?.code}
                   onSelectStation={(st) => setSelectedStation(st)}
                 />
               </div>
