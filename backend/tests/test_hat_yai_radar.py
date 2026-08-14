@@ -40,10 +40,10 @@ def test_hat_yai_pin_pixel_location():
     assert abs(full_px - expected_full_x) <= 2, f"Expected full x {expected_full_x}, got {full_px}"
     assert abs(full_py - expected_full_y) <= 2, f"Expected full y {expected_full_y}, got {full_py}"
 
-    # In cropped frame space (724x724)
-    crop_px, crop_py = processor.latlng_to_pixel(config.center_lat, config.center_lng, is_loop=True, frame_shape=(724, 724))
-    assert crop_px == 362, f"Expected cropped center_x 362, got {crop_px}"
-    assert crop_py == 362, f"Expected cropped center_y 362, got {crop_py}"
+    # In cropped frame space (720x720)
+    crop_px, crop_py = processor.latlng_to_pixel(config.center_lat, config.center_lng, is_loop=True, frame_shape=(720, 720))
+    assert crop_px == 360, f"Expected cropped center_x 360, got {crop_px}"
+    assert crop_py == 360, f"Expected cropped center_y 360, got {crop_py}"
 
 
 def test_hat_yai_maritime_and_terrain_colors_not_detected_as_rain():

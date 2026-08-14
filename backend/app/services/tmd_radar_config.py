@@ -86,7 +86,7 @@ CHN240_BBOX = BoundingBox(lat_max=17.35, lng_min=97.88, lat_min=13.02, lng_max=1
 RYG240_BBOX = BoundingBox(lat_max=14.84, lng_min=99.12, lat_min=10.52, lng_max=103.44)
 TAK240_BBOX = BoundingBox(lat_max=18.65, lng_min=97.01, lat_min=14.32, lng_max=101.33)
 CRI240_BBOX = BoundingBox(lat_max=22.12, lng_min=97.72, lat_min=17.80, lng_max=102.04)
-HYI240_BBOX = BoundingBox(lat_max=9.08, lng_min=98.28, lat_min=4.76, lng_max=102.60)
+HYI240_BBOX = BoundingBox(lat_max=8.875, lng_min=98.475, lat_min=4.974, lng_max=102.402)
 
 STATIONS = {
     "hyi": StationConfig(
@@ -96,18 +96,18 @@ STATIONS = {
         loop_page_url="https://weather.tmd.go.th/hyiloop.php",
         loop_gif_url="https://weather.tmd.go.th/hyi/hyiloop.gif",
         bbox=HYI240_BBOX,
-        projection_type="azimuthal",
+        projection_type="linear",
         center_lat=6.9248,
         center_lng=100.4385,
         radius_km=240.0,
-        static_crop_x=71,
-        static_crop_y=29,
-        static_crop_width=724,
-        static_crop_height=724,
-        loop_crop_x=71,
-        loop_crop_y=29,
-        loop_crop_width=724,
-        loop_crop_height=724,
+        static_crop_x=55,
+        static_crop_y=34,
+        static_crop_width=720,
+        static_crop_height=720,
+        loop_crop_x=55,
+        loop_crop_y=34,
+        loop_crop_width=720,
+        loop_crop_height=720,
     ),
     "srt": StationConfig(
         code="srt",
