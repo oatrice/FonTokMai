@@ -5,192 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.72.29] - 2026-08-13
-
-### Added
-- **Hat Yai (`hyi` / หาดใหญ่) 240km TMD Radar Station Integration**:
-  - Registered `HYI240_BBOX` (`lat_max=9.08, lng_min=98.28, lat_min=4.76, lng_max=102.60`) and `"hyi"` `StationConfig` entry in [`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py) and [`tmd_radar_catalog.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_catalog.py) for Hat Yai radar station (`center_lat=6.9248`, `center_lng=100.4385`, `radius_km=240.0`, `static_image_url="https://weather.tmd.go.th/hyi/hyi240_latest.jpg"`).
-  - Calibrated Hat Yai crosshair alignment to `static_crop_x=93, static_crop_y=19` (offsetting center pixel to exact target crosshair `(660, 630)` and user pin `(855, 713)` on `radar_latest.png`).
-  - Added TDD unit test suite [`tests/test_hat_yai_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_hat_yai_radar.py) verifying station registration, center coordinate exactness, background sea/maritime color filtering, and dBZ rain detection.
-  - Prefilled Web Admin Frontend form default state in [`frontend/src/app/admin/radar/page.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/app/admin/radar/page.tsx) and updated [`RadarCoverageMap.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/components/RadarCoverageMap.tsx) preset list (`"hyi"`, region: `"south"`).
-
-## [0.72.28] - 2026-08-13
-
-### Added
-- **Surat Thani (`srt` / สุราษฎร์ธานี) 240km TMD Radar Station Integration**:
-  - Registered `SRT240_BBOX` (`lat_max=11.29, lng_min=97.17, lat_min=6.97, lng_max=101.49`) and `"srt"` `StationConfig` entry in [`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py) and [`tmd_radar_catalog.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_catalog.py) for Surat Thani radar station (`center_lat=9.1333`, `center_lng=99.3333`, `radius_km=240.0`, `static_image_url="https://weather.tmd.go.th/srt/srt240_latest.png"`).
-  - Added TDD unit test suite [`tests/test_surat_thani_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_surat_thani_radar.py) verifying station registration, center coordinate exactness, background sea/maritime color filtering, and dBZ rain detection.
-  - Prefilled Web Admin Frontend form default state in [`frontend/src/app/admin/radar/page.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/app/admin/radar/page.tsx) and updated [`RadarCoverageMap.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/components/RadarCoverageMap.tsx) preset list (`"srt"`, region: `"south"`).
-
-## [0.72.27] - 2026-08-13
-
-### Added
-- **Chiang Rai (`cri` / เชียงราย) 240km TMD Radar Station Integration**:
-  - Registered `CRI240_BBOX` and `"cri"` `StationConfig` entry in [`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py) and [`tmd_radar_catalog.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_catalog.py) for Chiang Rai radar station (`center_lat=19.9609`, `center_lng=99.8824`, `radius_km=240.0`).
-  - Added TDD unit test suite [`tests/test_chiang_rai_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_chiang_rai_radar.py) verifying station registration, center coordinate exactness, background terrain green color filtering, and dBZ rain detection.
-
-## [0.72.21] - 2026-08-12
-
-### Fixed
-- **Dynamic Candidate Station Selection in Webhook Commands**:
-  - Replaced hardcoded `candidates` list (`["kkn120", "kkn240", "skn240"]`) in [`webhook_commands.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/webhook_commands.py) with `list(STATIONS.keys())` to dynamically evaluate all registered TMD radar stations.
-  - Ensured Tak (`tak`) station is correctly selected as top candidate for Northern/Western coordinates (e.g. `17.2743, 99.3106`), resolving user location pin to exact pixel `(459, 259)`.
-  - Updated e2e test suite stubs in [`tests/test_tmd_radar_e2e.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_tmd_radar_e2e.py).
-
-## [0.72.20] - 2026-08-12
-
-### Fixed
-- **Tak (`tak` / ดอยมูเซอ) Radar Center Coordinates Calibration**:
-  - Corrected station center coordinates from `16.7539° N, 98.9228° E` to `16.4856° N, 99.1684° E` in [`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py), [`tmd_radar_catalog.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_catalog.py), and [`frontend/src/app/admin/radar/page.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/app/admin/radar/page.tsx).
-  - Updated `TAK240_BBOX` to `lat_max=18.65, lng_min=97.01, lat_min=14.32, lng_max=101.33`.
-  - Added unit test `test_tak_pin_pixel_location` in [`test_tak_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_tak_radar.py) verifying test location `(17.2743, 99.3106)` resolves precisely to user location pin pixel `(459, 259)`.
-
-## [0.72.19] - 2026-08-12
-
-### Added
-- **Tak (`tak` / ดอยมูเซอ) TMD Radar Station Integration & Admin Prefill**:
-  - Registered `TAK240_BBOX` and `"tak"` `StationConfig` entry in [`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py) and [`tmd_radar_catalog.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_catalog.py) for Doi Muser radar station in Tak Province (`center_lat=16.7539`, `center_lng=98.9228`, `radius_km=240.0`).
-  - Prefilled Web Admin frontend UI ([`frontend/src/app/admin/radar/page.tsx`](file:///Users/oatrice/Software%20Project/FonMaYang/frontend/src/app/admin/radar/page.tsx)) form default state values with Tak station presets.
-  - Added TDD unit test suite [`tests/test_tak_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/tests/test_tak_radar.py) verifying station registration in configuration and catalog presets, background mountain terrain color exclusion, and legitimate rain detection.
-
-## [0.72.18] - 2026-08-12
-
-### Added
-- **Dev Bot Fast Command Suggestion `/rain_pro_d`**:
-  - Added `/rain_pro_d` to dynamic Telegram command suggestions (`setMyCommands`) in [`telegram.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/telegram.py) exclusively for Development environment (`ENVIRONMENT=development`).
-  - Bound `/rain_pro_d` in [`webhook_commands.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/webhook_commands.py) to automatically override command to `/rain_pro d`.
-  - Updated unit tests in `tests/test_telegram_commands.py`.
-
-## [0.72.17] - 2026-08-12
-
-### Added
-- **Default Location Alias `d` for Commands**:
-  - Supported `d` as an alias for `default` location name in bot commands (e.g. `/rain_pro d`, `/rain d`) in both Telegram ([`webhook_commands.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/webhook_commands.py)) and LINE ([`line_webhook.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/line_webhook.py)).
-  - Added unit test `test_handle_rain_command_default_alias_d` in `tests/test_webhook.py`.
-
-## [0.72.16] - 2026-08-12
-
-### Added
-- **Chumphon (`cmp`) TMD Radar Station Integration & Preset Prefill**:
-  - Registered `CMP240_BBOX` and `"cmp"` `StationConfig` entry in `tmd_radar_config.py` and `tmd_radar_catalog.py` with fine-tuned expanded crop parameters (`crop_x=8`, `crop_y=13`, `crop_width=750`, `crop_height=750`).
-  - Updated Web Admin frontend (`frontend/src/app/admin/radar/page.tsx`) default form state to prefill Chumphon (`cmp`) station preset parameters and dynamically scale natural image dimensions in Telegram Simulated preview card.
-  - Added TDD unit tests in `tests/test_chumphon_radar.py` verifying station registration, terrain/sea background color filtering, and legitimate rain reflectivity detection.
-
-## [0.72.15] - 2026-08-12
-
-### Added
-- **Phitsanulok (`phs`) TMD Radar Station Integration & Preset Prefill**:
-  - Registered `PHS240_BBOX` and `"phs"` `StationConfig` in `tmd_radar_config.py` and `tmd_radar_catalog.py`.
-  - Updated Web Admin frontend (`frontend/src/app/admin/radar/page.tsx`) default form state to prefill Phitsanulok (`phs`) station preset parameters.
-  - Added TDD unit test `test_phitsanulok_radar.py` verifying ground terrain filtering and rain detection for Phitsanulok.
-
-## [0.72.14] - 2026-08-12
-
-### Fixed
-- **Contour Coordinate Transposition Fix (`tracking.py`)**:
-  - Fixed X/Y tuple unpacking bug in `tracking.py` where pixel coordinates `(px, py)` were unpacked as `for py, px in c_orig["pixels"]`, causing neon contours drawn in `/rain_pro` and tracking images to be transposed diagonally.
-  - Added unit test `test_neon_contour_coordinates.py` verifying contour point X/Y coordinate alignment.
-
-## [0.72.13] - 2026-08-12
-
-### Added
-- **Multi-Cloud Detection & Sea Border Clipping** (`clustering.py`, `tracking.py`):
-  - Updated default clustering parameters (`min_size=3`, `cluster_dist=8`, `min_dbz=10.0`) in `get_all_rain_clusters` to detect up to 21 distinct real rain clouds across the radar scan.
-  - Implemented Sea Background Mask Clipping in `tracking.py` to trim contour lines neatly at the sea boundary `RGB(128, 192, 254)` without spilling into ocean background.
-
-## [0.72.12] - 2026-08-12
-
-### Added
-- **Rayong (`ryg`) Radar Station Integration & Preset Prefill**:
-  - Registered `RYG240_BBOX` and `"ryg"` `StationConfig` in `tmd_radar_config.py`.
-  - Updated Web Admin frontend (`frontend/src/app/admin/radar/page.tsx`) default state to prefill Rayong (`ryg`) preset parameters.
-
-### Fixed
-- **Rayong (`ryg`) Radar Ground Terrain False Positive Filtering** (`tmd_radar_config.py`):
-  - Added Rayong background map terrain green and dark contour green RGB colors to `IGNORED_COLORS` to prevent false positive rain cluster detection on Telegram `/rain_pro`.
-  - Added TDD unit test `test_rayong_terrain_filter.py` verifying ground terrain filtering and rain detection.
-
-## [0.72.11] - 2026-08-11
-
-### Fixed
-- **GPS User Pin Misalignment on Radar Image — 3-Bug Fix** (`cache.py`, `processor.py`, `weather_manager.py`):
-  - **Bug A (cache.py)**: Raw loop GIF frames (e.g. 1920×1600) were saved to Firestore *without cropping*. `latlng_to_pixel` computed coordinates against the 728×728 crop config, so re-loading these full-image frames caused the pin to be misplaced by ~750px. Fixed by cropping each frame to `loop_crop_*` bounds before encoding as PNG and uploading to Firebase Storage.
-  - **Bug B (processor.py)**: The `frame_shape` scaling block used `config_canvas = crop_x + crop_width` as the reference size, but full-image frames are `1920×1600`, making the scale factor 2.4× instead of 1.0×. Fixed by introducing two distinct paths: (a) *cropped frames* — strip the crop offset from px/py; (b) *full-image legacy frames* — re-derive radar circle center and radius in actual-frame pixel space before projecting.
-  - **Bug C (weather_manager.py)**: `use_loop_mapping` used `shape[1] <= 1000` to detect loop frames, but uncropped loop frames at 1920×1600 were mis-classified as static. Fixed to use `frame_source == "loop_gif"` exclusively, which is set reliably during Firestore cache loading.
-
-## [0.72.10] - 2026-08-11
-
-
-### Fixed
-- **Admin Radar Calibration Preview Logging** ([`routers/admin_radar.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/routers/admin_radar.py#L124)): Added structured `[PREVIEW]` info log detailing the downloaded image dimensions (`img_shape`), detected circle coordinates, and applied crop parameters. This helps diagnose crop box alignment mismatches on the Web Admin UI preview canvas.
-
-## [0.72.9] - 2026-08-11
-
-### Fixed
-- **Dynamic Radar Registry Priority in `TMDRadarProcessor`** ([`tmd_radar/processor.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar/processor.py#L70)): Updated `TMDRadarProcessor.__init__` config lookup logic to prioritize `radar_registry._cached_stations` (loaded from Neon DB) before checking hardcoded `STATIONS` defaults. This ensures custom station parameters saved in Neon DB are always picked up across all processor instantiations.
-
-## [0.72.8] - 2026-08-11
-
-### Fixed
-- **Chainat (CHN) Station Radar Crop Calibration** ([`tmd_radar_config.py`](file:///Users/oatrice/Software%20Project/FonMaYang/backend/app/services/tmd_radar_config.py#L94)): Calibrated crop parameters for station `chn` from default whole-image coordinates (`crop_x=0, crop_y=0, crop_w=680, crop_h=680`) to standard TMD 240km radar alignment (`crop_x=72, crop_y=28, crop_w=728, crop_h=728`). This accounts for the top/left header margins and radar circle center on TMD radar frames, aligning GPS pin projection accurately on the visual radar map.
-
-## [0.72.7] - 2026-08-11
-
-### Fixed
-- **Coordinate Scaling for Firestore-Cached Frames** (`tmd_radar/processor.py`, `weather_manager.py`): Added `frame_shape` parameter to `latlng_to_pixel`. When the actual frame dimensions (e.g., $800\times 800$ Firestore-cached PNG) differ from the station config crop size (e.g., $680\times 680$ loop), pixel coordinates are now proportionally scaled to match the real frame. This fixes the root cause of `user_px=1326` being returned for a Chainat $800\times 800$ frame, which caused all downstream `find_approaching_clouds` / `generate_radar_tracking_image` calls to fail or produce garbage results. Scaling is applied only when the deviation exceeds 2%.
-
-## [0.72.6] - 2026-08-11
-
-### Fixed
-- **Persistent Cache Frame Mapping Alignment**: Updated `is_loop` detection in `load_persistent_cache_to_memory` (`weather_manager.py`) to match `width <= 1000px`, preventing Firestore-cached $800\times 800$ frames from misidentifying as static 1600x1920 images and producing out-of-bounds user pixel coordinates (`1326, 637`).
-- **Static OCR Failure GIF Fallback Trigger**: Added automated GIF fallback triggering in `update_radar_cache` (`cache.py`) when static image fetch OCR parsing fails, ensuring fresh frames are retrieved without corrupting the sliding window cache.
-
-## [0.72.5] - 2026-08-11
-
-### Fixed
-- **HTTP Client User-Agent Header**: Configured default `User-Agent` header in global `httpx.AsyncClient` (`app/dependencies.py`) to avoid HTTP 403 Forbidden responses when fetching live radar GIFs from TMD servers.
-- **Python 3.14 Test Imports & Lazy Loading**: Isolated `google.cloud.storage` top-level imports in `processor.py` and `cache.py` to lazy imports inside storage-dependent methods, resolving environment metaclass collection errors in test runner.
-- **Integration Test Resilience**: Handled sandbox network policy restriction (HTTP 403) gracefully with `pytest.skip` in `test_chainat_loop.py`.
-
-## [0.72.4] - 2026-08-11
-
-### Fixed
-- **Out-of-Bounds User Coordinate Safety**: Clamped `user_x` and `user_y` to frame boundaries before cropping sub-slices in `generate_radar_tracking_image` (`tracking.py`), preventing OpenCV `resize` assertion errors (`!ssize.empty()`) when pixel coordinates exceed frame dimensions. Added unit test in `test_radar_tracking_out_of_bounds.py`.
-
-## [0.72.3] - 2026-08-11
-
-### Fixed
-- **Radar Loop Frame Pixel Mapping**: Dynamically detect loop frame pixel mapping in `weather_manager.py` when frame width $\le 1000$px, ensuring `latlng_to_pixel` returns pixel coordinates within $800\times 800$ frame bounds for stations built via GIF fallback (such as Chainat), fixing OpenCV `resize` assertions on tracking image rendering.
-
-## [0.72.2] - 2026-08-11
-
-### Fixed
-- **Chainat Radar Loop GIF URL**: Updated Chainat (`chn`) `loop_gif_url` from `https://weather.tmd.go.th/chn/chn240_loop.gif` (HTTP 404) to `https://weather.tmd.go.th/chn/chnloop.gif` across backend presets/config and frontend default state. Added dedicated unit & integration test in `test_chainat_loop.py`.
-
-## [0.72.1] - 2026-08-11
-
-### Fixed
-- **OCR Space Payload Resizing**: Implemented `_compress_for_ocr_space` in `ocr_service.py` to automatically downscale large radar static images (e.g. Chainat `1600x1920`) to max dimension $\le 1024$px before sending to `api.ocr.space`, preventing HTTP `413 Payload Too Large` errors.
-
-## [0.72.0] - 2026-08-11
+## [0.72.0] - 2026-08-14
 
 ### Added
 - **TMD Radar Auto-Calibration Pipeline & CLI (Issue #99)**: Built `AutoCalibrationService` and CLI tool (`backend/scripts/calibrate_station_cli.py`) utilizing Hough Circle Detection (`cv2.HoughCircles`) to automatically detect radar circle boundaries, calculate static/loop crop coordinates, and output StationConfig snippets with `--verify` overlay image generation.
-- **Nationwide TMD Radar Registry & Catalog (Issue #52)**: Implemented `DynamicRadarRegistry` and `tmd_radar_catalog.py` with in-memory caching and Neon DB PostgreSQL (`radar_stations`) persistence supporting nationwide TMD radar stations (`kkn120`, `kkn240`, `skn240`, `ubn240`, `svp240`, `chn`, etc.).
-- **Chainat (chn) Radar Station Preset**: Added Chainat 240km (`chn`) radar preset to `tmd_radar_catalog.py`, `tmd_radar_config.py`, and prefilled metadata in Web Admin UI (`/admin/radar`).
-- **Interactive Fine-Tuning Web Portal**: Created Next.js Admin Radar Page (`/admin/radar`) featuring live image preview, interactive crop sliders (Crop X, Y, Width, Height), status toggling, explicit `Loop Page URL`/`Loop GIF URL` inputs, and DB submission.
-- **Telegram Admin Command (`/calibrate`)**: Added `/calibrate <code|url> <lat> <lng> [radius]` command returning base64 verification overlay image in chat for mobile admins.
-- **Auto-Calibration & Catalog Test Suite**: Added unit & integration test suite (`test_auto_calibration.py`, `test_nationwide_radar.py`) with 363 passing tests.
+- **Nationwide TMD Radar Dynamic Registry & Station Management (Issue #52)**:
+  - Implemented `DynamicRadarRegistry` and `tmd_radar_catalog.py` with in-memory TTL caching (60s) and Neon DB PostgreSQL (`radar_stations`) persistence.
+  - Successfully integrated and calibrated nationwide TMD radar stations with automated seeding and custom bounding boxes:
+    - **Bangkok / Central:** Suvarnabhumi (`svp240`), Chainat (`chn`).
+    - **Northeast:** Khon Kaen (`kkn120`, `kkn240`), Sakon Nakhon (`skn240`), Ubon Ratchathani (`ubn240`).
+    - **North:** Chiang Rai (`cri`), Phitsanulok (`phs`), Tak / Doi Muser (`tak`).
+    - **East:** Rayong (`ryg`).
+    - **South:** Chumphon (`cmp`), Surat Thani (`srt`), Hat Yai (`hyi`).
+- **Interactive Fine-Tuning Web Portal & Radar Coverage Map**:
+  - Created Next.js Admin Radar Page (`/admin/radar`) featuring live image preview, interactive crop sliders (Crop X, Y, Width, Height), status toggling, and explicit `Loop Page URL`/`Loop GIF URL` inputs.
+  - Built interactive `RadarCoverageMap.tsx` with province boundary rendering (`thailand_provinces.json`) and `clipPath` highlighting.
+- **Bot UX & Developer Commands**:
+  - Added `/rain_pro_d` fast development shortcut command in `telegram.py` and `webhook_commands.py`.
+  - Supported `d` as an alias for the `default` location name across Telegram and LINE webhooks.
+  - Added `/calibrate <code|url> <lat> <lng> [radius]` admin command for verification overlay images in chat.
+- **Cloud & Maritime Noise Filtering**:
+  - Added terrain green and maritime ocean blue color exclusions to `IGNORED_COLORS` across all regional stations (Rayong, Chumphon, Surat Thani, Hat Yai) to prevent false-positive rain warnings.
+  - Updated multi-cloud clustering in `clustering.py` and `tracking.py` to detect up to 21 distinct real rain clouds with sea boundary mask clipping.
 
 ### Changed
-- **Native Image Aspect Ratio Preservation**: Removed hardcoded `800x800` image resizing in `cache.py` and `weather_manager.py` to preserve native image aspect ratios (e.g., `936x797` for Ubon Ratchathani `ubn240`) across all rendered radar maps (`radar_latest.png`, `radar_tracking.png`, `radar_multiframe.png`).
+- **Native Image Aspect Ratio Preservation**: Removed hardcoded `800x800` image resizing in `cache.py` and `weather_manager.py` to preserve native image aspect ratios across all rendered radar maps (`radar_latest.png`, `radar_tracking.png`, `radar_multiframe.png`).
 - **Cache Sliding Window Expansion**: Updated cache freshness threshold and fallback condition from 2 to 6 frames in `cache.py` to ensure complete 6-frame historical sequence accumulation.
 - **Neon DB Database Migration**: Migrated `api_reliability` and radar caching logic from Firestore to Neon DB PostgreSQL via SQLAlchemy/`SQLiteLocationRepository`.
 - **Weather Source Fallback Priority**: Refactored `WeatherManager` fallback priority ordering using `WeatherEndpoint(StrEnum)` to enforce local `tmd-radar` as the top priority tie-breaker when accuracy scores tie.
 
 ### Fixed
-- **OCR Space-less Timestamp Extraction**: Fixed `_extract_timestamp_from_text` regex in `ocr_service.py` to support OCR timestamp strings lacking whitespace separators (e.g., `2026-08-1013:15:00`).
-- **GIF Bootstrap Cache Invalidation**: Fixed `is_bootstrap` check in `cache.py` to match dynamic `Cache has <` prefix so full 6-frame GIF sequences are properly adopted into cache.
+- **Radar Projection & Pin Alignment**:
+  - Configured `projection_type` (`linear` vs `azimuthal`) per station geometry to prevent pixel coordinate drift.
+  - Added proportional coordinate scaling in `latlng_to_pixel()` when frame dimensions deviate from station config.
+  - Fixed loop frame cropping before uploading to cache, resolving ~750px pin offset when reloading cached frames.
+- **Contour Coordinate Transposition**: Fixed X/Y tuple unpacking order bug in `tracking.py` where pixel coordinates were transposed diagonally.
+- **OCR & Network Resilience**:
+  - Added `User-Agent` header in global HTTP client to prevent HTTP 403 Forbidden responses on TMD servers.
+  - Handled large radar image payloads with automatic pre-compression before sending to OCR Space (`_compress_for_ocr_space`).
+  - Fixed OCR timestamp extraction regex to support timestamp strings lacking whitespace separators.
+  - Fixed `is_bootstrap` check in `cache.py` to ensure full 6-frame GIF sequences are properly adopted into cache.
 
 ## [0.71.0] - 2026-08-02
 

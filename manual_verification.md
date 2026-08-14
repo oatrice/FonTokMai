@@ -2,7 +2,7 @@
 
 - **Branch**: `feat/99-tmd-radar-auto-calibration`
 - **MR / Issue ID**: `Issue #99`, `Issue #273`
-- **Version**: `0.72.29`
+- **Version**: `0.72.0`
 - **Date**: `2026-08-14`
 
 ---
