@@ -117,9 +117,9 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping(monkeypatch):
     calls = []
     original_latlng_to_pixel = TMDRadarProcessor.latlng_to_pixel
 
-    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None):
+    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None, **kwargs):
         calls.append((self.station_code, is_loop))
-        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection)
+        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection, **kwargs)
 
     monkeypatch.setattr(TMDRadarProcessor, "latlng_to_pixel", record_latlng_to_pixel)
 
@@ -164,9 +164,9 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping_skn(monkeypatch
     calls = []
     original_latlng_to_pixel = TMDRadarProcessor.latlng_to_pixel
 
-    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None):
+    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None, **kwargs):
         calls.append((self.station_code, is_loop))
-        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection)
+        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection, **kwargs)
 
     monkeypatch.setattr(TMDRadarProcessor, "latlng_to_pixel", record_latlng_to_pixel)
 
@@ -214,11 +214,11 @@ async def test_tmd_radar_fresh_loop_fallback_works(monkeypatch):
     calls = []
     original_latlng_to_pixel = TMDRadarProcessor.latlng_to_pixel
 
-    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None):
+    def record_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=True, projection=None, **kwargs):
         calls.append((self.station_code, is_loop))
-        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection)
+        return original_latlng_to_pixel(self, lat_arg, lng_arg, is_loop=is_loop, projection=projection, **kwargs)
 
-    async def fake_fetch(self, use_cache=True):
+    async def fake_fetch(self, status_callback=None, use_cache=True):
         if self.station_code == "kkn240":
             return [frame_a, frame_b], datetime.now(timezone.utc), b"fresh-loop-bytes"
         return [], None, None
@@ -293,4 +293,51 @@ def test_tmd_prediction_timestamps_based_on_now_utc(monkeypatch):
     
     # It must be within 1 second of past_now_utc
     assert time_diff_sec < 1.0
+
+
+@pytest.mark.asyncio
+async def test_tmd_radar_no_false_failover_notice_for_outer_boundary(monkeypatch):
+    """
+    Verify that when coordinates (e.g. Nong Khai / Thabo) fall outside kkn120 (120km)
+    but inside kkn240 (240km), kkn240 is selected as primary without emitting a false
+    'radar failed / offline' notice.
+    """
+    _install_weather_manager_import_stubs(monkeypatch)
+
+    from app.services.weather_manager import WeatherManager
+    from app.services import weather_manager as wm
+    from datetime import datetime, timezone
+    import time
+    import numpy as np
+
+    # Thabo, Nong Khai (outside kkn120 120km radius, inside kkn240)
+    lat, lng = 17.8392, 102.5734
+    dummy_image = np.zeros((724, 724, 3), dtype=np.uint8)
+
+    from app.services.tmd_radar_processor import TMDRadarProcessor
+    processor = TMDRadarProcessor("kkn240")
+    dummy_flow = processor.calculate_optical_flow([dummy_image, dummy_image])
+
+    original_cache = wm._GLOBAL_TMD_CACHE.copy()
+    wm._GLOBAL_TMD_CACHE.clear()
+    
+    # Mock fresh cache for kkn240
+    wm._GLOBAL_TMD_CACHE["kkn240"] = (
+        [dummy_image, dummy_image],
+        datetime.now(timezone.utc),
+        time.time(),
+        dummy_flow
+    )
+
+    try:
+        result = await WeatherManager()._get_tmd_prediction(lat, lng)
+    finally:
+        wm._GLOBAL_TMD_CACHE.clear()
+        wm._GLOBAL_TMD_CACHE.update(original_cache)
+
+    assert result is not None
+    assert result["endpoint"] == "tmd-radar (kkn240)"
+    # failover_notice MUST be None because kkn240 is the legitimate primary covering station
+    assert result.get("failover_notice") is None
+
 

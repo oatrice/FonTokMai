@@ -26,7 +26,7 @@ async def _update_balance_in_db(amount_total):
             config = result.scalar_one_or_none()
             
             curr = float(json.loads(config.value_json)) if config else 5140.0
-            add_amt = float(amount_total) if amount_total is not None else 0.0
+            add_amt = (float(amount_total) / 100.0) if amount_total is not None else 0.0
             new_bal = curr + add_amt
             
             if config:

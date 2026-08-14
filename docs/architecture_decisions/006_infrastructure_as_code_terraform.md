@@ -26,3 +26,95 @@ Accepted
 - **Positive:** Infrastructure จะถูกทำ Version Control สามารถ Review และทำ Audit ย้อนหลังได้
 - **Negative:** มี Learning Curve เล็กน้อยสำหรับทีมพัฒนาที่ต้องเรียนรู้ HCL (HashiCorp Configuration Language) และ Terraform CLI
 - **Cost:** ค่าใช้จ่ายของ GCS ในการเก็บ State file ต่ำมาก (ใกล้เคียงฟรี) และ Secret Manager มี Free Tier รองรับเพียงพอต่อโปรเจกต์ขนาดกลาง
+
+## Cloud Platform Note
+
+- สำหรับ FonMaYang ตอนนี้ให้ถือว่า **GCP เป็น platform หลัก** สำหรับ production และ operations เพราะ fit กับ Cloud Run, IAP-style access, และ serverless workflow ที่ทีมใช้อยู่
+- **AWS** ควรถือเป็น platform สำรอง/สนามทดลอง/benchmark สำหรับเรียนรู้ enterprise patterns มากกว่าจะเป็น target หลักในระยะสั้น
+- ถ้ามี proposal จะย้าย production ไป AWS ให้ประเมิน cost, ops complexity, and service parity เป็นแพ็กเดียวก่อนตัดสินใจ
+
+## Cost Hotspot Note
+
+- GCP มักดูแพงเมื่อ workload ไปหนักที่ **network isolation, Cloud NAT, internal load balancing, logging/monitoring, และ BigQuery scan volume**
+- AWS มักดูแพงเมื่อ workload ไปหนักที่ **Client VPN / Verified Access, NAT Gateway, ALB/LCU, และ CloudWatch logs/metrics**
+- สำหรับ FonMaYang ถ้าจะควบคุมงบให้ดี ให้เริ่มจาก **serverless + access control ที่เบา** ก่อน แล้วค่อยเพิ่ม network isolation เฉพาะจุดที่จำเป็นจริง
+
+## Cost Hotspot Matrix
+
+| Env | GCP cost hotspot | AWS cost hotspot | Practical note |
+|---|---|---|---|
+| dev | Logs/metrics จากการ debug ถี่, BigQuery query ซ้ำ, Cloud Run instance ค้างถ้าเปิด always-on โดยไม่จำเป็น | VPN endpoint ชั่วโมงเปิดทิ้ง, CloudWatch logs/metrics เยอะ, NAT สำหรับ developer traffic | ใช้ corporate-style เป็นค่าเริ่มต้น และจำกัด retention/log sampling |
+| staging | Internal LB / Cloud NAT ถ้าเริ่มจำลอง private path, monitoring ที่ละเอียดเกินจำเป็น, query/export ซ้ำจาก test data | Client VPN สำหรับทีม QA, ALB/LCU, CloudWatch, NAT Gateway | ให้ staging mirror prod เฉพาะ behavior ที่ต้องทดสอบ ไม่ต้อง mirror ทุก network cost |
+| prod | BigQuery scan volume, Cloud Logging ingestion, Cloud NAT + internal LB ถ้ามี private egress, Cloud Run always-on | Verified Access / Client VPN, NAT Gateway, ALB/LCU, CloudWatch logs/metrics | ให้ prod จ่ายเฉพาะสิ่งที่เพิ่ม reliability/security จริง ๆ และเก็บ observability แบบมี budget |
+
+## Reference Architectures
+
+### Corporate-style access
+
+```mermaid
+flowchart LR
+  U[User on the internet] --> G[Access Gateway / SSO / Zero-Trust]
+  G --> F[Frontend]
+  G --> A[Admin Console]
+  F --> B[Backend API]
+  A --> B
+  B --> W[Worker / Internal Jobs]
+  B --> D[(Neon DB)]
+  B --> C[(GCP / Billing / Monitoring)]
+  T[Telegram / LINE Webhooks] --> B
+  B --> T
+```
+
+### Network isolation
+
+```mermaid
+flowchart LR
+    U[User / Dev Laptop] --> V[VPN Client]
+    V --> P[VPN Gateway / Private Access Layer]
+    P --> L[Private Load Balancer]
+    L --> B[Backend API in Private Network]
+    B --> D[(Neon DB / Private Data)]
+    B --> N[Private Egress / NAT]
+    B --> O[Logs / Monitoring]
+```
+
+- Corporate-style focuses on **identity and app-level authorization**.
+- Network isolation focuses on **network perimeter, private routing, and restricted ingress**.
+- For FonMaYang, corporate-style is the default baseline; network isolation is the upgrade path if compliance or stronger access control becomes necessary.
+
+## IAP vs ALB / LCU Note
+
+- `IAP` belongs to the **GCP corporate-style / identity-first** model.
+- `ALB + LCU` belongs to the **AWS traffic-routing / usage-metered** model.
+- In billing terms, `IAP` is usually not the cost driver by itself; the runtime, logging, monitoring, and data services are the bigger cost buckets.
+- In billing terms, `ALB` has a base hourly charge plus `LCU` usage, so traffic growth is more directly reflected in the bill.
+
+```mermaid
+flowchart LR
+  U[User / Browser]
+
+  subgraph GCP["GCP: IAP + billing/runtime"]
+    I[IAP]
+    F1[Frontend / Cloud Run]
+    B1[Backend API]
+    D1[(Neon DB)]
+    C1[(Billing / Monitoring / Runtime)]
+    U --> I --> F1 --> B1 --> D1
+    B1 --> C1
+    I -. authN/authZ .- U
+    I -. protects access .- F1
+    I -. protects access .- B1
+  end
+
+  subgraph AWS["AWS: ALB + LCU"]
+    A[ALB]
+    F2[Frontend / App Targets]
+    B2[Backend API]
+    D2[(Neon DB)]
+    C2[(CloudWatch / Billing)]
+    U --> A --> F2 --> B2 --> D2
+    B2 --> C2
+    A -. routing / health checks .- F2
+    A -. routing / health checks .- B2
+  end
+```

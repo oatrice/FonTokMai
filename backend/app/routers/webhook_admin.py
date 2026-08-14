@@ -262,4 +262,112 @@ async def handle_status_command(chat_id: int, command: str, username: str = "", 
         f"🔹 <b>สถานะของงานระบบ (Cloud Scheduler Jobs):</b>\n{jobs_str or 'ไม่มีงาน'}"
     )
 
+    # 4. Check emergency_overdrive & circuit_breaker_active from DB
+    try:
+        from app.database import AsyncSessionLocal
+        from app.models import SystemConfig
+        from sqlalchemy import select
+        import json as _json
+
+        async with AsyncSessionLocal() as db_sess:
+            od_res = await db_sess.execute(select(SystemConfig.value_json).where(SystemConfig.key == "emergency_overdrive"))
+            od_val = od_res.scalar_one_or_none()
+            cb_res = await db_sess.execute(select(SystemConfig.value_json).where(SystemConfig.key == "circuit_breaker_active"))
+            cb_val = cb_res.scalar_one_or_none()
+
+        is_overdrive = False
+        if od_val is not None:
+            parsed = _json.loads(od_val)
+            is_overdrive = parsed == "true" or parsed is True
+
+        is_cb = False
+        if cb_val is not None:
+            parsed = _json.loads(cb_val)
+            is_cb = parsed == "true" or parsed is True
+
+        od_str = "⚡ <b>ACTIVE</b> — โหมดต่ออายุระบบฉุกเฉิน" if is_overdrive else "✅ ปกติ (ปิดอยู่)"
+        cb_str = "🔴 <b>TRIPPED</b> — ใช้ข้อมูลพยากรณ์สำรอง" if is_cb else "✅ ปกติ (ไม่ได้ trip)"
+
+        msg += (
+            f"\n\n🔹 <b>Emergency Overdrive Mode:</b>\n{od_str}\n"
+            f"🔹 <b>Circuit Breaker:</b>\n{cb_str}"
+        )
+    except Exception as e:
+        msg += f"\n\n🔹 <b>Overdrive/CB:</b> ❓ Exception: {e}"
+
     await _reply(chat_id, msg, message_id_to_edit)
+
+
+@cmd_router.bind("/overdrive", requires_admin=True, audit_log=True, task_route="worker/handle-overdrive", loading_text="⏳ กำลังเปลี่ยนสถานะ Overdrive Mode...")
+async def handle_overdrive_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
+    """Toggle emergency_overdrive flag in NeonDB.
+    
+    Usage: /overdrive on | /overdrive off | /overdrive status
+    """
+    if not await check_admin_access(chat_id):
+        return
+
+    parts = command.strip().split()
+    if len(parts) < 2 or parts[1].lower() not in ("on", "off", "status"):
+        await _reply(
+            chat_id,
+            "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณาใช้:\n"
+            "• `/overdrive on` — เปิด Extended Lifespan Mode\n"
+            "• `/overdrive off` — ปิด Extended Lifespan Mode\n"
+            "• `/overdrive status` — ตรวจสอบสถานะปัจจุบัน",
+            message_id_to_edit,
+        )
+        return
+
+    action = parts[1].lower()
+
+    from app.database import AsyncSessionLocal
+    from app.models import SystemConfig
+    from sqlalchemy import select
+    import json as _json
+
+    try:
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                stmt = select(SystemConfig).where(SystemConfig.key == "emergency_overdrive")
+                result = await session.execute(stmt)
+                record = result.scalar_one_or_none()
+
+                if action == "status":
+                    current_val = False
+                    if record:
+                        parsed = _json.loads(record.value_json)
+                        current_val = parsed == "true" or parsed is True
+                    status_str = "⚡ ACTIVE — โหมดต่ออายุระบบฉุกเฉิน" if current_val else "✅ ปิดอยู่ (ปกติ)"
+                    await _reply(chat_id, f"📊 <b>Emergency Overdrive Mode:</b>\n{status_str}", message_id_to_edit)
+                    return
+
+                new_value = "true" if action == "on" else "false"
+                new_val_json = _json.dumps(new_value)
+                if record:
+                    record.value_json = new_val_json
+                else:
+                    session.add(SystemConfig(key="emergency_overdrive", value_json=new_val_json))
+
+        log_audit_event("overdrive_toggled", chat_id, username, {"action": action})
+
+        if action == "on":
+            msg = (
+                "⚡ <b>Extended Lifespan Mode เปิดแล้ว</b>\n\n"
+                "• Runway จะแสดงเป็น ∞ (ไม่มีวันสิ้นสุด)\n"
+                "• Circuit Breaker จะ bypass อัตโนมัติ\n"
+                "• API ทุกตัวจะทำงานต่อเนื่องโดยไม่สนใจ Jar HP\n\n"
+                "⚠️ ใช้ในกรณีฉุกเฉินเท่านั้น ปิดด้วย /overdrive off"
+            )
+        else:
+            msg = (
+                "✅ <b>Extended Lifespan Mode ปิดแล้ว</b>\n\n"
+                "ระบบกลับสู่โหมดปกติ — Runway และ Circuit Breaker จะทำงานตามงบประมาณจริง"
+            )
+
+        await _reply(chat_id, msg, message_id_to_edit)
+
+    except Exception as e:
+        logger.error(f"handle_overdrive_command error: {e}")
+        await _reply(chat_id, f"❌ เกิดข้อผิดพลาดในการอัปเดต Overdrive Mode: {e}", message_id_to_edit)
+

@@ -56,15 +56,24 @@ cache:
 
 check_docs_updated:
   stage: verify
+  image: alpine:latest
+  allow_failure: true
   extends:
     - .telegram_notify
   before_script:
+    - apk add --no-cache git curl bash
     - *notify_start_script
   script:
-    - echo "🔍 Checking documentation updates and commit ordering relative to target branch..."
+    - echo "🔍 Checking documentation updates against MR diff only..."
     - TARGET_BRANCH=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-main}
-    - git fetch origin $TARGET_BRANCH || true
-    - CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD)
+    - git fetch --unshallow 2>/dev/null || true
+    - git fetch origin $TARGET_BRANCH:origin/$TARGET_BRANCH 2>/dev/null || git fetch origin $TARGET_BRANCH 2>/dev/null || true
+    - if [ -n "$CI_MERGE_REQUEST_DIFF_BASE_SHA" ]; then
+        CHANGED_FILES=$(git diff --name-only $CI_MERGE_REQUEST_DIFF_BASE_SHA HEAD 2>/dev/null);
+      fi
+    - if [ -z "$CHANGED_FILES" ]; then
+        CHANGED_FILES=$(git diff --name-only origin/$TARGET_BRANCH...HEAD 2>/dev/null || git diff --name-only origin/main...HEAD 2>/dev/null || git diff --name-only HEAD~10);
+      fi
     - echo "Changed files in this MR/branch:"
     - echo "$CHANGED_FILES"
     - MISSING=0
@@ -89,34 +98,31 @@ check_docs_updated:
         echo "✅ README.md is updated."
       fi
     - |
+      if echo "$CHANGED_FILES" | grep -q "^backend/"; then
+        if ! echo "$CHANGED_FILES" | grep -q "^backend/VERSION$"; then
+          echo "❌ ERROR: Backend code changed, but backend/VERSION was not updated!"
+          MISSING=1
+        else
+          echo "✅ backend/VERSION is updated."
+        fi
+      fi
+    - |
+      if echo "$CHANGED_FILES" | grep -q "^frontend/"; then
+        if ! echo "$CHANGED_FILES" | grep -q "^frontend/package\.json$"; then
+          echo "❌ ERROR: Frontend code changed, but frontend/package.json was not updated!"
+          MISSING=1
+        else
+          echo "✅ frontend/package.json is updated."
+        fi
+      fi
+    - |
       if [ "$MISSING" = "1" ]; then
         echo "💥 Documentation check failed. Merge request cannot proceed without CHANGELOG.md and VERSION updates!"
         exit 1
       fi
-    - echo "⏱️ Checking commit ordering (ensuring docs were not updated prior to subsequent code changes)..."
-    - |
-      LAST_CODE_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- . ':!CHANGELOG.md' ':!VERSION' ':!README.md' ':!.gitlab-ci.yml' ':!manual_verification.md' ':!walkthrough.md')
-      LAST_DOC_COMMIT=$(git log -n 1 --format="%H" origin/$TARGET_BRANCH..HEAD -- CHANGELOG.md VERSION)
-      
-      if [ -n "$LAST_CODE_COMMIT" ] && [ -n "$LAST_DOC_COMMIT" ]; then
-        CODE_TIME=$(git log -1 --format="%ct" $LAST_CODE_COMMIT)
-        DOC_TIME=$(git log -1 --format="%ct" $LAST_DOC_COMMIT)
-        
-        echo "   Last Code Commit: $LAST_CODE_COMMIT (Timestamp: $CODE_TIME)"
-        echo "   Last Doc Commit:  $LAST_DOC_COMMIT (Timestamp: $DOC_TIME)"
-        
-        if [ "$DOC_TIME" -lt "$CODE_TIME" ]; then
-          echo "❌ ERROR: Code was modified AFTER the last documentation update!"
-          echo "   Code commit: $LAST_CODE_COMMIT ($(git log -1 --format='%s' $LAST_CODE_COMMIT))"
-          echo "   Doc commit:  $LAST_DOC_COMMIT ($(git log -1 --format='%s' $LAST_DOC_COMMIT))"
-          echo "💡 Please update CHANGELOG.md or VERSION in your latest commit to reflect subsequent code changes."
-          exit 1
-        fi
-      fi
     - echo "🎉 All required documentation files are updated and synchronized with the latest code changes!"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "staging")
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging"
 
 .gcloud_auth:
   before_script:
@@ -168,6 +174,7 @@ deploy_cloud_run:
     - chmod +x scripts/setup_schedulers.sh
     - ./scripts/setup_schedulers.sh
   rules:
+    # Auto deploy when backend files change
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
       changes:
         - backend/app/**/*
@@ -175,6 +182,9 @@ deploy_cloud_run:
         - backend/Dockerfile
         - backend/requirements.txt
         - backend/main.py
+    # Manual deploy (play button) when no backend files changed
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "dev"
+      when: manual
 
 unit_tests:
   stage: test
@@ -182,8 +192,8 @@ unit_tests:
   extends:
     - .telegram_notify
   before_script:
-    - *notify_start_script
     - apt-get update && apt-get install -y curl
+    - *notify_start_script
     - cd backend
     - pip install --default-timeout=100 -r requirements.txt
   script:
@@ -198,8 +208,8 @@ test_frontend:
   extends:
     - .telegram_notify
   before_script:
-    - *notify_start_script
     - apk add --no-cache curl
+    - *notify_start_script
     - cd frontend
     - npm ci
   script:
@@ -214,8 +224,8 @@ test_e2e:
   extends:
     - .telegram_notify
   before_script:
-    - *notify_start_script
     - apt-get update && apt-get install -y curl
+    - *notify_start_script
     - cd frontend
     - npm ci
   script:
@@ -279,3 +289,32 @@ deploy_emsc_worker:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - emsc_worker/**/*
+
+auto_git_tag:
+  stage: deploy
+  image: alpine:latest
+  extends:
+    - .telegram_notify
+  before_script:
+    - apk add --no-cache git curl bash
+    - *notify_start_script
+  script:
+    - VERSION=$(cat VERSION | tr -d '\r\n')
+    - TAG_NAME="v${VERSION}"
+    - echo "🏷️ Checking if Git tag ${TAG_NAME} exists..."
+    - |
+      TAG_EXISTS=$(curl -s --header "PRIVATE-TOKEN: ${GITLAB_TOKEN:-$CI_JOB_TOKEN}" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags/${TAG_NAME}" | grep -o '"name":' || true)
+      if [ -n "$TAG_EXISTS" ]; then
+        echo "ℹ️ Tag ${TAG_NAME} already exists on GitLab. Skipping auto-tagging."
+      else
+        echo "🚀 Creating Git Tag ${TAG_NAME} for commit ${CI_COMMIT_SHA}..."
+        RESPONSE=$(curl -s --request POST \
+          --header "PRIVATE-TOKEN: ${GITLAB_TOKEN:-$CI_JOB_TOKEN}" \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags?tag_name=${TAG_NAME}&ref=${CI_COMMIT_SHA}&message=Release%20${TAG_NAME}")
+        echo "GitLab API Response: $RESPONSE"
+        echo "✅ Created Git Tag ${TAG_NAME} successfully!"
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+

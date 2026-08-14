@@ -3,7 +3,9 @@ from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./fonmayang.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL or not DATABASE_URL.strip():
+    DATABASE_URL = "sqlite+aiosqlite:///./fonmayang.db"
 
 # Strip surrounding quotes if present (e.g. when set via .env file with quotes)
 DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")

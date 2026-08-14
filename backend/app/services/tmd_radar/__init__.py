@@ -1,1 +1,1 @@
-from .processor import TMDRadarProcessor
+# tmd_radar package

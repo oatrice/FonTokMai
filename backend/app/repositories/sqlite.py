@@ -449,3 +449,42 @@ class SQLiteLocationRepository(LocationRepository):
             loc.locked_target_cx = locked_target_cx
             loc.locked_target_cy = locked_target_cy
             await self.session.commit()
+
+    async def get_radar_timestamp_cache(self, frame_hash: str) -> Optional[int]:
+        from app.models import RadarFrameCache
+        result = await self.session.execute(select(RadarFrameCache).where(RadarFrameCache.frame_hash == frame_hash))
+        cache = result.scalars().first()
+        return cache.timestamp if cache else None
+
+    async def set_radar_timestamp_cache(self, frame_hash: str, timestamp: int) -> None:
+        from app.models import RadarFrameCache
+        result = await self.session.execute(select(RadarFrameCache).where(RadarFrameCache.frame_hash == frame_hash))
+        cache = result.scalars().first()
+        if not cache:
+            cache = RadarFrameCache(
+                frame_hash=frame_hash,
+                timestamp=timestamp,
+                created_at=datetime.now(timezone.utc).replace(tzinfo=None)
+            )
+            self.session.add(cache)
+        else:
+            cache.timestamp = timestamp
+        await self.session.commit()
+
+    async def check_and_increment_vision_quota(self, limit: int = 1000) -> bool:
+        from app.models import ApiQuota
+        from zoneinfo import ZoneInfo
+        month_key = f"vision_{datetime.now(ZoneInfo('America/Los_Angeles')).strftime('%Y-%m')}"
+        result = await self.session.execute(select(ApiQuota).where(ApiQuota.quota_key == month_key))
+        quota = result.scalars().first()
+        if not quota:
+            quota = ApiQuota(quota_key=month_key, count=1)
+            self.session.add(quota)
+            await self.session.commit()
+            return True
+        if quota.count >= limit:
+            return False
+        quota.count += 1
+        await self.session.commit()
+        return True
+

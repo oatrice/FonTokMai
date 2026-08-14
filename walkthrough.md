@@ -1,21 +1,35 @@
-# Walkthrough - Issue #233 CI Documentation & Commit Ordering Enforcement
+# Walkthrough: TMD Radar Dynamic Station Management & Nationwide Auto-Calibration
 
-Upgraded `.gitlab-ci.yml` `check_docs_updated` job to include **Commit Ordering Verification**. The job now verifies that documentation files (`CHANGELOG.md`, `VERSION`) are not only present in the MR diff, but were also updated in a commit that is **equal to or newer than** the latest code modification.
+This Merge Request integrates nationwide dynamic TMD radar stations into FonMaYang, replacing hardcoded setups with a flexible database repository, automated circle calibration, and an interactive admin portal.
 
-## Changes Made
+---
 
-### CI/CD Pipeline
-#### [.gitlab-ci.yml](file:///Users/oatrice/Software%20Project/FonMaYang/.gitlab-ci.yml)
-- Added Commit Ordering Check comparing Unix timestamps of `LAST_CODE_COMMIT` vs `LAST_DOC_COMMIT`.
-- Fails CI (`exit 1`) if code changes were committed after the last documentation update.
+## 1. Automated Calibration & Registry Architecture (Issue #99, #52)
+- **Dynamic Radar Station Registry (`DynamicRadarRegistry`)**: Implemented database-driven radar configuration with Neon PostgreSQL persistence and a 60-second in-memory TTL cache to eliminate redundant DB round-trips.
+- **Nationwide Coverage (99% Coverage Across 13 Stations)**:
+  - **Bangkok / Central:** Suvarnabhumi (`svp240`), Chainat (`chn`).
+  - **Northeast:** Khon Kaen (`kkn120`, `kkn240`), Sakon Nakhon (`skn240`), Ubon Ratchathani (`ubn240`).
+  - **North:** Chiang Rai (`cri`), Phitsanulok (`phs`), Tak / Doi Muser (`tak`).
+  - **East:** Rayong (`ryg`).
+  - **South:** Chumphon (`cmp`), Surat Thani (`srt`), Hat Yai (`hyi`).
+- **Auto-Calibration Pipeline**: OpenCV Hough Circle detection automatically discovers radar canvas center boundaries and derives crop bounds.
 
-### Versioning & Documentation
-#### [VERSION](file:///Users/oatrice/Software%20Project/FonMaYang/VERSION)
-- Bumped version from `0.68.0` to `0.69.0`.
+---
 
-#### [CHANGELOG.md](file:///Users/oatrice/Software%20Project/FonMaYang/CHANGELOG.md)
-- Prepend section `## [0.69.0] - 2026-08-01` describing Commit Ordering Check enhancement.
+## 2. Web Admin UI & Radar Coverage Map
+- **Interactive Fine-Tuning Dashboard (`/admin/radar`)**: Interactive Next.js dashboard featuring draggable/resizable crop handles, simulated Telegram radar preview, and direct station seeding/saving.
+- **Province Coverage Highlighting (`RadarCoverageMap.tsx`)**: SVG map rendering with GeoJSON boundaries and dynamic `clipPath` highlighting.
 
-## Verification Results
-- Verified with `glab ci lint` & `gitlab-ci-local --preview`.
-- Ran `pytest backend/tests/test_deploy_env_sync.py` (Passed).
+---
+
+## 3. Bot UX & Resilient Geometry Projection
+- **Projection Accuracy**: Per-station support for `linear` (equirectangular) and `azimuthal` (equidistant) coordinate projections ensuring GPS user pins land with sub-pixel precision.
+- **False-Positive Noise Filtering**: Exclusion of background terrain greens and maritime blue colors in `IGNORED_COLORS` to prevent false rain alarms in coastal/mountainous regions.
+- **Fast Developer Aliases**: Supported `/rain_pro_d` and `/rain d` fast location aliases for rapid Telegram and LINE weather queries.
+
+---
+
+## 4. Verification & Testing Summary
+- **Backend Unit Tests**: Over 460 unit and integration tests passing (`pytest`), including dedicated suites for each regional station.
+- **Frontend Production Build**: `next build` compiled cleanly with zero TypeScript errors.
+- **Deployment Sync**: Verified Cloud Run environment variable synchronization.

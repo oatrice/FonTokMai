@@ -5,6 +5,76 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.0] - 2026-08-14
+
+### Added
+- **TMD Radar Auto-Calibration Pipeline & CLI (Issue #99)**: Built `AutoCalibrationService` and CLI tool (`backend/scripts/calibrate_station_cli.py`) utilizing Hough Circle Detection (`cv2.HoughCircles`) to automatically detect radar circle boundaries, calculate static/loop crop coordinates, and output StationConfig snippets with `--verify` overlay image generation.
+- **Nationwide TMD Radar Dynamic Registry & Station Management (Issue #52)**:
+  - Implemented `DynamicRadarRegistry` and `tmd_radar_catalog.py` with in-memory TTL caching (60s) and Neon DB PostgreSQL (`radar_stations`) persistence.
+  - Successfully integrated and calibrated nationwide TMD radar stations with automated seeding and custom bounding boxes:
+    - **Bangkok / Central:** Suvarnabhumi (`svp240`), Chainat (`chn`).
+    - **Northeast:** Khon Kaen (`kkn120`, `kkn240`), Sakon Nakhon (`skn240`), Ubon Ratchathani (`ubn240`).
+    - **North:** Chiang Rai (`cri`), Phitsanulok (`phs`), Tak / Doi Muser (`tak`).
+    - **East:** Rayong (`ryg`).
+    - **South:** Chumphon (`cmp`), Surat Thani (`srt`), Hat Yai (`hyi`).
+- **Interactive Fine-Tuning Web Portal & Radar Coverage Map**:
+  - Created Next.js Admin Radar Page (`/admin/radar`) featuring live image preview, interactive crop sliders (Crop X, Y, Width, Height), status toggling, and explicit `Loop Page URL`/`Loop GIF URL` inputs.
+  - Built interactive `RadarCoverageMap.tsx` with province boundary rendering (`thailand_provinces.json`) and `clipPath` highlighting.
+- **Bot UX & Developer Commands**:
+  - Added `/rain_pro_d` fast development shortcut command in `telegram.py` and `webhook_commands.py`.
+  - Supported `d` as an alias for the `default` location name across Telegram and LINE webhooks.
+  - Added `/calibrate <code|url> <lat> <lng> [radius]` admin command for verification overlay images in chat.
+- **Cloud & Maritime Noise Filtering**:
+  - Added terrain green and maritime ocean blue color exclusions to `IGNORED_COLORS` across all regional stations (Rayong, Chumphon, Surat Thani, Hat Yai) to prevent false-positive rain warnings.
+  - Updated multi-cloud clustering in `clustering.py` and `tracking.py` to detect up to 21 distinct real rain clouds with sea boundary mask clipping.
+
+### Changed
+- **Native Image Aspect Ratio Preservation**: Removed hardcoded `800x800` image resizing in `cache.py` and `weather_manager.py` to preserve native image aspect ratios across all rendered radar maps (`radar_latest.png`, `radar_tracking.png`, `radar_multiframe.png`).
+- **Cache Sliding Window Expansion**: Updated cache freshness threshold and fallback condition from 2 to 6 frames in `cache.py` to ensure complete 6-frame historical sequence accumulation.
+- **Neon DB Database Migration**: Migrated `api_reliability` and radar caching logic from Firestore to Neon DB PostgreSQL via SQLAlchemy/`SQLiteLocationRepository`.
+- **Weather Source Fallback Priority**: Refactored `WeatherManager` fallback priority ordering using `WeatherEndpoint(StrEnum)` to enforce local `tmd-radar` as the top priority tie-breaker when accuracy scores tie.
+
+### Fixed
+- **Radar Projection & Pin Alignment**:
+  - Configured `projection_type` (`linear` vs `azimuthal`) per station geometry to prevent pixel coordinate drift.
+  - Added proportional coordinate scaling in `latlng_to_pixel()` when frame dimensions deviate from station config.
+  - Fixed loop frame cropping before uploading to cache, resolving ~750px pin offset when reloading cached frames.
+- **Contour Coordinate Transposition**: Fixed X/Y tuple unpacking order bug in `tracking.py` where pixel coordinates were transposed diagonally.
+- **OCR & Network Resilience**:
+  - Added `User-Agent` header in global HTTP client to prevent HTTP 403 Forbidden responses on TMD servers.
+  - Handled large radar image payloads with automatic pre-compression before sending to OCR Space (`_compress_for_ocr_space`).
+  - Fixed OCR timestamp extraction regex to support timestamp strings lacking whitespace separators.
+  - Fixed `is_bootstrap` check in `cache.py` to ensure full 6-frame GIF sequences are properly adopted into cache.
+
+## [0.71.0] - 2026-08-02
+
+### Added
+- **Dashboard View Modes**: Added interactive viewing modes (Numeric, Storytelling, Compact) for `RunwayCounter.tsx` with smooth `framer-motion` transitions and local state persistence (Issue #209).
+- **Token Recovery Modal**: Introduced `TokenRecoveryModal.tsx` allowing zero-PII recovery of 30-day access tokens via transaction hash, timestamp, and amount (Issue #236).
+
+### Changed
+- **UX Terminology**: Refactored confusing technical jargon in `FinancialDashboard.tsx` and `RunwayCounter.tsx`. Replaced `OVERDRIVE MODE` with `Extended Lifespan Mode / โหมดต่ออายุระบบฉุกเฉิน` and `CIRCUIT BREAKER ACTIVE` with `Cached Weather Data Mode / ใช้ข้อมูลพยากรณ์สำรอง` (Issue #204).
+- **GCP Real-Data Policy**: Centralized `gcp_force_real_data` resolution so local/dev can force real data with `FORCE_GCP_REAL_DATA=true`, while `false`/unset defers to Neon `system_config`; staging/prod read Neon first and safely fall back to environment defaults if Neon is unavailable.
+- **GCP Policy Note**: Documented a future consistency-first precedence option for `gcp_force_real_data` (`FORCE_GCP_REAL_DATA` > Neon > `ENVIRONMENT` default > safe fallback) without changing runtime behavior yet.
+- **System Admin Toggle**: Added `/overdrive` admin command with Neon-backed persistence for `emergency_overdrive`, plus auto-persisted `circuit_breaker_active` updates in the circuit breaker service.
+
+## [0.70.0] - 2026-08-01
+
+### Added
+- **Financial Dashboard API Integration & Unification**: Refactored `FinancialDashboard.tsx` to dynamically fetch live financial runway stats, burn rate, and transparent budget jars from `/api/runway` using `useSWR` with smart fallback handling (Issues #227, #146, #147).
+- **GCP Cost Multi-Period Selector**: Added period selection (`current_month`, `last_month`, `30d`, `7d`) to GCP Infrastructure Costs card header and backend API endpoints (Issue #211).
+- **Natively THB Currency Display**: Updated GCP billing breakdown schema and API responses to output costs in THB natively instead of USD.
+- **Frontend Unit Test Coverage**: Added `FinancialDashboard.test.tsx` with Jest and React Testing Library to verify dynamic SWR fetching and rendering.
+- **Budget Jars UX Proportion Bar**: Introduced a single multi-segment proportion bar (`Segmented Proportion Bar`) for Budget Jars allocation split (100% total) in both Home and Dashboard pages to resolve UX confusion regarding allocation shares vs progress completion.
+
+### Fixed
+- **GCP Billing Net Cost Deduction**: Updated BigQuery SQL query to calculate Net Cost (`cost + credits`) by subtracting Free Tier & Savings Program discounts, ensuring 100% precision match with GCP Console Invoice Reports.
+- **Invoice Month Matching**: Configured monthly billing period queries (`current_month`, `last_month`) to filter by BigQuery `invoice.month` matching official monthly invoices.
+- **Dashboard Initial Skeleton Loaders**: Replaced initial fallback constants (`42 days`, `฿5,140.00`, default budget jars) with animated pulse Skeleton UI during initial SWR loading state.
+
+### Removed
+- **Hardcoded Mock Budget Jars**: Removed static mock budget jars (`Infrastructure Jar`, `Developer Salary Jar`, `API & Data Services`) from `FinancialDashboard.tsx`.
+
 ## [0.69.0] - 2026-08-01
 
 ### Added

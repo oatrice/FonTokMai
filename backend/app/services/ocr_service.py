@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from google.cloud import vision
-except ImportError:
+except (ImportError, TypeError):
     vision = None
 
 try:
@@ -30,11 +30,12 @@ try:
 except ImportError:
     pytesseract = None
 
-from app.repositories.firestore import FirestoreLocationRepository
+from contextlib import asynccontextmanager
+from app.dependencies import get_repo_context
 
 class OCRService:
-    def __init__(self):
-        self.repo = FirestoreLocationRepository()
+    def __init__(self, repo=None):
+        self.repo = repo
         
         # Initialize Gemini API if key is present and package is installed
         self.gemini_key = os.environ.get("GEMINI_API_KEY")
@@ -43,6 +44,14 @@ class OCRService:
             self.gemini_client = genai.Client(api_key=self.gemini_key)
             
         self.ocr_space_key = os.environ.get("OCR_SPACE_API_KEY")
+
+    @asynccontextmanager
+    async def _get_repo(self):
+        if self.repo is not None:
+            yield self.repo
+        else:
+            async with get_repo_context() as repo:
+                yield repo
 
     def _hash_frame(self, frame: np.ndarray) -> str:
         """Hash only the bottom timestamp crop for cache keying.
@@ -117,6 +126,27 @@ class OCRService:
             print(f"Gemini Exception: {e}")
             return None
 
+    def _compress_for_ocr_space(self, content: bytes, max_dim: int = 1024) -> bytes:
+        """Downscale image bytes if dimension exceeds max_dim or payload is large to avoid HTTP 413 Payload Too Large."""
+        if len(content) <= 500_000:
+            return content
+        try:
+            nparr = np.frombuffer(content, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is None:
+                return content
+            h, w = img.shape[:2]
+            if max(h, w) > max_dim:
+                scale = max_dim / float(max(h, w))
+                new_w, new_h = int(w * scale), int(h * scale)
+                img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            success, encoded_img = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+            if success:
+                return encoded_img.tobytes()
+        except Exception as e:
+            logger.warning(f"[OCR] Failed to compress image for OCR space: {e}")
+        return content
+
     async def _call_ocr_space(self, content: bytes) -> Optional[str]:
         """Call OCR.space API."""
         if not self.ocr_space_key:
@@ -124,6 +154,7 @@ class OCRService:
             return None
             
         try:
+            content = self._compress_for_ocr_space(content, max_dim=1024)
             url = "https://api.ocr.space/parse/image"
             payload = {
                 'apikey': self.ocr_space_key,
@@ -131,7 +162,7 @@ class OCRService:
                 'OCREngine': '2' # Engine 2 is better for special characters
             }
             files = {
-                'file': ('radar.png', content, 'image/png')
+                'file': ('radar.jpg', content, 'image/jpeg')
             }
             from app.dependencies import get_http_client
             client = get_http_client()
@@ -191,12 +222,12 @@ class OCRService:
         # Clean text first: sometimes OCR mis-detects colons as spaces or other symbols,
         # e.g., "13 0004" instead of "13:00:04" or similar.
         # Let's try standard regex search first
-        match = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}(?::\d{2})?)', text)
+        match = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\s*(\d{2}:\d{2}(?::\d{2})?)', text)
         
         # If not found, look for space-separated time blocks after a date string: "YYYY-MM-DD HH MM SS"
         if not match:
             # Match date followed by 2 or 3 groups of digits (e.g. HH MM or HH MM SS)
-            match_loose = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\s+(\d{2})\s+(\d{2})(?:\s+(\d{2}))?', text)
+            match_loose = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})\s*(\d{2})\s+(\d{2})(?:\s+(\d{2}))?', text)
             if match_loose:
                 date_str = match_loose.group(1)
                 h = match_loose.group(2)
@@ -298,16 +329,18 @@ class OCRService:
         """
         frame_hash = self._hash_frame(frame)
         if not skip_hash_cache:
-            cached_ts = await self.repo.get_radar_timestamp_cache(frame_hash)
-            if cached_ts is not None:
-                return cached_ts
+            async with self._get_repo() as repo:
+                cached_ts = await repo.get_radar_timestamp_cache(frame_hash)
+                if cached_ts is not None:
+                    return cached_ts
 
         ts = await self._run_live_ocr(frame)
         if ts is None and use_crop:
             ts = await self._run_live_ocr(self.timestamp_crop(frame))
 
         if ts is not None:
-            await self.repo.set_radar_timestamp_cache(frame_hash, ts)
+            async with self._get_repo() as repo:
+                await repo.set_radar_timestamp_cache(frame_hash, ts)
 
         return ts
 
@@ -331,11 +364,12 @@ class OCRService:
         short_hash = frame_hash[:8]
 
         if not skip_hash_cache:
-            cached_ts = await self.repo.get_radar_timestamp_cache(frame_hash)
-            if cached_ts is not None:
-                cached_dt = datetime.fromtimestamp(cached_ts, BKK).strftime("%H:%M:%S")
-                logger.info(f"[OCR] hash={short_hash}  CACHE HIT  ts={cached_ts}  ({cached_dt} BKK)")
-                return cached_ts
+            async with self._get_repo() as repo:
+                cached_ts = await repo.get_radar_timestamp_cache(frame_hash)
+                if cached_ts is not None:
+                    cached_dt = datetime.fromtimestamp(cached_ts, BKK).strftime("%H:%M:%S")
+                    logger.info(f"[OCR] hash={short_hash}  CACHE HIT  ts={cached_ts}  ({cached_dt} BKK)")
+                    return cached_ts
 
         logger.info(f"[OCR] hash={short_hash}  CACHE MISS  — running live OCR")
 
@@ -397,6 +431,7 @@ class OCRService:
         if ts is not None:
             # Only cache successful OCR parses — never persist poll-time fallback values.
             if fallback_ts is None or ts != fallback_ts:
-                await self.repo.set_radar_timestamp_cache(frame_hash, ts)
+                async with self._get_repo() as repo:
+                    await repo.set_radar_timestamp_cache(frame_hash, ts)
 
         return ts

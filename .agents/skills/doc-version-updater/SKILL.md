@@ -18,10 +18,10 @@ Based on the Luma release management engine (`luma_core/tools.py`), this skill a
 
 ---
 
-## 🛑 STRICT RULE: PER-MR ISOLATED UPDATES
-- **NO BATCHED DOCUMENTATION**: Never generate documentation or version updates for multiple MRs/branches in a single commit.
+## 🛑 STRICT RULE: PER-MR ISOLATED UPDATES (ONE VERSION BUMP PER MR)
+- **NO MULTIPLE VERSION BUMPS WITHIN THE SAME MR**: When working within an active feature branch or Merge Request (MR), **DO NOT** bump the version number repeatedly for minor commits or follow-ups. All commits and changes made inside the **SAME branch/MR MUST share a single Version and Changelog section**.
+- **ONE VERSION BUMP PER MR**: The version bump (e.g. `v0.70.0`) happens **once per MR**. Subsequent updates within the same branch/MR should simply append or update bullet points under the existing MR's release header in `CHANGELOG.md` without incrementing `VERSION` again.
 - **ISOLATED MR SCOPE**: Each MR/PR branch MUST modify `CHANGELOG.md`, `README.md`, and `VERSION` strictly and exclusively for the changes introduced within **that specific MR's scope**.
-- **INCREMENTAL VERSIONING PER MR**: Increment the version number per MR (e.g. `v0.59.0` for MR 5, `v0.60.0` for MR 6) so that each merged MR carries its own version bump and changelog section independently.
 
 ---
 
@@ -47,13 +47,16 @@ git diff --stat $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~10").
 - Inspect if modified files introduce new environment variables, new endpoints, or CLI options.
 - Update `README.md` sections without modifying existing formatting or unrelated text.
 
-### Step 4: Version Bumping (`VERSION` & Source Files)
-1. Read current version from `VERSION`, `package.json`, or `pyproject.toml`.
-2. Determine SemVer bump:
-   - **PATCH** (`X.Y.Z+1`): Backward-compatible bug fixes
-   - **MINOR** (`X.Y+1.0`): Backward-compatible new features
-   - **MAJOR** (`X+1.0.0`): Breaking changes
-3. Update `VERSION` file and sync the exact version string across `CHANGELOG.md` header.
+### Step 4: Version Bumping & Impact Assessment (`VERSION` & Source Files)
+1. Read current version from `VERSION`, `backend/VERSION`, and `frontend/package.json`.
+2. Analyze code diffs to assess SemVer impact:
+   - **PATCH** (`X.Y.Z+1`): Backward-compatible bug fixes or minor refactors
+   - **MINOR** (`X.Y+1.0`): Backward-compatible new features, API endpoints, or UI screens
+   - **MAJOR** (`X+1.0.0`): Breaking API changes, major architecture refactors, or milestone launches
+3. **User Confirmation on Major/Scope Shift**:
+   - If the code diff indicates a **MAJOR** bump or a significant scope shift (e.g. changing from `0.71.0` to `1.0.0`), **MUST ask/confirm with the USER** (or state recommended version in the evaluation summary) before finalizing the version bump.
+4. Update `VERSION`, `backend/VERSION`, `frontend/package.json` (`"version"`), and sync the exact version string across `CHANGELOG.md` header.
+
 
 ---
 

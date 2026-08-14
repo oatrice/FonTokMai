@@ -322,3 +322,54 @@ def test_telegram_webhook_all_apis_fail():
                 text = call_args[2]
                 assert "⚠️ ขออภัย ไม่สามารถเชื่อมต่อกับระบบพยากรณ์ฝนได้ในขณะนี้" in text
 
+
+@pytest.mark.asyncio
+async def test_handle_rain_command_default_alias_d():
+    """Verify that '/rain_pro d' and '/rain_pro default' resolve to the un-named default location."""
+    from app.routers.webhook_commands import handle_rain_command
+    from app.models import UserLocation
+
+    loc_default = UserLocation(chat_id=12345, latitude=13.7563, longitude=100.5018, name=None)
+    loc_named = UserLocation(chat_id=12345, latitude=16.7828, longitude=100.2786, name="work")
+
+    with patch("app.routers.webhook_commands.get_repo_context") as mock_get_repo, \
+         patch("app.routers.webhook_commands.process_telegram_location", new_callable=AsyncMock) as mock_process, \
+         patch("app.routers.webhook_commands.telegram.send_telegram_message", new_callable=AsyncMock):
+        
+        mock_repo = AsyncMock()
+        mock_repo.get_user_locations.return_value = [loc_default, loc_named]
+
+        @asynccontextmanager
+        async def mock_context():
+            yield mock_repo
+        mock_get_repo.side_effect = mock_context
+
+        # Test /rain_pro d
+        await handle_rain_command(chat_id=12345, command="/rain_pro d")
+        assert mock_process.called
+        kwargs = mock_process.call_args[1]
+        assert kwargs["lat"] == 13.7563
+        assert kwargs["lng"] == 100.5018
+
+        mock_process.reset_mock()
+
+        # Test /rain_pro default
+        await handle_rain_command(chat_id=12345, command="/rain_pro default")
+        assert mock_process.called
+        kwargs = mock_process.call_args[1]
+        assert kwargs["lat"] == 13.7563
+        assert kwargs["lng"] == 100.5018
+
+        mock_process.reset_mock()
+
+        # Test location named explicitly "default" string
+        loc_explicit_default = UserLocation(chat_id=12345, latitude=13.7563, longitude=100.5018, name="default")
+        mock_repo.get_user_locations.return_value = [loc_explicit_default, loc_named]
+
+        await handle_rain_command(chat_id=12345, command="/rain_pro d")
+        assert mock_process.called
+        kwargs = mock_process.call_args[1]
+        assert kwargs["lat"] == 13.7563
+        assert kwargs["lng"] == 100.5018
+
+

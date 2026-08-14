@@ -28,5 +28,12 @@
     "time_zone": "Asia/Bangkok",
     "description": "\u26a0\ufe0f DO NOT EDIT - Managed by CI/CD setup_schedulers.sh",
     "state": "PAUSED"
+  },
+  {
+    "job_name": "fonmayang-sync-burn-rate",
+    "schedule": "0 0 * * *",
+    "endpoint_path": "sync-burn-rate",
+    "time_zone": "Asia/Bangkok",
+    "description": "\u26a0\ufe0f DO NOT EDIT - Managed by CI/CD setup_schedulers.sh"
   }
 ]
