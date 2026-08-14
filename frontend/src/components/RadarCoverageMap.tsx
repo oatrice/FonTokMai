@@ -188,6 +188,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
   }, []);
 
   const filteredStations = stations.filter(s => {
+    if (!s.is_active) return false;
     if (selectedRegion !== "all" && s.region !== selectedRegion) return false;
     if (statusFilter !== "all") {
       const stStatus = s.status || (s.is_active ? "online" : "offline");
