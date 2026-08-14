@@ -21,9 +21,9 @@ from app.services.ocr_service import OCRService
 def ocr_service(monkeypatch):
     monkeypatch.setenv("OCR_SPACE_API_KEY", "mock-key")
     monkeypatch.setenv("GEMINI_API_KEY", "")  # ปิด Gemini ไว้ก่อน
-    with patch("app.services.ocr_service.FirestoreLocationRepository") as mock_repo_cls:
-        mock_repo = AsyncMock()
-        mock_repo_cls.return_value = mock_repo
+    mock_repo = AsyncMock()
+    with patch("app.services.ocr_service.get_repo_context") as mock_ctx:
+        mock_ctx.return_value.__aenter__.return_value = mock_repo
         yield OCRService()
 
 

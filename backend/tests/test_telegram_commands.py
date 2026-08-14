@@ -77,6 +77,7 @@ async def test_setup_telegram_commands_development():
         assert "radar" in command_names
         assert "tracking" in command_names
         assert "nowcast" in command_names
+        assert "rain_pro_d" in command_names
         assert "lock" in command_names
         assert "mylocation" in command_names
         assert "unlock" in command_names

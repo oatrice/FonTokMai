@@ -11,7 +11,8 @@ import {
   ChevronRight, 
   HeartHandshake,
   BarChart3,
-  Cpu
+  Cpu,
+  Radio
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -62,6 +63,10 @@ export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
             >
               <Activity className="h-4 w-4" />
               <span>Dashboard</span>
+            </Link>
+            <Link href="/admin/radar" className="px-3.5 py-2 text-sm font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 rounded-xl transition-all flex items-center gap-1.5 hover:bg-cyan-500/20">
+              <Radio className="h-4 w-4 text-cyan-400 animate-pulse" />
+              <span>Radar Coverage Map</span>
             </Link>
             <Link href="/#overview" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
               Overview

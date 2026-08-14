@@ -9,8 +9,21 @@ import io
 import numpy as np
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List, Union
+from enum import StrEnum
 from PIL import Image, ImageDraw, ImageFont
 from zoneinfo import ZoneInfo
+
+class WeatherEndpoint(StrEnum):
+    TMD_RADAR = "tmd-radar"
+    RAINBOW_LOCAL = "rainbow-local"
+    TOMORROW = "tomorrow"
+    RAINBOW_GLOBAL = "rainbow-global"
+    XWEATHER = "xweather"
+    OPEN_METEO = "open-meteo"
+
+    @classmethod
+    def priority_order(cls) -> list[str]:
+        return [e.value for e in cls]
 from .tomorrow import TomorrowService
 from .rainbow import RainbowService
 from .xweather import XweatherService
@@ -266,6 +279,15 @@ _GLOBAL_TMD_LOCKS = {
     "skn240": asyncio.Lock(),
 }
 
+
+def invalidate_station_memory_cache(station_code: str) -> None:
+    """Evict a station from the in-process TMD frame cache.
+    Call this whenever crop calibration values are updated in DB so that
+    the next bot request forces a fresh Firestore / live download."""
+    if station_code in _GLOBAL_TMD_CACHE:
+        del _GLOBAL_TMD_CACHE[station_code]
+        logger.info(f"[CACHE INVALIDATE] In-memory cache cleared for station={station_code}")
+
 class WeatherManager:
     LAST_USED_STATION: dict[int, str] = {}
 
@@ -283,6 +305,7 @@ class WeatherManager:
         force_endpoint: Optional[str] = None,
         location_name: Optional[str] = None,
         chat_id: Optional[Union[str, int]] = None,
+        message_id_to_edit: Optional[Union[str, int]] = None,
     ) -> dict:
         """
         ดึงข้อมูลพยากรณ์ฝนโดยผ่านระบบ Fallback อัตโนมัติ:
@@ -297,10 +320,10 @@ class WeatherManager:
             "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
             "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
             "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state, location_name=location_name, chat_id=chat_id),
-            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state, location_name=location_name, chat_id=chat_id),
-            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id),
-            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id)
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit),
+            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit),
+            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit),
+            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit)
         }
 
         # --- โหมดบังคับ endpoint (ไม่ผ่าน fallback) ---
@@ -325,7 +348,14 @@ class WeatherManager:
         async with get_repo_context() as repo:
             reliabilities = await repo.get_all_api_reliability()
             
-        sorted_endpoints = sorted(reliabilities.keys(), key=lambda k: reliabilities[k], reverse=True)
+        priority_order = WeatherEndpoint.priority_order()
+        
+        def sort_key(k):
+            score = reliabilities.get(k, 0.0)
+            idx = priority_order.index(k) if k in priority_order else 999
+            return (score, -idx)
+
+        sorted_endpoints = sorted(reliabilities.keys(), key=sort_key, reverse=True)
         
         for ep in sorted_endpoints:
             if ep not in service_map:
@@ -495,7 +525,7 @@ class WeatherManager:
                 if len(frame_timestamps) >= 2:
                     data_gap_minutes = (frame_timestamps[-1] - frame_timestamps[-2]) / 60.0
                 
-                is_loop = frames[-1].shape[0] < 800 or frames[-1].shape[1] < 800
+                is_loop = frames[-1].shape[0] < 600 or frames[-1].shape[1] < 600
                 frame_source = "loop_gif" if is_loop else "static_cache"
                 
                 _GLOBAL_TMD_CACHE[station_code] = (
@@ -616,7 +646,7 @@ class WeatherManager:
             # Normalize flow to represent exactly 15 minutes of displacement
             flow = flow / (data_gap_minutes / 15.0)
             
-        is_loop = frames[-1].shape[0] < 800 or frames[-1].shape[1] < 800
+        is_loop = frames[-1].shape[0] <= 1000 or frames[-1].shape[1] <= 1000
         frame_source = "loop_gif" if is_loop else "static_cache"
         logger.info(
             f"[{station_code}] 🗃️  Firestore cache LOADED — "
@@ -636,7 +666,8 @@ class WeatherManager:
     async def _get_tmd_prediction(
         self, lat: float, lng: float, force_station: Optional[str] = None,
         mock_state: Optional[str] = None, location_name: Optional[str] = None,
-        chat_id: Optional[Union[str, int]] = None
+        chat_id: Optional[Union[str, int]] = None,
+        message_id_to_edit: Optional[Union[str, int]] = None
     ) -> dict:
         """
         Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
@@ -644,32 +675,64 @@ class WeatherManager:
         then ranks by ETA and generates a smart summary with growth/decay rates.
         """
         
+        from app.services.tmd_radar_registry import radar_registry
+        from app.database import AsyncSessionLocal
+        
+        # Fetch stations dynamically from Neon DB (or registry cache)
+        stations_map = {}
+        try:
+            async with AsyncSessionLocal() as session:
+                stations_map = await radar_registry.get_all_stations(session)
+        except Exception as _e:
+            logger.warning(f"Failed to fetch dynamic radar stations, falling back to static config: {_e}")
+            from app.services.tmd_radar_config import STATIONS
+            stations_map = STATIONS
+
         if force_station:
             stations_to_check = [force_station]
         else:
-            from app.services.tmd_radar_config import STATIONS
-            stations = ["kkn120", "kkn240", "skn240"]
-            
             def get_dist(code):
-                conf = STATIONS.get(code)
+                conf = stations_map.get(code)
                 if not conf: return float('inf')
-                # Simple euclidean distance for sorting priority
                 import math
                 return math.hypot(lat - conf.center_lat, lng - conf.center_lng)
                 
-            stations_to_check = sorted(stations, key=get_dist)
+            # Filter stations to only those whose coverage bounding box actually covers (lat, lng)
+            covering_stations = []
+            for code in stations_map.keys():
+                conf = stations_map.get(code)
+                if conf:
+                    processor = TMDRadarProcessor(code, config=conf)
+                    px, py = processor.latlng_to_pixel(lat, lng, is_loop=False)
+                    if px is not None and py is not None:
+                        covering_stations.append(code)
+            
+            # If covering stations exist, only check those sorted by distance; otherwise check all sorted by distance
+            target_stations = covering_stations if covering_stations else list(stations_map.keys())
+            stations_to_check = sorted(target_stations, key=get_dist)
+
+        primary_station = stations_to_check[0] if stations_to_check else None
 
         for station_code in stations_to_check:
             try:
-                processor = TMDRadarProcessor(station_code)
+                st_conf = stations_map.get(station_code)
+                processor = TMDRadarProcessor(station_code, config=st_conf)
                 px, py = processor.latlng_to_pixel(lat, lng, is_loop=False)
                 if px is None or py is None:
                     continue
 
+                async def _status_callback(msg_text: str):
+                    if chat_id and message_id_to_edit:
+                        try:
+                            from app.services import telegram
+                            await telegram.edit_telegram_message(int(chat_id), int(message_id_to_edit), msg_text)
+                        except Exception as _t_err:
+                            logger.warning(f"Failed to update retry status on Telegram: {_t_err}")
+
                 # Use module-level cache and lock to prevent cache stampede
-                lock = _GLOBAL_TMD_LOCKS.get(station_code)
-                if lock is None:
-                    continue
+                if station_code not in _GLOBAL_TMD_LOCKS:
+                    _GLOBAL_TMD_LOCKS[station_code] = asyncio.Lock()
+                lock = _GLOBAL_TMD_LOCKS[station_code]
                 
                 async with lock:
                     cached_data = _GLOBAL_TMD_CACHE.get(station_code)
@@ -709,7 +772,7 @@ class WeatherManager:
                         if persistent_stale:
                             logger.info(f"[{station_code}] Persistent cache is stale or missing. Triggering live radar cache update...")
                             try:
-                                await processor.update_radar_cache(force=True)
+                                await processor.update_radar_cache(force=True, status_callback=_status_callback)
                             except Exception as _e:
                                 logger.error(f"[{station_code}] Live cache update failed: {_e}")
                             cached_data = await self.load_persistent_cache_to_memory(station_code, processor)
@@ -729,7 +792,7 @@ class WeatherManager:
                             data_gap_minutes = 15.0
                             frame_urls = []
                         if not frames or len(frames) < 2:
-                            fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames()
+                            fresh_frames, fresh_dt, fresh_loop_bytes = await processor.fetch_loop_gif_and_extract_frames(status_callback=_status_callback)
                             if len(fresh_frames) >= 2:
                                 frames = fresh_frames[-6:]
                                 target_shape = frames[-1].shape[:2]
@@ -759,12 +822,26 @@ class WeatherManager:
                                 # uses Firestore instead of re-fetching loop GIF again.
                                 saved_frames = []
                                 try:
+                                    # Crop parameters for loop frames
+                                    lcy = processor.config.loop_crop_y
+                                    lcx = processor.config.loop_crop_x
+                                    lch = processor.config.loop_crop_height
+                                    lcw = processor.config.loop_crop_width
                                     for f_img, f_ts in zip(frames, frame_timestamps):
-                                        # Resize to 800×800 so is_loop detection (frame.shape < 800)
-                                        # returns False when reloaded — ensuring static pixel coords.
-                                        if f_img.shape[0] != 800 or f_img.shape[1] != 800:
-                                            f_img = cv2.resize(f_img, (800, 800), interpolation=cv2.INTER_NEAREST)
-                                        is_ok, buf = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
+                                        # Max 800 normalize
+                                        h, w = f_img.shape[:2]
+                                        if h > 800 or w > 800:
+                                            scale = 800.0 / float(max(h, w))
+                                            f_norm = cv2.resize(f_img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+                                        else:
+                                            f_norm = f_img
+
+                                        if (lcy + lch <= f_norm.shape[0]) and (lcx + lcw <= f_norm.shape[1]):
+                                            f_save = f_norm[lcy:lcy + lch, lcx:lcx + lcw]
+                                        else:
+                                            f_save = f_norm
+
+                                        is_ok, buf = cv2.imencode(".png", cv2.cvtColor(f_save, cv2.COLOR_RGB2BGR))
                                         if is_ok:
                                             f_url = await processor.save_polled_frame(buf.tobytes())
                                             saved_frames.append({"url": f_url, "timestamp": f_ts})
@@ -777,7 +854,7 @@ class WeatherManager:
                                             )
                                         logger.info(
                                             f"[{station_code}] 🌀 GIF fallback: persisted "
-                                            f"{len(saved_frames)} frames to Firestore"
+                                            f"{len(saved_frames)} cropped frames to Firestore"
                                         )
                                 except Exception as _e:
                                     logger.warning(f"[{station_code}] 🌀 GIF fallback: Firestore persist failed: {_e}")
@@ -806,8 +883,50 @@ class WeatherManager:
                 )
                 logger.info(f"DEBUG_NOW_UTC: station={station_code}, now_utc={now_utc}, frame_timestamps={frame_timestamps}")
 
-                use_loop_mapping = frame_source == "loop_gif"
-                user_px, user_py = processor.latlng_to_pixel(lat, lng, is_loop=use_loop_mapping)
+                # Determine if frames came from the loop GIF (vs static image).
+                # We rely on frame_source which is set reliably during loading.
+                # The old shape[1] <= 1000 heuristic was unreliable: raw GIF
+                # frames are 1920×1600 and were mis-classified as static.
+                use_loop_mapping = (frame_source == "loop_gif")
+
+                # ── Normalize legacy uncropped loop frames ──────────────────────────
+                # Frames cached in GCS before the crop-before-save fix may still be
+                # full-canvas (e.g. 800×800) instead of the expected loop crop size
+                # (e.g. 720×720).  An uncropped frame causes latlng_to_pixel to enter
+                # the legacy-scaling branch where config_canvas_h (= crop_y + crop_h
+                # = 760 for kkn240) ≠ actual_h (800), leading to scale_y ≈ 1.053
+                # and a ~25 px y-shift in the computed pin position.
+                # We detect this by comparing the actual frame dimensions to the
+                # configured crop size and crop on-the-fly if needed.
+                if use_loop_mapping and curr_frame is not None:
+                    _cfg = processor.config
+                    _lcx, _lcy = _cfg.loop_crop_x, _cfg.loop_crop_y
+                    _lch, _lcw = _cfg.loop_crop_height, _cfg.loop_crop_width
+                    _fh, _fw = curr_frame.shape[:2]
+                    _needs_crop = (
+                        (_fh > _lch or _fw > _lcw)
+                        and (_lcy + _lch <= _fh)
+                        and (_lcx + _lcw <= _fw)
+                    )
+                    if _needs_crop:
+                        logger.info(
+                            f"[{station_code}] 🔧 On-the-fly loop frame crop: "
+                            f"{_fw}×{_fh} → {_lcw}×{_lch} "
+                            f"(legacy GCS frame pre-dates crop-before-save fix)"
+                        )
+                        frames = [
+                            f[_lcy:_lcy + _lch, _lcx:_lcx + _lcw]
+                            for f in frames
+                        ]
+                        curr_frame = frames[-1].copy()
+                        prev_frame = frames[-2].copy()
+
+                actual_frame_shape = curr_frame.shape[:2] if curr_frame is not None else None
+                user_px, user_py = processor.latlng_to_pixel(
+                    lat, lng,
+                    is_loop=use_loop_mapping,
+                    frame_shape=actual_frame_shape,
+                )
                 px, py = user_px, user_py
 
                 if chat_id:
@@ -1389,6 +1508,15 @@ class WeatherManager:
                     except Exception as e:
                         logger.error(f"Failed to generate multiframe PNG: {e}")
                 
+                failover_notice = None
+                if primary_station and station_code != primary_station:
+                    primary_conf = stations_map.get(primary_station)
+                    primary_name = getattr(primary_conf, 'name', primary_station) if primary_conf else primary_station
+                    used_name = getattr(st_conf, 'name', station_code) if st_conf else station_code
+                    logger.warning(f"[FAILOVER] Primary station {primary_station} ({primary_name}) failed. Falling back to station {station_code} ({used_name}).")
+                    failover_notice = f"⚠️ *หมายเหตุ:* เรดาร์{primary_name} ({primary_station}) ขัดข้อง/หมดเวลาเชื่อมต่อ ระบบจึงสลับไปใช้เรดาร์{used_name} ({station_code}) แทนชั่วคราว"
+
+                logger.info(f"[TMD_RADAR] ✅ Using station={station_code} | frames={len(frames)} | source={frame_source}")
                 return {
                     "predictions":       predictions,
                     "intensity":         intensity,
@@ -1403,6 +1531,7 @@ class WeatherManager:
                     "all_rain_clusters":  all_rain_clusters,
                     "rain_summary":      summary_line,
                     "is_outdated":       time_offset_min > 45,
+                    "failover_notice":   failover_notice,
                     "tracking_mode":     tracking_mode,
                     "locked_target_id":   locked_target_id,
                     "radar_gif_bytes":   None,

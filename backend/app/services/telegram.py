@@ -153,13 +153,36 @@ async def send_telegram_raw_document(chat_id: int, file_data: bytes, filename: s
 
 async def send_telegram_photo(chat_id: int, photo_data: bytes, filename: str) -> bool:
     """
-    Sends a photo to a specific Telegram chat_id.
+    Sends a photo to a specific Telegram chat_id with automatic compression for large images.
     """
+    if len(photo_data) > 400 * 1024:
+        try:
+            from PIL import Image
+            import io
+            orig_size = len(photo_data)
+            img = Image.open(io.BytesIO(photo_data))
+            if img.mode in ("RGBA", "P", "LA"):
+                img = img.convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85, optimize=True)
+            compressed = buf.getvalue()
+            if len(compressed) < orig_size:
+                logger.info(f"[TELEGRAM] Compressed photo '{filename}' from {orig_size:,} to {len(compressed):,} bytes")
+                photo_data = compressed
+                if "." in filename:
+                    filename = filename.rsplit(".", 1)[0] + ".jpg"
+                else:
+                    filename = filename + ".jpg"
+        except Exception as e:
+            logger.warning(f"[TELEGRAM] Photo compression skipped/failed for {filename}: {e}")
+
+    content_type = "image/jpeg" if filename.endswith(".jpg") or filename.endswith(".jpeg") else "image/png"
+
     for attempt in range(3):
         try:
             logger.info(f"[TELEGRAM] Sending photo '{filename}' ({len(photo_data)} bytes) to chat_id={chat_id} (attempt {attempt+1}/3)")
             async with httpx.AsyncClient(http2=False, timeout=httpx.Timeout(60.0)) as client:
-                files = {"photo": (filename, photo_data, "image/png")}
+                files = {"photo": (filename, photo_data, content_type)}
                 data = {"chat_id": chat_id}
                 headers = {"Connection": "close"}
                 response = await client.post(TELEGRAM_SEND_PHOTO_URL, data=data, files=files, headers=headers)
@@ -268,6 +291,7 @@ async def setup_telegram_commands() -> bool:
     
     if is_dev:
         commands.extend([
+            {"command": "rain_pro_d", "description": "เช็คเรดาร์ฝนพิกัดหลัก (Dev Fast Shortcut)"},
             {"command": "lock", "description": "ล็อคเป้าก้อนเมฆแมนนวล"},
             {"command": "unlock", "description": "ปลดล็อคพื้นที่แจ้งเตือน"},
             {"command": "bypass", "description": "เข้าสู่โหมด Emergency Admin Bypass"},

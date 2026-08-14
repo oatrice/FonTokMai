@@ -11,10 +11,9 @@ import numpy as np
 from datetime import datetime, timezone, timedelta
 from PIL import Image, ImageDraw, ImageFont, ImageSequence
 from zoneinfo import ZoneInfo
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Any
 from app.dependencies import get_repo_context
 from app.services.ocr_service import OCRService
-from google.cloud import storage
 from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING, IGNORED_COLORS
 
 logger = logging.getLogger(__name__)
@@ -74,43 +73,68 @@ class TMDCacheMixin:
             logger.warning(f"[{self.station_code}] HTML timestamp fetch failed: {e}")
         return None
 
-    async def fetch_latest_image_bytes(self) -> Optional[bytes]:
-        """Fetches the latest static radar image (Polling method)."""
+    async def fetch_latest_image_bytes(
+        self,
+        status_callback: Optional[Any] = None,
+        max_retries: int = 3,
+        retry_delay: float = 1.0
+    ) -> Optional[bytes]:
+        """Fetches the latest static radar image (Polling method) with retries."""
         import time
-        url = f"{self.config.static_image_url}?t={int(time.time())}"
         from app.dependencies import get_http_client
         client = get_http_client()
-        try:
-            response = await client.get(url, timeout=10.0)
-            if response.status_code == 200:
-                return response.content
-            else:
-                logger.warning(f"[{self.station_code}] Failed to fetch static image: HTTP {response.status_code}")
-        except Exception as e:
-            logger.error(f"[{self.station_code}] Exception in fetch_latest_image_bytes: {e}", exc_info=True)
+        url = f"{self.config.static_image_url}?t={int(time.time())}"
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = await client.get(url, timeout=10.0)
+                if response.status_code == 200:
+                    return response.content
+                else:
+                    logger.warning(f"[{self.station_code}] Failed to fetch static image (attempt {attempt}/{max_retries}): HTTP {response.status_code}")
+            except Exception as e:
+                logger.warning(f"[{self.station_code}] Exception in fetch_latest_image_bytes (attempt {attempt}/{max_retries}): {e}")
+                if status_callback and attempt < max_retries:
+                    try:
+                        st_name = getattr(self.config, 'name', self.station_code)
+                        msg = f"⚠️ ไม่สามารถเชื่อมต่อเรดาร์ {st_name} [{self.station_code}] ได้ (พยายามใหม่รอบ {attempt + 1}/{max_retries})..."
+                        res = status_callback(msg)
+                        if asyncio.iscoroutine(res):
+                            await res
+                    except Exception as _cb_err:
+                        logger.warning(f"Status callback error: {_cb_err}")
+
+            if attempt < max_retries:
+                await asyncio.sleep(retry_delay)
+
         return None
 
-    async def fetch_loop_gif_and_extract_frames(self) -> Tuple[List[np.ndarray], Optional['datetime'], Optional[bytes]]:
+    async def fetch_loop_gif_and_extract_frames(
+        self,
+        status_callback: Optional[Any] = None,
+        max_retries: int = 3,
+        retry_delay: float = 1.0
+    ) -> Tuple[List[np.ndarray], Optional['datetime'], Optional[bytes]]:
         """Fetches the Loop.gif and extracts frames, the Last-Modified datetime, and raw GIF bytes."""
         import time
         loop_bytes = None
         dt = None
-                
-        if not loop_bytes:
-            # Use the verified loop_gif_url from station config.
-            # If empty, the station has no loop GIF (e.g. kkn120 → returns 404).
-            url = self.config.loop_gif_url
-            if not url:
-                logger.warning(
-                     f"[{self.station_code}] No loop_gif_url configured "
-                     f"(station has no loop GIF from TMD). Returning empty frames."
-                )
-                return [], None, None
-            url = f"{url}?t={int(time.time())}"
-            from app.dependencies import get_http_client
-            client = get_http_client()
+
+        url = self.config.loop_gif_url
+        if not url:
+            logger.warning(
+                 f"[{self.station_code}] No loop_gif_url configured "
+                 f"(station has no loop GIF from TMD). Returning empty frames."
+            )
+            return [], None, None
+
+        loop_url = f"{url}?t={int(time.time())}"
+        from app.dependencies import get_http_client
+        client = get_http_client()
+
+        for attempt in range(1, max_retries + 1):
             try:
-                response = await client.get(url, timeout=30.0)
+                response = await client.get(loop_url, timeout=30.0)
                 if response.status_code == 200:
                     loop_bytes = response.content
                     last_modified = response.headers.get("last-modified")
@@ -121,19 +145,32 @@ class TMDCacheMixin:
                         if php_resp.status_code == 200:
                             dt = self.parse_html_timestamp(php_resp.text)
                     except Exception as e:
-                        print(f"Error fetching exact timestamp from HTML: {e}")
-                        
+                        logger.warning(f"Error fetching exact timestamp from HTML: {e}")
+
                     if dt is None and last_modified:
                         try:
                             dt = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
                         except Exception as e:
-                            print(f"Error parsing date: {e}")
+                            logger.warning(f"Error parsing date: {e}")
+                    break
                 else:
                     logger.warning(
-                        f"[{self.station_code}] Loop GIF URL returned HTTP {response.status_code}: {url}"
+                        f"[{self.station_code}] Loop GIF URL returned HTTP {response.status_code} (attempt {attempt}/{max_retries})"
                     )
             except Exception as e:
-                logger.error(f"[{self.station_code}] Error fetching loop gif: {e}")
+                logger.warning(f"[{self.station_code}] Error fetching loop gif (attempt {attempt}/{max_retries}): {e}")
+                if status_callback and attempt < max_retries:
+                    try:
+                        st_name = getattr(self.config, 'name', self.station_code)
+                        msg = f"⚠️ ไม่สามารถดึงภาพ Loop เรดาร์ {st_name} [{self.station_code}] ได้ (พยายามใหม่รอบ {attempt + 1}/{max_retries})..."
+                        res = status_callback(msg)
+                        if asyncio.iscoroutine(res):
+                            await res
+                    except Exception as _cb_err:
+                        logger.warning(f"Status callback error: {_cb_err}")
+
+            if attempt < max_retries and not loop_bytes:
+                await asyncio.sleep(retry_delay)
 
                 
         if loop_bytes:
@@ -191,6 +228,11 @@ class TMDCacheMixin:
         # For now, return an empty list to fallback to polling
         return []
 
+    def _get_storage_client(self):
+        """Helper to obtain a Google Cloud Storage client (mock-friendly)."""
+        from google.cloud import storage
+        return storage.Client()
+
     async def save_polled_frame(self, image_bytes: bytes) -> str:
         """Saves a polled image byte sequence to Google Cloud Storage with a timestamp."""
         
@@ -199,7 +241,7 @@ class TMDCacheMixin:
         bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
         
         # Use sync GCS upload with asyncio.to_thread
-        client = storage.Client()
+        client = self._get_storage_client()
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(filename)
         
@@ -218,7 +260,7 @@ class TMDCacheMixin:
         
         def _delete_sync():
             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
-            client = storage.Client()
+            client = self._get_storage_client()
             bucket = client.bucket(bucket_name)
             prefix = f"radar/{self.station_code}/"
             
@@ -239,7 +281,7 @@ class TMDCacheMixin:
             
         return await asyncio.to_thread(_delete_sync)
 
-    async def update_radar_cache(self, force: bool = False) -> dict:
+    async def update_radar_cache(self, force: bool = False, status_callback: Optional[Any] = None) -> dict:
         """
         Fetch from TMD and update cache if new image is available or if cache is stale.
         This encapsulates the fetching, OCR, cache validation, loop GIF fallback, and database persistence.
@@ -273,14 +315,14 @@ class TMDCacheMixin:
             )
             latest_ts = 0
 
-        # Skip fetch if cache is fresh, has enough frames, and force is False
-        if not force and len(frames) >= 2 and (now_ts - latest_ts) < 1200:
+        # Skip fetch if cache is fresh, has full 6 frames, and force is False
+        if not force and len(frames) >= 6 and (now_ts - latest_ts) < 1200:
             logger.debug(f"[{station}] Cache is fresh (latest_ts={latest_ts}, age={now_ts - latest_ts}s). Skipping update.")
             result["reason"] = "fresh"
             return result
 
         # 2. Fetch static image bytes
-        static_bytes = await self.fetch_latest_image_bytes()
+        static_bytes = await self.fetch_latest_image_bytes(status_callback=status_callback)
         
         ocr_svc = OCRService()
         ts = None
@@ -295,7 +337,7 @@ class TMDCacheMixin:
             ts = await ocr_svc.get_frame_timestamp(frame, fallback_ts=now_ts)
             ocr_ok = ts is not None and ts != now_ts
             if not ocr_ok:
-                logger.warning(f"[{station}] ⚠️ OCR failed — frame will NOT be saved to avoid corrupting sliding window")
+                logger.warning(f"[{station}] ⚠️ OCR failed on static image — frame will NOT be saved directly, forcing GIF fallback check")
                 ts = None
         else:
             logger.warning(f"[{station}] ❌ Static fetch FAILED — will attempt GIF fallback if enabled")
@@ -328,18 +370,21 @@ class TMDCacheMixin:
                 elif ts and (ts - latest_ts) > 1800.0:
                     needs_fallback = True
                     fallback_reason = f"Large time gap detected ({int((ts - latest_ts)/60)}m) between {latest_ts} and {ts}"
-            else:
-                if (now_ts - last_gif_fallback_time) > 1800.0:
-                    needs_fallback = True
-                    fallback_reason = "Cache is empty"
-
-        if enable_fallback and not needs_fallback and len(frames) < 2:
-            if (now_ts - last_gif_fallback_time) > 1800.0:
+        if enable_fallback and not static_bytes and not frames:
+            needs_fallback = True
+            fallback_reason = "Static fetch failed and cache empty"
+        elif enable_fallback and static_bytes and not ts:
+            if (now_ts - last_gif_fallback_time) > 300.0:
                 needs_fallback = True
-                fallback_reason = f"Cache has <2 frames ({len(frames)})"
+                fallback_reason = "Static fetch OCR failed"
 
-        # If not outdated/dead and unchanged, return early
-        if not needs_fallback and ((ts and ts <= latest_ts) or not static_bytes):
+        if enable_fallback and not needs_fallback and len(frames) < 6:
+            if force or (now_ts - last_gif_fallback_time) > 1800.0:
+                needs_fallback = True
+                fallback_reason = f"Cache has <6 frames ({len(frames)})"
+
+        # If not force, not outdated/dead and unchanged, return early
+        if not force and not needs_fallback and ((ts and ts <= latest_ts) or not static_bytes):
             logger.debug(f"[{station}] Image unchanged or unavailable (ts {ts}). Skipping.")
             result["reason"] = "unchanged"
             return result
@@ -347,7 +392,55 @@ class TMDCacheMixin:
         new_url = None
         if ts and ts > latest_ts:
             logger.info(f"[{station}] 🆕 New frame detected (ts={ts} > latest={latest_ts}) — saving to GCS")
-            new_url = await self.save_polled_frame(static_bytes)
+            
+            # ── Option B: Normalize and Crop ────────────────────────────────
+            # Scale to standard 800px max dimension so Admin crop coords map 1:1
+            max_dim = 800
+            h, w = frame.shape[:2]
+            if h > max_dim or w > max_dim:
+                scale = max_dim / float(max(h, w))
+                new_w = int(w * scale)
+                new_h = int(h * scale)
+                frame_to_save = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            else:
+                frame_to_save = frame
+
+            # ── Pad to square (800×800) if station requires it ────────────
+            # Some stations have non-square raw images (e.g. Tak: 937×797 → 800×680).
+            # Without padding, crop_h=728 > 680 would fail and the frame would be
+            # saved uncropped, causing GPS pin misalignment.
+            if getattr(self.config, 'pad_to_square', False):
+                fh, fw = frame_to_save.shape[:2]
+                if fh != fw:
+                    target = max(fh, fw)
+                    pad_top = (target - fh) // 2
+                    pad_bottom = target - fh - pad_top
+                    pad_left = (target - fw) // 2
+                    pad_right = target - fw - pad_left
+                    frame_to_save = cv2.copyMakeBorder(
+                        frame_to_save, pad_top, pad_bottom, pad_left, pad_right,
+                        cv2.BORDER_CONSTANT, value=(0, 0, 0)
+                    )
+                    logger.info(
+                        f"[{station}] pad_to_square: {fw}x{fh} → {frame_to_save.shape[1]}x{frame_to_save.shape[0]}"
+                    )
+            # ─────────────────────────────────────────────────────────────────
+                
+            scy = self.config.static_crop_y
+            scx = self.config.static_crop_x
+            sch = self.config.static_crop_height
+            scw = self.config.static_crop_width
+            
+            if (scy + sch <= frame_to_save.shape[0]) and (scx + scw <= frame_to_save.shape[1]):
+                frame_to_save = frame_to_save[scy:scy + sch, scx:scx + scw]
+                
+            is_success, buffer = cv2.imencode(".jpg", cv2.cvtColor(frame_to_save, cv2.COLOR_RGB2BGR))
+            if is_success:
+                new_url = await self.save_polled_frame(buffer.tobytes())
+            else:
+                new_url = await self.save_polled_frame(static_bytes)
+            # ────────────────────────────────────────────────────────────────
+            
             frames.insert(0, {"url": new_url, "timestamp": ts})
             frames = sorted(frames, key=lambda f: f["timestamp"])
             frames.reverse() # newest first
@@ -363,11 +456,61 @@ class TMDCacheMixin:
 
                 new_frames_list = []
                 base_ts = ts if ts else now_ts
+                # Crop parameters for loop frames
+                lcy = self.config.loop_crop_y
+                lcx = self.config.loop_crop_x
+                lch = self.config.loop_crop_height
+                lcw = self.config.loop_crop_width
                 for i, f_img in enumerate(recent_fallback):
                     f_ts = await ocr_svc.get_frame_timestamp(f_img, fallback_ts=base_ts - i * 900)
-                    if f_img.shape[0] != 800 or f_img.shape[1] != 800:
-                        f_img = cv2.resize(f_img, (800, 800), interpolation=cv2.INTER_NEAREST)
-                    is_success, buffer = cv2.imencode(".png", cv2.cvtColor(f_img, cv2.COLOR_RGB2BGR))
+                    # ── Crop to loop_crop region before saving ──────────────────
+                    # Raw GIF frames are full-image (e.g. 1920×1600). Saving them
+                    # uncropped causes GPS pin coordinates (computed from 728×728
+                    # crop config) to be wildly misaligned when frames are loaded
+                    # back from Firestore. Crop first so stored frames match config.
+                    # ── Option B: Normalize to 800px max before crop ──────────
+                    max_dim = 800
+                    h, w = f_img.shape[:2]
+                    if h > max_dim or w > max_dim:
+                        scale = max_dim / float(max(h, w))
+                        new_w = int(w * scale)
+                        new_h = int(h * scale)
+                        f_norm = cv2.resize(f_img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                    else:
+                        f_norm = f_img
+
+                    # ── Pad to square (800×800) if station requires it ────────
+                    if getattr(self.config, 'pad_to_square', False):
+                        fh, fw = f_norm.shape[:2]
+                        if fh != fw:
+                            target = max(fh, fw)
+                            pad_top = (target - fh) // 2
+                            pad_bottom = target - fh - pad_top
+                            pad_left = (target - fw) // 2
+                            pad_right = target - fw - pad_left
+                            f_norm = cv2.copyMakeBorder(
+                                f_norm, pad_top, pad_bottom, pad_left, pad_right,
+                                cv2.BORDER_CONSTANT, value=(0, 0, 0)
+                            )
+                            logger.info(
+                                f"[{station}] GIF pad_to_square: {fw}x{fh} → {f_norm.shape[1]}x{f_norm.shape[0]}"
+                            )
+                    # ─────────────────────────────────────────────────────────
+
+                    if (lcy + lch <= f_norm.shape[0]) and (lcx + lcw <= f_norm.shape[1]):
+                        f_save = f_norm[lcy:lcy + lch, lcx:lcx + lcw]
+                        logger.debug(
+                            f"[{station}] GIF fallback crop: raw={f_img.shape[:2]} "
+                            f"→ cropped={f_save.shape[:2]} (y={lcy}:{lcy+lch}, x={lcx}:{lcx+lcw})"
+                        )
+                    else:
+                        # Crop region exceeds frame bounds — save full frame as fallback
+                        logger.warning(
+                            f"[{station}] GIF frame too small to crop: {f_norm.shape[:2]} "
+                            f"< crop ({lch},{lcw}). Saving full frame."
+                        )
+                        f_save = f_norm
+                    is_success, buffer = cv2.imencode(".png", cv2.cvtColor(f_save, cv2.COLOR_RGB2BGR))
                     if is_success:
                         f_url = await self.save_polled_frame(buffer.tobytes())
                         new_frames_list.append({"url": f_url, "timestamp": f_ts})
@@ -375,7 +518,7 @@ class TMDCacheMixin:
                 if new_frames_list:
                     gif_newest_ts = new_frames_list[0]["timestamp"]
                     current_newest_ts = frames[0]["timestamp"] if frames else 0
-                    is_bootstrap = fallback_reason.startswith("Cache has <2") or fallback_reason == "Cache is empty"
+                    is_bootstrap = fallback_reason.startswith("Cache has <") or fallback_reason == "Cache is empty"
 
                     if is_bootstrap:
                         if ts and ts > gif_newest_ts:

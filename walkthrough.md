@@ -1,22 +1,35 @@
-# Walkthrough: Dashboard UX/UI & Zero-PII Token Recovery Batch
+# Walkthrough: TMD Radar Dynamic Station Management & Nationwide Auto-Calibration
 
-This Merge Request addresses three primary objectives within the frontend dashboard components:
+This Merge Request integrates nationwide dynamic TMD radar stations into FonMaYang, replacing hardcoded setups with a flexible database repository, automated circle calibration, and an interactive admin portal.
 
-## 1. UX Terminology Updates (#204)
-Technical jargon in `FinancialDashboard.tsx` and `RunwayCounter.tsx` has been replaced with user-friendly terminology to enhance clarity for non-technical sponsors:
-- `OVERDRIVE MODE` → `Extended Lifespan Mode / โหมดต่ออายุระบบฉุกเฉิน`
-- `CIRCUIT BREAKER ACTIVE` → `Cached Weather Data Mode / ใช้ข้อมูลพยากรณ์สำรอง`
+---
 
-## 2. Dashboard View Modes (#209)
-The `RunwayCounter.tsx` component was entirely refactored to support three interactive view modes:
-- **Numeric View**: Standard stat block.
-- **Storytelling View**: Conversational explanation of runway duration.
-- **Compact View**: Minimalist ticker layout.
-State is seamlessly animated via `framer-motion` (`AnimatePresence`) and user preferences are persistently stored in the browser's `localStorage` (`runwayViewMode`).
+## 1. Automated Calibration & Registry Architecture (Issue #99, #52)
+- **Dynamic Radar Station Registry (`DynamicRadarRegistry`)**: Implemented database-driven radar configuration with Neon PostgreSQL persistence and a 60-second in-memory TTL cache to eliminate redundant DB round-trips.
+- **Nationwide Coverage (99% Coverage Across 13 Stations)**:
+  - **Bangkok / Central:** Suvarnabhumi (`svp240`), Chainat (`chn`).
+  - **Northeast:** Khon Kaen (`kkn120`, `kkn240`), Sakon Nakhon (`skn240`), Ubon Ratchathani (`ubn240`).
+  - **North:** Chiang Rai (`cri`), Phitsanulok (`phs`), Tak / Doi Muser (`tak`).
+  - **East:** Rayong (`ryg`).
+  - **South:** Chumphon (`cmp`), Surat Thani (`srt`), Hat Yai (`hyi`).
+- **Auto-Calibration Pipeline**: OpenCV Hough Circle detection automatically discovers radar canvas center boundaries and derives crop bounds.
 
-## 3. Token Recovery Modal (#236)
-A new zero-PII recovery interface (`TokenRecoveryModal.tsx`) was introduced to allow sponsors to reclaim lost access tokens using their transaction receipt details:
-- **Inputs**: `tx_hash`, `timestamp`, and `amount`.
-- **Integration**: Securely POSTs to the `/api/v1/auth/recover` endpoint.
-- **Robust Feedback**: Handles and visualizes API validation errors gracefully, and prominently displays the recovered `sk_test_...` access token upon success.
-- **Testing**: Includes a comprehensive Jest test suite (`TokenRecoveryModal.test.tsx`) verifying form rendering, submission behaviors, and error/success states.
+---
+
+## 2. Web Admin UI & Radar Coverage Map
+- **Interactive Fine-Tuning Dashboard (`/admin/radar`)**: Interactive Next.js dashboard featuring draggable/resizable crop handles, simulated Telegram radar preview, and direct station seeding/saving.
+- **Province Coverage Highlighting (`RadarCoverageMap.tsx`)**: SVG map rendering with GeoJSON boundaries and dynamic `clipPath` highlighting.
+
+---
+
+## 3. Bot UX & Resilient Geometry Projection
+- **Projection Accuracy**: Per-station support for `linear` (equirectangular) and `azimuthal` (equidistant) coordinate projections ensuring GPS user pins land with sub-pixel precision.
+- **False-Positive Noise Filtering**: Exclusion of background terrain greens and maritime blue colors in `IGNORED_COLORS` to prevent false rain alarms in coastal/mountainous regions.
+- **Fast Developer Aliases**: Supported `/rain_pro_d` and `/rain d` fast location aliases for rapid Telegram and LINE weather queries.
+
+---
+
+## 4. Verification & Testing Summary
+- **Backend Unit Tests**: Over 460 unit and integration tests passing (`pytest`), including dedicated suites for each regional station.
+- **Frontend Production Build**: `next build` compiled cleanly with zero TypeScript errors.
+- **Deployment Sync**: Verified Cloud Run environment variable synchronization.

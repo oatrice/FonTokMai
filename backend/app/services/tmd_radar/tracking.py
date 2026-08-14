@@ -150,7 +150,8 @@ class TMDTrackingMixin:
 
         lon_diff = self.config.bbox.lng_max - self.config.bbox.lng_min
         width_km = lon_diff * 111.0
-        km_per_pixel = width_km / max(1, self.config.loop_crop_width)
+        frame_w = frame.shape[1] if frame is not None and len(frame.shape) >= 2 else self.config.loop_crop_width
+        km_per_pixel = width_km / max(1, frame_w)
         
         min_area_km2 = getattr(self.config, "min_area_km2", 10.0)
         min_area_px = min_area_km2 / (km_per_pixel ** 2)
@@ -280,12 +281,18 @@ class TMDTrackingMixin:
 
         crop_r = 120
         h, w = frame.shape[:2]
+        user_x = max(0, min(w - 1, user_x))
+        user_y = max(0, min(h - 1, user_y))
         x1 = max(0, user_x - crop_r)
         y1 = max(0, user_y - crop_r)
         x2 = min(w, user_x + crop_r)
         y2 = min(h, user_y + crop_r)
+        if x2 <= x1 or y2 <= y1:
+            return None
         
         crop_img = frame[y1:y2, x1:x2].copy()
+        if crop_img.size == 0 or crop_img.shape[0] == 0 or crop_img.shape[1] == 0:
+            return None
         scale = 3.0
         
         img = cv2.resize(crop_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
@@ -494,6 +501,14 @@ class TMDTrackingMixin:
                     
                     raw_mask = mask.copy()
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+                    dilate_kw = max(7, int(11 * scale))
+                    dilate_kh = max(19, int(23 * scale))
+                    if dilate_kw % 2 == 0:
+                        dilate_kw += 1
+                    if dilate_kh % 2 == 0:
+                        dilate_kh += 1
+                    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dilate_kw, dilate_kh))
+                    mask = cv2.dilate(mask, dilate_kernel)
                     
                     from app.services.weather_manager import _DEV_CONFIG
                     enable_smooth = _DEV_CONFIG.get("enable_raster_smooth", True)
@@ -821,6 +836,22 @@ class TMDTrackingMixin:
                     
                     raw_mask = mask.copy()
                     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+                    dilate_kw = max(7, int(11 * scale))
+                    dilate_kh = max(19, int(23 * scale))
+                    if dilate_kw % 2 == 0:
+                        dilate_kw += 1
+                    if dilate_kh % 2 == 0:
+                        dilate_kh += 1
+                    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dilate_kw, dilate_kh))
+                    mask = cv2.dilate(mask, dilate_kernel)
+                    
+                    # Trim sea background pixels from mask boundaries
+                    if 'img' in locals() and img is not None:
+                        local_crop = img[max(0, by-margin):min(img.shape[0], by-margin+mask_h), max(0, bx-margin):min(img.shape[1], bx-margin+mask_w)]
+                        if local_crop.shape[:2] == (mask_h, mask_w):
+                            diff_sea = np.abs(local_crop.astype(np.int16) - np.array([128, 192, 254], dtype=np.int16))
+                            is_sea = np.all(diff_sea <= 18, axis=2)
+                            mask[is_sea] = 0
                     
                     from app.services.weather_manager import _DEV_CONFIG
                     enable_smooth = _DEV_CONFIG.get("enable_raster_smooth", True)
