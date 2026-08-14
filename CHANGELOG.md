@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.0] - 2026-08-14
+
+### Added
+- **TMD Radar Auto-Calibration Pipeline & CLI (Issue #99)**: Built `AutoCalibrationService` and CLI tool (`backend/scripts/calibrate_station_cli.py`) utilizing Hough Circle Detection (`cv2.HoughCircles`) to automatically detect radar circle boundaries, calculate static/loop crop coordinates, and output StationConfig snippets with `--verify` overlay image generation.
+- **Nationwide TMD Radar Dynamic Registry & Station Management (Issue #52)**:
+  - Implemented `DynamicRadarRegistry` and `tmd_radar_catalog.py` with in-memory TTL caching (60s) and Neon DB PostgreSQL (`radar_stations`) persistence.
+  - Successfully integrated and calibrated nationwide TMD radar stations with automated seeding and custom bounding boxes:
+    - **Bangkok / Central:** Suvarnabhumi (`svp240`), Chainat (`chn`).
+    - **Northeast:** Khon Kaen (`kkn120`, `kkn240`), Sakon Nakhon (`skn240`), Ubon Ratchathani (`ubn240`).
+    - **North:** Chiang Rai (`cri`), Phitsanulok (`phs`), Tak / Doi Muser (`tak`).
+    - **East:** Rayong (`ryg`).
+    - **South:** Chumphon (`cmp`), Surat Thani (`srt`), Hat Yai (`hyi`).
+- **Interactive Fine-Tuning Web Portal & Radar Coverage Map**:
+  - Created Next.js Admin Radar Page (`/admin/radar`) featuring live image preview, interactive crop sliders (Crop X, Y, Width, Height), status toggling, and explicit `Loop Page URL`/`Loop GIF URL` inputs.
+  - Built interactive `RadarCoverageMap.tsx` with province boundary rendering (`thailand_provinces.json`) and `clipPath` highlighting.
+- **Bot UX & Developer Commands**:
+  - Added `/rain_pro_d` fast development shortcut command in `telegram.py` and `webhook_commands.py`.
+  - Supported `d` as an alias for the `default` location name across Telegram and LINE webhooks.
+  - Added `/calibrate <code|url> <lat> <lng> [radius]` admin command for verification overlay images in chat.
+- **Cloud & Maritime Noise Filtering**:
+  - Added terrain green and maritime ocean blue color exclusions to `IGNORED_COLORS` across all regional stations (Rayong, Chumphon, Surat Thani, Hat Yai) to prevent false-positive rain warnings.
+  - Updated multi-cloud clustering in `clustering.py` and `tracking.py` to detect up to 21 distinct real rain clouds with sea boundary mask clipping.
+
+### Changed
+- **Native Image Aspect Ratio Preservation**: Removed hardcoded `800x800` image resizing in `cache.py` and `weather_manager.py` to preserve native image aspect ratios across all rendered radar maps (`radar_latest.png`, `radar_tracking.png`, `radar_multiframe.png`).
+- **Cache Sliding Window Expansion**: Updated cache freshness threshold and fallback condition from 2 to 6 frames in `cache.py` to ensure complete 6-frame historical sequence accumulation.
+- **Neon DB Database Migration**: Migrated `api_reliability` and radar caching logic from Firestore to Neon DB PostgreSQL via SQLAlchemy/`SQLiteLocationRepository`.
+- **Weather Source Fallback Priority**: Refactored `WeatherManager` fallback priority ordering using `WeatherEndpoint(StrEnum)` to enforce local `tmd-radar` as the top priority tie-breaker when accuracy scores tie.
+
+### Fixed
+- **Radar Projection & Pin Alignment**:
+  - Configured `projection_type` (`linear` vs `azimuthal`) per station geometry to prevent pixel coordinate drift.
+  - Added proportional coordinate scaling in `latlng_to_pixel()` when frame dimensions deviate from station config.
+  - Fixed loop frame cropping before uploading to cache, resolving ~750px pin offset when reloading cached frames.
+- **Contour Coordinate Transposition**: Fixed X/Y tuple unpacking order bug in `tracking.py` where pixel coordinates were transposed diagonally.
+- **OCR & Network Resilience**:
+  - Added `User-Agent` header in global HTTP client to prevent HTTP 403 Forbidden responses on TMD servers.
+  - Handled large radar image payloads with automatic pre-compression before sending to OCR Space (`_compress_for_ocr_space`).
+  - Fixed OCR timestamp extraction regex to support timestamp strings lacking whitespace separators.
+  - Fixed `is_bootstrap` check in `cache.py` to ensure full 6-frame GIF sequences are properly adopted into cache.
+
 ## [0.71.0] - 2026-08-02
 
 ### Added

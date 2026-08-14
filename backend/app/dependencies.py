@@ -21,7 +21,10 @@ def get_http_client() -> httpx.AsyncClient:
     current_pid = os.getpid()
 
     if _http_client is None or _http_client.is_closed or _http_client_loop != current_loop or _http_client_pid != current_pid:
-        _http_client = httpx.AsyncClient(timeout=30.0)
+        _http_client = httpx.AsyncClient(
+            timeout=30.0,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+        )
         _http_client_loop = current_loop
         _http_client_pid = current_pid
     return _http_client

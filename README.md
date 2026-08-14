@@ -49,6 +49,7 @@ Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical F
 | `/status` | Check backend system status, remaining budget, and Cloud Scheduler Jobs |
 | `/restore_public_access` | Restore Public Access permission for Cloud Run API |
 | `/disable_public_access` | Revoke Public Access permission for Cloud Run API (Private mode) |
+| `/calibrate <code|url> <lat> <lng> [radius]` | **Auto-calibrate and fine-tune TMD radar station bounds** (writes to Neon DB) |
 | `/devmock help` | Show all devmock commands |
 | `/devmock rain` | Simulate heavy rain (Boost real clouds) |
 | `/devmock storm` | Simulate storm (Create 5 mock clouds) |

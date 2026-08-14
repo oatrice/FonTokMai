@@ -153,16 +153,13 @@ async def test_save_and_cleanup_polled_frames():
     # Fake image bytes
     fake_img = b"GIF89a..."
     
-    with patch('google.cloud.storage.Client') as mock_storage_client:
-        mock_client_instance = MagicMock()
-        mock_storage_client.return_value = mock_client_instance
-        
-        mock_bucket = MagicMock()
-        mock_client_instance.bucket.return_value = mock_bucket
-        
-        mock_blob = MagicMock()
-        mock_bucket.blob.return_value = mock_blob
-        
+    mock_client_instance = MagicMock()
+    mock_bucket = MagicMock()
+    mock_blob = MagicMock()
+    mock_client_instance.bucket.return_value = mock_bucket
+    mock_bucket.blob.return_value = mock_blob
+    
+    with patch.object(processor, '_get_storage_client', return_value=mock_client_instance):
         # Test Save
         filename = await processor.save_polled_frame(fake_img)
         assert filename.startswith("radar/kkn120/kkn120_")
