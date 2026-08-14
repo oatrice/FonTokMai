@@ -33,3 +33,23 @@ def test_get_radar_stations_endpoint():
     assert "radius_km" in first
     assert first["status"] in ["online", "delayed", "offline"]
     assert "latency_minutes" in first
+    assert "last_frame_timestamp" in first
+    assert "is_active" in first
+
+def test_get_radar_stations_extracts_frame_timestamps():
+    from app.dependencies import get_repo_context
+    import asyncio
+
+    async def seed_cache():
+        async with get_repo_context() as repo:
+            # Seed fresh frames
+            now_ts = 1785500000.0  # arbitrary epoch
+            await repo.set_latest_radar_cache("skn240", [{"url": "http://img.jpg", "timestamp": now_ts}])
+
+    asyncio.run(seed_cache())
+    response = client.get("/api/v1/radar/stations")
+    assert response.status_code == 200
+    stations = {s["code"]: s for s in response.json()["stations"]}
+    assert "skn240" in stations
+    assert stations["skn240"]["code"] == "skn240"
+
