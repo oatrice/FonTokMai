@@ -156,8 +156,97 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
   const [rawGeoJson, setRawGeoJson] = useState<GeoJSON.FeatureCollection | null>(null);
   const projectionRef = useRef<d3geo.GeoProjection | null>(null);
 
+  // Zoom & Pan Interactive State
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
   const svgWidth = 520;
   const svgHeight = 780;
+
+  // Zoom Controls
+  const handleZoomIn = () => {
+    setZoomLevel((prev) => Math.min(8, prev + 0.5));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel((prev) => {
+      const next = Math.max(1, prev - 0.5);
+      if (next === 1) setPanOffset({ x: 0, y: 0 });
+      return next;
+    });
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  // Mouse Drag Panning Handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setPanOffset((prev) => ({
+      x: prev.x + dx,
+      y: prev.y + dy,
+    }));
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Mouse Double Click to Zoom In centered on cursor coordinate
+  const handleDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    const svgRect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - svgRect.left;
+    const clickY = e.clientY - svgRect.top;
+
+    const normX = clickX / svgRect.width;
+    const normY = clickY / svgRect.height;
+
+    const nextZoom = Math.min(8, zoomLevel * 1.8);
+    setZoomLevel(nextZoom);
+
+    const targetSvgX = normX * svgWidth;
+    const targetSvgY = normY * svgHeight;
+    setPanOffset({
+      x: (svgWidth / 2) - targetSvgX,
+      y: (svgHeight / 2) - targetSvgY,
+    });
+  };
+
+  // Mouse Wheel Zoom Support
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      handleZoomIn();
+    } else if (e.deltaY > 0) {
+      handleZoomOut();
+    }
+  };
+
+  // Compute dynamic viewBox for zoom and pan
+  const currentViewBox = useMemo(() => {
+    const currentW = svgWidth / zoomLevel;
+    const currentH = svgHeight / zoomLevel;
+    const centerX = (svgWidth / 2) - (panOffset.x / zoomLevel);
+    const centerY = (svgHeight / 2) - (panOffset.y / zoomLevel);
+
+    const minX = Math.max(-50, Math.min(svgWidth - currentW + 50, centerX - currentW / 2));
+    const minY = Math.max(-50, Math.min(svgHeight - currentH + 50, centerY - currentH / 2));
+
+    return `${minX} ${minY} ${currentW} ${currentH}`;
+  }, [zoomLevel, panOffset]);
 
   // Load Thailand province GeoJSON and compute SVG paths
   useEffect(() => {
@@ -426,14 +515,65 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* SVG Interactive Map Column */}
         <div className="lg:col-span-7 bg-slate-950/80 rounded-2xl border border-white/10 p-4 relative flex justify-center items-center overflow-hidden min-h-[580px]">
-          <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/80 border border-white/10 text-slate-400 text-[11px]">
-            <Compass className="h-3.5 w-3.5 text-cyan-400" />
-            <span>N (ทิศเหนือ)</span>
+          {/* Compass & Zoom Controls */}
+          <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/80 border border-white/10 text-slate-400 text-[11px]">
+              <Compass className="h-3.5 w-3.5 text-cyan-400" />
+              <span>N (ทิศเหนือ)</span>
+            </div>
+            <span className={`px-2 py-0.5 rounded-md border text-[10px] font-mono font-bold transition-all ${
+              zoomLevel > 1
+                ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 animate-pulse"
+                : "bg-slate-900/80 text-slate-400 border-white/10"
+            }`}>
+              🔍 {zoomLevel.toFixed(1)}x
+            </span>
+          </div>
+
+          {/* Quick Floating Zoom Buttons */}
+          <div className="absolute top-4 right-4 z-10 flex flex-col gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-white/10 shadow-2xl backdrop-blur-md">
+            <button
+              onClick={handleZoomIn}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-base font-bold transition-colors"
+              title="Zoom In (หรือ Double Click บนแผนที่)"
+              aria-label="Zoom In"
+            >
+              +
+            </button>
+            <button
+              onClick={handleZoomOut}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-base font-bold transition-colors"
+              title="Zoom Out"
+              aria-label="Zoom Out"
+            >
+              -
+            </button>
+            {zoomLevel > 1 && (
+              <>
+                <div className="w-full h-[1px] bg-white/10" />
+                <button
+                  onClick={handleResetZoom}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 text-[10px] font-mono font-bold transition-colors"
+                  title="Reset View (1.0x)"
+                  aria-label="Reset View"
+                >
+                  {zoomLevel.toFixed(1)}x
+                </button>
+              </>
+            )}
           </div>
 
           <svg
-            viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-            className="w-full h-auto max-h-[620px] drop-shadow-[0_0_20px_rgba(6,182,212,0.15)]"
+            viewBox={currentViewBox}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onDoubleClick={handleDoubleClick}
+            onWheel={handleWheel}
+            className={`w-full h-auto max-h-[620px] drop-shadow-[0_0_20px_rgba(6,182,212,0.15)] select-none transition-all duration-200 ease-out ${
+              isDragging ? "cursor-grabbing" : zoomLevel > 1 ? "cursor-grab" : "cursor-default"
+            }`}
           >
             {/* Defs for Grid, Radar Pulse & Dynamic Coverage ClipPath */}
             <defs>

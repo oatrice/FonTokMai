@@ -118,6 +118,29 @@ export function RadarCloudMap({
     setIsDragging(false);
   };
 
+  // Mouse Double Click to Zoom In towards clicked coordinate
+  const handleDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    const svgRect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - svgRect.left;
+    const clickY = e.clientY - svgRect.top;
+    
+    // Normalized position within SVG [0, 1]
+    const normX = clickX / svgRect.width;
+    const normY = clickY / svgRect.height;
+    
+    const nextZoom = Math.min(12, zoomLevel * 1.8);
+    setZoomLevel(nextZoom);
+    
+    // Adjust pan offset smoothly toward the clicked location
+    const targetSvgX = normX * svgWidth;
+    const targetSvgY = normY * svgHeight;
+    setPanOffset({
+      x: (svgWidth / 2) - targetSvgX,
+      y: (svgHeight / 2) - targetSvgY,
+    });
+  };
+
   // Mouse Wheel Zoom Support (Seamless zoom in/out with scroll wheel)
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -216,8 +239,17 @@ export function RadarCloudMap({
             <Radio className="w-5 h-5 animate-pulse" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white tracking-wide">Interactive Radar Coverage & Cloud Trajectory (Nationwide Zoom-Out)</h3>
-            <p className="text-xs text-zinc-400">Hover over cloud clusters to preview historical movement vectors</p>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-white tracking-wide">Interactive Radar Coverage & Cloud Trajectory (Nationwide Zoom-Out)</h3>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border transition-all ${
+                zoomLevel > 1
+                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 animate-pulse"
+                  : "bg-white/5 text-zinc-400 border-white/10"
+              }`}>
+                🔍 Zoom: {zoomLevel.toFixed(1)}x
+              </span>
+            </div>
+            <p className="text-xs text-zinc-400">Hover over cloud clusters to preview historical movement vectors (Double-click หรือ Scroll เพื่อซูม)</p>
           </div>
         </div>
 
@@ -336,9 +368,9 @@ export function RadarCloudMap({
                 onClick={handleResetZoom}
                 title="Reset View (1x)"
                 aria-label="Reset View"
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-[10px] font-bold text-cyan-400 hover:text-cyan-300 hover:bg-white/10 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-[10px] font-mono font-bold text-cyan-400 hover:text-cyan-300 hover:bg-white/10 transition-colors"
               >
-                {zoomLevel}x
+                {zoomLevel.toFixed(1)}x
               </button>
             </>
           )}
@@ -366,6 +398,7 @@ export function RadarCloudMap({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onDoubleClick={handleDoubleClick}
           onWheel={handleWheel}
           className={`w-full h-full select-none transition-all duration-200 ease-out ${
             isDragging ? "cursor-grabbing" : zoomLevel > 1 ? "cursor-grab" : "cursor-default"
