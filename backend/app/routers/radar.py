@@ -116,13 +116,10 @@ async def get_radar_cloud_clusters():
     Includes physical radar contour radii, intensity dBZ, and historical trajectory waypoints.
     """
     clusters = []
+    source = "live_cache"
     try:
-        from app.services.tmd_radar.processor import TMDRadarProcessor
-        from app.services.tmd_radar_registry import radar_registry
-        
-        processor = TMDRadarProcessor()
         async with get_repo_context() as repo:
-            # Check cached radar frames for major active stations (e.g. kkn240, skn240, ubn240, svp240)
+            # Check cached radar frames for major active stations (e.g. kkn240, skn240, ubn240, svp240, chn)
             active_codes = ["kkn240", "skn240", "ubn240", "svp240", "chn"]
             for code in active_codes:
                 try:
@@ -136,8 +133,9 @@ async def get_radar_cloud_clusters():
     except Exception as ex:
         logger.error(f"Error extracting radar clusters: {ex}")
 
-    # Fallback to realistic contour clusters if cache is cold
+    # Fallback to realistic nationwide contour clusters if live cache is cold
     if not clusters:
+        source = "baseline_mock"
         clusters = [
             {
                 "id": "cluster-kkn-storm",
@@ -165,10 +163,6 @@ async def get_radar_cloud_clusters():
                         "intensity_dbz": 52.0,
                         "velocity_kmh": 36.0,
                         "heading_deg": 72,
-                        "history_trajectory": [
-                            { "time_offset_min": -15, "lat": 15.85, "lng": 102.88, "dbz": 49.5 },
-                            { "time_offset_min": -5, "lat": 16.12, "lng": 103.12, "dbz": 51.5 },
-                        ],
                     },
                     {
                         "id": "sub-kkn-borabue",
@@ -179,105 +173,167 @@ async def get_radar_cloud_clusters():
                         "intensity_dbz": 46.5,
                         "velocity_kmh": 32.0,
                         "heading_deg": 80,
-                        "history_trajectory": [
-                            { "time_offset_min": -15, "lat": 15.68, "lng": 102.72, "dbz": 43.0 },
-                            { "time_offset_min": -5, "lat": 15.90, "lng": 102.98, "dbz": 45.0 },
-                        ],
-                    },
-                    {
-                        "id": "sub-kkn-kosum",
-                        "label": "อ.โกสุมพิสัย (Cell C)",
-                        "lat": 16.25,
-                        "lng": 103.06,
-                        "radius": 11,
-                        "intensity_dbz": 41.0,
-                        "velocity_kmh": 34.0,
-                        "heading_deg": 65,
-                        "history_trajectory": [
-                            { "time_offset_min": -15, "lat": 15.92, "lng": 102.65, "dbz": 38.0 },
-                            { "time_offset_min": -5, "lat": 16.18, "lng": 102.88, "dbz": 40.0 },
-                        ],
                     },
                 ],
             },
             {
-                "id": "cluster-skn-band",
-                "label": "Nakhon Phanom Rain Band",
-                "lat": 17.48,
-                "lng": 104.75,
-                "radius": 19,
-                "intensity_dbz": 38.0,
-                "velocity_kmh": 28.0,
-                "heading_deg": 115,
+                "id": "cluster-cmi-north",
+                "label": "Chiang Mai Valley Storm",
+                "lat": 18.78,
+                "lng": 98.98,
+                "radius": 18,
+                "intensity_dbz": 48.0,
+                "velocity_kmh": 26.0,
+                "heading_deg": 45,
+                "eta_min": 20,
+                "history_trajectory": [
+                    { "time_offset_min": -45, "lat": 18.45, "lng": 98.60, "dbz": 38.0 },
+                    { "time_offset_min": -30, "lat": 18.58, "lng": 98.72, "dbz": 42.0 },
+                    { "time_offset_min": -15, "lat": 18.68, "lng": 98.85, "dbz": 45.5 },
+                    { "time_offset_min": -5, "lat": 18.75, "lng": 98.94, "dbz": 47.5 },
+                ],
+                "sub_clusters": [
+                    {
+                        "id": "sub-cmi-hangdong",
+                        "label": "อ.หางดง (South Core)",
+                        "lat": 18.68,
+                        "lng": 98.92,
+                        "radius": 11,
+                        "intensity_dbz": 48.0,
+                        "velocity_kmh": 27.0,
+                        "heading_deg": 42,
+                    },
+                    {
+                        "id": "sub-cmi-sansai",
+                        "label": "อ.สันทราย (North Flank)",
+                        "lat": 18.86,
+                        "lng": 99.04,
+                        "radius": 10,
+                        "intensity_dbz": 43.0,
+                        "velocity_kmh": 25.0,
+                        "heading_deg": 48,
+                    },
+                ],
+            },
+            {
+                "id": "cluster-bkk-central",
+                "label": "Bangkok Metro Rain Band",
+                "lat": 13.82,
+                "lng": 100.60,
+                "radius": 20,
+                "intensity_dbz": 44.5,
+                "velocity_kmh": 22.0,
+                "heading_deg": 85,
+                "eta_min": 10,
+                "history_trajectory": [
+                    { "time_offset_min": -45, "lat": 13.75, "lng": 99.95, "dbz": 35.0 },
+                    { "time_offset_min": -30, "lat": 13.78, "lng": 100.18, "dbz": 39.0 },
+                    { "time_offset_min": -15, "lat": 13.80, "lng": 100.42, "dbz": 42.0 },
+                    { "time_offset_min": -5, "lat": 13.81, "lng": 100.55, "dbz": 44.0 },
+                ],
+                "sub_clusters": [
+                    {
+                        "id": "sub-bkk-chatuchak",
+                        "label": "เขตจตุจักร-บางเขน",
+                        "lat": 13.84,
+                        "lng": 100.58,
+                        "radius": 12,
+                        "intensity_dbz": 44.5,
+                        "velocity_kmh": 23.0,
+                        "heading_deg": 82,
+                    },
+                    {
+                        "id": "sub-bkk-bangna",
+                        "label": "เขตบางนา-ประเวศ",
+                        "lat": 13.68,
+                        "lng": 100.64,
+                        "radius": 10,
+                        "intensity_dbz": 40.0,
+                        "velocity_kmh": 21.0,
+                        "heading_deg": 88,
+                    },
+                ],
+            },
+            {
+                "id": "cluster-ryg-east",
+                "label": "Rayong Coastal Front",
+                "lat": 12.75,
+                "lng": 101.40,
+                "radius": 18,
+                "intensity_dbz": 41.0,
+                "velocity_kmh": 30.0,
+                "heading_deg": 30,
                 "eta_min": 25,
                 "history_trajectory": [
-                    { "time_offset_min": -45, "lat": 17.98, "lng": 103.70, "dbz": 32.0 },
-                    { "time_offset_min": -30, "lat": 17.68, "lng": 103.95, "dbz": 35.0 },
-                    { "time_offset_min": -15, "lat": 17.85, "lng": 104.35, "dbz": 37.0 },
-                    { "time_offset_min": -5, "lat": 17.58, "lng": 104.58, "dbz": 37.8 },
+                    { "time_offset_min": -45, "lat": 12.35, "lng": 101.15, "dbz": 33.0 },
+                    { "time_offset_min": -30, "lat": 12.50, "lng": 101.25, "dbz": 36.5 },
+                    { "time_offset_min": -15, "lat": 12.65, "lng": 101.32, "dbz": 39.0 },
+                    { "time_offset_min": -5, "lat": 12.72, "lng": 101.38, "dbz": 40.5 },
                 ],
                 "sub_clusters": [
                     {
-                        "id": "sub-skn-thatphanom",
-                        "label": "อ.ธาตุพนม (Rainband South)",
-                        "lat": 16.94,
-                        "lng": 104.71,
-                        "radius": 11,
-                        "intensity_dbz": 38.0,
-                        "velocity_kmh": 29.0,
-                        "heading_deg": 120,
+                        "id": "sub-ryg-mueang",
+                        "label": "อ.เมืองระยอง (Coast A)",
+                        "lat": 12.68,
+                        "lng": 101.28,
+                        "radius": 10,
+                        "intensity_dbz": 41.0,
+                        "velocity_kmh": 31.0,
+                        "heading_deg": 28,
                     },
                     {
-                        "id": "sub-skn-mueang",
-                        "label": "อ.เมืองนครพนม (Rainband North)",
-                        "lat": 17.40,
-                        "lng": 104.78,
-                        "radius": 12,
-                        "intensity_dbz": 35.5,
-                        "velocity_kmh": 26.5,
-                        "heading_deg": 110,
+                        "id": "sub-ryg-klaeng",
+                        "label": "อ.แกลง (Inland B)",
+                        "lat": 12.82,
+                        "lng": 101.52,
+                        "radius": 9,
+                        "intensity_dbz": 37.5,
+                        "velocity_kmh": 29.0,
+                        "heading_deg": 32,
                     },
                 ],
             },
             {
-                "id": "cluster-south-cell",
-                "label": "Buriram Inbound Cell",
-                "lat": 14.72,
-                "lng": 102.95,
-                "radius": 17,
-                "intensity_dbz": 42.5,
-                "velocity_kmh": 24.0,
-                "heading_deg": 60,
-                "eta_min": 35,
+                "id": "cluster-srt-south",
+                "label": "Surat Thani Monsoon Cell",
+                "lat": 9.15,
+                "lng": 99.35,
+                "radius": 19,
+                "intensity_dbz": 49.5,
+                "velocity_kmh": 32.0,
+                "heading_deg": 65,
+                "eta_min": 15,
                 "history_trajectory": [
-                    { "time_offset_min": -45, "lat": 14.15, "lng": 102.20, "dbz": 36.0 },
-                    { "time_offset_min": -30, "lat": 14.65, "lng": 102.35, "dbz": 38.5 },
-                    { "time_offset_min": -15, "lat": 14.35, "lng": 102.70, "dbz": 40.5 },
-                    { "time_offset_min": -5, "lat": 14.60, "lng": 102.88, "dbz": 41.8 },
+                    { "time_offset_min": -45, "lat": 8.85, "lng": 98.75, "dbz": 40.0 },
+                    { "time_offset_min": -30, "lat": 8.95, "lng": 98.98, "dbz": 43.5 },
+                    { "time_offset_min": -15, "lat": 9.05, "lng": 99.18, "dbz": 47.0 },
+                    { "time_offset_min": -5, "lat": 9.12, "lng": 99.30, "dbz": 49.0 },
                 ],
                 "sub_clusters": [
                     {
-                        "id": "sub-brm-prakhonchai",
-                        "label": "อ.ประโคนชัย (Front Core)",
-                        "lat": 14.62,
-                        "lng": 103.12,
+                        "id": "sub-srt-phunphin",
+                        "label": "อ.พุนพิน (Core)",
+                        "lat": 9.12,
+                        "lng": 99.24,
                         "radius": 11,
-                        "intensity_dbz": 42.5,
-                        "velocity_kmh": 25.0,
-                        "heading_deg": 58,
+                        "intensity_dbz": 49.5,
+                        "velocity_kmh": 33.0,
+                        "heading_deg": 63,
                     },
                     {
-                        "id": "sub-brm-nangrong",
-                        "label": "อ.นางรอง (Rear Flank)",
-                        "lat": 14.63,
-                        "lng": 102.78,
+                        "id": "sub-srt-donsek",
+                        "label": "อ.ดอนสัก (Gulf Flank)",
+                        "lat": 9.28,
+                        "lng": 99.52,
                         "radius": 10,
-                        "intensity_dbz": 39.0,
-                        "velocity_kmh": 23.0,
-                        "heading_deg": 64,
+                        "intensity_dbz": 44.0,
+                        "velocity_kmh": 31.0,
+                        "heading_deg": 68,
                     },
                 ],
             },
         ]
+    
+    logger.info(f"📡 [GET /api/v1/radar/clusters] Serving {len(clusters)} cloud clusters (source={source}) to Web Frontend")
 
     return {"clusters": clusters}

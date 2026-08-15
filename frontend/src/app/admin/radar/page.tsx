@@ -822,25 +822,49 @@ export default function AdminRadarPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Stations</span>
-            <div className="text-3xl font-extrabold text-white mt-1">{stations.length || 13}</div>
+            <div className="text-3xl font-extrabold text-white mt-1">
+              {tableLoading ? (
+                <div className="h-8 w-12 bg-slate-800 rounded animate-pulse my-0.5" />
+              ) : (
+                stations.length || 13
+              )}
+            </div>
           </div>
           <div className="bg-emerald-950/20 border border-emerald-800/40 rounded-2xl p-4">
             <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5" /> Online (&lt;30m)
             </span>
-            <div className="text-3xl font-extrabold text-emerald-300 mt-1">{onlineCount || 13}</div>
+            <div className="text-3xl font-extrabold text-emerald-300 mt-1">
+              {tableLoading ? (
+                <div className="h-8 w-12 bg-emerald-900/40 rounded animate-pulse my-0.5" />
+              ) : (
+                onlineCount
+              )}
+            </div>
           </div>
           <div className="bg-amber-950/20 border border-amber-800/40 rounded-2xl p-4">
             <span className="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5" /> Delayed
             </span>
-            <div className="text-3xl font-extrabold text-amber-300 mt-1">{delayedCount}</div>
+            <div className="text-3xl font-extrabold text-amber-300 mt-1">
+              {tableLoading ? (
+                <div className="h-8 w-12 bg-amber-900/40 rounded animate-pulse my-0.5" />
+              ) : (
+                delayedCount
+              )}
+            </div>
           </div>
           <div className="bg-rose-950/20 border border-rose-800/40 rounded-2xl p-4">
             <span className="text-xs font-semibold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
               <XCircle className="w-3.5 h-3.5" /> Offline
             </span>
-            <div className="text-3xl font-extrabold text-rose-300 mt-1">{offlineCount}</div>
+            <div className="text-3xl font-extrabold text-rose-300 mt-1">
+              {tableLoading ? (
+                <div className="h-8 w-12 bg-rose-900/40 rounded animate-pulse my-0.5" />
+              ) : (
+                offlineCount
+              )}
+            </div>
           </div>
         </div>
 
@@ -954,6 +978,110 @@ export default function AdminRadarPage() {
               }}
             />
           )}
+        </section>
+
+        {/* Section 2.5: Nationwide Real Radar Imagery vs SVG Contour Verification Gallery */}
+        <section className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <Radio className="w-5 h-5 text-cyan-400" />
+                ภาพเรดาร์ตรวจอากาศจริง 13 สถานีทั่วประเทศ vs ขอบเขตกลุ่มฝนที่สกัดได้ (Live Radar Contour Verification)
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                เปรียบเทียบภาพเรดาร์จริง (TMD Raw Frames) กับรัศมีและกลุ่มฝนที่ระบบสกัดได้ เพื่อตรวจสอบความถูกต้องของการตรวจจับแบบ Real-Time
+              </p>
+            </div>
+            <div className="text-xs text-slate-400 bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span>คลิกที่การ์ดเพื่อเลือกสถานีไปปรับจูนได้ทันที</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pt-2">
+            {(stations.length > 0 ? stations : DEFAULT_STATIONS)
+              .filter((s) => s.code !== "kkn120")
+              .map((st) => {
+                const stStatus = stationStatuses.find((s) => s.code === st.code);
+                const isSelected = code === st.code;
+                const stationClusters = (liveClusters.length > 0 ? liveClusters : DEMO_CLUSTERS).filter((c) => {
+                  if (c.lat === undefined || c.lng === undefined) return false;
+                  const dist = Math.hypot(c.lat - st.center_lat, c.lng - st.center_lng);
+                  return dist <= 2.2; // approx within 240km
+                });
+
+                return (
+                  <div
+                    key={st.code}
+                    onClick={() => {
+                      const found = stations.find((s) => s.code === st.code);
+                      if (found) handleSelectStation(found);
+                    }}
+                    className={`group relative flex flex-col rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${
+                      isSelected
+                        ? "bg-slate-900 border-sky-500 shadow-lg shadow-sky-500/10 ring-1 ring-sky-500"
+                        : "bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/80"
+                    }`}
+                  >
+                    {/* Header */}
+                    <div className="p-3 bg-slate-900/90 border-b border-slate-800/80 flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                            stStatus?.status === "online"
+                              ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                              : stStatus?.status === "delayed"
+                              ? "bg-amber-400"
+                              : "bg-rose-400"
+                          }`}
+                        />
+                        <span className="text-xs font-bold text-slate-200 truncate">{st.name.split("/")[0]}</span>
+                      </div>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-sky-400 font-semibold uppercase">
+                        {st.code}
+                      </span>
+                    </div>
+
+                    {/* Image Preview with Contour Tag Overlay */}
+                    <div className="relative aspect-square w-full bg-slate-950 flex items-center justify-center overflow-hidden">
+                      <img
+                        src={(st as any).static_image_url || (st as any).image_url || `https://weather.tmd.go.th/${st.code.replace(/240|120/, '')}/${st.code.replace(/240|120/, '')}240_latest.gif`}
+                        alt={st.name}
+                        className="w-full h-full object-contain filter group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = "none";
+                        }}
+                      />
+                      
+                      {/* Live Rain Detected Badge */}
+                      {stationClusters.length > 0 ? (
+                        <div className="absolute bottom-2 left-2 right-2 bg-slate-950/90 backdrop-blur border border-emerald-500/40 rounded-xl p-2 text-xs flex items-center justify-between shadow-lg">
+                          <div className="flex items-center gap-1.5 text-emerald-300 font-medium">
+                            <CloudRain className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
+                            <span>ตรวจพบฝน {stationClusters.length} กลุ่ม</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 px-1.5 py-0.5 rounded">
+                            {Math.max(...stationClusters.map((c) => c.intensity_dbz)).toFixed(0)} dBZ
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="absolute bottom-2 left-2 bg-slate-950/80 backdrop-blur border border-slate-800 rounded-lg px-2 py-1 text-[10px] text-slate-400">
+                          ☀️ ท้องฟ้าแจ่มใส / ไม่มีกลุ่มฝน
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer Info */}
+                    <div className="p-2.5 bg-slate-900/40 text-[11px] text-slate-400 flex items-center justify-between border-t border-slate-800/60">
+                      <span>รัศมี {st.radius_km} km</span>
+                      <span className="text-[10px] text-slate-500">
+                        {stStatus?.last_frame_timestamp ? new Date(stStatus.last_frame_timestamp).toLocaleTimeString() : "สด"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
         </section>
 
         {/* Section 3: Fine-Tuning & Live Image Calibration Panel */}

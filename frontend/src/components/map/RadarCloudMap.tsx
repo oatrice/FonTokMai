@@ -380,8 +380,8 @@ export function RadarCloudMap({
               <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
             </radialGradient>
             {/* Arrow Marker for Heading */}
-            <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8" />
+            <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+              <path d="M 0 1 L 11 6 L 0 11 L 3 6 z" fill="#38bdf8" stroke="#ffffff" strokeWidth="0.8" />
             </marker>
           </defs>
 
