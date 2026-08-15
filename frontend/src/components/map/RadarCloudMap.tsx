@@ -421,32 +421,26 @@ export function RadarCloudMap({
                   />
                 )}
 
-                {/* High Contrast Center Badge for dBZ (DarkReader-safe solid dark background) */}
+                {/* Direct Crisp dBZ Number (Dark bold text with crisp white outline) */}
                 {showDbzLabels && (
-                  <g className="pointer-events-none select-none">
-                    <circle
-                      cx={clusterPos.x}
-                      cy={clusterPos.y}
-                      r={13}
-                      fill="#030712"
-                      stroke={dbzColor}
-                      strokeWidth="2.5"
-                      style={{ fill: "#030712", fillOpacity: 1 }}
-                    />
-
-                    {/* Crisp dBZ Number with explicit bright styling */}
-                    <text
-                      x={clusterPos.x}
-                      y={clusterPos.y + 3.5}
-                      textAnchor="middle"
-                      fill="#38bdf8"
-                      fontSize="10.5"
-                      fontWeight="900"
-                      style={{ fill: "#38bdf8", color: "#38bdf8" }}
-                    >
-                      {cluster.intensity_dbz.toFixed(0)}
-                    </text>
-                  </g>
+                  <text
+                    x={clusterPos.x}
+                    y={clusterPos.y + 3.5}
+                    textAnchor="middle"
+                    fill="#090d16"
+                    fontSize="11.5"
+                    fontWeight="900"
+                    style={{
+                      fill: "#090d16",
+                      paintOrder: "stroke fill",
+                      stroke: "#ffffff",
+                      strokeWidth: "2.2px",
+                      strokeLinejoin: "round",
+                    }}
+                    className="pointer-events-none select-none drop-shadow-sm"
+                  >
+                    {cluster.intensity_dbz.toFixed(0)}
+                  </text>
                 )}
               </g>
             );
