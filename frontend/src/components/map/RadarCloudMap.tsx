@@ -374,6 +374,27 @@ export function RadarCloudMap({
           aria-label="Radar Coverage Map"
         >
           <defs>
+            {/* Telegram-style Multi-Layer Neon Glow Filter */}
+            <filter id="neonGlowRed" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur1" />
+              <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur2" />
+              <feMerge>
+                <feMergeNode in="blur1" />
+                <feMergeNode in="blur2" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+
+            <filter id="neonGlowPurple" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur1" />
+              <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="blur2" />
+              <feMerge>
+                <feMergeNode in="blur1" />
+                <feMergeNode in="blur2" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+
             {/* Grid Radial Overlay */}
             <radialGradient id="radarScanGlow" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.12" />
@@ -542,19 +563,58 @@ export function RadarCloudMap({
                       onMouseEnter={() => setHoveredCluster(cluster)}
                       onMouseLeave={() => setHoveredCluster(null)}
                     >
-                      {/* Cloud Cluster Body (Semi-transparent radar reflection) */}
-                      {showCloudClusters && (
-                        <circle
-                          cx={clusterPos.x}
-                          cy={clusterPos.y}
-                          r={cluster.radius * 0.85}
-                          fill={dbzColor}
-                          fillOpacity={isActive ? 0.95 : 0.75}
-                          stroke={isPinned ? "#38bdf8" : isChildCell ? "#c084fc" : "#ffffff"}
-                          strokeWidth={isActive ? 2.8 : 1.5}
-                          className="transition-all duration-300"
-                        />
-                      )}
+                      {/* Telegram-style Multi-Pass Neon Glow Contour & Organic Body */}
+                      {showCloudClusters && (() => {
+                        const r = cluster.radius * 0.85;
+                        const contourColor = isPinned ? "#38bdf8" : isChildCell ? "#c084fc" : dbzColor;
+                        
+                        // Generate organic natural cloud contour polygon (8-vertex perturbation)
+                        const vertices = 8;
+                        const polyPts: string[] = [];
+                        for (let i = 0; i < vertices; i++) {
+                          const angle = (i / vertices) * Math.PI * 2;
+                          // Perturb radius slightly by 10-15% based on vertex index for realistic cloud contour shape
+                          const noiseFactor = 1 + Math.sin(i * 2.5 + (cluster.id.charCodeAt(cluster.id.length - 1) % 5)) * 0.12;
+                          const vx = clusterPos.x + Math.cos(angle) * (r * noiseFactor);
+                          const vy = clusterPos.y + Math.sin(angle) * (r * noiseFactor);
+                          polyPts.push(`${vx.toFixed(1)},${vy.toFixed(1)}`);
+                        }
+                        const polyPathD = `M ${polyPts.join(" L ")} Z`;
+
+                        return (
+                          <g className="transition-all duration-300">
+                            {/* Layer 1: Semi-transparent Fill (alpha 40%) */}
+                            <path
+                              d={polyPathD}
+                              fill={contourColor}
+                              fillOpacity={isActive ? 0.45 : 0.30}
+                              className="transition-all duration-300"
+                            />
+
+                            {/* Layer 2: Multi-Pass Neon Glow Border (Gaussian Glow) */}
+                            <path
+                              d={polyPathD}
+                              fill="none"
+                              stroke={contourColor}
+                              strokeWidth={isActive ? 5.5 : 3.5}
+                              strokeOpacity={0.65}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              filter={isChildCell ? "url(#neonGlowPurple)" : "url(#neonGlowRed)"}
+                            />
+
+                            {/* Layer 3: Sharp Inner Border Core */}
+                            <path
+                              d={polyPathD}
+                              fill="none"
+                              stroke={isPinned ? "#ffffff" : isChildCell ? "#f3e8ff" : "#ffffff"}
+                              strokeWidth={isActive ? 1.8 : 1.2}
+                              strokeOpacity={0.95}
+                              strokeLinejoin="round"
+                            />
+                          </g>
+                        );
+                      })()}
 
                       {/* Direct Crisp dBZ Number (Dark bold text with crisp white outline) */}
                       {showDbzLabels && (

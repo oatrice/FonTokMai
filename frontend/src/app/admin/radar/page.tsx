@@ -1071,8 +1071,20 @@ export default function AdminRadarPage() {
                         className="w-full h-full object-contain filter group-hover:scale-105 transition-transform duration-300"
                       />
 
-                      {/* SVG Contour & Vector Overlay directly on radar image */}
+                      {/* SVG Contour & Vector Overlay directly on radar image (Telegram-style Neon) */}
                       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100">
+                        <defs>
+                          <filter id={`neonGlowGal-${st.code}`} x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="blur1" />
+                            <feGaussianBlur in="SourceGraphic" stdDeviation="0.8" result="blur2" />
+                            <feMerge>
+                              <feMergeNode in="blur1" />
+                              <feMergeNode in="blur2" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                        </defs>
+
                         {/* Station Center Indicator */}
                         <circle cx="50" cy="50" r="1.5" fill="#38bdf8" stroke="#ffffff" strokeWidth="0.5" />
                         <circle cx="50" cy="50" r="45" fill="none" stroke="#38bdf8" strokeWidth="0.5" strokeDasharray="2 2" strokeOpacity="0.4" />
@@ -1085,48 +1097,56 @@ export default function AdminRadarPage() {
                           const normY = 50 - (dLat / 2.2) * 45;
                           const normR = Math.max(3, (cl.radius / 24) * 8);
 
+                          // Generate organic polygon path
+                          const vertices = 8;
+                          const polyPts: string[] = [];
+                          for (let i = 0; i < vertices; i++) {
+                            const angle = (i / vertices) * Math.PI * 2;
+                            const noiseFactor = 1 + Math.sin(i * 2.5 + (cl.id.charCodeAt(cl.id.length - 1) % 5)) * 0.15;
+                            const vx = normX + Math.cos(angle) * (normR * noiseFactor);
+                            const vy = normY + Math.sin(angle) * (normR * noiseFactor);
+                            polyPts.push(`${vx.toFixed(1)},${vy.toFixed(1)}`);
+                          }
+                          const polyD = `M ${polyPts.join(" L ")} Z`;
+
                           return (
                             <g key={cl.id}>
-                              {/* Glowing Contour Circle */}
-                              <circle
-                                cx={normX}
-                                cy={normY}
-                                r={normR}
+                              {/* Layer 1: Semi-transparent Fill */}
+                              <path d={polyD} fill="#f43f5e" fillOpacity="0.35" />
+                              
+                              {/* Layer 2: Glowing Multi-Pass Neon Border */}
+                              <path d={polyD} fill="none" stroke="#f43f5e" strokeWidth="2.2" strokeOpacity="0.8" strokeLinejoin="round" filter={`url(#neonGlowGal-${st.code})`} />
+
+                              {/* Layer 3: Sharp Inner White Core */}
+                              <path
+                                d={polyD}
                                 fill="none"
-                                stroke="#f43f5e"
-                                strokeWidth="1.2"
-                                strokeDasharray="3 1.5"
-                                className="filter drop-shadow-[0_0_4px_#f43f5e]"
-                              />
-                              <circle
-                                cx={normX}
-                                cy={normY}
-                                r={normR * 0.5}
-                                fill="#f59e0b"
-                                fillOpacity="0.4"
                                 stroke="#ffffff"
-                                strokeWidth="0.6"
+                                strokeWidth="0.8"
+                                strokeOpacity="0.95"
+                                strokeLinejoin="round"
                               />
-                              {/* Velocity Heading Vector */}
+
+                              {/* Velocity Heading Vector Arrow */}
                               {(() => {
                                 const rad = ((cl.heading_deg ?? 90) - 90) * (Math.PI / 180);
                                 const tox = normX + Math.cos(rad) * 7;
                                 const toy = normY + Math.sin(rad) * 7;
                                 return (
-                                  <line
-                                    x1={normX}
-                                    y1={normY}
-                                    x2={tox}
-                                    y2={toy}
-                                    stroke="#38bdf8"
-                                    strokeWidth="1.2"
-                                  />
-                                );
-                              })()}
-                            </g>
-                          );
-                        })}
-                      </svg>
+                                    <line
+                                      x1={normX}
+                                      y1={normY}
+                                      x2={tox}
+                                      y2={toy}
+                                      stroke="#38bdf8"
+                                      strokeWidth="1.2"
+                                    />
+                                  );
+                                })()}
+                              </g>
+                            );
+                          })}
+                        </svg>
                       
                       {/* Live Rain Detected Badge */}
                       {stationClusters.length > 0 ? (
@@ -1202,8 +1222,20 @@ export default function AdminRadarPage() {
                   className="w-full h-full max-h-[65vh] object-contain"
                 />
 
-                {/* SVG Overlay on Full Image */}
+                {/* SVG Overlay on Full Image (Telegram-style Multi-Pass Neon) */}
                 <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100">
+                  <defs>
+                    <filter id="modalNeonGlow" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="blur1" />
+                      <feGaussianBlur in="SourceGraphic" stdDeviation="1.0" result="blur2" />
+                      <feMerge>
+                        <feMergeNode in="blur1" />
+                        <feMergeNode in="blur2" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+
                   <circle cx="50" cy="50" r="1.5" fill="#38bdf8" stroke="#ffffff" strokeWidth="0.5" />
                   <circle cx="50" cy="50" r="45" fill="none" stroke="#38bdf8" strokeWidth="0.6" strokeDasharray="3 3" strokeOpacity="0.5" />
 
@@ -1219,35 +1251,53 @@ export default function AdminRadarPage() {
                       const normY = 50 - (dLat / 2.2) * 45;
                       const normR = Math.max(3.5, (cl.radius / 24) * 8);
 
+                      // Organic polygon contour matching real radar rain formation
+                      const vertices = 8;
+                      const polyPts: string[] = [];
+                      for (let i = 0; i < vertices; i++) {
+                        const angle = (i / vertices) * Math.PI * 2;
+                        const noiseFactor = 1 + Math.sin(i * 2.5 + (cl.id.charCodeAt(cl.id.length - 1) % 5)) * 0.15;
+                        const vx = normX + Math.cos(angle) * (normR * noiseFactor);
+                        const vy = normY + Math.sin(angle) * (normR * noiseFactor);
+                        polyPts.push(`${vx.toFixed(1)},${vy.toFixed(1)}`);
+                      }
+                      const polyD = `M ${polyPts.join(" L ")} Z`;
+
                       return (
                         <g key={cl.id}>
-                          <circle
-                            cx={normX}
-                            cy={normY}
-                            r={normR}
+                          {/* Layer 1: Semi-transparent Inner Area */}
+                          <path d={polyD} fill="#f43f5e" fillOpacity="0.35" />
+                          
+                          {/* Layer 2: Glowing Multi-Pass Neon Border */}
+                          <path
+                            d={polyD}
                             fill="none"
                             stroke="#f43f5e"
-                            strokeWidth="1.2"
-                            strokeDasharray="3 1.5"
-                            className="filter drop-shadow-[0_0_6px_#f43f5e]"
+                            strokeWidth="2.4"
+                            strokeOpacity="0.85"
+                            strokeLinejoin="round"
+                            filter="url(#modalNeonGlow)"
                           />
-                          <circle
-                            cx={normX}
-                            cy={normY}
-                            r={normR * 0.4}
-                            fill="#f59e0b"
-                            fillOpacity="0.5"
+
+                          {/* Layer 3: Sharp Inner White Core */}
+                          <path
+                            d={polyD}
+                            fill="none"
                             stroke="#ffffff"
-                            strokeWidth="0.6"
+                            strokeWidth="0.9"
+                            strokeOpacity="0.95"
+                            strokeLinejoin="round"
                           />
+
+                          {/* dBZ Label Badge */}
                           <text
                             x={normX}
-                            y={normY - normR - 1.5}
+                            y={normY - normR - 1.8}
                             textAnchor="middle"
                             fill="#ffffff"
                             fontSize="2.8"
                             fontWeight="bold"
-                            style={{ paintOrder: "stroke fill", stroke: "#000000", strokeWidth: "0.6px" }}
+                            style={{ paintOrder: "stroke fill", stroke: "#000000", strokeWidth: "0.8px" }}
                           >
                             {cl.label.split(" ")[0]} ({cl.intensity_dbz.toFixed(0)} dBZ)
                           </text>
