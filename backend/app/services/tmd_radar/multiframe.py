@@ -14,7 +14,10 @@ from zoneinfo import ZoneInfo
 from typing import List, Tuple, Optional
 from app.dependencies import get_repo_context
 from app.services.ocr_service import OCRService
-from google.cloud import storage
+try:
+    from google.cloud import storage
+except Exception:
+    storage = None
 from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING, IGNORED_COLORS
 
 logger = logging.getLogger(__name__)

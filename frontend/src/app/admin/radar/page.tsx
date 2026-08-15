@@ -278,6 +278,8 @@ export default function AdminRadarPage() {
   const calibrationSectionRef = useRef<HTMLDivElement>(null);
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
+  const [liveClusters, setLiveClusters] = useState<CloudCluster[]>([]);
+
   // Fetch DB Stations, Live Statuses and Presets
   const fetchAllData = useCallback(async () => {
     setTableLoading(true);
@@ -295,6 +297,9 @@ export default function AdminRadarPage() {
       if (statusRes.ok) {
         const stData = await statusRes.json();
         setStationStatuses(stData.stations || []);
+        if (stData.clusters && Array.isArray(stData.clusters) && stData.clusters.length > 0) {
+          setLiveClusters(stData.clusters);
+        }
       }
       if (presetsRes.ok) {
         const prData = await presetsRes.json();
@@ -939,7 +944,7 @@ export default function AdminRadarPage() {
                     };
                   })
               }
-              clusters={DEMO_CLUSTERS}
+              clusters={liveClusters.length > 0 ? liveClusters : DEMO_CLUSTERS}
               selectedStationCode={code}
               onSelectStation={(st) => {
                 const found = stations.find((s) => s.code === st.code);

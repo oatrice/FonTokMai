@@ -3,10 +3,25 @@ import { NextResponse } from "next/server";
 export async function GET() {
   const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
   try {
-    const res = await fetch(`${backendUrl}/api/v1/radar/stations`, { cache: "no-store" });
-    if (res.ok) {
-      const data = await res.json();
-      return NextResponse.json(data);
+    const [resStations, resClusters] = await Promise.allSettled([
+      fetch(`${backendUrl}/api/v1/radar/stations`, { cache: "no-store" }),
+      fetch(`${backendUrl}/api/v1/radar/clusters`, { cache: "no-store" }),
+    ]);
+
+    let stations = null;
+    let clusters = null;
+
+    if (resStations.status === "fulfilled" && resStations.value.ok) {
+      const data = await resStations.value.json();
+      stations = data.stations;
+    }
+    if (resClusters.status === "fulfilled" && resClusters.value.ok) {
+      const data = await resClusters.value.json();
+      clusters = data.clusters;
+    }
+
+    if (stations) {
+      return NextResponse.json({ stations, clusters });
     }
   } catch (e) {
     console.error("❌ [API Proxy /api/admin/radar] Backend error:", e);
