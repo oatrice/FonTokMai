@@ -1639,23 +1639,26 @@ class TMDTrackingMixin:
 
 
     @staticmethod
-    def draw_pin_on_frame(img: np.ndarray, x: int, y: int) -> None:
-        """Draws the blue location pin on the image at the specified pixel coordinates."""
+    def draw_pin_on_frame(img: np.ndarray, x: int, y: int, scale: float = 1.0) -> None:
+        """Draws the user location pin on the image identical to radar_tracking style."""
         if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
             return
-            
-        overlay = img.copy()
-        
-        # White halo for contrast
-        cv2.circle(overlay, (x, y), radius=14, color=(255, 255, 255), thickness=5)
-        cv2.circle(overlay, (x, y), radius=20, color=(255, 255, 255), thickness=3)
-        # Blue target body. The frame data is RGB, so this must be RGB blue.
-        color = (0, 0, 255)
-        cv2.circle(overlay, (x, y), radius=12, color=color, thickness=4)
-        cv2.drawMarker(overlay, (x, y), color=color, markerType=cv2.MARKER_CROSS, markerSize=24, thickness=4)
-        
-        # Apply semi-transparent overlay (alpha = 0.6)
-        cv2.addWeighted(overlay, 0.6, img, 0.4, 0, img)
+
+        import math
+        from app.services.weather_manager import _DEV_CONFIG
+
+        # 1. Dashed hit-radius circle (Orange: (0, 165, 255))
+        hit_r = int(_DEV_CONFIG.get("hit_radius", 8) * scale)
+        for angle_deg in range(0, 360, 15):
+            a1 = math.radians(angle_deg)
+            a2 = math.radians(angle_deg + 8)
+            p1 = (int(x + hit_r * math.cos(a1)), int(y + hit_r * math.sin(a1)))
+            p2 = (int(x + hit_r * math.cos(a2)), int(y + hit_r * math.sin(a2)))
+            cv2.line(img, p1, p2, (0, 165, 255), max(1, int(1.2 * scale)))
+
+        # 2. Central target crosshair & core point (Matching tracking pin with white halo & orange/red core)
+        cv2.circle(img, (int(x), int(y)), max(3, int(4 * scale)), (0, 0, 0), -1)
+        cv2.circle(img, (int(x), int(y)), max(2, int(2.5 * scale)), (0, 165, 255), -1)
 
     @staticmethod
     def _resolve_label_collisions(labels, obstacles, img_w, img_h, iterations=60):

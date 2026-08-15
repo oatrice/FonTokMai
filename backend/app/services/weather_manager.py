@@ -1430,11 +1430,13 @@ class WeatherManager:
                 def render_hq_png(target_frame, pin_x, pin_y, time_utc, proc):
                     from PIL import Image, ImageFont, ImageDraw
                     import io
-                    # Copy to avoid mutating original for future tasks
-                    cf = target_frame.copy()
-                    proc.draw_pin_on_frame(cf, pin_x, pin_y)
-                    img_orig = Image.fromarray(cf)
-                    img_hq = img_orig.resize((int(img_orig.width * 3.0), int(img_orig.height * 3.0)), Image.Resampling.NEAREST)
+                    import cv2
+                    # Scale to 3x first (LANCZOS4 or NEAREST)
+                    scale = 3.0
+                    img_hq_cv = cv2.resize(target_frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
+                    # Draw location pin identical to radar_tracking
+                    proc.draw_pin_on_frame(img_hq_cv, int(pin_x * scale), int(pin_y * scale), scale=scale)
+                    img_hq = Image.fromarray(img_hq_cv)
 
                     # Add IDC timestamp overlay
                     time_str = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
