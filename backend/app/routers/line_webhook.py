@@ -222,6 +222,8 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
             chat_id=user_id
         )
         
+        show_advanced = (cmd_name == "/rain_pro")
+
         formatted_res = build_formatted_forecast(
             result,
             cmd_name=cmd_name,
@@ -229,7 +231,7 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
             location_name=loc_display
         )
         
-        if actual_endpoint == "error":
+        if formatted_res.actual_endpoint == "error":
             reply_to_line(reply_token, [TextMessage(text="⚠️ ขออภัย ไม่สามารถเชื่อมต่อกับระบบพยากรณ์ฝนได้ในขณะนี้\nกรุณาลองใหม่อีกครั้งในภายหลัง")])
             return
             

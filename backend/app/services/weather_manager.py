@@ -1474,6 +1474,29 @@ class WeatherManager:
                 except Exception as e:
                     logger.error(f"Failed to generate static PNG: {e}")
 
+                # Issue #70: Extract historical wind vectors (Ghosting effect 3-5 frames back)
+                historical_vectors = []
+                target_clusters = clouds if clouds else (all_rain_clusters[:3] if all_rain_clusters else [])
+                if len(frames) >= 2 and target_clusters:
+                    try:
+                        # Extract motion of primary rain cloud centroid across previous frames
+                        target_cx, target_cy = target_clusters[0]["cx"], target_clusters[0]["cy"]
+                        for f_idx in range(max(0, len(frames) - 5), len(frames) - 1):
+                            f_prev = frames[f_idx]
+                            f_next = frames[f_idx + 1]
+                            f_flow = processor.calculate_optical_flow([f_prev, f_next])
+                            if 0 <= target_cx < f_flow.shape[1] and 0 <= target_cy < f_flow.shape[0]:
+                                h_vx = float(f_flow[target_cy, target_cx, 0])
+                                h_vy = float(f_flow[target_cy, target_cx, 1])
+                                historical_vectors.append({
+                                    "cx": target_cx,
+                                    "cy": target_cy,
+                                    "vx": h_vx,
+                                    "vy": h_vy
+                                })
+                    except Exception as e:
+                        logger.warning(f"Failed to calculate historical wind vectors: {e}")
+
                 try:
                     tracking_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
@@ -1483,7 +1506,8 @@ class WeatherManager:
                         locked_target_cx,
                         locked_target_cy,
                         cluster_dist_approaching=10,
-                        cluster_dist_ambient=6
+                        cluster_dist_ambient=6,
+                        historical_vectors=historical_vectors
                     )
                 except Exception as e:
                     logger.error(f"Failed to generate tracking PNG: {e}")

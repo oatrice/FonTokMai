@@ -647,6 +647,7 @@ class TMDTrackingMixin:
                 # Issue #70: Draw historical wind vectors (Ghosting effect 3-5 frames back)
                 if historical_vectors:
                     num_h = len(historical_vectors)
+                    logger.info(f"[TRACKING_IMG] 💨 Rendering {num_h} historical wind vectors (ghosting effect) for approaching cloud '{c_orig.get('label', '?')}'")
                     for h_idx, hv in enumerate(historical_vectors):
                         hcx = int((hv.get("cx", 0) - x1) * scale)
                         hcy = int((hv.get("cy", 0) - y1) * scale)
@@ -1025,6 +1026,20 @@ class TMDTrackingMixin:
                 v_mag = math.hypot(vx_s, vy_s)
                 if v_mag > 2:
                     cv2.arrowedLine(img, (pcx, pcy), (pcx + vx_s, pcy + vy_s), (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
+
+                # Issue #70: Draw historical wind vectors (Ghosting effect) for primary rain cluster
+                if historical_vectors and c_orig.get("label") == "A":
+                    num_h = len(historical_vectors)
+                    logger.info(f"[TRACKING_IMG] 💨 Rendering {num_h} historical wind vectors (ghosting effect) for rain cluster '{c_orig.get('label')}'")
+                    for h_idx, hv in enumerate(historical_vectors):
+                        hcx = int((hv.get("cx", 0) - x1) * scale)
+                        hcy = int((hv.get("cy", 0) - y1) * scale)
+                        hvx = int(hv.get("vx", 0.0) * scale * 2.5)
+                        hvy = int(hv.get("vy", 0.0) * scale * 2.5)
+                        alpha_factor = (h_idx + 1) / (num_h + 1)
+                        faded_color = (int(100 * alpha_factor), int(100 * alpha_factor), int(100 * alpha_factor))
+                        cv2.circle(img, (hcx, hcy), int(4 * scale), faded_color, max(1, int(1.0 * scale)))
+                        cv2.arrowedLine(img, (hcx, hcy), (hcx + hvx, hcy + hvy), faded_color, max(1, int(1.0 * scale)), tipLength=0.25)
                     
                 lbl = c_orig.get("label", "")
                 is_forecast_target = lbl in _forecast_label_set
@@ -1640,25 +1655,52 @@ class TMDTrackingMixin:
 
     @staticmethod
     def draw_pin_on_frame(img: np.ndarray, x: int, y: int, scale: float = 1.0) -> None:
-        """Draws the user location pin on the image identical to radar_tracking style."""
+        """
+        Draws the user location pin on the image:
+        - Transparent hit-radius target overlay with high contrast dark/light stroke
+        - No solid center dot (hollow center with crosshair / concentric rings) for clear radar viewing
+        - Sharp outer contrast for long-distance visibility
+        """
         if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
             return
 
         import math
         from app.services.weather_manager import _DEV_CONFIG
 
-        # 1. Dashed hit-radius circle (Orange: (0, 165, 255))
         hit_r = int(_DEV_CONFIG.get("hit_radius", 8) * scale)
+        
+        # 1. Semi-transparent orange fill inside the hit-radius
+        overlay = img.copy()
+        cv2.circle(overlay, (int(x), int(y)), hit_r, (0, 165, 255), -1)
+        cv2.addWeighted(overlay, 0.18, img, 0.82, 0, img)
+
+        # 2. High-contrast double stroke (Outer Dark Border + Bright Orange Dashes)
+        # Black outline under the dashed arc for strong contrast against bright rain
         for angle_deg in range(0, 360, 15):
             a1 = math.radians(angle_deg)
-            a2 = math.radians(angle_deg + 8)
+            a2 = math.radians(angle_deg + 9)
             p1 = (int(x + hit_r * math.cos(a1)), int(y + hit_r * math.sin(a1)))
             p2 = (int(x + hit_r * math.cos(a2)), int(y + hit_r * math.sin(a2)))
+            cv2.line(img, p1, p2, (0, 0, 0), max(2, int(2.5 * scale)))
             cv2.line(img, p1, p2, (0, 165, 255), max(1, int(1.2 * scale)))
 
-        # 2. Central target crosshair & core point (Matching tracking pin with white halo & orange/red core)
-        cv2.circle(img, (int(x), int(y)), max(3, int(4 * scale)), (0, 0, 0), -1)
-        cv2.circle(img, (int(x), int(y)), max(2, int(2.5 * scale)), (0, 165, 255), -1)
+        # 3. Inner fine target ring (hollow center, no solid core)
+        inner_r = max(3, int(3.5 * scale))
+        cv2.circle(img, (int(x), int(y)), inner_r, (0, 0, 0), max(2, int(2.0 * scale)))
+        cv2.circle(img, (int(x), int(y)), inner_r, (255, 255, 255), max(1, int(1.0 * scale)))
+
+        # 4. Subtle Crosshair tick marks for precise pin targeting
+        tick_len = max(2, int(3.0 * scale))
+        # Top, Bottom, Left, Right ticks with dark outline
+        ticks = [
+            ((int(x), int(y - inner_r - tick_len)), (int(x), int(y - inner_r))),
+            ((int(x), int(y + inner_r)), (int(x), int(y + inner_r + tick_len))),
+            ((int(x - inner_r - tick_len), int(y)), (int(x - inner_r), int(y))),
+            ((int(x + inner_r), int(y)), (int(x + inner_r + tick_len), int(y)))
+        ]
+        for pt1, pt2 in ticks:
+            cv2.line(img, pt1, pt2, (0, 0, 0), max(2, int(2.0 * scale)))
+            cv2.line(img, pt1, pt2, (0, 165, 255), max(1, int(1.0 * scale)))
 
     @staticmethod
     def _resolve_label_collisions(labels, obstacles, img_w, img_h, iterations=60):
