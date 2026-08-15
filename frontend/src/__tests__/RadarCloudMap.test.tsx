@@ -163,4 +163,25 @@ describe("RadarCloudMap Component (Issue #188 & #270)", () => {
     // Zoom indicator should show current zoom multiplier e.g. 1.5x
     expect(screen.getByText("1.5x")).toBeInTheDocument();
   });
+
+  it("pins trajectory panel on cloud cluster click and supports closing via X button", () => {
+    render(<RadarCloudMap stations={mockStations} clusters={mockClusters} />);
+
+    const clusterElem = screen.getByTestId("cloud-cluster-cluster-alpha");
+
+    // Click cluster to pin
+    fireEvent.click(clusterElem);
+
+    // Panel is pinned and stays visible even when mouse leaves
+    expect(screen.getByTestId("trajectory-preview-card")).toBeInTheDocument();
+    expect(screen.getByText(/📌 ปักหมุด/i)).toBeInTheDocument();
+
+    fireEvent.mouseLeave(clusterElem);
+    expect(screen.getByTestId("trajectory-preview-card")).toBeInTheDocument();
+
+    // Click close button to unpin
+    const closeBtn = screen.getByLabelText("Close Preview");
+    fireEvent.click(closeBtn);
+    expect(screen.queryByTestId("trajectory-preview-card")).not.toBeInTheDocument();
+  });
 });

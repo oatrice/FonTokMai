@@ -121,9 +121,10 @@ export default function AdminRadarPage() {
       heading_deg: 75,
       eta_min: 15,
       history_trajectory: [
-        { time_offset_min: -45, lat: 15.65, lng: 102.15, cx: 298, cy: 262, dbz: 42.0 },
-        { time_offset_min: -30, lat: 15.78, lng: 102.55, cx: 320, cy: 255, dbz: 46.0 },
-        { time_offset_min: -15, lat: 15.92, lng: 102.92, cx: 341, cy: 248, dbz: 49.0 },
+        { time_offset_min: -45, lat: 15.52, lng: 102.10, cx: 295, cy: 275, dbz: 42.0 }, // 1. Deep south-west origin
+        { time_offset_min: -30, lat: 15.82, lng: 102.35, cx: 310, cy: 252, dbz: 46.0 }, // 2. Sharp cut northward
+        { time_offset_min: -15, lat: 15.70, lng: 102.85, cx: 338, cy: 262, dbz: 49.0 }, // 3. Zigzag dip southeast
+        { time_offset_min: -5, lat: 16.00, lng: 103.10, cx: 352, cy: 246, dbz: 51.5 },  // 4. Hook up northeast towards storm core
       ],
     },
     {
@@ -139,8 +140,10 @@ export default function AdminRadarPage() {
       heading_deg: 115,
       eta_min: 25,
       history_trajectory: [
-        { time_offset_min: -30, lat: 17.85, lng: 103.95, cx: 402, cy: 148, dbz: 34.0 },
-        { time_offset_min: -15, lat: 17.66, lng: 104.35, cx: 424, cy: 158, dbz: 36.5 },
+        { time_offset_min: -45, lat: 17.98, lng: 103.70, cx: 388, cy: 138, dbz: 32.0 }, // 1. High northwest mountain ridge
+        { time_offset_min: -30, lat: 17.68, lng: 103.95, cx: 402, cy: 160, dbz: 35.0 }, // 2. Downward swoop south
+        { time_offset_min: -15, lat: 17.85, lng: 104.35, cx: 424, cy: 147, dbz: 37.0 }, // 3. Curved arc northeast along river
+        { time_offset_min: -5, lat: 17.58, lng: 104.58, cx: 437, cy: 164, dbz: 37.8 },  // 4. Downward sweep to destination
       ],
     },
     {
@@ -156,8 +159,10 @@ export default function AdminRadarPage() {
       heading_deg: 60,
       eta_min: 35,
       history_trajectory: [
-        { time_offset_min: -30, lat: 14.38, lng: 102.25, cx: 304, cy: 330, dbz: 37.5 },
-        { time_offset_min: -15, lat: 14.55, lng: 102.60, cx: 323, cy: 321, dbz: 40.0 },
+        { time_offset_min: -45, lat: 14.15, lng: 102.20, cx: 302, cy: 346, dbz: 36.0 }, // 1. Far Southwest valley (Nong Ki pass)
+        { time_offset_min: -30, lat: 14.65, lng: 102.35, cx: 310, cy: 316, dbz: 38.5 }, // 2. Upward northern sweep
+        { time_offset_min: -15, lat: 14.35, lng: 102.70, cx: 328, cy: 334, dbz: 40.5 }, // 3. Sharp downward southern dip (Lahansai)
+        { time_offset_min: -5, lat: 14.60, lng: 102.88, cx: 338, cy: 319, dbz: 41.8 },  // 4. Hook back northeast towards cell core
       ],
     },
   ];

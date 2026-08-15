@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import * as d3geo from "d3-geo";
-import { Radio, Navigation, Clock, Activity, CloudRain, Zap, Layers, MapPin } from "lucide-react";
+import { Radio, Navigation, Clock, Activity, CloudRain, Zap, Layers, MapPin, X } from "lucide-react";
 
 export interface TrajectoryPoint {
   time_offset_min: number; // e.g. -15, -10, -5
@@ -60,6 +60,7 @@ export function RadarCloudMap({
   onSelectStation,
 }: RadarCloudMapProps) {
   const [hoveredCluster, setHoveredCluster] = useState<CloudCluster | null>(null);
+  const [pinnedCluster, setPinnedCluster] = useState<CloudCluster | null>(null);
   const [hoveredStation, setHoveredStation] = useState<RadarStation | null>(null);
   const [showCoverageCircles, setShowCoverageCircles] = useState<boolean>(false);
   const [showStationCenters, setShowStationCenters] = useState<boolean>(true);
@@ -441,6 +442,8 @@ export function RadarCloudMap({
           {/* Render Active Cloud Clusters & Trajectories (Issue #188) */}
           {clusters.map((cluster) => {
             const isHovered = hoveredCluster?.id === cluster.id;
+            const isPinned = pinnedCluster?.id === cluster.id;
+            const isActive = isHovered || isPinned;
             const dbzColor = getDbzColor(cluster.intensity_dbz);
 
             const clusterPos = cluster.lat !== undefined && cluster.lng !== undefined
@@ -459,13 +462,50 @@ export function RadarCloudMap({
                 key={cluster.id}
                 data-testid={`cloud-cluster-${cluster.id}`}
                 className="cursor-pointer"
+                onClick={() => setPinnedCluster(isPinned ? null : cluster)}
                 onMouseEnter={() => setHoveredCluster(cluster)}
                 onMouseLeave={() => setHoveredCluster(null)}
               >
-                {/* Historical Trajectory Vectors (Visible when hovered) */}
-                {isHovered && trajectoryPoints.length > 0 && (
-                  <g data-testid={`trajectory-path-${cluster.id}`}>
-                    {/* Path line connecting historical coordinates to current position */}
+                {/* Cloud Cluster Body (Semi-transparent radar reflection) */}
+                {showCloudClusters && (
+                  <circle
+                    cx={clusterPos.x}
+                    cy={clusterPos.y}
+                    r={cluster.radius * 0.85}
+                    fill={dbzColor}
+                    fillOpacity={isActive ? 0.95 : 0.75}
+                    stroke={isPinned ? "#38bdf8" : "#ffffff"}
+                    strokeWidth={isActive ? 2.8 : 1.5}
+                    className="transition-colors duration-150"
+                  />
+                )}
+
+                {/* Direct Crisp dBZ Number (Dark bold text with crisp white outline) */}
+                {showDbzLabels && (
+                  <text
+                    x={clusterPos.x}
+                    y={clusterPos.y + 3.5}
+                    textAnchor="middle"
+                    fill="#090d16"
+                    fontSize="11.5"
+                    fontWeight="900"
+                    style={{
+                      fill: "#090d16",
+                      paintOrder: "stroke fill",
+                      stroke: "#ffffff",
+                      strokeWidth: "2.2px",
+                      strokeLinejoin: "round",
+                    }}
+                    className="pointer-events-none select-none drop-shadow-sm"
+                  >
+                    {cluster.intensity_dbz.toFixed(0)}
+                  </text>
+                )}
+
+                {/* Historical Trajectory Vectors (Rendered ON TOP when hovered or pinned) */}
+                {isActive && trajectoryPoints.length > 0 && (
+                  <g data-testid={`trajectory-path-${cluster.id}`} className="pointer-events-none">
+                    {/* Path line connecting curved historical coordinates to current position */}
                     <path
                       d={`M ${trajectoryPoints.map((p) => `${p.x},${p.y}`).join(" L ")} L ${clusterPos.x},${clusterPos.y}`}
                       fill="none"
@@ -476,12 +516,26 @@ export function RadarCloudMap({
                       className="filter drop-shadow-[0_0_10px_rgba(6,182,212,0.9)]"
                     />
 
-                    {/* Historical frame waypoints with alternating staggered positions (Above / Below path) */}
+                    {/* Historical frame waypoints with Dynamic Orthogonal Offset (Normal Vector Direction) */}
                     {trajectoryPoints.map((pt, idx) => {
-                      // Alternate offsets: Even indexes placed above (y - 20), Odd indexes placed below (y + 10)
-                      const isAbove = idx % 2 === 0;
-                      const badgeY = isAbove ? pt.y - 22 : pt.y + 10;
-                      const textY = isAbove ? pt.y - 11 : pt.y + 21;
+                      // Determine path direction vector
+                      const prevPt = idx > 0 ? trajectoryPoints[idx - 1] : pt;
+                      const nextPt = idx < trajectoryPoints.length - 1 ? trajectoryPoints[idx + 1] : clusterPos;
+                      
+                      // Tangent angle along trajectory path
+                      const dx = nextPt.x - prevPt.x || 1;
+                      const dy = nextPt.y - prevPt.y || 0;
+                      const len = Math.hypot(dx, dy) || 1;
+                      
+                      // Perpendicular Normal Vector (Rotate 90 deg)
+                      const side = idx % 2 === 0 ? -1 : 1;
+                      const nx = (-dy / len) * side;
+                      const ny = (dx / len) * side;
+
+                      // Distance offset from waypoint dot (20px normal offset)
+                      const offsetDist = 20;
+                      const badgeCenterX = pt.x + nx * offsetDist;
+                      const badgeCenterY = pt.y + ny * offsetDist;
 
                       return (
                         <g key={idx}>
@@ -494,33 +548,33 @@ export function RadarCloudMap({
                             stroke="#020617"
                             strokeWidth="2"
                           />
-                          {/* Indicator line connecting dot to staggered badge */}
+                          {/* Indicator line connecting waypoint dot to offset badge */}
                           <line
                             x1={pt.x}
-                            y1={isAbove ? pt.y - 4.5 : pt.y + 4.5}
-                            x2={pt.x}
-                            y2={isAbove ? badgeY + 14 : badgeY}
-                            stroke="rgba(56, 189, 248, 0.6)"
+                            y1={pt.y}
+                            x2={badgeCenterX}
+                            y2={badgeCenterY}
+                            stroke="rgba(56, 189, 248, 0.5)"
                             strokeWidth="1"
                             strokeDasharray="2 2"
                           />
-                          {/* Compact Staggered Waypoint Badge */}
+                          {/* Compact Waypoint Badge */}
                           <rect
-                            x={pt.x - 14}
-                            y={badgeY}
+                            x={badgeCenterX - 14}
+                            y={badgeCenterY - 7}
                             width={28}
                             height={14}
                             rx={3}
                             fill="#090d16"
                             stroke="#38bdf8"
-                            strokeWidth={1}
+                            strokeWidth={1.2}
                           />
                           <text
-                            x={pt.x}
-                            y={textY}
+                            x={badgeCenterX}
+                            y={badgeCenterY + 3.5}
                             textAnchor="middle"
                             fill="#38bdf8"
-                            fontSize="9"
+                            fontSize="8.5"
                             fontWeight="bold"
                             className="select-none pointer-events-none"
                           >
@@ -551,97 +605,83 @@ export function RadarCloudMap({
                     })()}
                   </g>
                 )}
-
-                {/* Cloud Cluster Body (Semi-transparent radar reflection) */}
-                {showCloudClusters && (
-                  <circle
-                    cx={clusterPos.x}
-                    cy={clusterPos.y}
-                    r={cluster.radius * 0.85}
-                    fill={dbzColor}
-                    fillOpacity={isHovered ? 0.95 : 0.75}
-                    stroke="#ffffff"
-                    strokeWidth={isHovered ? 2.5 : 1.5}
-                    className="transition-colors duration-150"
-                  />
-                )}
-
-                {/* Direct Crisp dBZ Number (Dark bold text with crisp white outline) */}
-                {showDbzLabels && (
-                  <text
-                    x={clusterPos.x}
-                    y={clusterPos.y + 3.5}
-                    textAnchor="middle"
-                    fill="#090d16"
-                    fontSize="11.5"
-                    fontWeight="900"
-                    style={{
-                      fill: "#090d16",
-                      paintOrder: "stroke fill",
-                      stroke: "#ffffff",
-                      strokeWidth: "2.2px",
-                      strokeLinejoin: "round",
-                    }}
-                    className="pointer-events-none select-none drop-shadow-sm"
-                  >
-                    {cluster.intensity_dbz.toFixed(0)}
-                  </text>
-                )}
               </g>
             );
           })}
         </svg>
 
-        {/* Hover Trajectory Floating Card (Issue #188) */}
-        {hoveredCluster && (
-          <div
-            data-testid="trajectory-preview-card"
-            className="absolute bottom-4 right-4 z-20 max-w-sm w-full p-4 rounded-xl bg-zinc-900/95 border border-cyan-500/40 shadow-2xl backdrop-blur-md text-white animate-in fade-in zoom-in-95 duration-150"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <CloudRain className="w-4 h-4 text-cyan-400" />
-                <span className="font-bold text-sm tracking-tight">{hoveredCluster.label}</span>
-              </div>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">
-                {hoveredCluster.intensity_dbz} dBZ
-              </span>
-            </div>
+        {/* Hover / Pinned Trajectory Floating Card (Issue #188) */}
+        {(() => {
+          const displayCluster = pinnedCluster || hoveredCluster;
+          if (!displayCluster) return null;
 
-            <div className="grid grid-cols-2 gap-2 text-xs text-zinc-300 mb-3">
-              <div className="flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Speed: <strong className="text-white font-mono">{hoveredCluster.velocity_kmh.toFixed(1)} km/h</strong></span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Navigation className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Heading: <strong className="text-white font-mono">{hoveredCluster.heading_deg}°</strong></span>
-              </div>
-            </div>
-
-            {hoveredCluster.history_trajectory && (
-              <div className="pt-2 border-t border-white/10 text-xs">
-                <div className="flex items-center gap-1 text-cyan-400 font-semibold mb-1">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Historical Movement:</span>
-                </div>
-                <div className="flex items-center gap-2 text-[11px] text-zinc-400 overflow-x-auto">
-                  {hoveredCluster.history_trajectory.map((pt, i) => (
-                    <span key={i} className="px-1.5 py-0.5 rounded bg-white/5 border border-white/5 whitespace-nowrap">
-                      {pt.time_offset_min}m ({pt.dbz} dBZ)
+          return (
+            <div
+              data-testid="trajectory-preview-card"
+              className="absolute bottom-4 right-4 z-20 max-w-sm w-full p-4 rounded-xl bg-zinc-900/95 border border-cyan-500/40 shadow-2xl backdrop-blur-md text-white animate-in fade-in zoom-in-95 duration-150"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <CloudRain className="w-4 h-4 text-cyan-400" />
+                  <span className="font-bold text-sm tracking-tight">{displayCluster.label}</span>
+                  {pinnedCluster && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-medium">
+                      📌 ปักหมุด
                     </span>
-                  ))}
-                  <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold whitespace-nowrap">
-                    Now
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">
+                    {displayCluster.intensity_dbz} dBZ
                   </span>
+                  {pinnedCluster && (
+                    <button
+                      onClick={() => setPinnedCluster(null)}
+                      title="ปิดหน้าต่าง (Close)"
+                      aria-label="Close Preview"
+                      className="p-1 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
-        )}
+
+              <div className="grid grid-cols-2 gap-2 text-xs text-zinc-300 mb-3">
+                <div className="flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Speed: <strong className="text-white font-mono">{displayCluster.velocity_kmh.toFixed(1)} km/h</strong></span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Navigation className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Heading: <strong className="text-white font-mono">{displayCluster.heading_deg}°</strong></span>
+                </div>
+              </div>
+
+              {displayCluster.history_trajectory && (
+                <div className="pt-2 border-t border-white/10 text-xs">
+                  <div className="flex items-center gap-1 text-cyan-400 font-semibold mb-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Historical Movement:</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] text-zinc-400 overflow-x-auto">
+                    {displayCluster.history_trajectory.map((pt, i) => (
+                      <span key={i} className="px-1.5 py-0.5 rounded bg-white/5 border border-white/5 whitespace-nowrap">
+                        {pt.time_offset_min}m ({pt.dbz} dBZ)
+                      </span>
+                    ))}
+                    <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold whitespace-nowrap">
+                      Now
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Station Hover Tooltip */}
-        {hoveredStation && !hoveredCluster && (
+        {hoveredStation && !hoveredCluster && !pinnedCluster && (
           <div className="absolute top-4 left-4 z-20 p-3 rounded-xl bg-zinc-900/90 border border-white/10 shadow-xl backdrop-blur-md text-xs text-zinc-200">
             <p className="font-bold text-white mb-1">{hoveredStation.name} ({hoveredStation.code})</p>
             <p className="text-zinc-400">Lat: {hoveredStation.center_lat.toFixed(4)}, Lng: {hoveredStation.center_lng.toFixed(4)}</p>
