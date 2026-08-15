@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useId } from "react";
 import * as d3geo from "d3-geo";
 import { Radio, Navigation, Clock, Activity, CloudRain, Zap, Layers, MapPin, X } from "lucide-react";
+import { getDbzColor, getStatusColor } from "@/lib/radarUtils";
 
 export interface TrajectoryPoint {
   time_offset_min: number; // e.g. -15, -10, -5
@@ -60,6 +61,10 @@ export function RadarCloudMap({
   selectedStationCode,
   onSelectStation,
 }: RadarCloudMapProps) {
+  // Unique ID for SVG marker namespacing (C3 fix — prevents id='arrow' collisions in multi-SVG pages)
+  const uid = useId();
+  const markerId = `arrow-${uid.replace(/:/g, "")}`;
+
   const [hoveredCluster, setHoveredCluster] = useState<CloudCluster | null>(null);
   const [pinnedCluster, setPinnedCluster] = useState<CloudCluster | null>(null);
   const [hoveredStation, setHoveredStation] = useState<RadarStation | null>(null);
@@ -78,16 +83,17 @@ export function RadarCloudMap({
   const svgWidth = 520;
   const svgHeight = 780;
 
-  // Manual Zoom Controls (Google Maps style up to 12x Ultra Deep District Zoom)
+  // Manual Zoom Controls — unified multiplicative step (H4 fix: consistent with double-click & wheel)
+  const ZOOM_STEP = 1.35;
+
   const handleZoomIn = () => {
-    setZoomLevel((prev) => Math.min(12, Number((prev < 3 ? prev + 0.5 : prev + 1.0).toFixed(1))));
+    setZoomLevel((prev) => Math.min(12, parseFloat((prev * ZOOM_STEP).toFixed(2))));
   };
 
   const handleZoomOut = () => {
     setZoomLevel((prev) => {
-      const step = prev <= 3 ? 0.5 : 1.0;
-      const next = Math.max(1, Number((prev - step).toFixed(1)));
-      if (next === 1) setPanOffset({ x: 0, y: 0 });
+      const next = Math.max(1, parseFloat((prev / ZOOM_STEP).toFixed(2)));
+      if (next <= 1.05) { setPanOffset({ x: 0, y: 0 }); return 1; }
       return next;
     });
   };
@@ -129,7 +135,7 @@ export function RadarCloudMap({
     const normX = clickX / svgRect.width;
     const normY = clickY / svgRect.height;
     
-    const nextZoom = Math.min(12, zoomLevel * 1.8);
+    const nextZoom = Math.min(12, parseFloat((zoomLevel * ZOOM_STEP).toFixed(2)));
     setZoomLevel(nextZoom);
     
     // Adjust pan offset smoothly toward the clicked location
@@ -216,19 +222,35 @@ export function RadarCloudMap({
     return `${minX} ${minY} ${currentW} ${currentH}`;
   }, [zoomLevel, panOffset]);
 
-  const getDbzColor = (dbz: number) => {
-    if (dbz >= 50) return "#ef4444"; // Red (Severe)
-    if (dbz >= 40) return "#f97316"; // Orange (Heavy)
-    if (dbz >= 30) return "#eab308"; // Yellow (Moderate)
-    if (dbz >= 20) return "#22c55e"; // Green (Light)
-    return "#06b6d4"; // Cyan
-  };
+  // getDbzColor and getStatusColor are imported from @/lib/radarUtils (M5 fix: no duplication)
 
-  const getStatusColor = (status: string) => {
-    if (status === "online") return { stroke: "#10b981", fill: "#059669", bg: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" };
-    if (status === "delayed") return { stroke: "#f59e0b", fill: "#d97706", bg: "bg-amber-500/20 text-amber-400 border-amber-500/30" };
-    return { stroke: "#ef4444", fill: "#dc2626", bg: "bg-red-500/20 text-red-400 border-red-500/30" };
-  };
+  // Pre-compute organic polygon SVG paths for all clusters (H1 fix: avoids 8x trig ops per cluster on every render)
+  const clusterPolygons = useMemo(() => {
+    const result = new Map<string, string>();
+    const allClusters: CloudCluster[] = [];
+    clusters.forEach((c) => {
+      allClusters.push(c);
+      (c.sub_clusters || []).forEach((sc) => allClusters.push(sc));
+    });
+
+    allClusters.forEach((cluster) => {
+      const pos = cluster.lat !== undefined && cluster.lng !== undefined
+        ? projectLatLng(cluster.lat, cluster.lng)
+        : { x: cluster.cx ?? svgWidth / 2, y: cluster.cy ?? svgHeight / 2 };
+      const r = cluster.radius * 0.85;
+      const vertices = 8;
+      const seed = cluster.id.charCodeAt(cluster.id.length - 1) % 5;
+      const polyPts: string[] = [];
+      for (let i = 0; i < vertices; i++) {
+        const angle = (i / vertices) * Math.PI * 2;
+        const noiseFactor = 1 + Math.sin(i * 2.5 + seed) * 0.12;
+        polyPts.push(`${(pos.x + Math.cos(angle) * r * noiseFactor).toFixed(1)},${(pos.y + Math.sin(angle) * r * noiseFactor).toFixed(1)}`);
+      }
+      result.set(cluster.id, `M ${polyPts.join(" L ")} Z`);
+    });
+    return result;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clusters, provincePaths]);
 
   return (
     <div className="relative w-full rounded-2xl overflow-hidden bg-zinc-950/80 border border-white/10 shadow-2xl backdrop-blur-xl">
@@ -433,8 +455,8 @@ export function RadarCloudMap({
               <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.12" />
               <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
             </radialGradient>
-            {/* Arrow Marker for Heading */}
-            <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+            {/* Arrow Marker for Heading — uses namespaced ID to avoid collision in multi-SVG pages (C3 fix) */}
+            <marker id={markerId} viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
               <path d="M 0 1 L 11 6 L 0 11 L 3 6 z" fill="#38bdf8" stroke="#ffffff" strokeWidth="0.8" />
             </marker>
           </defs>
@@ -452,7 +474,6 @@ export function RadarCloudMap({
               stroke="#10b981"
               strokeWidth={zoomLevel >= 3 ? "0.4" : "0.8"}
               strokeOpacity={0.5}
-              style={{ fill: "#059669", fillOpacity: 0.15, stroke: "#10b981", strokeOpacity: 0.5 }}
               className="transition-all duration-300 pointer-events-none"
             />
           ))}
@@ -598,21 +619,9 @@ export function RadarCloudMap({
                     >
                       {/* Telegram-style Multi-Pass Neon Glow Contour & Organic Body */}
                       {showCloudClusters && (() => {
-                        const r = cluster.radius * 0.85;
                         const contourColor = isPinned ? "#38bdf8" : isChildCell ? "#c084fc" : dbzColor;
-                        
-                        // Generate organic natural cloud contour polygon (8-vertex perturbation)
-                        const vertices = 8;
-                        const polyPts: string[] = [];
-                        for (let i = 0; i < vertices; i++) {
-                          const angle = (i / vertices) * Math.PI * 2;
-                          // Perturb radius slightly by 10-15% based on vertex index for realistic cloud contour shape
-                          const noiseFactor = 1 + Math.sin(i * 2.5 + (cluster.id.charCodeAt(cluster.id.length - 1) % 5)) * 0.12;
-                          const vx = clusterPos.x + Math.cos(angle) * (r * noiseFactor);
-                          const vy = clusterPos.y + Math.sin(angle) * (r * noiseFactor);
-                          polyPts.push(`${vx.toFixed(1)},${vy.toFixed(1)}`);
-                        }
-                        const polyPathD = `M ${polyPts.join(" L ")} Z`;
+                        // Look up pre-computed polygon path (H1 fix: no trig ops in render)
+                        const polyPathD = clusterPolygons.get(cluster.id) ?? `M ${clusterPos.x - 10},${clusterPos.y - 10} L ${clusterPos.x + 10},${clusterPos.y - 10} L ${clusterPos.x},${clusterPos.y + 10} Z`;
 
                         return (
                           <g className="transition-all duration-300">
@@ -782,7 +791,7 @@ export function RadarCloudMap({
                                 y2={targetY}
                                 stroke={isChildCell ? "#c084fc" : "#38bdf8"}
                                 strokeWidth={isChildCell ? "2.2" : "2.8"}
-                                markerEnd="url(#arrow)"
+                                markerEnd={`url(#${markerId})`}
                               />
                             );
                           })()}

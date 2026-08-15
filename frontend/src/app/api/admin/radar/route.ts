@@ -3,10 +3,22 @@ import { NextResponse } from "next/server";
 export async function GET() {
   const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
   try {
+    // Abort both fetches after 5 seconds to prevent SSR hanging on Cloud Run cold start
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     const [resStations, resClusters] = await Promise.allSettled([
-      fetch(`${backendUrl}/api/v1/radar/stations`, { cache: "no-store" }),
-      fetch(`${backendUrl}/api/v1/radar/clusters`, { cache: "no-store" }),
+      fetch(`${backendUrl}/api/v1/radar/stations`, {
+        cache: "no-store",
+        signal: controller.signal,
+      }),
+      fetch(`${backendUrl}/api/v1/radar/clusters`, {
+        cache: "no-store",
+        signal: controller.signal,
+      }),
     ]);
+
+    clearTimeout(timeoutId);
 
     let stations = null;
     let clusters = null;
@@ -36,8 +48,8 @@ export async function GET() {
         center_lat: 16.4322,
         center_lng: 102.8236,
         radius_km: 120,
-        status: "offline",
-        is_active: false,
+        status: "delayed",
+        is_active: true,
         latency_minutes: 5.0,
         last_frame_timestamp: new Date(Date.now() - 5 * 60000).toISOString(),
         image_url: "https://weather.tmd.go.th/kkn/kkn120_latest.gif",

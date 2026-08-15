@@ -165,15 +165,17 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
   const svgWidth = 520;
   const svgHeight = 780;
 
-  // Zoom Controls
+  // Zoom Controls — multiplicative step (M6 fix: consistent with RadarCloudMap)
+  const ZOOM_STEP = 1.35;
+
   const handleZoomIn = () => {
-    setZoomLevel((prev) => Math.min(8, prev + 0.5));
+    setZoomLevel((prev) => Math.min(8, parseFloat((prev * ZOOM_STEP).toFixed(2))));
   };
 
   const handleZoomOut = () => {
     setZoomLevel((prev) => {
-      const next = Math.max(1, prev - 0.5);
-      if (next === 1) setPanOffset({ x: 0, y: 0 });
+      const next = Math.max(1, parseFloat((prev / ZOOM_STEP).toFixed(2)));
+      if (next <= 1.05) { setPanOffset({ x: 0, y: 0 }); return 1; }
       return next;
     });
   };
@@ -214,7 +216,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
     const normX = clickX / svgRect.width;
     const normY = clickY / svgRect.height;
 
-    const nextZoom = Math.min(8, zoomLevel * 1.8);
+    const nextZoom = Math.min(8, parseFloat((zoomLevel * ZOOM_STEP).toFixed(2)));
     setZoomLevel(nextZoom);
 
     const targetSvgX = normX * svgWidth;

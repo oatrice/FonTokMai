@@ -193,7 +193,9 @@ def _build_advanced_text(
         stormcell = stormcells[0] if len(stormcells) > 0 else None
 
     has_advisory = bool(advisories and len(advisories) > 0)
-    has_lightning = bool(lightning and (lightning.get("detected", True) if isinstance(lightning, dict) and "detected" in lightning else True))
+    has_lightning = bool(
+        lightning and isinstance(lightning, dict) and lightning.get("detected", False)
+    )
     has_stormcell = bool(stormcell)
 
     if has_advisory or has_lightning or has_stormcell:

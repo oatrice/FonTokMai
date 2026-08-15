@@ -33,6 +33,7 @@ async def get_radar_stations():
             for code, station in all_stations.items():
                 last_updated = None
                 frames = []
+                cache = None
                 try:
                     cache = await repo.get_latest_radar_cache(code)
                     if cache:
@@ -58,17 +59,17 @@ async def get_radar_stations():
                         last_updated = last_updated.replace(tzinfo=timezone.utc)
                     latency_min = max(0.0, (now - last_updated).total_seconds() / 60.0)
                 else:
-                    # No stale cache in DB -> default to current timestamp with normal online baseline (5m)
+                    # No frame timestamp found — treat as just-online with baseline latency
                     last_updated = now
                     latency_min = 5.0
 
                 if not is_active:
                     status = "offline"
-                elif not frames and (latency_min > 60.0 or not cache):
-                    # Station is active and accessible, cache is clean/unpolled -> treat as online baseline
+                elif not frames and cache and latency_min > 60.0:
+                    status = "offline"
+                elif not frames and not cache:
                     status = "online"
                     latency_min = 5.0
-                    last_updated = now
                 elif latency_min <= 30:
                     status = "online"
                 elif latency_min <= 60:
@@ -91,20 +92,8 @@ async def get_radar_stations():
                 })
     except Exception as ex:
         logger.error(f"Error fetching radar stations: {ex}")
-        for code, station in STATIONS.items():
-            station_statuses.append({
-                "code": code,
-                "name": station.name,
-                "center_lat": station.center_lat,
-                "center_lng": station.center_lng,
-                "radius_km": station.radius_km,
-                "status": "online",
-                "is_active": True,
-                "last_frame_timestamp": now.isoformat(),
-                "latency_minutes": 5.0,
-                "image_url": station.static_image_url,
-                "loop_url": station.loop_page_url,
-            })
+        # Safe fallback: return whatever was collected so far, with partial flag
+        return {"stations": station_statuses, "error": "Partial data — DB unavailable", "partial": True}
 
     return {"stations": station_statuses}
 
