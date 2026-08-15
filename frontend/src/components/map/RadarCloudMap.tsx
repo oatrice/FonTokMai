@@ -78,14 +78,15 @@ export function RadarCloudMap({
   const svgWidth = 520;
   const svgHeight = 780;
 
-  // Manual Zoom Controls (Google Maps style up to 6x zoom)
+  // Manual Zoom Controls (Google Maps style up to 12x Ultra Deep District Zoom)
   const handleZoomIn = () => {
-    setZoomLevel((prev) => Math.min(6, Number((prev + 0.5).toFixed(1))));
+    setZoomLevel((prev) => Math.min(12, Number((prev < 3 ? prev + 0.5 : prev + 1.0).toFixed(1))));
   };
 
   const handleZoomOut = () => {
     setZoomLevel((prev) => {
-      const next = Math.max(1, Number((prev - 0.5).toFixed(1)));
+      const step = prev <= 3 ? 0.5 : 1.0;
+      const next = Math.max(1, Number((prev - step).toFixed(1)));
       if (next === 1) setPanOffset({ x: 0, y: 0 });
       return next;
     });
@@ -117,13 +118,23 @@ export function RadarCloudMap({
     setIsDragging(false);
   };
 
-  // Focus zoom into a specific cloud cluster zone smoothly
+  // Mouse Wheel Zoom Support (Seamless zoom in/out with scroll wheel)
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      handleZoomIn();
+    } else if (e.deltaY > 0) {
+      handleZoomOut();
+    }
+  };
+
+  // Focus zoom into a specific cloud cluster zone smoothly (District scale 3.5x)
   const handleFocusCluster = (cluster: CloudCluster) => {
     const pos = cluster.lat !== undefined && cluster.lng !== undefined
       ? projectLatLng(cluster.lat, cluster.lng)
       : { x: cluster.cx ?? svgWidth / 2, y: cluster.cy ?? svgHeight / 2 };
     
-    setZoomLevel(2);
+    setZoomLevel(3.5);
     setPanOffset({
       x: (svgWidth / 2) - pos.x,
       y: (svgHeight / 2) - pos.y,
@@ -355,6 +366,7 @@ export function RadarCloudMap({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
           className={`w-full h-full select-none transition-all duration-200 ease-out ${
             isDragging ? "cursor-grabbing" : zoomLevel > 1 ? "cursor-grab" : "cursor-default"
           }`}
@@ -384,7 +396,7 @@ export function RadarCloudMap({
               fill="#059669"
               fillOpacity={0.15}
               stroke="#10b981"
-              strokeWidth="0.8"
+              strokeWidth={zoomLevel >= 3 ? "0.4" : "0.8"}
               strokeOpacity={0.5}
               style={{ fill: "#059669", fillOpacity: 0.15, stroke: "#10b981", strokeOpacity: 0.5 }}
               className="transition-all duration-300 pointer-events-none"
