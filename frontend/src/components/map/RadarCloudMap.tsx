@@ -75,9 +75,9 @@ export function RadarCloudMap({
   const svgWidth = 520;
   const svgHeight = 780;
 
-  // Manual Zoom Controls (Google Maps style)
+  // Manual Zoom Controls (Google Maps style up to 6x zoom)
   const handleZoomIn = () => {
-    setZoomLevel((prev) => Math.min(4, Number((prev + 0.5).toFixed(1))));
+    setZoomLevel((prev) => Math.min(6, Number((prev + 0.5).toFixed(1))));
   };
 
   const handleZoomOut = () => {
@@ -476,41 +476,59 @@ export function RadarCloudMap({
                       className="filter drop-shadow-[0_0_10px_rgba(6,182,212,0.9)]"
                     />
 
-                    {/* Historical frame waypoints with pill badge background */}
-                    {trajectoryPoints.map((pt, idx) => (
-                      <g key={idx}>
-                        <circle
-                          cx={pt.x}
-                          cy={pt.y}
-                          r={5}
-                          fill="#22d3ee"
-                          stroke="#020617"
-                          strokeWidth="2.5"
-                        />
-                        {/* Waypoint Text Badge with enhanced offset spacing (y - 28) */}
-                        <rect
-                          x={pt.x - 18}
-                          y={pt.y - 28}
-                          width={36}
-                          height={15}
-                          rx={4}
-                          fill="#090d16"
-                          stroke="#38bdf8"
-                          strokeWidth={1.2}
-                        />
-                        <text
-                          x={pt.x}
-                          y={pt.y - 17}
-                          textAnchor="middle"
-                          fill="#38bdf8"
-                          fontSize="9.5"
-                          fontWeight="bold"
-                          className="select-none pointer-events-none"
-                        >
-                          {pt.time_offset_min}m
-                        </text>
-                      </g>
-                    ))}
+                    {/* Historical frame waypoints with alternating staggered positions (Above / Below path) */}
+                    {trajectoryPoints.map((pt, idx) => {
+                      // Alternate offsets: Even indexes placed above (y - 20), Odd indexes placed below (y + 10)
+                      const isAbove = idx % 2 === 0;
+                      const badgeY = isAbove ? pt.y - 22 : pt.y + 10;
+                      const textY = isAbove ? pt.y - 11 : pt.y + 21;
+
+                      return (
+                        <g key={idx}>
+                          {/* Dot marker */}
+                          <circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r={4.5}
+                            fill="#22d3ee"
+                            stroke="#020617"
+                            strokeWidth="2"
+                          />
+                          {/* Indicator line connecting dot to staggered badge */}
+                          <line
+                            x1={pt.x}
+                            y1={isAbove ? pt.y - 4.5 : pt.y + 4.5}
+                            x2={pt.x}
+                            y2={isAbove ? badgeY + 14 : badgeY}
+                            stroke="rgba(56, 189, 248, 0.6)"
+                            strokeWidth="1"
+                            strokeDasharray="2 2"
+                          />
+                          {/* Compact Staggered Waypoint Badge */}
+                          <rect
+                            x={pt.x - 14}
+                            y={badgeY}
+                            width={28}
+                            height={14}
+                            rx={3}
+                            fill="#090d16"
+                            stroke="#38bdf8"
+                            strokeWidth={1}
+                          />
+                          <text
+                            x={pt.x}
+                            y={textY}
+                            textAnchor="middle"
+                            fill="#38bdf8"
+                            fontSize="9"
+                            fontWeight="bold"
+                            className="select-none pointer-events-none"
+                          >
+                            {pt.time_offset_min}m
+                          </text>
+                        </g>
+                      );
+                    })}
 
                     {/* Velocity & Heading Vector Arrow (Extended distance and high visibility) */}
                     {(() => {
