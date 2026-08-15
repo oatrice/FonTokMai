@@ -229,17 +229,17 @@ export function RadarCloudMap({
           {/* Background Map Frame */}
           <rect width={svgWidth} height={svgHeight} fill="transparent" />
 
-          {/* Thailand Province Polygon Boundaries — SVG Base Map */}
+          {/* Thailand Province Polygon Boundaries — SVG Base Map (Semi-Transparent Green) */}
           {provincePaths.map((prov) => (
             <path
               key={`prov-base-${prov.id}`}
               d={prov.d}
-              fill="#0369a1"
-              fillOpacity={0.12}
-              stroke="#0284c7"
+              fill="#059669"
+              fillOpacity={0.15}
+              stroke="#10b981"
               strokeWidth="0.8"
-              strokeOpacity={0.55}
-              style={{ fill: "#0369a1", fillOpacity: 0.12, stroke: "#0284c7", strokeOpacity: 0.55 }}
+              strokeOpacity={0.5}
+              style={{ fill: "#059669", fillOpacity: 0.15, stroke: "#10b981", strokeOpacity: 0.5 }}
               className="transition-all duration-300 pointer-events-none"
             />
           ))}

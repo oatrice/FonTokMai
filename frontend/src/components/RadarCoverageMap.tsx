@@ -459,28 +459,39 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
 
             <rect width={svgWidth} height={svgHeight} fill="url(#grid)" rx="16" />
 
-            {/* Thailand Province Polygon Boundaries — Base Layer (Default or Uncovered Red) */}
+            {/* Thailand Province Polygon Boundaries — Base Layer (Uncovered Red if highlight mode is active, otherwise Green) */}
             {showProvinceBorders && provincePaths.map((prov) => (
               <path
                 key={`base-${prov.id}`}
                 d={prov.d}
-                fill={showIntersectionMode ? "rgba(244, 63, 94, 0.35)" : "rgba(15, 23, 42, 0.65)"}
-                stroke={showIntersectionMode ? "rgba(251, 113, 133, 0.40)" : "rgba(56, 189, 248, 0.30)"}
-                strokeWidth={showIntersectionMode ? "0.8" : "0.8"}
-                className="transition-all duration-300"
+                fill={showIntersectionMode ? "#f43f5e" : "#059669"}
+                fillOpacity={showIntersectionMode ? 0.25 : 0.15}
+                stroke={showIntersectionMode ? "#fb7185" : "#10b981"}
+                strokeWidth="0.8"
+                strokeOpacity={showIntersectionMode ? 0.45 : 0.5}
+                style={{
+                  fill: showIntersectionMode ? "#f43f5e" : "#059669",
+                  fillOpacity: showIntersectionMode ? 0.25 : 0.15,
+                  stroke: showIntersectionMode ? "#fb7185" : "#10b981",
+                  strokeOpacity: showIntersectionMode ? 0.45 : 0.5,
+                }}
+                className="transition-all duration-300 pointer-events-none"
               />
             ))}
 
-            {/* Thailand Province Polygon Boundaries — Covered Layer (Clipped by Active Radar Circles) */}
+            {/* Thailand Province Polygon Boundaries — Covered Layer (Clipped by Active Radar Circles with brighter green) */}
             {showProvinceBorders && showIntersectionMode && (
-              <g clipPath="url(#allRadarCoverageClip)">
+              <g clipPath="url(#allRadarCoverageClip)" className="pointer-events-none">
                 {provincePaths.map((prov) => (
                   <path
                     key={`covered-${prov.id}`}
                     d={prov.d}
-                    fill="rgba(16, 185, 129, 0.45)"
-                    stroke="rgba(52, 211, 153, 0.80)"
-                    strokeWidth="1.2"
+                    fill="#10b981"
+                    fillOpacity={0.25}
+                    stroke="#34d399"
+                    strokeWidth="1.0"
+                    strokeOpacity={0.7}
+                    style={{ fill: "#10b981", fillOpacity: 0.25, stroke: "#34d399", strokeOpacity: 0.7 }}
                     className="transition-all duration-300"
                   />
                 ))}
