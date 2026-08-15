@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Header } from "@/components/ui/Header";
 import { RadarCoverageMap, DEFAULT_STATIONS, RadarStationCoverage } from "@/components/RadarCoverageMap";
+import { RadarCloudMap, CloudCluster, RadarStation } from "@/components/map/RadarCloudMap";
 import { 
   Radio, 
   RefreshCw, 
@@ -20,7 +21,8 @@ import {
   Search,
   MessageSquare,
   Crosshair,
-  Target
+  Target,
+  CloudRain
 } from "lucide-react";
 
 interface Station {
@@ -100,9 +102,67 @@ export default function AdminRadarPage() {
   const [telegramPreviewB64, setTelegramPreviewB64] = useState<string | null>(null);
   const [loopTelegramPreviewB64, setLoopTelegramPreviewB64] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"static" | "loop">("static");
+  const [mapDisplayTab, setMapDisplayTab] = useState<"coverage" | "trajectory">("coverage");
   const [calculatedBbox, setCalculatedBbox] = useState<any>(null);
   const [detectedCircle, setDetectedCircle] = useState<number[] | null>(null);
   const [frozenStationCenter, setFrozenStationCenter] = useState<{ cx: number; cy: number } | null>(null);
+
+  const DEMO_CLUSTERS: CloudCluster[] = [
+    {
+      id: "cluster-kkn-storm",
+      label: "Khon Kaen Core Cell",
+      lat: 16.44,
+      lng: 102.83,
+      cx: 336,
+      cy: 222,
+      radius: 20,
+      intensity_dbz: 52.0,
+      velocity_kmh: 28.5,
+      heading_deg: 80,
+      eta_min: 15,
+      history_trajectory: [
+        { time_offset_min: -20, lat: 16.38, lng: 102.35, cx: 310, cy: 225, dbz: 44.0 },
+        { time_offset_min: -15, lat: 16.40, lng: 102.50, cx: 318, cy: 224, dbz: 48.0 },
+        { time_offset_min: -10, lat: 16.42, lng: 102.65, cx: 326, cy: 223, dbz: 50.0 },
+        { time_offset_min: -5, lat: 16.43, lng: 102.75, cx: 332, cy: 222, dbz: 51.5 },
+      ],
+    },
+    {
+      id: "cluster-skn-band",
+      label: "Sakon Nakhon Rain Band",
+      lat: 17.16,
+      lng: 104.15,
+      cx: 413,
+      cy: 185,
+      radius: 18,
+      intensity_dbz: 38.0,
+      velocity_kmh: 22.0,
+      heading_deg: 110,
+      eta_min: 25,
+      history_trajectory: [
+        { time_offset_min: -15, lat: 17.30, lng: 103.80, cx: 390, cy: 178, dbz: 35.0 },
+        { time_offset_min: -10, lat: 17.25, lng: 103.95, cx: 400, cy: 180, dbz: 36.5 },
+        { time_offset_min: -5, lat: 17.20, lng: 104.05, cx: 408, cy: 183, dbz: 37.0 },
+      ],
+    },
+    {
+      id: "cluster-south-cell",
+      label: "Korat Inbound Cell",
+      lat: 14.97,
+      lng: 102.10,
+      cx: 294,
+      cy: 297,
+      radius: 16,
+      intensity_dbz: 42.5,
+      velocity_kmh: 19.0,
+      heading_deg: 65,
+      eta_min: 35,
+      history_trajectory: [
+        { time_offset_min: -10, lat: 14.85, lng: 101.80, cx: 278, cy: 304, dbz: 39.0 },
+        { time_offset_min: -5, lat: 14.92, lng: 101.95, cx: 286, cy: 300, dbz: 41.0 },
+      ],
+    },
+  ];
 
   // Interactive Mouse Drag & Handles State
   const imgRef = useRef<HTMLImageElement>(null);
@@ -688,24 +748,93 @@ export default function AdminRadarPage() {
           </div>
         </div>
 
-        {/* Section 2: Interactive SVG Thailand Nationwide Map (Live Status Aware) */}
+        {/* Section 2: Interactive SVG Thailand Nationwide Map (Live Status Aware & Cloud Trajectory) */}
         <section className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
                 1. แผนที่เรดาร์และขอบเขตความคุ้มครองประเทศไทย (Nationwide SVG Coverage & Live Status)
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                💡 <b>เคล็ดลับ:</b> สีของหมุดและวงรัศมีจะแสดงสถานะสด (เขียว = Online, ส้ม = Delayed, แดง = Offline) คลิกเพื่อปรับจูนได้ทันที
+                {mapDisplayTab === "coverage" ? (
+                  <>💡 <b>เคล็ดลับ:</b> สีของหมุดและวงรัศมีจะแสดงสถานะสด (เขียว = Online, ส้ม = Delayed, แดง = Offline) คลิกเพื่อปรับจูนได้ทันที</>
+                ) : (
+                  <>🌧️ <b>Issue #188:</b> นำเมาส์ไปชี้ (Hover) ที่ก้อนเมฆเพื่อดูเส้นทางเดินย้อนหลัง (Historical Trajectory Vectors) ในอดีต</>
+                )}
               </p>
+            </div>
+
+            {/* Map View Switcher Tabs */}
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
+              <button
+                onClick={() => setMapDisplayTab("coverage")}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all ${
+                  mapDisplayTab === "coverage"
+                    ? "bg-sky-600 text-white font-semibold shadow-md shadow-sky-600/30"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>13 สถานีเรดาร์ (Coverage)</span>
+              </button>
+              <button
+                onClick={() => setMapDisplayTab("trajectory")}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all ${
+                  mapDisplayTab === "trajectory"
+                    ? "bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <CloudRain className="w-3.5 h-3.5" />
+                <span>วิเคราะห์ทิศทางเมฆฝน (Hover Trajectory)</span>
+              </button>
             </div>
           </div>
 
-          <RadarCoverageMap
-            stations={
-              stations.length > 0
-                ? stations.map((s) => {
+          {mapDisplayTab === "coverage" ? (
+            <RadarCoverageMap
+              stations={
+                stations.length > 0
+                  ? stations.map((s) => {
+                      const stStatus = stationStatuses.find(st => st.code === s.code);
+                      return {
+                        code: s.code,
+                        name: s.name,
+                        center_lat: s.center_lat,
+                        center_lng: s.center_lng,
+                        radius_km: s.radius_km,
+                        is_active: s.is_active,
+                        status: stStatus ? stStatus.status : (s.is_active ? "online" : "offline"),
+                        latency_minutes: stStatus?.latency_minutes,
+                        last_frame_timestamp: stStatus?.last_frame_timestamp,
+                        region:
+                          s.code.startsWith("cmi") || s.code.startsWith("phs") || s.code === "tak" || s.code === "cri"
+                            ? "north"
+                            : s.code.startsWith("kkn") || s.code.startsWith("skn") || s.code.startsWith("ubn")
+                            ? "northeast"
+                            : s.code.startsWith("chn") || s.code.startsWith("svp") || s.code.startsWith("ntp")
+                            ? "central"
+                            : s.code.startsWith("ryg")
+                            ? "east"
+                            : "south",
+                      };
+                    })
+                  : DEFAULT_STATIONS
+              }
+              onSelectStation={(stCode) => {
+                const found = stations.find((s) => s.code === stCode);
+                if (found) {
+                  handleSelectStation(found);
+                }
+              }}
+            />
+          ) : (
+            <RadarCloudMap
+              stations={
+                stations
+                  .filter((s) => s.is_active && s.code !== "kkn120")
+                  .map((s) => {
                     const stStatus = stationStatuses.find(st => st.code === s.code);
                     return {
                       code: s.code,
@@ -713,31 +842,22 @@ export default function AdminRadarPage() {
                       center_lat: s.center_lat,
                       center_lng: s.center_lng,
                       radius_km: s.radius_km,
-                      is_active: s.is_active,
-                      status: stStatus ? stStatus.status : (s.is_active ? "online" : "offline"),
-                      latency_minutes: stStatus?.latency_minutes,
-                      last_frame_timestamp: stStatus?.last_frame_timestamp,
-                      region:
-                        s.code.startsWith("cmi") || s.code.startsWith("phs") || s.code === "tak" || s.code === "cri"
-                          ? "north"
-                          : s.code.startsWith("kkn") || s.code.startsWith("skn") || s.code.startsWith("ubn")
-                          ? "northeast"
-                          : s.code.startsWith("chn") || s.code.startsWith("svp") || s.code.startsWith("ntp")
-                          ? "central"
-                          : s.code.startsWith("ryg")
-                          ? "east"
-                          : "south",
+                      status: (stStatus?.status || (s.is_active ? "online" : "offline")) as "online" | "delayed" | "offline",
+                      latency_minutes: stStatus?.latency_minutes || 0,
+                      last_frame_timestamp: stStatus?.last_frame_timestamp || new Date().toISOString(),
                     };
                   })
-                : DEFAULT_STATIONS
-            }
-            onSelectStation={(stCode) => {
-              const found = stations.find((s) => s.code === stCode);
-              if (found) {
-                handleSelectStation(found);
               }
-            }}
-          />
+              clusters={DEMO_CLUSTERS}
+              selectedStationCode={code}
+              onSelectStation={(st) => {
+                const found = stations.find((s) => s.code === st.code);
+                if (found) {
+                  handleSelectStation(found);
+                }
+              }}
+            />
+          )}
         </section>
 
         {/* Section 3: Fine-Tuning & Live Image Calibration Panel */}

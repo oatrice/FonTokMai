@@ -1,20 +1,23 @@
-"use client";
-
-import React, { useState } from "react";
-import { Radio, Navigation, Clock, Activity, CloudRain, Zap } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import * as d3geo from "d3-geo";
+import { Radio, Navigation, Clock, Activity, CloudRain, Zap, Layers, MapPin } from "lucide-react";
 
 export interface TrajectoryPoint {
   time_offset_min: number; // e.g. -15, -10, -5
-  cx: number;
-  cy: number;
+  cx?: number;
+  cy?: number;
+  lat?: number;
+  lng?: number;
   dbz: number;
 }
 
 export interface CloudCluster {
   id: string;
   label: string;
-  cx: number;
-  cy: number;
+  cx?: number;
+  cy?: number;
+  lat?: number;
+  lng?: number;
   radius: number;
   intensity_dbz: number;
   velocity_kmh: number;
@@ -36,6 +39,13 @@ export interface RadarStation {
   loop_url?: string;
 }
 
+interface ProvincePath {
+  id: string;
+  nameTh: string;
+  nameEn: string;
+  d: string;
+}
+
 interface RadarCloudMapProps {
   stations?: RadarStation[];
   clusters?: CloudCluster[];
@@ -51,16 +61,51 @@ export function RadarCloudMap({
 }: RadarCloudMapProps) {
   const [hoveredCluster, setHoveredCluster] = useState<CloudCluster | null>(null);
   const [hoveredStation, setHoveredStation] = useState<RadarStation | null>(null);
+  const [showCoverageCircles, setShowCoverageCircles] = useState<boolean>(false);
+  const [showStationCenters, setShowStationCenters] = useState<boolean>(true);
+  const [showCloudClusters, setShowCloudClusters] = useState<boolean>(true);
+  const [showDbzLabels, setShowDbzLabels] = useState<boolean>(true);
+  const [provincePaths, setProvincePaths] = useState<ProvincePath[]>([]);
+  const projectionRef = useRef<d3geo.GeoProjection | null>(null);
 
-  // Geographic projection bounds (North-East Thailand focus)
-  const minLat = 14.0, maxLat = 19.5;
-  const minLng = 100.0, maxLng = 106.5;
-  const svgWidth = 800, svgHeight = 600;
+  const svgWidth = 520;
+  const svgHeight = 780;
+
+  // Load Thailand province GeoJSON and match d3geo Mercator projection with Coverage Map
+  useEffect(() => {
+    import("@/data/thailand_provinces.json").then((module) => {
+      const geojson = module.default as GeoJSON.FeatureCollection;
+      const projection = d3geo.geoMercator().fitExtent(
+        [[8, 8], [svgWidth - 8, svgHeight - 8]],
+        geojson
+      );
+      projectionRef.current = projection;
+
+      const pathGenerator = d3geo.geoPath().projection(projection);
+      const paths: ProvincePath[] = geojson.features.map((feat) => {
+        const props = feat.properties as { pro_code: string; pro_th: string; pro_en: string };
+        return {
+          id: props.pro_code,
+          nameTh: props.pro_th,
+          nameEn: props.pro_en,
+          d: pathGenerator(feat) ?? "",
+        };
+      });
+
+      setProvincePaths(paths);
+    });
+  }, []);
 
   const projectLatLng = (lat: number, lng: number) => {
+    if (projectionRef.current) {
+      const coords = projectionRef.current([lng, lat]);
+      if (coords) return { x: coords[0], y: coords[1] };
+    }
+    const minLat = 5.5, maxLat = 20.5;
+    const minLng = 97.0, maxLng = 106.0;
     const x = ((lng - minLng) / (maxLng - minLng)) * svgWidth;
     const y = ((maxLat - lat) / (maxLat - minLat)) * svgHeight;
-    return { x: Math.max(40, Math.min(svgWidth - 40, x)), y: Math.max(40, Math.min(svgHeight - 40, y)) };
+    return { x: Math.max(30, Math.min(svgWidth - 30, x)), y: Math.max(30, Math.min(svgHeight - 30, y)) };
   };
 
   const getDbzColor = (dbz: number) => {
@@ -86,20 +131,73 @@ export function RadarCloudMap({
             <Radio className="w-5 h-5 animate-pulse" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white tracking-wide">Interactive Radar Coverage & Cloud Trajectory</h3>
+            <h3 className="text-sm font-bold text-white tracking-wide">Interactive Radar Coverage & Cloud Trajectory (Nationwide Zoom-Out)</h3>
             <p className="text-xs text-zinc-400">Hover over cloud clusters to preview historical movement vectors</p>
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-4 text-xs">
+        {/* Controls & Legend */}
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          {/* Debug UI Toolbar */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-zinc-900 border border-white/10">
+            <span className="px-2 text-[11px] font-semibold text-cyan-400">UI Debug:</span>
+            
+            {/* Toggle Station Centers */}
+            <button
+              onClick={() => setShowStationCenters(!showStationCenters)}
+              className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all ${
+                showStationCenters
+                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 font-semibold"
+                  : "bg-white/5 text-zinc-500 border-white/5 hover:text-zinc-300"
+              }`}
+            >
+              {showStationCenters ? "🎯 ศูนย์กลางเรดาร์ [ON]" : "🎯 ศูนย์กลางเรดาร์ [OFF]"}
+            </button>
+
+            {/* Toggle Cloud Clusters */}
+            <button
+              onClick={() => setShowCloudClusters(!showCloudClusters)}
+              className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all ${
+                showCloudClusters
+                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 font-semibold"
+                  : "bg-white/5 text-zinc-500 border-white/5 hover:text-zinc-300"
+              }`}
+            >
+              {showCloudClusters ? "🌧️ ก้อนเมฆฝน [ON]" : "🌧️ ก้อนเมฆฝน [OFF]"}
+            </button>
+
+            {/* Toggle dBZ Labels */}
+            <button
+              onClick={() => setShowDbzLabels(!showDbzLabels)}
+              className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all ${
+                showDbzLabels
+                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 font-semibold"
+                  : "bg-white/5 text-zinc-500 border-white/5 hover:text-zinc-300"
+              }`}
+            >
+              {showDbzLabels ? "🏷️ ค่า dBZ [ON]" : "🏷️ ค่า dBZ [OFF]"}
+            </button>
+
+            {/* Toggle Coverage Circles */}
+            <button
+              onClick={() => setShowCoverageCircles(!showCoverageCircles)}
+              className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all ${
+                showCoverageCircles
+                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 font-semibold"
+                  : "bg-white/5 text-zinc-500 border-white/5 hover:text-zinc-300"
+              }`}
+            >
+              {showCoverageCircles ? "⭕ วงรัศมี [ON]" : "⭕ วงรัศมี [OFF]"}
+            </button>
+          </div>
+
           <div className="flex items-center gap-1.5 text-zinc-300">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-            <span>Online (&lt;30m)</span>
+            <span>Online</span>
           </div>
           <div className="flex items-center gap-1.5 text-zinc-300">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            <span>Delayed (30-60m)</span>
+            <span>Delayed</span>
           </div>
           <div className="flex items-center gap-1.5 text-zinc-300">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
@@ -109,7 +207,7 @@ export function RadarCloudMap({
       </div>
 
       {/* SVG Canvas Map */}
-      <div className="relative w-full aspect-[4/3] max-h-[560px] bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px]">
+      <div className="relative w-full aspect-[4/3] max-h-[600px] bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px]">
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           className="w-full h-full select-none"
@@ -131,56 +229,84 @@ export function RadarCloudMap({
           {/* Background Map Frame */}
           <rect width={svgWidth} height={svgHeight} fill="transparent" />
 
-          {/* Geographic Guide Rings & Meridians */}
-          <line x1="0" y1="300" x2="800" y2="300" stroke="#334155" strokeDasharray="4 4" strokeWidth="0.8" opacity="0.4" />
-          <line x1="400" y1="0" x2="400" y2="600" stroke="#334155" strokeDasharray="4 4" strokeWidth="0.8" opacity="0.4" />
+          {/* Thailand Province Polygon Boundaries — SVG Base Map */}
+          {provincePaths.map((prov) => (
+            <path
+              key={`prov-base-${prov.id}`}
+              d={prov.d}
+              fill="#0369a1"
+              fillOpacity={0.12}
+              stroke="#0284c7"
+              strokeWidth="0.8"
+              strokeOpacity={0.55}
+              style={{ fill: "#0369a1", fillOpacity: 0.12, stroke: "#0284c7", strokeOpacity: 0.55 }}
+              className="transition-all duration-300 pointer-events-none"
+            />
+          ))}
 
           {/* Render Station Coverage Radii & Centers */}
           {stations.map((st) => {
             const pos = projectLatLng(st.center_lat, st.center_lng);
             const statusStyle = getStatusColor(st.status);
             const isSelected = selectedStationCode === st.code;
-            const rPx = st.radius_km * 1.15; // Scaled pixel radius
+            const rPx = st.radius_km * 0.45; // Scaled pixel radius for Nationwide zoom-out
+
+            // Smart label offset: Prevent overlap between Tak and Chainat or close stations
+            let labelOffsetX = 0;
+            let labelOffsetY = 16;
+            if (st.code.toLowerCase().includes("tak")) {
+              labelOffsetX = -18;
+              labelOffsetY = -10;
+            } else if (st.code.toLowerCase().includes("chn")) {
+              labelOffsetX = 18;
+              labelOffsetY = 16;
+            }
 
             return (
               <g key={st.code} className="cursor-pointer" onClick={() => onSelectStation?.(st)} onMouseEnter={() => setHoveredStation(st)} onMouseLeave={() => setHoveredStation(null)}>
-                {/* Coverage Outer Ring */}
-                <circle
-                  cx={pos.x}
-                  cy={pos.y}
-                  r={rPx}
-                  fill={statusStyle.stroke}
-                  fillOpacity={isSelected ? 0.12 : 0.04}
-                  stroke={statusStyle.stroke}
-                  strokeWidth={isSelected ? 2 : 1}
-                  strokeDasharray="6 4"
-                  className="transition-all duration-300"
-                />
+                {/* Coverage Outer Ring (Optional Toggle to prevent visual clutter) */}
+                {showCoverageCircles && (
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={rPx}
+                    fill={statusStyle.stroke}
+                    fillOpacity={isSelected ? 0.12 : 0.03}
+                    stroke={statusStyle.stroke}
+                    strokeWidth={isSelected ? 1.5 : 0.8}
+                    strokeDasharray="4 4"
+                    className="transition-all duration-300 pointer-events-none"
+                  />
+                )}
                 
-                {/* Station Center Marker */}
-                <circle
-                  data-testid={`station-marker-${st.code}`}
-                  cx={pos.x}
-                  cy={pos.y}
-                  r={isSelected ? 9 : 7}
-                  fill={statusStyle.fill}
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                  className="hover:scale-125 transition-transform"
-                />
+                {/* Station Center Marker (Fixed size to eliminate jitter/flickering) */}
+                {showStationCenters && (
+                  <>
+                    <circle
+                      data-testid={`station-marker-${st.code}`}
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={isSelected ? 8 : 6}
+                      fill={statusStyle.fill}
+                      stroke="#ffffff"
+                      strokeWidth={1.8}
+                      className="transition-colors duration-150"
+                    />
 
-                {/* Station Label */}
-                <text
-                  x={pos.x}
-                  y={pos.y + 22}
-                  textAnchor="middle"
-                  fill="#e2e8f0"
-                  fontSize="11"
-                  fontWeight="600"
-                  className="pointer-events-none drop-shadow-md"
-                >
-                  {st.name}
-                </text>
+                    {/* Station Label */}
+                    <text
+                      x={pos.x + labelOffsetX}
+                      y={pos.y + labelOffsetY}
+                      textAnchor="middle"
+                      fill="#e2e8f0"
+                      fontSize="10"
+                      fontWeight="600"
+                      className="pointer-events-none drop-shadow-md select-none"
+                    >
+                      {st.name}
+                    </text>
+                  </>
+                )}
               </g>
             );
           })}
@@ -189,6 +315,17 @@ export function RadarCloudMap({
           {clusters.map((cluster) => {
             const isHovered = hoveredCluster?.id === cluster.id;
             const dbzColor = getDbzColor(cluster.intensity_dbz);
+
+            const clusterPos = cluster.lat !== undefined && cluster.lng !== undefined
+              ? projectLatLng(cluster.lat, cluster.lng)
+              : { x: cluster.cx ?? 0, y: cluster.cy ?? 0 };
+
+            const trajectoryPoints = (cluster.history_trajectory || []).map((pt) => {
+              const ptPos = pt.lat !== undefined && pt.lng !== undefined
+                ? projectLatLng(pt.lat, pt.lng)
+                : { x: pt.cx ?? 0, y: pt.cy ?? 0 };
+              return { ...pt, x: ptPos.x, y: ptPos.y };
+            });
 
             return (
               <g
@@ -199,57 +336,70 @@ export function RadarCloudMap({
                 onMouseLeave={() => setHoveredCluster(null)}
               >
                 {/* Historical Trajectory Vectors (Visible when hovered) */}
-                {isHovered && cluster.history_trajectory && cluster.history_trajectory.length > 0 && (
+                {isHovered && trajectoryPoints.length > 0 && (
                   <g data-testid={`trajectory-path-${cluster.id}`}>
                     {/* Path line connecting historical coordinates to current position */}
                     <path
-                      d={`M ${cluster.history_trajectory.map((p) => `${p.cx},${p.cy}`).join(" L ")} L ${cluster.cx},${cluster.cy}`}
+                      d={`M ${trajectoryPoints.map((p) => `${p.x},${p.y}`).join(" L ")} L ${clusterPos.x},${clusterPos.y}`}
                       fill="none"
-                      stroke="#38bdf8"
+                      stroke="#06b6d4"
                       strokeWidth="3"
                       strokeDasharray="6 4"
                       strokeLinecap="round"
-                      className="filter drop-shadow-[0_0_8px_rgba(56,189,248,0.8)]"
+                      className="filter drop-shadow-[0_0_10px_rgba(6,182,212,0.9)]"
                     />
 
-                    {/* Historical frame waypoints */}
-                    {cluster.history_trajectory.map((pt, idx) => (
+                    {/* Historical frame waypoints with pill badge background */}
+                    {trajectoryPoints.map((pt, idx) => (
                       <g key={idx}>
                         <circle
-                          cx={pt.cx}
-                          cy={pt.cy}
+                          cx={pt.x}
+                          cy={pt.y}
                           r={5}
-                          fill="#38bdf8"
-                          stroke="#0f172a"
-                          strokeWidth="2"
+                          fill="#22d3ee"
+                          stroke="#020617"
+                          strokeWidth="2.5"
+                        />
+                        {/* Waypoint Text Badge with enhanced offset spacing (y - 28) */}
+                        <rect
+                          x={pt.x - 18}
+                          y={pt.y - 28}
+                          width={36}
+                          height={15}
+                          rx={4}
+                          fill="#090d16"
+                          stroke="#38bdf8"
+                          strokeWidth={1.2}
                         />
                         <text
-                          x={pt.cx}
-                          y={pt.cy - 10}
+                          x={pt.x}
+                          y={pt.y - 17}
                           textAnchor="middle"
-                          fill="#7dd3fc"
-                          fontSize="10"
+                          fill="#38bdf8"
+                          fontSize="9.5"
                           fontWeight="bold"
-                          className="drop-shadow"
+                          className="select-none pointer-events-none"
                         >
                           {pt.time_offset_min}m
                         </text>
                       </g>
                     ))}
 
-                    {/* Velocity & Heading Vector Arrow (Predictive forward vector) */}
+                    {/* Velocity & Heading Vector Arrow (Extended distance and high visibility) */}
                     {(() => {
                       const rad = (cluster.heading_deg - 90) * (Math.PI / 180);
-                      const targetX = cluster.cx + Math.cos(rad) * 45;
-                      const targetY = cluster.cy + Math.sin(rad) * 45;
+                      const startX = clusterPos.x + Math.cos(rad) * (cluster.radius * 0.95);
+                      const startY = clusterPos.y + Math.sin(rad) * (cluster.radius * 0.95);
+                      const targetX = clusterPos.x + Math.cos(rad) * 55;
+                      const targetY = clusterPos.y + Math.sin(rad) * 55;
                       return (
                         <line
-                          x1={cluster.cx}
-                          y1={cluster.cy}
+                          x1={startX}
+                          y1={startY}
                           x2={targetX}
                           y2={targetY}
                           stroke="#38bdf8"
-                          strokeWidth="2.5"
+                          strokeWidth="3"
                           markerEnd="url(#arrow)"
                         />
                       );
@@ -257,30 +407,47 @@ export function RadarCloudMap({
                   </g>
                 )}
 
-                {/* Cloud Cluster Body */}
-                <circle
-                  cx={cluster.cx}
-                  cy={cluster.cy}
-                  r={isHovered ? cluster.radius * 1.15 : cluster.radius}
-                  fill={dbzColor}
-                  fillOpacity={isHovered ? 0.85 : 0.65}
-                  stroke={isHovered ? "#ffffff" : dbzColor}
-                  strokeWidth={isHovered ? 2.5 : 1.5}
-                  className="transition-all duration-200"
-                />
+                {/* Cloud Cluster Body (Semi-transparent radar reflection) */}
+                {showCloudClusters && (
+                  <circle
+                    cx={clusterPos.x}
+                    cy={clusterPos.y}
+                    r={cluster.radius * 0.85}
+                    fill={dbzColor}
+                    fillOpacity={isHovered ? 0.95 : 0.75}
+                    stroke="#ffffff"
+                    strokeWidth={isHovered ? 2.5 : 1.5}
+                    className="transition-colors duration-150"
+                  />
+                )}
 
-                {/* Cluster Label / ID */}
-                <text
-                  x={cluster.cx}
-                  y={cluster.cy + 4}
-                  textAnchor="middle"
-                  fill="#ffffff"
-                  fontSize="10"
-                  fontWeight="bold"
-                  className="pointer-events-none drop-shadow"
-                >
-                  {cluster.intensity_dbz} dBZ
-                </text>
+                {/* High Contrast Center Badge for dBZ (DarkReader-safe solid dark background) */}
+                {showDbzLabels && (
+                  <g className="pointer-events-none select-none">
+                    <circle
+                      cx={clusterPos.x}
+                      cy={clusterPos.y}
+                      r={13}
+                      fill="#030712"
+                      stroke={dbzColor}
+                      strokeWidth="2.5"
+                      style={{ fill: "#030712", fillOpacity: 1 }}
+                    />
+
+                    {/* Crisp dBZ Number with explicit bright styling */}
+                    <text
+                      x={clusterPos.x}
+                      y={clusterPos.y + 3.5}
+                      textAnchor="middle"
+                      fill="#38bdf8"
+                      fontSize="10.5"
+                      fontWeight="900"
+                      style={{ fill: "#38bdf8", color: "#38bdf8" }}
+                    >
+                      {cluster.intensity_dbz.toFixed(0)}
+                    </text>
+                  </g>
+                )}
               </g>
             );
           })}

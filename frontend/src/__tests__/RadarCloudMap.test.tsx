@@ -103,4 +103,22 @@ describe("RadarCloudMap Component (Issue #188 & #270)", () => {
     fireEvent.click(stationMarker);
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ code: "kkn240" }));
   });
+
+  it("toggles UI debug display elements (station centers, cloud clusters, dBZ labels)", () => {
+    render(<RadarCloudMap stations={mockStations} clusters={mockClusters} />);
+
+    // Station marker initially visible
+    expect(screen.getByTestId("station-marker-kkn240")).toBeInTheDocument();
+    expect(screen.getByText("49")).toBeInTheDocument();
+
+    // Toggle Station Centers OFF
+    const toggleStationBtn = screen.getByText(/ศูนย์กลางเรดาร์/i);
+    fireEvent.click(toggleStationBtn);
+    expect(screen.queryByTestId("station-marker-kkn240")).not.toBeInTheDocument();
+
+    // Toggle dBZ Labels OFF
+    const toggleDbzBtn = screen.getByText(/ค่า dBZ/i);
+    fireEvent.click(toggleDbzBtn);
+    expect(screen.queryByText("49")).not.toBeInTheDocument();
+  });
 });
