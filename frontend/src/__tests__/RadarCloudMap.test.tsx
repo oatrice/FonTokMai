@@ -184,4 +184,64 @@ describe("RadarCloudMap Component (Issue #188 & #270)", () => {
     fireEvent.click(closeBtn);
     expect(screen.queryByTestId("trajectory-preview-card")).not.toBeInTheDocument();
   });
+
+  it("supports dynamic de-clustering / spiderfy sub-cell expansion upon zoom-in >= 2.0x", () => {
+    const mockClustersWithSub: CloudCluster[] = [
+      {
+        id: "cluster-macro",
+        label: "Macro Storm",
+        cx: 260,
+        cy: 390,
+        radius: 25,
+        intensity_dbz: 52,
+        velocity_kmh: 30,
+        heading_deg: 75,
+        sub_clusters: [
+          {
+            id: "sub-cell-1",
+            label: "Sub District A",
+            cx: 250,
+            cy: 380,
+            radius: 12,
+            intensity_dbz: 52,
+            velocity_kmh: 32,
+            heading_deg: 70,
+          },
+          {
+            id: "sub-cell-2",
+            label: "Sub District B",
+            cx: 270,
+            cy: 400,
+            radius: 10,
+            intensity_dbz: 46,
+            velocity_kmh: 28,
+            heading_deg: 80,
+          },
+        ],
+      },
+    ];
+
+    render(<RadarCloudMap stations={mockStations} clusters={mockClustersWithSub} />);
+
+    // At 1.0x: Parent macro cluster is visible
+    expect(screen.getByTestId("cloud-cluster-cluster-macro")).toBeInTheDocument();
+    expect(screen.queryByTestId("cloud-cluster-sub-cell-1")).not.toBeInTheDocument();
+
+    // Zoom in twice to reach 2.0x (1.0x -> 1.5x -> 2.0x)
+    const zoomInBtn = screen.getByLabelText("Zoom In");
+    fireEvent.click(zoomInBtn);
+    fireEvent.click(zoomInBtn);
+
+    // At 2.0x: Parent cluster de-clusters / spiderfies into child sub-cells
+    expect(screen.queryByTestId("cloud-cluster-cluster-macro")).not.toBeInTheDocument();
+    expect(screen.getByTestId("cloud-cluster-sub-cell-1")).toBeInTheDocument();
+    expect(screen.getByTestId("cloud-cluster-sub-cell-2")).toBeInTheDocument();
+    expect(screen.getByText(/De-clustered/i)).toBeInTheDocument();
+
+    // Toggle clustering OFF reverts to parent
+    const toggleClusteringBtn = screen.getByText(/De-clustered/i);
+    fireEvent.click(toggleClusteringBtn);
+    expect(screen.getByTestId("cloud-cluster-cluster-macro")).toBeInTheDocument();
+    expect(screen.queryByTestId("cloud-cluster-sub-cell-1")).not.toBeInTheDocument();
+  });
 });

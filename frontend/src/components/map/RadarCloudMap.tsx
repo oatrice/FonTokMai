@@ -24,6 +24,7 @@ export interface CloudCluster {
   heading_deg: number;
   eta_min?: number;
   history_trajectory?: TrajectoryPoint[];
+  sub_clusters?: CloudCluster[]; // Hierarchical nested cells revealed upon zoom-in / de-cluster
 }
 
 export interface RadarStation {
@@ -66,6 +67,7 @@ export function RadarCloudMap({
   const [showStationCenters, setShowStationCenters] = useState<boolean>(true);
   const [showCloudClusters, setShowCloudClusters] = useState<boolean>(true);
   const [showDbzLabels, setShowDbzLabels] = useState<boolean>(true);
+  const [enableClustering, setEnableClustering] = useState<boolean>(true);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -248,6 +250,23 @@ export function RadarCloudMap({
               }`}
             >
               {showDbzLabels ? "🏷️ ค่า dBZ [ON]" : "🏷️ ค่า dBZ [OFF]"}
+            </button>
+
+            {/* Toggle Dynamic Clustering / Spiderfy */}
+            <button
+              onClick={() => setEnableClustering(!enableClustering)}
+              className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all ${
+                enableClustering
+                  ? "bg-purple-500/20 text-purple-300 border-purple-500/40 font-semibold"
+                  : "bg-white/5 text-zinc-500 border-white/5 hover:text-zinc-300"
+              }`}
+              title="สลับโหมดรวมกลุ่มฝน (Zoom < 2.0x = รวมกลุ่ม, Zoom ≥ 2.0x = แตกตัว)"
+            >
+              {enableClustering
+                ? zoomLevel >= 2.0
+                  ? "🔮 De-clustered [แตกตัว]"
+                  : "🔮 Clustered [รวมกลุ่ม]"
+                : "🔮 Clustering [OFF]"}
             </button>
 
             {/* Toggle Coverage Rings */}
@@ -439,175 +458,231 @@ export function RadarCloudMap({
             );
           })}
 
-          {/* Render Active Cloud Clusters & Trajectories (Issue #188) */}
-          {clusters.map((cluster) => {
-            const isHovered = hoveredCluster?.id === cluster.id;
-            const isPinned = pinnedCluster?.id === cluster.id;
-            const isActive = isHovered || isPinned;
-            const dbzColor = getDbzColor(cluster.intensity_dbz);
+          {/* Hierarchical Clustering / Spiderfy Expansion (De-clustering at zoomLevel >= 2.0) */}
+          {(() => {
+            // Determine active visible clusters: Flatten sub_clusters when zoomLevel >= 2.0 and clustering enabled
+            const isDeClustered = enableClustering && zoomLevel >= 2.0;
 
-            const clusterPos = cluster.lat !== undefined && cluster.lng !== undefined
-              ? projectLatLng(cluster.lat, cluster.lng)
-              : { x: cluster.cx ?? 0, y: cluster.cy ?? 0 };
+            const visibleClusters: CloudCluster[] = [];
+            const spiderfyConnectors: { parentPos: { x: number; y: number }; childPos: { x: number; y: number }; childId: string }[] = [];
 
-            const trajectoryPoints = (cluster.history_trajectory || []).map((pt) => {
-              const ptPos = pt.lat !== undefined && pt.lng !== undefined
-                ? projectLatLng(pt.lat, pt.lng)
-                : { x: pt.cx ?? 0, y: pt.cy ?? 0 };
-              return { ...pt, x: ptPos.x, y: ptPos.y };
+            clusters.forEach((parent) => {
+              if (isDeClustered && parent.sub_clusters && parent.sub_clusters.length > 0) {
+                const parentPos = parent.lat !== undefined && parent.lng !== undefined
+                  ? projectLatLng(parent.lat, parent.lng)
+                  : { x: parent.cx ?? 0, y: parent.cy ?? 0 };
+
+                parent.sub_clusters.forEach((sub) => {
+                  visibleClusters.push(sub);
+                  const childPos = sub.lat !== undefined && sub.lng !== undefined
+                    ? projectLatLng(sub.lat, sub.lng)
+                    : { x: sub.cx ?? 0, y: sub.cy ?? 0 };
+                  spiderfyConnectors.push({ parentPos, childPos, childId: sub.id });
+                });
+              } else {
+                visibleClusters.push(parent);
+              }
             });
 
             return (
-              <g
-                key={cluster.id}
-                data-testid={`cloud-cluster-${cluster.id}`}
-                className="cursor-pointer"
-                onClick={() => setPinnedCluster(isPinned ? null : cluster)}
-                onMouseEnter={() => setHoveredCluster(cluster)}
-                onMouseLeave={() => setHoveredCluster(null)}
-              >
-                {/* Cloud Cluster Body (Semi-transparent radar reflection) */}
-                {showCloudClusters && (
-                  <circle
-                    cx={clusterPos.x}
-                    cy={clusterPos.y}
-                    r={cluster.radius * 0.85}
-                    fill={dbzColor}
-                    fillOpacity={isActive ? 0.95 : 0.75}
-                    stroke={isPinned ? "#38bdf8" : "#ffffff"}
-                    strokeWidth={isActive ? 2.8 : 1.5}
-                    className="transition-colors duration-150"
+              <>
+                {/* Spiderfy Connector Lines (Showing parent origin to sub-cell breakdown) */}
+                {isDeClustered && spiderfyConnectors.map((conn) => (
+                  <line
+                    key={`spider-${conn.childId}`}
+                    x1={conn.parentPos.x}
+                    y1={conn.parentPos.y}
+                    x2={conn.childPos.x}
+                    y2={conn.childPos.y}
+                    stroke="rgba(168, 85, 247, 0.4)"
+                    strokeWidth="1.5"
+                    strokeDasharray="3 3"
+                    className="pointer-events-none"
                   />
-                )}
+                ))}
 
-                {/* Direct Crisp dBZ Number (Dark bold text with crisp white outline) */}
-                {showDbzLabels && (
-                  <text
-                    x={clusterPos.x}
-                    y={clusterPos.y + 3.5}
-                    textAnchor="middle"
-                    fill="#090d16"
-                    fontSize="11.5"
-                    fontWeight="900"
-                    style={{
-                      fill: "#090d16",
-                      paintOrder: "stroke fill",
-                      stroke: "#ffffff",
-                      strokeWidth: "2.2px",
-                      strokeLinejoin: "round",
-                    }}
-                    className="pointer-events-none select-none drop-shadow-sm"
-                  >
-                    {cluster.intensity_dbz.toFixed(0)}
-                  </text>
-                )}
+                {/* Render Visible Cloud Clusters (Parent or De-clustered Sub-cells) */}
+                {visibleClusters.map((cluster) => {
+                  const isHovered = hoveredCluster?.id === cluster.id;
+                  const isPinned = pinnedCluster?.id === cluster.id;
+                  const isActive = isHovered || isPinned;
+                  const dbzColor = getDbzColor(cluster.intensity_dbz);
 
-                {/* Historical Trajectory Vectors (Rendered ON TOP when hovered or pinned) */}
-                {isActive && trajectoryPoints.length > 0 && (
-                  <g data-testid={`trajectory-path-${cluster.id}`} className="pointer-events-none">
-                    {/* Path line connecting curved historical coordinates to current position */}
-                    <path
-                      d={`M ${trajectoryPoints.map((p) => `${p.x},${p.y}`).join(" L ")} L ${clusterPos.x},${clusterPos.y}`}
-                      fill="none"
-                      stroke="#06b6d4"
-                      strokeWidth="3"
-                      strokeDasharray="6 4"
-                      strokeLinecap="round"
-                      className="filter drop-shadow-[0_0_10px_rgba(6,182,212,0.9)]"
-                    />
+                  const clusterPos = cluster.lat !== undefined && cluster.lng !== undefined
+                    ? projectLatLng(cluster.lat, cluster.lng)
+                    : { x: cluster.cx ?? 0, y: cluster.cy ?? 0 };
 
-                    {/* Historical frame waypoints with Dynamic Orthogonal Offset (Normal Vector Direction) */}
-                    {trajectoryPoints.map((pt, idx) => {
-                      // Determine path direction vector
-                      const prevPt = idx > 0 ? trajectoryPoints[idx - 1] : pt;
-                      const nextPt = idx < trajectoryPoints.length - 1 ? trajectoryPoints[idx + 1] : clusterPos;
-                      
-                      // Tangent angle along trajectory path
-                      const dx = nextPt.x - prevPt.x || 1;
-                      const dy = nextPt.y - prevPt.y || 0;
-                      const len = Math.hypot(dx, dy) || 1;
-                      
-                      // Perpendicular Normal Vector (Rotate 90 deg)
-                      const side = idx % 2 === 0 ? -1 : 1;
-                      const nx = (-dy / len) * side;
-                      const ny = (dx / len) * side;
+                  const trajectoryPoints = (cluster.history_trajectory || []).map((pt) => {
+                    const ptPos = pt.lat !== undefined && pt.lng !== undefined
+                      ? projectLatLng(pt.lat, pt.lng)
+                      : { x: pt.cx ?? 0, y: pt.cy ?? 0 };
+                    return { ...pt, x: ptPos.x, y: ptPos.y };
+                  });
 
-                      // Distance offset from waypoint dot (20px normal offset)
-                      const offsetDist = 20;
-                      const badgeCenterX = pt.x + nx * offsetDist;
-                      const badgeCenterY = pt.y + ny * offsetDist;
+                  const isChildCell = cluster.id.startsWith("sub-");
 
-                      return (
-                        <g key={idx}>
-                          {/* Dot marker */}
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r={4.5}
-                            fill="#22d3ee"
-                            stroke="#020617"
-                            strokeWidth="2"
-                          />
-                          {/* Indicator line connecting waypoint dot to offset badge */}
-                          <line
-                            x1={pt.x}
-                            y1={pt.y}
-                            x2={badgeCenterX}
-                            y2={badgeCenterY}
-                            stroke="rgba(56, 189, 248, 0.5)"
-                            strokeWidth="1"
-                            strokeDasharray="2 2"
-                          />
-                          {/* Compact Waypoint Badge */}
-                          <rect
-                            x={badgeCenterX - 14}
-                            y={badgeCenterY - 7}
-                            width={28}
-                            height={14}
-                            rx={3}
-                            fill="#090d16"
-                            stroke="#38bdf8"
-                            strokeWidth={1.2}
-                          />
-                          <text
-                            x={badgeCenterX}
-                            y={badgeCenterY + 3.5}
-                            textAnchor="middle"
-                            fill="#38bdf8"
-                            fontSize="8.5"
-                            fontWeight="bold"
-                            className="select-none pointer-events-none"
-                          >
-                            {pt.time_offset_min}m
-                          </text>
-                        </g>
-                      );
-                    })}
-
-                    {/* Velocity & Heading Vector Arrow (Extended distance and high visibility) */}
-                    {(() => {
-                      const rad = (cluster.heading_deg - 90) * (Math.PI / 180);
-                      const startX = clusterPos.x + Math.cos(rad) * (cluster.radius * 0.95);
-                      const startY = clusterPos.y + Math.sin(rad) * (cluster.radius * 0.95);
-                      const targetX = clusterPos.x + Math.cos(rad) * 55;
-                      const targetY = clusterPos.y + Math.sin(rad) * 55;
-                      return (
-                        <line
-                          x1={startX}
-                          y1={startY}
-                          x2={targetX}
-                          y2={targetY}
-                          stroke="#38bdf8"
-                          strokeWidth="3"
-                          markerEnd="url(#arrow)"
+                  return (
+                    <g
+                      key={cluster.id}
+                      data-testid={`cloud-cluster-${cluster.id}`}
+                      className="cursor-pointer"
+                      onClick={() => setPinnedCluster(isPinned ? null : cluster)}
+                      onMouseEnter={() => setHoveredCluster(cluster)}
+                      onMouseLeave={() => setHoveredCluster(null)}
+                    >
+                      {/* Cloud Cluster Body (Semi-transparent radar reflection) */}
+                      {showCloudClusters && (
+                        <circle
+                          cx={clusterPos.x}
+                          cy={clusterPos.y}
+                          r={cluster.radius * 0.85}
+                          fill={dbzColor}
+                          fillOpacity={isActive ? 0.95 : 0.75}
+                          stroke={isPinned ? "#38bdf8" : isChildCell ? "#c084fc" : "#ffffff"}
+                          strokeWidth={isActive ? 2.8 : 1.5}
+                          className="transition-all duration-300"
                         />
-                      );
-                    })()}
-                  </g>
-                )}
-              </g>
+                      )}
+
+                      {/* Direct Crisp dBZ Number (Dark bold text with crisp white outline) */}
+                      {showDbzLabels && (
+                        <text
+                          x={clusterPos.x}
+                          y={clusterPos.y + 3.5}
+                          textAnchor="middle"
+                          fill="#090d16"
+                          fontSize={isChildCell ? "9.5" : "11.5"}
+                          fontWeight="900"
+                          style={{
+                            fill: "#090d16",
+                            paintOrder: "stroke fill",
+                            stroke: "#ffffff",
+                            strokeWidth: "2.2px",
+                            strokeLinejoin: "round",
+                          }}
+                          className="pointer-events-none select-none drop-shadow-sm"
+                        >
+                          {cluster.intensity_dbz.toFixed(0)}
+                        </text>
+                      )}
+
+                      {/* Cluster Label for Sub-cells when zoomed in */}
+                      {isChildCell && showDbzLabels && (
+                        <text
+                          x={clusterPos.x}
+                          y={clusterPos.y - cluster.radius - 2}
+                          textAnchor="middle"
+                          fill="#e9d5ff"
+                          fontSize="8"
+                          fontWeight="600"
+                          className="pointer-events-none select-none drop-shadow-sm"
+                        >
+                          {cluster.label.split(" ")[0]}
+                        </text>
+                      )}
+
+                      {/* Historical Trajectory Vectors (Rendered ON TOP when hovered or pinned) */}
+                      {isActive && trajectoryPoints.length > 0 && (
+                        <g data-testid={`trajectory-path-${cluster.id}`} className="pointer-events-none">
+                          {/* Path line connecting curved historical coordinates to current position */}
+                          <path
+                            d={`M ${trajectoryPoints.map((p) => `${p.x},${p.y}`).join(" L ")} L ${clusterPos.x},${clusterPos.y}`}
+                            fill="none"
+                            stroke={isChildCell ? "#c084fc" : "#06b6d4"}
+                            strokeWidth="2.5"
+                            strokeDasharray="5 3"
+                            strokeLinecap="round"
+                            className="filter drop-shadow-[0_0_8px_rgba(192,132,252,0.8)]"
+                          />
+
+                          {/* Historical frame waypoints with Dynamic Orthogonal Offset */}
+                          {trajectoryPoints.map((pt, idx) => {
+                            const prevPt = idx > 0 ? trajectoryPoints[idx - 1] : pt;
+                            const nextPt = idx < trajectoryPoints.length - 1 ? trajectoryPoints[idx + 1] : clusterPos;
+                            
+                            const dx = nextPt.x - prevPt.x || 1;
+                            const dy = nextPt.y - prevPt.y || 0;
+                            const len = Math.hypot(dx, dy) || 1;
+                            
+                            const side = idx % 2 === 0 ? -1 : 1;
+                            const nx = (-dy / len) * side;
+                            const ny = (dx / len) * side;
+
+                            const offsetDist = 18;
+                            const badgeCenterX = pt.x + nx * offsetDist;
+                            const badgeCenterY = pt.y + ny * offsetDist;
+
+                            return (
+                              <g key={idx}>
+                                <circle
+                                  cx={pt.x}
+                                  cy={pt.y}
+                                  r={3.8}
+                                  fill={isChildCell ? "#d8b4fe" : "#22d3ee"}
+                                  stroke="#020617"
+                                  strokeWidth="1.8"
+                                />
+                                <line
+                                  x1={pt.x}
+                                  y1={pt.y}
+                                  x2={badgeCenterX}
+                                  y2={badgeCenterY}
+                                  stroke="rgba(192, 132, 252, 0.5)"
+                                  strokeWidth="1"
+                                  strokeDasharray="2 2"
+                                />
+                                <rect
+                                  x={badgeCenterX - 13}
+                                  y={badgeCenterY - 6.5}
+                                  width={26}
+                                  height={13}
+                                  rx={3}
+                                  fill="#090d16"
+                                  stroke={isChildCell ? "#c084fc" : "#38bdf8"}
+                                  strokeWidth={1.1}
+                                />
+                                <text
+                                  x={badgeCenterX}
+                                  y={badgeCenterY + 3.2}
+                                  textAnchor="middle"
+                                  fill={isChildCell ? "#d8b4fe" : "#38bdf8"}
+                                  fontSize="8"
+                                  fontWeight="bold"
+                                  className="select-none pointer-events-none"
+                                >
+                                  {pt.time_offset_min}m
+                                </text>
+                              </g>
+                            );
+                          })}
+
+                          {/* Velocity & Heading Vector Arrow */}
+                          {(() => {
+                            const rad = (cluster.heading_deg - 90) * (Math.PI / 180);
+                            const startX = clusterPos.x + Math.cos(rad) * (cluster.radius * 0.95);
+                            const startY = clusterPos.y + Math.sin(rad) * (cluster.radius * 0.95);
+                            const targetX = clusterPos.x + Math.cos(rad) * 45;
+                            const targetY = clusterPos.y + Math.sin(rad) * 45;
+                            return (
+                              <line
+                                x1={startX}
+                                y1={startY}
+                                x2={targetX}
+                                y2={targetY}
+                                stroke={isChildCell ? "#c084fc" : "#38bdf8"}
+                                strokeWidth="2.5"
+                                markerEnd="url(#arrow)"
+                              />
+                            );
+                          })()}
+                        </g>
+                      )}
+                    </g>
+                  );
+                })}
+              </>
             );
-          })}
+          })()}
         </svg>
 
         {/* Hover / Pinned Trajectory Floating Card (Issue #188) */}
