@@ -65,8 +65,10 @@ export function RadarCloudMap({
   const [showStationCenters, setShowStationCenters] = useState<boolean>(true);
   const [showCloudClusters, setShowCloudClusters] = useState<boolean>(true);
   const [showDbzLabels, setShowDbzLabels] = useState<boolean>(true);
-  const [zoomLevel, setZoomLevel] = useState<number>(1); // 1 = 100% (Nationwide), 2 = 180%, 3 = 260%
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [provincePaths, setProvincePaths] = useState<ProvincePath[]>([]);
   const projectionRef = useRef<d3geo.GeoProjection | null>(null);
 
@@ -75,12 +77,12 @@ export function RadarCloudMap({
 
   // Manual Zoom Controls (Google Maps style)
   const handleZoomIn = () => {
-    setZoomLevel((prev) => Math.min(3.5, prev + 0.5));
+    setZoomLevel((prev) => Math.min(4, Number((prev + 0.5).toFixed(1))));
   };
 
   const handleZoomOut = () => {
     setZoomLevel((prev) => {
-      const next = Math.max(1, prev - 0.5);
+      const next = Math.max(1, Number((prev - 0.5).toFixed(1)));
       if (next === 1) setPanOffset({ x: 0, y: 0 });
       return next;
     });
@@ -91,13 +93,34 @@ export function RadarCloudMap({
     setPanOffset({ x: 0, y: 0 });
   };
 
+  // Mouse Drag Panning Handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setPanOffset((prev) => ({
+      x: prev.x + dx,
+      y: prev.y + dy,
+    }));
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
   // Focus zoom into a specific cloud cluster zone smoothly
   const handleFocusCluster = (cluster: CloudCluster) => {
     const pos = cluster.lat !== undefined && cluster.lng !== undefined
       ? projectLatLng(cluster.lat, cluster.lng)
       : { x: cluster.cx ?? svgWidth / 2, y: cluster.cy ?? svgHeight / 2 };
     
-    setZoomLevel(2.2);
+    setZoomLevel(2);
     setPanOffset({
       x: (svgWidth / 2) - pos.x,
       y: (svgHeight / 2) - pos.y,
@@ -280,11 +303,11 @@ export function RadarCloudMap({
               <div className="w-full h-[1px] bg-white/10" />
               <button
                 onClick={handleResetZoom}
-                title="Reset View"
+                title="Reset View (1x)"
                 aria-label="Reset View"
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold text-cyan-400 hover:text-cyan-300 hover:bg-white/10 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-[10px] font-bold text-cyan-400 hover:text-cyan-300 hover:bg-white/10 transition-colors"
               >
-                1x
+                {zoomLevel}x
               </button>
             </>
           )}
@@ -308,7 +331,13 @@ export function RadarCloudMap({
 
         <svg
           viewBox={currentViewBox}
-          className="w-full h-full select-none transition-all duration-300 ease-out"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          className={`w-full h-full select-none transition-all duration-200 ease-out ${
+            isDragging ? "cursor-grabbing" : zoomLevel > 1 ? "cursor-grab" : "cursor-default"
+          }`}
           role="img"
           aria-label="Radar Coverage Map"
         >

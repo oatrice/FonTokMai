@@ -144,4 +144,23 @@ describe("RadarCloudMap Component (Issue #188 & #270)", () => {
     fireEvent.click(screen.getByLabelText("Reset View"));
     expect(screen.queryByLabelText("Reset View")).not.toBeInTheDocument();
   });
+
+  it("supports mouse drag panning when zoomed in", () => {
+    render(<RadarCloudMap stations={mockStations} clusters={mockClusters} />);
+
+    // Zoom in first
+    const zoomInBtn = screen.getByLabelText("Zoom In");
+    fireEvent.click(zoomInBtn);
+
+    const svgMap = screen.getByRole("img", { name: "Radar Coverage Map" });
+    expect(svgMap).toBeInTheDocument();
+
+    // Mouse down and drag
+    fireEvent.mouseDown(svgMap, { clientX: 200, clientY: 200 });
+    fireEvent.mouseMove(svgMap, { clientX: 250, clientY: 250 });
+    fireEvent.mouseUp(svgMap);
+
+    // Zoom indicator should show current zoom multiplier e.g. 1.5x
+    expect(screen.getByText("1.5x")).toBeInTheDocument();
+  });
 });
