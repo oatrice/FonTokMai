@@ -121,4 +121,27 @@ describe("RadarCloudMap Component (Issue #188 & #270)", () => {
     fireEvent.click(toggleDbzBtn);
     expect(screen.queryByText("49")).not.toBeInTheDocument();
   });
+
+  it("supports Google Maps-style zoom controls and cloud focus buttons", () => {
+    render(<RadarCloudMap stations={mockStations} clusters={mockClusters} />);
+
+    const zoomInBtn = screen.getByLabelText("Zoom In");
+    const zoomOutBtn = screen.getByLabelText("Zoom Out");
+
+    expect(zoomInBtn).toBeInTheDocument();
+    expect(zoomOutBtn).toBeInTheDocument();
+
+    // Click Zoom In
+    fireEvent.click(zoomInBtn);
+    expect(screen.getByLabelText("Reset View")).toBeInTheDocument();
+
+    // Focus on specific cloud
+    const cloudFocusBtn = screen.getByText(/Storm/i);
+    fireEvent.click(cloudFocusBtn);
+    expect(screen.getByLabelText("Reset View")).toBeInTheDocument();
+
+    // Reset View
+    fireEvent.click(screen.getByLabelText("Reset View"));
+    expect(screen.queryByLabelText("Reset View")).not.toBeInTheDocument();
+  });
 });

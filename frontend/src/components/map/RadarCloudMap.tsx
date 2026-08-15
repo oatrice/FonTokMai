@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import * as d3geo from "d3-geo";
 import { Radio, Navigation, Clock, Activity, CloudRain, Zap, Layers, MapPin } from "lucide-react";
 
@@ -65,11 +65,44 @@ export function RadarCloudMap({
   const [showStationCenters, setShowStationCenters] = useState<boolean>(true);
   const [showCloudClusters, setShowCloudClusters] = useState<boolean>(true);
   const [showDbzLabels, setShowDbzLabels] = useState<boolean>(true);
+  const [zoomLevel, setZoomLevel] = useState<number>(1); // 1 = 100% (Nationwide), 2 = 180%, 3 = 260%
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [provincePaths, setProvincePaths] = useState<ProvincePath[]>([]);
   const projectionRef = useRef<d3geo.GeoProjection | null>(null);
 
   const svgWidth = 520;
   const svgHeight = 780;
+
+  // Manual Zoom Controls (Google Maps style)
+  const handleZoomIn = () => {
+    setZoomLevel((prev) => Math.min(3.5, prev + 0.5));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel((prev) => {
+      const next = Math.max(1, prev - 0.5);
+      if (next === 1) setPanOffset({ x: 0, y: 0 });
+      return next;
+    });
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  // Focus zoom into a specific cloud cluster zone smoothly
+  const handleFocusCluster = (cluster: CloudCluster) => {
+    const pos = cluster.lat !== undefined && cluster.lng !== undefined
+      ? projectLatLng(cluster.lat, cluster.lng)
+      : { x: cluster.cx ?? svgWidth / 2, y: cluster.cy ?? svgHeight / 2 };
+    
+    setZoomLevel(2.2);
+    setPanOffset({
+      x: (svgWidth / 2) - pos.x,
+      y: (svgHeight / 2) - pos.y,
+    });
+  };
 
   // Load Thailand province GeoJSON and match d3geo Mercator projection with Coverage Map
   useEffect(() => {
@@ -82,6 +115,7 @@ export function RadarCloudMap({
       projectionRef.current = projection;
 
       const pathGenerator = d3geo.geoPath().projection(projection);
+
       const paths: ProvincePath[] = geojson.features.map((feat) => {
         const props = feat.properties as { pro_code: string; pro_th: string; pro_en: string };
         return {
@@ -96,7 +130,8 @@ export function RadarCloudMap({
     });
   }, []);
 
-  const projectLatLng = (lat: number, lng: number) => {
+  const projectLatLng = (lat?: number, lng?: number): { x: number; y: number } => {
+    if (lat === undefined || lng === undefined) return { x: svgWidth / 2, y: svgHeight / 2 };
     if (projectionRef.current) {
       const coords = projectionRef.current([lng, lat]);
       if (coords) return { x: coords[0], y: coords[1] };
@@ -105,8 +140,21 @@ export function RadarCloudMap({
     const minLng = 97.0, maxLng = 106.0;
     const x = ((lng - minLng) / (maxLng - minLng)) * svgWidth;
     const y = ((maxLat - lat) / (maxLat - minLat)) * svgHeight;
-    return { x: Math.max(30, Math.min(svgWidth - 30, x)), y: Math.max(30, Math.min(svgHeight - 30, y)) };
+    return { x, y };
   };
+
+  // Compute viewBox based on manual Google Maps-style zoomLevel & panOffset
+  const currentViewBox = useMemo(() => {
+    const currentW = svgWidth / zoomLevel;
+    const currentH = svgHeight / zoomLevel;
+    const centerX = (svgWidth / 2) - (panOffset.x / zoomLevel);
+    const centerY = (svgHeight / 2) - (panOffset.y / zoomLevel);
+
+    const minX = Math.max(-50, Math.min(svgWidth - currentW + 50, centerX - currentW / 2));
+    const minY = Math.max(-50, Math.min(svgHeight - currentH + 50, centerY - currentH / 2));
+
+    return `${minX} ${minY} ${currentW} ${currentH}`;
+  }, [zoomLevel, panOffset]);
 
   const getDbzColor = (dbz: number) => {
     if (dbz >= 50) return "#ef4444"; // Red (Severe)
@@ -178,7 +226,7 @@ export function RadarCloudMap({
               {showDbzLabels ? "🏷️ ค่า dBZ [ON]" : "🏷️ ค่า dBZ [OFF]"}
             </button>
 
-            {/* Toggle Coverage Circles */}
+            {/* Toggle Coverage Rings */}
             <button
               onClick={() => setShowCoverageCircles(!showCoverageCircles)}
               className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all ${
@@ -207,10 +255,60 @@ export function RadarCloudMap({
       </div>
 
       {/* SVG Canvas Map */}
-      <div className="relative w-full aspect-[4/3] max-h-[600px] bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px]">
+      <div className="relative w-full aspect-[4/3] max-h-[600px] bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] overflow-hidden">
+        {/* Google Maps Style Floating Zoom Controls */}
+        <div className="absolute top-4 left-4 z-20 flex flex-col gap-1 bg-zinc-900/90 p-1 rounded-xl border border-white/10 shadow-2xl backdrop-blur-md">
+          <button
+            onClick={handleZoomIn}
+            title="Zoom In (+)"
+            aria-label="Zoom In"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-base font-bold"
+          >
+            +
+          </button>
+          <div className="w-full h-[1px] bg-white/10" />
+          <button
+            onClick={handleZoomOut}
+            title="Zoom Out (-)"
+            aria-label="Zoom Out"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-colors text-base font-bold"
+          >
+            -
+          </button>
+          {zoomLevel > 1 && (
+            <>
+              <div className="w-full h-[1px] bg-white/10" />
+              <button
+                onClick={handleResetZoom}
+                title="Reset View"
+                aria-label="Reset View"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold text-cyan-400 hover:text-cyan-300 hover:bg-white/10 transition-colors"
+              >
+                1x
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Quick Focus Shortcuts on Active Cloud Clusters */}
+        {clusters.length > 0 && (
+          <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 bg-zinc-900/90 p-1.5 rounded-xl border border-white/10 shadow-2xl backdrop-blur-md text-xs">
+            <span className="text-[11px] font-semibold text-zinc-400 px-1">🔍 ซูมกลุ่มฝน:</span>
+            {clusters.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => handleFocusCluster(c)}
+                className="px-2 py-1 rounded-lg bg-white/5 hover:bg-cyan-500/20 text-zinc-300 hover:text-cyan-300 border border-white/5 text-[11px] font-medium transition-colors"
+              >
+                {c.label.split(" ")[0]} ({c.intensity_dbz.toFixed(0)})
+              </button>
+            ))}
+          </div>
+        )}
+
         <svg
-          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          className="w-full h-full select-none"
+          viewBox={currentViewBox}
+          className="w-full h-full select-none transition-all duration-300 ease-out"
           role="img"
           aria-label="Radar Coverage Map"
         >
