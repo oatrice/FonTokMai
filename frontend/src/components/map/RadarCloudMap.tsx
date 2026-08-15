@@ -593,88 +593,94 @@ export function RadarCloudMap({
                         </text>
                       )}
 
-                      {/* Historical Trajectory Vectors (Rendered ON TOP when hovered or pinned) */}
-                      {isActive && trajectoryPoints.length > 0 && (
+                      {/* Historical Trajectory Vectors & Waypoints */}
+                      {isActive && (
                         <g data-testid={`trajectory-path-${cluster.id}`} className="pointer-events-none">
-                          {/* Path line connecting curved historical coordinates to current position */}
-                          <path
-                            d={`M ${trajectoryPoints.map((p) => `${p.x},${p.y}`).join(" L ")} L ${clusterPos.x},${clusterPos.y}`}
-                            fill="none"
-                            stroke={isChildCell ? "#c084fc" : "#06b6d4"}
-                            strokeWidth="2.5"
-                            strokeDasharray="5 3"
-                            strokeLinecap="round"
-                            className="filter drop-shadow-[0_0_8px_rgba(192,132,252,0.8)]"
-                          />
+                          {trajectoryPoints.length > 0 && (
+                            <>
+                              {/* Path line connecting curved historical coordinates to current position */}
+                              <path
+                                d={`M ${trajectoryPoints.map((p) => `${p.x},${p.y}`).join(" L ")} L ${clusterPos.x},${clusterPos.y}`}
+                                fill="none"
+                                stroke={isChildCell ? "#c084fc" : "#06b6d4"}
+                                strokeWidth="2.5"
+                                strokeDasharray="5 3"
+                                strokeLinecap="round"
+                                className="filter drop-shadow-[0_0_8px_rgba(192,132,252,0.8)]"
+                              />
 
-                          {/* Historical frame waypoints with Dynamic Orthogonal Offset */}
-                          {trajectoryPoints.map((pt, idx) => {
-                            const prevPt = idx > 0 ? trajectoryPoints[idx - 1] : pt;
-                            const nextPt = idx < trajectoryPoints.length - 1 ? trajectoryPoints[idx + 1] : clusterPos;
-                            
-                            const dx = nextPt.x - prevPt.x || 1;
-                            const dy = nextPt.y - prevPt.y || 0;
-                            const len = Math.hypot(dx, dy) || 1;
-                            
-                            const side = idx % 2 === 0 ? -1 : 1;
-                            const nx = (-dy / len) * side;
-                            const ny = (dx / len) * side;
+                              {/* Historical frame waypoints with Dynamic Orthogonal Offset */}
+                              {trajectoryPoints.map((pt, idx) => {
+                                const prevPt = idx > 0 ? trajectoryPoints[idx - 1] : pt;
+                                const nextPt = idx < trajectoryPoints.length - 1 ? trajectoryPoints[idx + 1] : clusterPos;
+                                
+                                const dx = nextPt.x - prevPt.x || 1;
+                                const dy = nextPt.y - prevPt.y || 0;
+                                const len = Math.hypot(dx, dy) || 1;
+                                
+                                const side = idx % 2 === 0 ? -1 : 1;
+                                const nx = (-dy / len) * side;
+                                const ny = (dx / len) * side;
 
-                            const offsetDist = 18;
-                            const badgeCenterX = pt.x + nx * offsetDist;
-                            const badgeCenterY = pt.y + ny * offsetDist;
+                                const offsetDist = 18;
+                                const badgeCenterX = pt.x + nx * offsetDist;
+                                const badgeCenterY = pt.y + ny * offsetDist;
 
-                            return (
-                              <g key={idx}>
-                                <circle
-                                  cx={pt.x}
-                                  cy={pt.y}
-                                  r={3.8}
-                                  fill={isChildCell ? "#d8b4fe" : "#22d3ee"}
-                                  stroke="#020617"
-                                  strokeWidth="1.8"
-                                />
-                                <line
-                                  x1={pt.x}
-                                  y1={pt.y}
-                                  x2={badgeCenterX}
-                                  y2={badgeCenterY}
-                                  stroke="rgba(192, 132, 252, 0.5)"
-                                  strokeWidth="1"
-                                  strokeDasharray="2 2"
-                                />
-                                <rect
-                                  x={badgeCenterX - 13}
-                                  y={badgeCenterY - 6.5}
-                                  width={26}
-                                  height={13}
-                                  rx={3}
-                                  fill="#090d16"
-                                  stroke={isChildCell ? "#c084fc" : "#38bdf8"}
-                                  strokeWidth={1.1}
-                                />
-                                <text
-                                  x={badgeCenterX}
-                                  y={badgeCenterY + 3.2}
-                                  textAnchor="middle"
-                                  fill={isChildCell ? "#d8b4fe" : "#38bdf8"}
-                                  fontSize="8"
-                                  fontWeight="bold"
-                                  className="select-none pointer-events-none"
-                                >
-                                  {pt.time_offset_min}m
-                                </text>
-                              </g>
-                            );
-                          })}
+                                return (
+                                  <g key={idx}>
+                                    <circle
+                                      cx={pt.x}
+                                      cy={pt.y}
+                                      r={3.8}
+                                      fill={isChildCell ? "#d8b4fe" : "#22d3ee"}
+                                      stroke="#020617"
+                                      strokeWidth="1.8"
+                                    />
+                                    <line
+                                      x1={pt.x}
+                                      y1={pt.y}
+                                      x2={badgeCenterX}
+                                      y2={badgeCenterY}
+                                      stroke="rgba(192, 132, 252, 0.5)"
+                                      strokeWidth="1"
+                                      strokeDasharray="2 2"
+                                    />
+                                    <rect
+                                      x={badgeCenterX - 13}
+                                      y={badgeCenterY - 6.5}
+                                      width={26}
+                                      height={13}
+                                      rx={3}
+                                      fill="#090d16"
+                                      stroke={isChildCell ? "#c084fc" : "#38bdf8"}
+                                      strokeWidth={1.1}
+                                    />
+                                    <text
+                                      x={badgeCenterX}
+                                      y={badgeCenterY + 3.2}
+                                      textAnchor="middle"
+                                      fill={isChildCell ? "#d8b4fe" : "#38bdf8"}
+                                      fontSize="8"
+                                      fontWeight="bold"
+                                      className="select-none pointer-events-none"
+                                    >
+                                      {pt.time_offset_min}m
+                                    </text>
+                                  </g>
+                                );
+                              })}
+                            </>
+                          )}
 
-                          {/* Velocity & Heading Vector Arrow */}
+                          {/* Velocity & Heading Vector Arrow (Always rendered on active/hover) */}
                           {(() => {
-                            const rad = (cluster.heading_deg - 90) * (Math.PI / 180);
+                            const heading = cluster.heading_deg ?? 90;
+                            const rad = (heading - 90) * (Math.PI / 180);
                             const startX = clusterPos.x + Math.cos(rad) * (cluster.radius * 0.95);
                             const startY = clusterPos.y + Math.sin(rad) * (cluster.radius * 0.95);
-                            const targetX = clusterPos.x + Math.cos(rad) * 45;
-                            const targetY = clusterPos.y + Math.sin(rad) * 45;
+                            const arrowLength = isChildCell ? 32 : 45;
+                            const targetX = clusterPos.x + Math.cos(rad) * arrowLength;
+                            const targetY = clusterPos.y + Math.sin(rad) * arrowLength;
                             return (
                               <line
                                 x1={startX}
@@ -682,7 +688,7 @@ export function RadarCloudMap({
                                 x2={targetX}
                                 y2={targetY}
                                 stroke={isChildCell ? "#c084fc" : "#38bdf8"}
-                                strokeWidth="2.5"
+                                strokeWidth={isChildCell ? "2.2" : "2.8"}
                                 markerEnd="url(#arrow)"
                               />
                             );

@@ -279,6 +279,28 @@ export default function AdminRadarPage() {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
   const [liveClusters, setLiveClusters] = useState<CloudCluster[]>([]);
+  const [modalStation, setModalStation] = useState<any | null>(null);
+
+  // Helper to resolve exact live TMD radar image URL with guaranteed fallbacks
+  const getStationImageUrl = (st: any): string => {
+    if (st.static_image_url) return st.static_image_url;
+    if (st.image_url) return st.image_url;
+    const code = (st.code || "").toLowerCase();
+    if (code.includes("skn")) return "https://weather.tmd.go.th/skn/skn240_latest.jpg";
+    if (code.includes("srt")) return "https://weather.tmd.go.th/srt/srt240_latest.png";
+    if (code.includes("tak")) return "https://weather.tmd.go.th/tak/tak240_latest.jpg";
+    if (code.includes("cri")) return "https://weather.tmd.go.th/cri/cri240_latest.jpg";
+    if (code.includes("hyi")) return "https://weather.tmd.go.th/hyi/hyi240_latest.jpg";
+    if (code.includes("ryg")) return "https://weather.tmd.go.th/ryg/ryg240_latest.jpg";
+    if (code.includes("chn")) return "https://weather.tmd.go.th/chn/chn240_latest.gif";
+    if (code.includes("kkn")) return "https://weather.tmd.go.th/kkn/kkn240_latest.gif";
+    if (code.includes("svp")) return "https://weather.tmd.go.th/svp/svp240_latest.jpg";
+    if (code.includes("phs")) return "https://weather.tmd.go.th/phs/phs240_latest.jpg";
+    if (code.includes("ubn")) return "https://weather.tmd.go.th/ubn/ubn240_latest.jpg";
+    if (code.includes("cmp")) return "https://weather.tmd.go.th/cmp/cmp240_latest.jpg";
+    if (code.includes("cmi")) return "https://weather.tmd.go.th/cmi/cmi240_latest.jpg";
+    return `https://weather.tmd.go.th/${code}/${code}240_latest.jpg`;
+  };
 
   // Fetch DB Stations, Live Statuses and Presets
   const fetchAllData = useCallback(async () => {
@@ -1010,13 +1032,12 @@ export default function AdminRadarPage() {
                   return dist <= 2.2; // approx within 240km
                 });
 
+                const imgSrc = getStationImageUrl(st);
+
                 return (
                   <div
                     key={st.code}
-                    onClick={() => {
-                      const found = stations.find((s) => s.code === st.code);
-                      if (found) handleSelectStation(found);
-                    }}
+                    onClick={() => setModalStation(st)}
                     className={`group relative flex flex-col rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${
                       isSelected
                         ? "bg-slate-900 border-sky-500 shadow-lg shadow-sky-500/10 ring-1 ring-sky-500"
@@ -1042,23 +1063,77 @@ export default function AdminRadarPage() {
                       </span>
                     </div>
 
-                    {/* Image Preview with Contour Tag Overlay */}
+                    {/* Image Preview with Real SVG Contour Overlay */}
                     <div className="relative aspect-square w-full bg-slate-950 flex items-center justify-center overflow-hidden">
                       <img
-                        src={(st as any).static_image_url || (st as any).image_url || `https://weather.tmd.go.th/${st.code.replace(/240|120/, '')}/${st.code.replace(/240|120/, '')}240_latest.gif`}
+                        src={imgSrc}
                         alt={st.name}
                         className="w-full h-full object-contain filter group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = "none";
-                        }}
                       />
+
+                      {/* SVG Contour & Vector Overlay directly on radar image */}
+                      <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100">
+                        {/* Station Center Indicator */}
+                        <circle cx="50" cy="50" r="1.5" fill="#38bdf8" stroke="#ffffff" strokeWidth="0.5" />
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="#38bdf8" strokeWidth="0.5" strokeDasharray="2 2" strokeOpacity="0.4" />
+
+                        {/* Rain Clusters Projected onto Radar Polar Space */}
+                        {stationClusters.map((cl) => {
+                          const dLat = (cl.lat ?? st.center_lat) - st.center_lat;
+                          const dLng = (cl.lng ?? st.center_lng) - st.center_lng;
+                          const normX = 50 + (dLng / 2.2) * 45;
+                          const normY = 50 - (dLat / 2.2) * 45;
+                          const normR = Math.max(3, (cl.radius / 24) * 8);
+
+                          return (
+                            <g key={cl.id}>
+                              {/* Glowing Contour Circle */}
+                              <circle
+                                cx={normX}
+                                cy={normY}
+                                r={normR}
+                                fill="none"
+                                stroke="#f43f5e"
+                                strokeWidth="1.2"
+                                strokeDasharray="3 1.5"
+                                className="filter drop-shadow-[0_0_4px_#f43f5e]"
+                              />
+                              <circle
+                                cx={normX}
+                                cy={normY}
+                                r={normR * 0.5}
+                                fill="#f59e0b"
+                                fillOpacity="0.4"
+                                stroke="#ffffff"
+                                strokeWidth="0.6"
+                              />
+                              {/* Velocity Heading Vector */}
+                              {(() => {
+                                const rad = ((cl.heading_deg ?? 90) - 90) * (Math.PI / 180);
+                                const tox = normX + Math.cos(rad) * 7;
+                                const toy = normY + Math.sin(rad) * 7;
+                                return (
+                                  <line
+                                    x1={normX}
+                                    y1={normY}
+                                    x2={tox}
+                                    y2={toy}
+                                    stroke="#38bdf8"
+                                    strokeWidth="1.2"
+                                  />
+                                );
+                              })()}
+                            </g>
+                          );
+                        })}
+                      </svg>
                       
                       {/* Live Rain Detected Badge */}
                       {stationClusters.length > 0 ? (
-                        <div className="absolute bottom-2 left-2 right-2 bg-slate-950/90 backdrop-blur border border-emerald-500/40 rounded-xl p-2 text-xs flex items-center justify-between shadow-lg">
-                          <div className="flex items-center gap-1.5 text-emerald-300 font-medium">
-                            <CloudRain className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
-                            <span>ตรวจพบฝน {stationClusters.length} กลุ่ม</span>
+                        <div className="absolute bottom-2 left-2 right-2 bg-slate-950/90 backdrop-blur border border-rose-500/50 rounded-xl p-2 text-xs flex items-center justify-between shadow-lg">
+                          <div className="flex items-center gap-1.5 text-rose-300 font-medium">
+                            <CloudRain className="w-3.5 h-3.5 text-rose-400 animate-bounce" />
+                            <span>Contour {stationClusters.length} จุด</span>
                           </div>
                           <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 px-1.5 py-0.5 rounded">
                             {Math.max(...stationClusters.map((c) => c.intensity_dbz)).toFixed(0)} dBZ
@@ -1074,8 +1149,8 @@ export default function AdminRadarPage() {
                     {/* Footer Info */}
                     <div className="p-2.5 bg-slate-900/40 text-[11px] text-slate-400 flex items-center justify-between border-t border-slate-800/60">
                       <span>รัศมี {st.radius_km} km</span>
-                      <span className="text-[10px] text-slate-500">
-                        {stStatus?.last_frame_timestamp ? new Date(stStatus.last_frame_timestamp).toLocaleTimeString() : "สด"}
+                      <span className="text-sky-400 hover:underline font-semibold flex items-center gap-1">
+                        🔍 ดูขนาดเต็ม
                       </span>
                     </div>
                   </div>
@@ -1083,6 +1158,131 @@ export default function AdminRadarPage() {
               })}
           </div>
         </section>
+
+        {/* Full-Screen Radar Image & Contour Modal */}
+        {modalStation && (
+          <div
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200"
+            onClick={() => setModalStation(null)}
+          >
+            <div
+              className="bg-slate-900 border border-slate-700 rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-4 relative flex flex-col max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-3">
+                  <span className="p-2 rounded-xl bg-sky-500/20 text-sky-400">
+                    <Radio className="w-6 h-6" />
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      {modalStation.name}
+                      <span className="text-xs font-mono px-2 py-0.5 bg-slate-800 text-sky-400 rounded-lg">
+                        {modalStation.code}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      พิกัดจุดศูนย์กลาง: Lat {modalStation.center_lat}, Lng {modalStation.center_lng} (รัศมี {modalStation.radius_km} km)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setModalStation(null)}
+                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-all"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Full Image Container with High-Res Overlays */}
+              <div className="relative flex-1 min-h-[400px] bg-slate-950 rounded-2xl flex items-center justify-center overflow-hidden border border-slate-800">
+                <img
+                  src={getStationImageUrl(modalStation)}
+                  alt={modalStation.name}
+                  className="w-full h-full max-h-[65vh] object-contain"
+                />
+
+                {/* SVG Overlay on Full Image */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="1.5" fill="#38bdf8" stroke="#ffffff" strokeWidth="0.5" />
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="#38bdf8" strokeWidth="0.6" strokeDasharray="3 3" strokeOpacity="0.5" />
+
+                  {(liveClusters.length > 0 ? liveClusters : DEMO_CLUSTERS)
+                    .filter((c) => {
+                      if (c.lat === undefined || c.lng === undefined) return false;
+                      return Math.hypot(c.lat - modalStation.center_lat, c.lng - modalStation.center_lng) <= 2.2;
+                    })
+                    .map((cl) => {
+                      const dLat = (cl.lat ?? modalStation.center_lat) - modalStation.center_lat;
+                      const dLng = (cl.lng ?? modalStation.center_lng) - modalStation.center_lng;
+                      const normX = 50 + (dLng / 2.2) * 45;
+                      const normY = 50 - (dLat / 2.2) * 45;
+                      const normR = Math.max(3.5, (cl.radius / 24) * 8);
+
+                      return (
+                        <g key={cl.id}>
+                          <circle
+                            cx={normX}
+                            cy={normY}
+                            r={normR}
+                            fill="none"
+                            stroke="#f43f5e"
+                            strokeWidth="1.2"
+                            strokeDasharray="3 1.5"
+                            className="filter drop-shadow-[0_0_6px_#f43f5e]"
+                          />
+                          <circle
+                            cx={normX}
+                            cy={normY}
+                            r={normR * 0.4}
+                            fill="#f59e0b"
+                            fillOpacity="0.5"
+                            stroke="#ffffff"
+                            strokeWidth="0.6"
+                          />
+                          <text
+                            x={normX}
+                            y={normY - normR - 1.5}
+                            textAnchor="middle"
+                            fill="#ffffff"
+                            fontSize="2.8"
+                            fontWeight="bold"
+                            style={{ paintOrder: "stroke fill", stroke: "#000000", strokeWidth: "0.6px" }}
+                          >
+                            {cl.label.split(" ")[0]} ({cl.intensity_dbz.toFixed(0)} dBZ)
+                          </text>
+                        </g>
+                      );
+                    })}
+                </svg>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-between pt-2">
+                <a
+                  href={getStationImageUrl(modalStation)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-sky-400 hover:text-sky-300 underline font-medium"
+                >
+                  🔗 เปิดไฟล์ภาพต้นฉบับตรงจาก TMD Server
+                </a>
+                <button
+                  onClick={() => {
+                    const found = stations.find((s) => s.code === modalStation.code);
+                    if (found) {
+                      handleSelectStation(found);
+                      setModalStation(null);
+                    }
+                  }}
+                  className="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all shadow-md shadow-sky-600/20"
+                >
+                  🎯 นำสถานีนี้ไปปรับจูนพิกัดในเครื่องมือด้านล่าง
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Section 3: Fine-Tuning & Live Image Calibration Panel */}
         <div ref={calibrationSectionRef} className="space-y-6">
