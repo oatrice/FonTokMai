@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+process.env.NEXT_PUBLIC_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -10,9 +12,6 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
-    env: {
-      NEXT_PUBLIC_BACKEND_URL: 'http://localhost:3000',
-    },
   },
   projects: [
     {
