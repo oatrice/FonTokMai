@@ -13,13 +13,23 @@ export function SiteFooter() {
 
   useEffect(() => {
     fetch('/health')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const ct = res.headers.get("content-type");
+        if (!ct || !ct.includes("application/json")) {
+          throw new TypeError("Response is not JSON");
+        }
+        return res.json();
+      })
       .then(data => {
-        if (data.version) {
+        if (data && data.version) {
           setBackendHealth(data);
         }
       })
-      .catch(err => console.error("Failed to fetch backend health:", err));
+      .catch(err => {
+        // Silently log warning instead of throwing unhandled console error
+        console.warn("Failed to fetch backend health status:", err.message);
+      });
   }, []);
 
   const frontendVersion = process.env.NEXT_PUBLIC_APP_VERSION || "unknown";

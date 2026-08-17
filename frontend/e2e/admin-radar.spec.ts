@@ -102,6 +102,18 @@ const MOCK_CLUSTERS = {
 // ── Setup: intercept all API calls ─────────────────────────────────────────────
 
 async function setupApiMocks(page: Page) {
+  // Catch health status check
+  await page.route("**/health", async (route) => {
+    await route.fulfill({
+      json: {
+        version: "0.73.0",
+        environment: "test",
+        commit_sha: "abcdefg"
+      },
+      status: 200
+    });
+  });
+
   // Catch relative Next.js API proxy paths
   await page.route("**/api/admin/radar*", async (route) => {
     await route.fulfill({

@@ -75,6 +75,11 @@ export default function AdminRadarPage() {
   const [tableLoading, setTableLoading] = useState<boolean>(true);
   const [message, setMessage] = useState<string>("");
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Active Station in Fine-Tuning Panel
   const [code, setCode] = useState("hyi");
@@ -809,7 +814,7 @@ export default function AdminRadarPage() {
 
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-400 hidden sm:flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
-              <Clock className="w-3.5 h-3.5 text-slate-500" /> อัปเดตล่าสุด: {lastRefreshed.toLocaleTimeString()}
+              <Clock className="w-3.5 h-3.5 text-slate-500" /> อัปเดตล่าสุด: {isMounted ? lastRefreshed.toLocaleTimeString() : "--:--:--"}
             </span>
             <button
               onClick={fetchAllData}
@@ -1823,7 +1828,7 @@ export default function AdminRadarPage() {
                 <p className="font-bold text-white">🌧️ รายงานเรดาร์ติดตามกลุ่มฝน [{code}]</p>
                 <p>📍 จุดศูนย์กลางเรดาร์: Lat {lat}, Lng {lng}</p>
                 <p>📡 รัศมีครอบคลุม: {radiusKm} กม.</p>
-                <p className="text-[11px] text-slate-500 mt-1 font-mono">Timestamp: {new Date().toISOString()}</p>
+                <p className="text-[11px] text-slate-500 mt-1 font-mono">Timestamp: {isMounted ? new Date().toISOString() : ""}</p>
               </div>
             </div>
 
