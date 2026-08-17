@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useId } from "react";
 import * as d3geo from "d3-geo";
+import thailandProvincesJson from "@/data/thailand_provinces.json";
 import { Radio, Navigation, Clock, Activity, CloudRain, Zap, Layers, MapPin, X } from "lucide-react";
 import { getDbzColor, getStatusColor } from "@/lib/radarUtils";
 
@@ -172,28 +173,26 @@ export function RadarCloudMap({
 
   // Load Thailand province GeoJSON and match d3geo Mercator projection with Coverage Map
   useEffect(() => {
-    import("@/data/thailand_provinces.json").then((module) => {
-      const geojson = module.default as GeoJSON.FeatureCollection;
-      const projection = d3geo.geoMercator().fitExtent(
-        [[8, 8], [svgWidth - 8, svgHeight - 8]],
-        geojson
-      );
-      projectionRef.current = projection;
+    const geojson = thailandProvincesJson as GeoJSON.FeatureCollection;
+    const projection = d3geo.geoMercator().fitExtent(
+      [[8, 8], [svgWidth - 8, svgHeight - 8]],
+      geojson
+    );
+    projectionRef.current = projection;
 
-      const pathGenerator = d3geo.geoPath().projection(projection);
+    const pathGenerator = d3geo.geoPath().projection(projection);
 
-      const paths: ProvincePath[] = geojson.features.map((feat) => {
-        const props = feat.properties as { pro_code: string; pro_th: string; pro_en: string };
-        return {
-          id: props.pro_code,
-          nameTh: props.pro_th,
-          nameEn: props.pro_en,
-          d: pathGenerator(feat) ?? "",
-        };
-      });
-
-      setProvincePaths(paths);
+    const paths: ProvincePath[] = geojson.features.map((feat) => {
+      const props = feat.properties as { pro_code: string; pro_th: string; pro_en: string };
+      return {
+        id: props.pro_code,
+        nameTh: props.pro_th,
+        nameEn: props.pro_en,
+        d: pathGenerator(feat) ?? "",
+      };
     });
+
+    setProvincePaths(paths);
   }, []);
 
   const projectLatLng = (lat?: number, lng?: number): { x: number; y: number } => {
@@ -462,7 +461,7 @@ export function RadarCloudMap({
           </defs>
 
           {/* Background Map Frame */}
-          <rect width={svgWidth} height={svgHeight} fill="transparent" />
+          <rect width={svgWidth} height={svgHeight} fill="transparent" className="pointer-events-none" />
 
           {/* Thailand Province Polygon Boundaries — SVG Base Map (Semi-Transparent Green) */}
           {provincePaths.map((prov) => (

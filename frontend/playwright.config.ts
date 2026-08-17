@@ -10,6 +10,9 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
+    env: {
+      NEXT_PUBLIC_BACKEND_URL: 'http://localhost:3000',
+    },
   },
   projects: [
     {

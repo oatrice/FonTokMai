@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import * as d3geo from "d3-geo";
+import thailandProvincesJson from "../data/thailand_provinces.json";
 import * as turf from "@turf/turf";
 import { GlassCard } from "./ui/GlassCard";
 import { 
@@ -252,30 +253,28 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
 
   // Load Thailand province GeoJSON and compute SVG paths
   useEffect(() => {
-    import("../data/thailand_provinces.json").then((module) => {
-      const geojson = module.default as GeoJSON.FeatureCollection;
+    const geojson = thailandProvincesJson as GeoJSON.FeatureCollection;
 
-      const projection = d3geo.geoMercator().fitExtent(
-        [[8, 8], [svgWidth - 8, svgHeight - 8]],
-        geojson
-      );
-      projectionRef.current = projection;
+    const projection = d3geo.geoMercator().fitExtent(
+      [[8, 8], [svgWidth - 8, svgHeight - 8]],
+      geojson
+    );
+    projectionRef.current = projection;
 
-      const pathGenerator = d3geo.geoPath().projection(projection);
+    const pathGenerator = d3geo.geoPath().projection(projection);
 
-      const paths: ProvincePath[] = geojson.features.map((feat) => {
-        const props = feat.properties as { pro_code: string; pro_th: string; pro_en: string };
-        return {
-          id: props.pro_code,
-          nameTh: props.pro_th,
-          nameEn: props.pro_en,
-          d: pathGenerator(feat) ?? "",
-        };
-      });
-
-      setProvincePaths(paths);
-      setRawGeoJson(geojson);
+    const paths: ProvincePath[] = geojson.features.map((feat) => {
+      const props = feat.properties as { pro_code: string; pro_th: string; pro_en: string };
+      return {
+        id: props.pro_code,
+        nameTh: props.pro_th,
+        nameEn: props.pro_en,
+        d: pathGenerator(feat) ?? "",
+      };
     });
+
+    setProvincePaths(paths);
+    setRawGeoJson(geojson);
   }, []);
 
   const filteredStations = stations.filter(s => {
@@ -566,6 +565,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
           </div>
 
           <svg
+            role="img"
             viewBox={currentViewBox}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
@@ -599,7 +599,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
               </clipPath>
             </defs>
 
-            <rect width={svgWidth} height={svgHeight} fill="url(#grid)" rx="16" />
+            <rect width={svgWidth} height={svgHeight} fill="url(#grid)" rx="16" className="pointer-events-none" />
 
             {/* Thailand Province Polygon Boundaries — Base Layer (Uncovered Red if highlight mode is active, otherwise Green) */}
             {showProvinceBorders && provincePaths.map((prov) => (
@@ -692,6 +692,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
                     stroke={isSelected ? statusStyle.stroke : "rgba(255, 255, 255, 0.05)"}
                     strokeWidth="0.8"
                     strokeDasharray="2 2"
+                    className="pointer-events-none"
                   />
                 </g>
               );
@@ -707,6 +708,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
               return (
                 <g
                   key={`pin-${st.code}`}
+                  data-testid={`station-marker-${st.code}`}
                   className="cursor-pointer group"
                   onClick={() => {
                     setSelectedStationCode(st.code);
@@ -723,7 +725,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
                       fill="none"
                       stroke={statusStyle.stroke}
                       strokeWidth="2"
-                      className="animate-ping origin-center"
+                      className="animate-ping origin-center pointer-events-none"
                     />
                   )}
 
@@ -809,7 +811,10 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-white">{st.name}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${statusStyle.bg} ${statusStyle.text} border ${statusStyle.border}`}>
+                        <span
+                          data-testid={`station-status-${st.code}`}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${statusStyle.bg} ${statusStyle.text} border ${statusStyle.border}`}
+                        >
                           {st.status ? st.status.toUpperCase() : "ONLINE"}
                         </span>
                       </div>

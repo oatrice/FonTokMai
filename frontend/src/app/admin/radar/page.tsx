@@ -276,7 +276,7 @@ export default function AdminRadarPage() {
   const [hoverPos, setHoverPos] = useState<{ pixelX: number; pixelY: number; relX: number; relY: number } | null>(null);
 
   const calibrationSectionRef = useRef<HTMLDivElement>(null);
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 
   const [liveClusters, setLiveClusters] = useState<CloudCluster[]>([]);
   const [modalStation, setModalStation] = useState<any | null>(null);
@@ -314,18 +314,18 @@ export default function AdminRadarPage() {
 
       if (dbRes.ok) {
         const dbData = await dbRes.json();
-        setStations(dbData);
+        setStations(Array.isArray(dbData) ? dbData : (dbData?.stations || []));
       }
       if (statusRes.ok) {
         const stData = await statusRes.json();
-        setStationStatuses(stData.stations || []);
-        if (stData.clusters && Array.isArray(stData.clusters) && stData.clusters.length > 0) {
+        setStationStatuses(Array.isArray(stData) ? stData : (stData?.stations || []));
+        if (stData?.clusters && Array.isArray(stData.clusters) && stData.clusters.length > 0) {
           setLiveClusters(stData.clusters);
         }
       }
       if (presetsRes.ok) {
         const prData = await presetsRes.json();
-        setPresets(prData);
+        setPresets(Array.isArray(prData) ? prData : (prData?.presets || []));
       }
     } catch (err) {
       console.error("Failed to fetch radar management data:", err);
@@ -974,7 +974,7 @@ export default function AdminRadarPage() {
           ) : (
             <RadarCloudMap
               stations={
-                stations
+                (stations.length > 0 ? stations : DEFAULT_STATIONS)
                   .filter((s) => s.is_active && s.code !== "kkn120")
                   .map((s) => {
                     const stStatus = stationStatuses.find(st => st.code === s.code);
@@ -1361,11 +1361,11 @@ export default function AdminRadarPage() {
                   className="w-full bg-slate-900 border border-sky-700/60 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
                 >
                   <option value="">-- เลือกสถานีเรดาร์ที่มีอยู่ในระบบเพื่อค้นหา Lat/Lng อัตโนมัติ --</option>
-                  {presets.map((p) => (
+                  {Array.isArray(presets) ? presets.map((p) => (
                     <option key={p.code} value={p.code}>
                       {p.name} [{p.code}] (Lat: {p.center_lat}, Lng: {p.center_lng})
                     </option>
-                  ))}
+                  )) : null}
                 </select>
               </div>
 
