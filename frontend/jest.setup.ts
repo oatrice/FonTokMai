@@ -10,5 +10,9 @@ jest.mock('d3-geo', () => ({
     fn.fitExtent = () => fn;
     return fn;
   },
-  geoPath: () => () => 'M 0 0 L 10 10',
+  geoPath: () => {
+    const fn: any = () => 'M 0 0 L 10 10';
+    fn.projection = () => fn;
+    return fn;
+  },
 }));

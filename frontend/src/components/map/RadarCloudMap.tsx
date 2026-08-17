@@ -56,6 +56,9 @@ interface RadarCloudMapProps {
   onSelectStation?: (station: RadarStation) => void;
 }
 
+const svgWidth = 520;
+const svgHeight = 780;
+
 export function RadarCloudMap({
   stations = [],
   clusters = [],
@@ -78,11 +81,27 @@ export function RadarCloudMap({
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [provincePaths, setProvincePaths] = useState<ProvincePath[]>([]);
-  const projectionRef = useRef<d3geo.GeoProjection | null>(null);
+  const projection = useMemo(() => {
+    const geojson = thailandProvincesJson as GeoJSON.FeatureCollection;
+    return d3geo.geoMercator().fitExtent(
+      [[8, 8], [svgWidth - 8, svgHeight - 8]],
+      geojson
+    );
+  }, []);
 
-  const svgWidth = 520;
-  const svgHeight = 780;
+  const provincePaths = useMemo(() => {
+    const geojson = thailandProvincesJson as GeoJSON.FeatureCollection;
+    const pathGenerator = d3geo.geoPath().projection(projection);
+    return geojson.features.map((feat) => {
+      const props = feat.properties as { pro_code: string; pro_th: string; pro_en: string };
+      return {
+        id: props.pro_code,
+        nameTh: props.pro_th,
+        nameEn: props.pro_en,
+        d: pathGenerator(feat) ?? "",
+      };
+    });
+  }, [projection]);
 
   // Manual Zoom Controls — unified multiplicative step (H4 fix: consistent with double-click & wheel)
   const ZOOM_STEP = 1.35;
@@ -171,41 +190,17 @@ export function RadarCloudMap({
     });
   };
 
-  // Load Thailand province GeoJSON and match d3geo Mercator projection with Coverage Map
-  useEffect(() => {
-    const geojson = thailandProvincesJson as GeoJSON.FeatureCollection;
-    const projection = d3geo.geoMercator().fitExtent(
-      [[8, 8], [svgWidth - 8, svgHeight - 8]],
-      geojson
-    );
-    projectionRef.current = projection;
-
-    const pathGenerator = d3geo.geoPath().projection(projection);
-
-    const paths: ProvincePath[] = geojson.features.map((feat) => {
-      const props = feat.properties as { pro_code: string; pro_th: string; pro_en: string };
-      return {
-        id: props.pro_code,
-        nameTh: props.pro_th,
-        nameEn: props.pro_en,
-        d: pathGenerator(feat) ?? "",
-      };
-    });
-
-    setProvincePaths(paths);
-  }, []);
-
   const projectLatLng = (lat?: number, lng?: number): { x: number; y: number } => {
     if (lat === undefined || lng === undefined) return { x: svgWidth / 2, y: svgHeight / 2 };
-    if (projectionRef.current) {
-      const coords = projectionRef.current([lng, lat]);
-      if (coords) return { x: coords[0], y: coords[1] };
+    if (projection) {
+      const coords = projection([lng, lat]);
+      if (coords) return { x: parseFloat(coords[0].toFixed(3)), y: parseFloat(coords[1].toFixed(3)) };
     }
     const minLat = 5.5, maxLat = 20.5;
     const minLng = 97.0, maxLng = 106.0;
     const x = ((lng - minLng) / (maxLng - minLng)) * svgWidth;
     const y = ((maxLat - lat) / (maxLat - minLat)) * svgHeight;
-    return { x, y };
+    return { x: parseFloat(x.toFixed(3)), y: parseFloat(y.toFixed(3)) };
   };
 
   // Compute viewBox based on manual Google Maps-style zoomLevel & panOffset

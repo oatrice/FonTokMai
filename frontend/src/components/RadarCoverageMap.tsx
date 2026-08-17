@@ -143,6 +143,9 @@ interface RadarCoverageMapProps {
 
 type ProvincePath = { id: string; nameTh: string; nameEn: string; d: string };
 
+const svgWidth = 520;
+const svgHeight = 780;
+
 export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation }: RadarCoverageMapProps) {
   const [selectedStationCode, setSelectedStationCode] = useState<string | null>(null);
   const [hoveredStationCode, setHoveredStationCode] = useState<string | null>(null);
@@ -153,18 +156,33 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
   const [selectedRegion, setSelectedRegion] = useState<"all" | "north" | "northeast" | "central" | "east" | "south">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "online" | "delayed" | "offline">("all");
 
-  const [provincePaths, setProvincePaths] = useState<ProvincePath[]>([]);
-  const [rawGeoJson, setRawGeoJson] = useState<GeoJSON.FeatureCollection | null>(null);
-  const projectionRef = useRef<d3geo.GeoProjection | null>(null);
+  const rawGeoJson = useMemo(() => thailandProvincesJson as GeoJSON.FeatureCollection, []);
+
+  const projection = useMemo(() => {
+    return d3geo.geoMercator().fitExtent(
+      [[8, 8], [svgWidth - 8, svgHeight - 8]],
+      rawGeoJson
+    );
+  }, [rawGeoJson]);
+
+  const provincePaths = useMemo(() => {
+    const pathGenerator = d3geo.geoPath().projection(projection);
+    return rawGeoJson.features.map((feat) => {
+      const props = feat.properties as { pro_code: string; pro_th: string; pro_en: string };
+      return {
+        id: props.pro_code,
+        nameTh: props.pro_th,
+        nameEn: props.pro_en,
+        d: pathGenerator(feat) ?? "",
+      };
+    });
+  }, [projection, rawGeoJson]);
 
   // Zoom & Pan Interactive State
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-
-  const svgWidth = 520;
-  const svgHeight = 780;
 
   // Zoom Controls — multiplicative step (M6 fix: consistent with RadarCloudMap)
   const ZOOM_STEP = 1.35;
@@ -251,31 +269,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
     return `${minX} ${minY} ${currentW} ${currentH}`;
   }, [zoomLevel, panOffset]);
 
-  // Load Thailand province GeoJSON and compute SVG paths
-  useEffect(() => {
-    const geojson = thailandProvincesJson as GeoJSON.FeatureCollection;
 
-    const projection = d3geo.geoMercator().fitExtent(
-      [[8, 8], [svgWidth - 8, svgHeight - 8]],
-      geojson
-    );
-    projectionRef.current = projection;
-
-    const pathGenerator = d3geo.geoPath().projection(projection);
-
-    const paths: ProvincePath[] = geojson.features.map((feat) => {
-      const props = feat.properties as { pro_code: string; pro_th: string; pro_en: string };
-      return {
-        id: props.pro_code,
-        nameTh: props.pro_th,
-        nameEn: props.pro_en,
-        d: pathGenerator(feat) ?? "",
-      };
-    });
-
-    setProvincePaths(paths);
-    setRawGeoJson(geojson);
-  }, []);
 
   const filteredStations = stations.filter(s => {
     if (!s.is_active) return false;
@@ -332,9 +326,9 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
   const coveragePercent = Math.round((coveredCount / totalProvincesCount) * 100);
 
   const latLngToSvg = (lat: number, lng: number) => {
-    if (projectionRef.current) {
-      const coords = projectionRef.current([lng, lat]);
-      if (coords) return { x: coords[0], y: coords[1] };
+    if (projection) {
+      const coords = projection([lng, lat]);
+      if (coords) return { x: parseFloat(coords[0].toFixed(3)), y: parseFloat(coords[1].toFixed(3)) };
     }
     const minLat = 5.5;
     const maxLat = 20.5;
@@ -343,7 +337,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
 
     const x = ((lng - minLng) / (maxLng - minLng)) * svgWidth;
     const y = ((maxLat - lat) / (maxLat - minLat)) * svgHeight;
-    return { x, y };
+    return { x: parseFloat(x.toFixed(3)), y: parseFloat(y.toFixed(3)) };
   };
 
   const kmToSvgRadius = (radiusKm: number) => {
@@ -447,7 +441,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
           ].map(r => (
             <button
               key={r.id}
-              onClick={() => setSelectedRegion(r.id as any)}
+              onClick={() => setSelectedRegion(r.id as "all" | "north" | "northeast" | "central" | "east" | "south")}
               className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
                 selectedRegion === r.id
                   ? "bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20"
@@ -472,7 +466,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
           ].map(st => (
             <button
               key={st.id}
-              onClick={() => setStatusFilter(st.id as any)}
+              onClick={() => setStatusFilter(st.id as "all" | "online" | "delayed" | "offline")}
               className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all border ${
                 statusFilter === st.id
                   ? "bg-sky-500 text-slate-950 font-bold border-sky-400 shadow-md shadow-sky-500/20"
