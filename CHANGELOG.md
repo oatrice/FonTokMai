@@ -5,7 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.73.0] - 2026-08-17
+
+### Added
+- **Interactive Radar Map — Cloud Cluster Hover Trajectory Preview (Issue #188)**: Hovering over any cloud polygon on the Admin Radar SVG map now displays a floating trajectory preview card with cluster name, speed (km/h), heading, ETA, and historical waypoints. Clicking pins the card permanently with a 📌 badge.
+- **Interactive Radar Map — Hierarchical Clustering / Spiderfy (Issue #188)**: At zoom ≥ 2.0x, parent macro-clusters automatically de-cluster into individual sub-cells with independent labels. A toggle button reverts to parent view.
+- **Admin Radar Station Health Map (Issue #270)**: Full interactive Thailand SVG map at `/admin/radar` showing real-time operational status (Online / Delayed / Offline) for all 13 radar stations with coverage circles, heading arrows, dBZ intensity badges, and a draggable station status list.
+- **`/api/v1/radar/clusters` — `source` & `is_mock` fields**: Endpoint now returns `source` (`"live_cache"` | `"baseline_mock"`) and `is_mock` boolean so frontend can visually distinguish live from fallback data.
+- **Zoom & Pan Controls — RadarCloudMap & RadarCoverageMap**: Interactive Google Maps-style zoom (+/−/reset), scroll-wheel zoom, double-click zoom, mouse drag panning, and cloud-focus quick-zoom buttons on all radar map components.
+- **Organic Polygon Rendering**: Cluster overlays use sine-based vertex displacement for natural-looking polygon shapes with multi-pass neon glow (`feGaussianBlur` + `feComposite` stacked SVG filters).
+- **Comprehensive Testing Suite**:
+  - `test_radar_router_fixes.py` — 9 regression tests for C1/C2/M2 router fixes
+  - `test_radar_security.py` — 10 API security posture tests (SQL injection, info-leak, content-type)
+  - `test_performance_polygon.py` — 6 polygon useMemo performance benchmarks (<50ms for 15 clusters)
+  - `frontend/src/__tests__/radarUtils.test.ts` — 12 unit tests for `getDbzColor`/`getStatusColor`
+  - `frontend/e2e/admin-radar.spec.ts` — 14 Playwright E2E tests for Admin Radar page
+- **Shared Radar Utility Library (`radarUtils.ts`)**: Extracted `getDbzColor()` and `getStatusColor()` from inline usage into `frontend/src/lib/radarUtils.ts` to eliminate duplication between `RadarCloudMap` and `RadarCoverageMap`.
+
+### Changed
+- **Multiplicative Zoom Step (×1.35)**: Both `RadarCloudMap` and `RadarCoverageMap` now use a consistent multiplicative zoom factor (`ZOOM_STEP = 1.35`) instead of additive steps. Zoom Out is the exact inverse (`prev / ZOOM_STEP`), preventing drift. Reset resets to exactly 1.0x.
+- **Cluster Polygon Pre-computation (`useMemo`)**: Cluster polygon SVG path strings are now pre-computed once via `useMemo` and cached in a `Map<string, string>`, eliminating repeated expensive per-render computation.
+- **SVG Marker ID Namespacing**: Arrow marker `<defs>` ids now use React `useId()` hook (e.g. `arrow-:r1:`) preventing DOM id collisions when multiple SVG maps appear on the same page.
+- **Province Path Rendering**: Removed redundant `style` prop from SVG province path elements; fill/stroke are now set exclusively via SVG presentation attributes.
+- **CI/CD Pipeline Improvements**:
+  - `test_frontend` now runs with `--watchAll=false --ci --passWithNoTests` (non-interactive, safe for CI)
+  - `test_e2e` now installs Chromium explicitly and uploads Playwright HTML report as artifact (7 days)
+  - New `test_security` job runs security + regression + performance tests in isolation
+
+### Fixed
+- **C1/C2 — `STATIONS` NameError & `UnboundLocalError`**: `GET /api/v1/radar/stations` except branch referenced `STATIONS` (undefined) and `cache` (before assignment). Both fixed — `station_statuses` used correctly and `cache = None` initialized before try block.
+- **M1 — `has_lightning` Default Incorrect**: `_build_advanced_text()` in `webhook_utils.py` was defaulting `has_lightning = True` when `"detected"` key was absent from lightning dict. Fixed to default `False` (`detected = data.get("detected", False)`).
+- **M2 — Stale Station Shows Wrong Status**: Station with no frames but an old `created_at` (>60 min) was incorrectly shown as `"online"`. Fixed: `not frames and cache and latency_min > 60` → `"offline"`.
+- **M3 — kkn120 Shown as Offline in Frontend**: `frontend/src/app/api/admin/radar/route.ts` was calling a non-existent endpoint. Fixed to call the correct `/api/v1/radar/stations` path via `AbortController` with 8s timeout.
+- **M4 — Duplicate `style` Prop on Province SVG Paths**: Removed redundant `style={{ fill, stroke }}` that conflicted with SVG presentation attributes.
+- **M6 — RadarCoverageMap Zoom Step Inconsistency**: Coverage map was using additive step (+0.5) while CloudMap used multiplicative. Unified both to ×1.35 multiplicative.
+- **L1 — Missing `is_active` Default in Radar Repository**: `get_all_stations()` returned models without `is_active` field; fixed to default to `True`.
+- **L2 — Import Path Fix in `test_line_integration.py`**: Corrected relative import path that caused module resolution failures.
+
+### Security
+- **API Security Posture Documented**: `GET /api/v1/radar/stations` and `GET /api/v1/radar/clusters` are currently publicly accessible. Tests now document this state and verify: no stack-trace leaks, SQL injection in path/query params → 404/422 (not 500), POST to GET endpoints → 405, all responses return `application/json`. Auth enforcement is tracked as a future ticket.
+
+---
+
 ## [0.72.0] - 2026-08-14
+
 
 ### Added
 - **Dedicated Telegram `/multiframe` Command**: Added `/multiframe` to return strictly the 6-frame radar analysis strip (`radar_multiframe.png`) without heavy batch attachments (Issue #263).
