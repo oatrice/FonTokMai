@@ -160,6 +160,16 @@ async def worker_handle_rain(payload: CommandPayload):
         logger.error(f"Worker failed handle_rain: {e}")
         return {"status": "error", "message": str(e)}
 
+@router.post("/handle-multiframe")
+async def worker_handle_multiframe(payload: CommandPayload):
+    try:
+        from app.routers.webhook_commands import handle_multiframe_command
+        await handle_multiframe_command(payload.chat_id, payload.command, payload.message_id_to_edit)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Worker failed handle_multiframe: {e}")
+        return {"status": "error", "message": str(e)}
+
 @router.post("/handle-devmock")
 async def worker_handle_devmock(payload: AdminCommandPayload):
     try:

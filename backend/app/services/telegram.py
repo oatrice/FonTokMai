@@ -281,6 +281,7 @@ async def setup_telegram_commands() -> bool:
     commands = [
         {"command": "rain", "description": "เช็คพิกัดกลุ่มฝนล่าสุด"},
         {"command": "rain_pro", "description": "เช็คพิกัดและภาพวิเคราะห์เรดาร์ฝนระดับสูง (Pro)"},
+        {"command": "multiframe", "description": "ดูภาพวิเคราะห์เรดาร์ย้อนหลัง 6 เฟรม"},
         {"command": "check", "description": "เช็คพิกัดเรดาร์ฝน (Shorthand)"},
         {"command": "radar", "description": "แสดงแหล่งข้อมูลเรดาร์ฝนภายนอก"},
         {"command": "tracking", "description": "ดูภาพวิเคราะห์ทิศทางกลุ่มฝน"},
