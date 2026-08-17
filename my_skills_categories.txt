@@ -247,6 +247,10 @@ Before create MR
 /gitlab-ci-patterns
 /doc-version-updater
 
+สร้าง MR to dev branch ได้เลย
+รวมถึงการ update เอกสารต่างๆด้วย
+changelog ถ้า version ยิบย่อยหลายๆอันใน MR นี้ต้อง merge รวมให้เป็น version เดียว
+
 ===
 
 # debugging
@@ -270,7 +274,7 @@ Before create MR
 /react-component-performance
 
 ---
-
+#CI fixing:
 /gitlab-ci-patterns
 /gitlab-automation
 /github-actions-templates

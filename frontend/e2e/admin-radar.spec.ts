@@ -102,8 +102,8 @@ const MOCK_CLUSTERS = {
 // ── Setup: intercept all API calls ─────────────────────────────────────────────
 
 async function setupApiMocks(page: Page) {
-  // Mock the Next.js API proxy → backend stations
-  await page.route("**/api/admin/radar**", async (route) => {
+  // Mock Next.js API proxy (both /api/admin/radar/stations and /api/admin/radar/clusters or base)
+  await page.route(/\/api\/admin\/radar.*/, async (route) => {
     const url = route.request().url();
     if (url.includes("clusters")) {
       await route.fulfill({ json: MOCK_CLUSTERS, status: 200 });
@@ -112,8 +112,28 @@ async function setupApiMocks(page: Page) {
     }
   });
 
-  // Mock any direct radar API calls
-  await page.route("**/api/v1/radar/**", async (route) => {
+  // Mock FastAPI backend routes (stations, clusters, presets)
+  await page.route(/.*\/api\/v1\/admin\/radar.*/, async (route) => {
+    const url = route.request().url();
+    if (url.includes("stations")) {
+      // Return simple array structure for management stations
+      await route.fulfill({
+        json: MOCK_STATIONS.stations.map(s => ({
+          ...s,
+          static_image_url: s.image_url,
+          static_crop: { x: 72, y: 28, width: 728, height: 728 }
+        })),
+        status: 200
+      });
+    } else if (url.includes("presets")) {
+      await route.fulfill({ json: [], status: 200 });
+    } else {
+      await route.fulfill({ json: { status: "ok" }, status: 200 });
+    }
+  });
+
+  // Mock any generic public radar API paths
+  await page.route(/.*\/api\/v1\/radar.*/, async (route) => {
     const url = route.request().url();
     if (url.includes("clusters")) {
       await route.fulfill({ json: MOCK_CLUSTERS, status: 200 });

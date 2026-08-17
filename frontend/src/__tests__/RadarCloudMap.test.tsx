@@ -231,8 +231,9 @@ describe("RadarCloudMap Component (Issue #188 & #270)", () => {
     expect(screen.getByTestId("cloud-cluster-cluster-macro")).toBeInTheDocument();
     expect(screen.queryByTestId("cloud-cluster-sub-cell-1")).not.toBeInTheDocument();
 
-    // Zoom in twice to reach 2.0x (1.0x -> 1.5x -> 2.0x)
+    // Zoom in three times to reach >= 2.0x (1.0x -> 1.35x -> 1.82x -> 2.46x)
     const zoomInBtn = screen.getByLabelText("Zoom In");
+    fireEvent.click(zoomInBtn);
     fireEvent.click(zoomInBtn);
     fireEvent.click(zoomInBtn);
 
