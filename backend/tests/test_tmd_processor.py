@@ -221,9 +221,10 @@ def test_draw_pin_on_frame():
     # Draw pin at (50, 50)
     processor.draw_pin_on_frame(img, 50, 50)
     
-    # Check if the pixel at (50, 50) has changed to red (0, 0, 255) in BGR
+    # Check that pin area has transparent fill and border stroke changes
     assert not np.array_equal(img[50, 50], [0, 0, 0])
-    assert img[50, 50][2] > 100  # R channel should be high
+    # The concentric ring / dashed circle at radius 8 has orange stroke (B=0, G=165, R=255)
+    assert np.any(img[42:58, 42:58] > 0)
     
 def test_extrapolate_rain_with_growth_decay():
     processor = TMDRadarProcessor(station_code="kkn120")

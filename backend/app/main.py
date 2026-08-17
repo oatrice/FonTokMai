@@ -141,12 +141,9 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logging.error(f"Failed to load global dev config: {e}")
     
-    # Setup Telegram bot commands on startup
+    # Setup Telegram bot commands on startup (non-blocking)
     from app.services.telegram import setup_telegram_commands
-    try:
-        await setup_telegram_commands()
-    except Exception as e:
-        logging.error(f"Failed to setup Telegram commands during startup: {e}")
+    asyncio.create_task(setup_telegram_commands())
     
     yield
     from app.dependencies import close_http_client
@@ -216,9 +213,10 @@ async def telegram_webhook_audit_middleware(request: Request, call_next):
             
     return await call_next(request)
 
-from app.routers import weather, webhook, scheduler, metrics, worker, budget_webhook, line_webhook, auth, runway, stripe_webhook, milestones, financial, events, donations
+from app.routers import weather, webhook, scheduler, metrics, worker, budget_webhook, line_webhook, auth, runway, stripe_webhook, milestones, financial, events, donations, radar
 
 app.include_router(weather.router)
+app.include_router(radar.router)
 app.include_router(webhook.router)
 app.include_router(scheduler.router)
 app.include_router(metrics.router)

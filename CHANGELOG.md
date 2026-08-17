@@ -5,9 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.72.0] - 2026-08-14
+## [0.73.0] - 2026-08-17
 
 ### Added
+- **Interactive Radar Map — Cloud Cluster Hover Trajectory Preview (Issue #188)**: Hovering over any cloud polygon on the Admin Radar SVG map now displays a floating trajectory preview card with cluster name, speed (km/h), heading, ETA, and historical waypoints. Clicking pins the card permanently with a 📌 badge.
+- **Interactive Radar Map — Hierarchical Clustering / Spiderfy (Issue #188)**: At zoom ≥ 2.0x, parent macro-clusters automatically de-cluster into individual sub-cells with independent labels. A toggle button reverts to parent view.
+- **Admin Radar Station Health Map (Issue #270)**: Full interactive Thailand SVG map at `/admin/radar` showing real-time operational status (Online / Delayed / Offline) for all 13 radar stations with coverage circles, heading arrows, dBZ intensity badges, and a draggable station status list.
+- **`/api/v1/radar/clusters` — `source` & `is_mock` fields**: Endpoint now returns `source` (`"live_cache"` | `"baseline_mock"`) and `is_mock` boolean so frontend can visually distinguish live from fallback data.
+- **Zoom & Pan Controls — RadarCloudMap & RadarCoverageMap**: Interactive Google Maps-style zoom (+/−/reset), scroll-wheel zoom, double-click zoom, mouse drag panning, and cloud-focus quick-zoom buttons on all radar map components.
+- **Organic Polygon Rendering**: Cluster overlays use sine-based vertex displacement for natural-looking polygon shapes with multi-pass neon glow (`feGaussianBlur` + `feComposite` stacked SVG filters).
+- **Comprehensive Testing Suite**:
+  - `test_radar_router_fixes.py` — 9 regression tests for C1/C2/M2 router fixes
+  - `test_radar_security.py` — 10 API security posture tests (SQL injection, info-leak, content-type)
+  - `test_performance_polygon.py` — 6 polygon useMemo performance benchmarks (<50ms for 15 clusters)
+  - `frontend/src/__tests__/radarUtils.test.ts` — 12 unit tests for `getDbzColor`/`getStatusColor`
+  - `frontend/e2e/admin-radar.spec.ts` — 14 Playwright E2E tests for Admin Radar page
+- **Shared Radar Utility Library (`radarUtils.ts`)**: Extracted `getDbzColor()` and `getStatusColor()` from inline usage into `frontend/src/lib/radarUtils.ts` to eliminate duplication between `RadarCloudMap` and `RadarCoverageMap`.
+
+### Changed
+- **Multiplicative Zoom Step (×1.35)**: Both `RadarCloudMap` and `RadarCoverageMap` now use a consistent multiplicative zoom factor (`ZOOM_STEP = 1.35`) instead of additive steps. Zoom Out is the exact inverse (`prev / ZOOM_STEP`), preventing drift. Reset resets to exactly 1.0x.
+- **Cluster Polygon Pre-computation (`useMemo`)**: Cluster polygon SVG path strings are now pre-computed once via `useMemo` and cached in a `Map<string, string>`, eliminating repeated expensive per-render computation.
+- **SVG Marker ID Namespacing**: Arrow marker `<defs>` ids now use React `useId()` hook (e.g. `arrow-:r1:`) preventing DOM id collisions when multiple SVG maps appear on the same page.
+- **Province Path Rendering**: Removed redundant `style` prop from SVG province path elements; fill/stroke are now set exclusively via SVG presentation attributes.
+- **CI/CD Pipeline Improvements**:
+  - `test_frontend` now runs with `--watchAll=false --ci --passWithNoTests` (non-interactive, safe for CI)
+  - `test_e2e` now installs Chromium explicitly and uploads Playwright HTML report as artifact (7 days)
+  - New `test_security` job runs security + regression + performance tests in isolation
+
+### Fixed
+- **C1/C2 — `STATIONS` NameError & `UnboundLocalError`**: `GET /api/v1/radar/stations` except branch referenced `STATIONS` (undefined) and `cache` (before assignment). Both fixed — `station_statuses` used correctly and `cache = None` initialized before try block.
+- **M1 — `has_lightning` Default Incorrect**: `_build_advanced_text()` in `webhook_utils.py` was defaulting `has_lightning = True` when `"detected"` key was absent from lightning dict. Fixed to default `False` (`detected = data.get("detected", False)`).
+- **M2 — Stale Station Shows Wrong Status**: Station with no frames but an old `created_at` (>60 min) was incorrectly shown as `"online"`. Fixed: `not frames and cache and latency_min > 60` → `"offline"`.
+- **M3 — kkn120 Shown as Offline in Frontend**: `frontend/src/app/api/admin/radar/route.ts` was calling a non-existent endpoint. Fixed to call the correct `/api/v1/radar/stations` path via `AbortController` with 8s timeout.
+- **M4 — Duplicate `style` Prop on Province SVG Paths**: Removed redundant `style={{ fill, stroke }}` that conflicted with SVG presentation attributes.
+- **M6 — RadarCoverageMap Zoom Step Inconsistency**: Coverage map was using additive step (+0.5) while CloudMap used multiplicative. Unified both to ×1.35 multiplicative.
+- **L1 — Missing `is_active` Default in Radar Repository**: `get_all_stations()` returned models without `is_active` field; fixed to default to `True`.
+- **L2 — Import Path Fix in `test_line_integration.py`**: Corrected relative import path that caused module resolution failures.
+
+### Security
+- **API Security Posture Documented**: `GET /api/v1/radar/stations` and `GET /api/v1/radar/clusters` are currently publicly accessible. Tests now document this state and verify: no stack-trace leaks, SQL injection in path/query params → 404/422 (not 500), POST to GET endpoints → 405, all responses return `application/json`. Auth enforcement is tracked as a future ticket.
+
+---
+
+## [0.72.0] - 2026-08-14
+
+
+### Added
+- **Dedicated Telegram `/multiframe` Command**: Added `/multiframe` to return strictly the 6-frame radar analysis strip (`radar_multiframe.png`) without heavy batch attachments (Issue #263).
+- **Historical Wind Vector Ghosting & Timestamps**: Overlaid fading historical wind vectors (3–5 past frames) and clean OpenCV frame timestamps onto cropped radar graphics (Issue #70).
+- **Admin Radar Station Health Map (`/admin/radar`)**: Interactive Thailand map showing real-time operational status (Online, Delayed, Offline) for all radar stations (Issue #270).
+- **Cloud Cluster Hover Trajectory Preview**: Interactive web map hover effect displaying historical movement and trajectory vectors for cloud clusters (Issue #188).
+- **Unified Webhook Response Architecture**: Created `Shared Message & Media Processor` (`webhook_utils.py`) standardizing text and media delivery for Telegram and LINE webhooks (Issue #185).
 - **TMD Radar Auto-Calibration Pipeline & CLI (Issue #99)**: Built `AutoCalibrationService` and CLI tool (`backend/scripts/calibrate_station_cli.py`) utilizing Hough Circle Detection (`cv2.HoughCircles`) to automatically detect radar circle boundaries, calculate static/loop crop coordinates, and output StationConfig snippets with `--verify` overlay image generation.
 - **Nationwide TMD Radar Dynamic Registry & Station Management (Issue #52)**:
   - Implemented `DynamicRadarRegistry` and `tmd_radar_catalog.py` with in-memory TTL caching (60s) and Neon DB PostgreSQL (`radar_stations`) persistence.
@@ -29,12 +77,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated multi-cloud clustering in `clustering.py` and `tracking.py` to detect up to 21 distinct real rain clouds with sea boundary mask clipping.
 
 ### Changed
+- **2-Subimage Composite Graphic**: Refactored tracking composite graphic from 4 panels down to 2 panels (`Raw Context with grid` vs `Final Prediction overlay`) for `/rain_pro` and `/tracking` (Issue #263).
 - **Native Image Aspect Ratio Preservation**: Removed hardcoded `800x800` image resizing in `cache.py` and `weather_manager.py` to preserve native image aspect ratios across all rendered radar maps (`radar_latest.png`, `radar_tracking.png`, `radar_multiframe.png`).
 - **Cache Sliding Window Expansion**: Updated cache freshness threshold and fallback condition from 2 to 6 frames in `cache.py` to ensure complete 6-frame historical sequence accumulation.
 - **Neon DB Database Migration**: Migrated `api_reliability` and radar caching logic from Firestore to Neon DB PostgreSQL via SQLAlchemy/`SQLiteLocationRepository`.
 - **Weather Source Fallback Priority**: Refactored `WeatherManager` fallback priority ordering using `WeatherEndpoint(StrEnum)` to enforce local `tmd-radar` as the top priority tie-breaker when accuracy scores tie.
 
 ### Fixed
+- **Orphaned Trajectory Suppression**: Suppressed blue/yellow trajectory lines and false rain alerts when the source cloud is not detected in the latest frame (Issue #268).
+- **Deterministic Trajectory Testing**: Decoupled `datetime.now()` wall-clock from radar extrapolation and summary calculations using pure `anchor_time` parameters (Issue #183).
 - **Radar Projection & Pin Alignment**:
   - Configured `projection_type` (`linear` vs `azimuthal`) per station geometry to prevent pixel coordinate drift.
   - Added proportional coordinate scaling in `latlng_to_pixel()` when frame dimensions deviate from station config.
