@@ -112,3 +112,44 @@ def test_build_formatted_forecast_payload():
     assert response.actual_endpoint == "tmd-radar"
     assert len(response.media_items) == 1
     assert response.media_items[0].filename == "radar_tracking.png"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# M1 FIX — has_lightning defaults to False when 'detected' key is absent
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_build_advanced_text_lightning_no_detected_key():
+    """
+    M1 fix: when lightning dict has NO 'detected' key, has_lightning must be False.
+    Previously this defaulted to True (truthy `detected = data.get("detected", True)`).
+    """
+    adv_text = _build_advanced_text({
+        "lightning": {"distance_km": 5.0}  # no 'detected' key
+    })
+    # Lightning text should NOT appear when detected is absent/False
+    assert "โดนฟ้าผ่า" not in adv_text, "Lightning text must NOT appear when 'detected' key is missing"
+    assert "⚡" not in adv_text, "Lightning emoji must NOT appear when 'detected' key is missing"
+
+
+def test_build_advanced_text_lightning_detected_true():
+    """M1: when detected=True, lightning text must appear."""
+    adv_text = _build_advanced_text({
+        "lightning": {"distance_km": 4.5, "detected": True}
+    })
+    assert "4.5 กม." in adv_text, "Lightning distance must appear when detected=True"
+
+
+def test_build_advanced_text_lightning_detected_false():
+    """M1: when detected=False, lightning text must NOT appear."""
+    adv_text = _build_advanced_text({
+        "lightning": {"distance_km": 3.0, "detected": False}
+    })
+    assert "โดนฟ้าผ่า" not in adv_text, "Lightning text must NOT appear when detected=False"
+    assert "⚡" not in adv_text
+
+
+def test_build_advanced_text_no_lightning_key():
+    """M1: missing lightning section entirely must not raise or include lightning text."""
+    adv_text = _build_advanced_text({"advisories": []})
+    assert "โดนฟ้าผ่า" not in adv_text
+    assert "⚡" not in adv_text

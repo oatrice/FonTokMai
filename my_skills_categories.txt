@@ -1,0 +1,287 @@
+จากรายการ Skills ทั้งหมด 306 รายการ ผมขอแนะนำ **กลุ่ม Skills พื้นฐานและสำคัญที่สุดสำหรับการพัฒนาซอฟต์แวร์** ที่จะช่วยให้คุณทำงานร่วมกับผมได้อย่างมีประสิทธิภาพสูงสุด พร้อมวิธีเรียกใช้ครับ:
+
+---
+
+### 1. กลุ่มพัฒนาและออกแบบโค้ด (Coding & Architecture)
+*   **`tdd-workflows-tdd-cycle`** และ **`tdd-workflows-tdd-green` / `tdd-workflows-tdd-red`**
+    *   **ความสำคัญ:** ใช้สำหรับพัฒนาซอฟต์แวร์แบบเน้นเขียน Test นำ (Test-Driven Development) ช่วยควบคุมคุณภาพของโค้ดให้ทำงานได้ถูกต้องตามสเปกและไม่เกิดบั๊กภายหลัง
+*   **`clean-code-refactor-clean`** (หรือ `code-refactoring-refactor-clean`)
+    *   **ความสำคัญ:** ช่วยปรับโครงสร้างโค้ด (Refactoring) ให้อ่านง่าย บำรุงรักษาง่าย โดยไม่เปลี่ยนพฤติกรรมการทำงานของระบบ
+*   **`architecture-patterns`** และ **`backend-architect`**
+    *   **ความสำคัญ:** ช่วยวางโครงสร้างระบบ (Architecture) ให้เป็นระบบระเบียบและรองรับการขยายตัวในอนาคต
+
+### 2. กลุ่มความปลอดภัยและตรวจสอบคุณภาพ (Security & Code Review)
+*   **`code-review-excellence`** และ **`code-reviewer`**
+    *   **ความสำคัญ:** ใช้ตรวจสอบคุณภาพโค้ด ค้นหาข้อผิดพลาดที่อาจมองข้าม และแนะนำแนวทางปฏิบัติที่ดีที่สุด (Best Practices)
+*   **`security-auditor`** และ **`sast-configuration`**
+    *   **ความสำคัญ:** สแกนหาช่องโหว่ด้านความปลอดภัยของซอฟต์แวร์ (เช่น OWASP Top 10) ก่อนที่จะนำโค้ดขึ้นระบบจริง
+
+### 3. กลุ่มตรวจสอบและแก้ไขบั๊ก (Debugging)
+*   **`debugger`** และ **`debugging-toolkit-smart-debug`**
+    *   **ความสำคัญ:** ช่วยวิเคราะห์ Stack Trace ค้นหาสาเหตุของบั๊ก และแก้ไขข้อผิดพลาดอย่างเป็นระบบเมื่อโค้ดหรือการทดสอบ (Tests) ทำงานไม่ผ่าน
+
+---
+
+## 🛠️ วิธีการเรียกใช้งาน Skills
+
+คุณสามารถสั่งให้ผมเปิดใช้งานหรือศึกษาแนวทางจาก Skill ใดๆ ได้ง่ายๆ ผ่านการพิมพ์บอกในแชท ดังนี้:
+
+### วิธีที่ 1: สั่งให้ศึกษาแนวทางและนำมาปรับใช้ (แนะนำ)
+พิมพ์บอกในแชทตรงๆ เช่น:
+*   *"ช่วยตรวจสอบโค้ดในโปรเจกต์นี้โดยใช้แนวทางของ `code-reviewer` หน่อย"*
+*   *"เขียน API ตัวนี้ขึ้นมาใหม่โดยอิงหลักการของ `tdd-workflows-tdd-cycle`"*
+
+### วิธีที่ 2: สั่งให้ค้นหาข้อมูลเพิ่มเติมจากคลังความรู้
+*   *"แนะนำการออกแบบฐานข้อมูลขนาดใหญ่ตามแนวทางของ `database-architect` หน่อย"*
+
+> [!NOTE]
+> เมื่อคุณระบุชื่อ Skill มา ผมจะเข้าไปอ่านคู่มือคำแนะนำฉบับเต็ม (`SKILL.md`) ของ Skill นั้นๆ ในระบบของผมโดยอัตโนมัติ เพื่อให้มั่นใจว่าโค้ดและวิธีแก้ปัญหาที่ส่งให้คุณเป็นไปตามมาตรฐานที่ดีที่สุดของ Skill นั้นๆ ครับ
+---
+จากรายการคลัง Skills ที่มีอยู่ มีกลุ่มที่เน้นเรื่องการเขียน **Test, Verify Feature (ตรวจสอบการทำงาน), และ Fix Bug (แก้บั๊ก)** ที่โดดเด่นและพร้อมใช้งานดังนี้ครับ:
+
+---
+
+### 🧪 1. สำหรับการเขียนและออกแบบ Test (Testing)
+*   **`tdd-workflows-tdd-cycle` (แนะนำหลัก)**: เป็นตัวควบคุมกระบวนการทำ Test-Driven Development (TDD) โดยรวม (เขียน Test ให้พังก่อน -> เขียนโค้ดให้ผ่าน -> Refactor)
+*   **`tdd-workflows-tdd-red`**: ช่วยคิดและออกแบบเคสการทดสอบเพื่อเขียน Test ที่จะเฟลก่อน (Red Phase) เพื่อกำหนดสเปกของฟีเจอร์ใหม่
+*   **`tdd-workflows-tdd-green`**: เน้นการเขียนโค้ดที่เรียบง่ายและเร็วที่สุดเพื่อให้ Test ที่เฟลอยู่ผ่านทั้งหมด (Green Phase)
+*   **`javascript-testing-patterns` / `python-testing-patterns`**: รูปแบบและ Best Practices ในการเขียน Unit Test ของภาษาเหล่านั้นโดยเฉพาะ
+*   **`test-automator`**: สำหรับช่วยสร้างสคริปต์ทดสอบอัตโนมัติ (Automated Test)
+
+---
+
+### 🔍 2. สำหรับการ Verify Feature (ตรวจสอบความถูกต้อง/หน้าตา UI)
+*   **`e2e-testing-patterns`**: แนวทางการเขียน End-to-End Test เพื่อจำลองการใช้งานของยูสเซอร์จริงตั้งแต่ต้นจนจบกระบวนการ
+*   **`ui-visual-validator`**: เน้นตรวจสอบความถูกต้องของการแสดงผลบนหน้าจอ (Visual Regression/UI Checks) ว่าตรงตามดีไซน์และไม่เพี้ยน
+*   **`screen-reader-testing` / `wcag-audit-patterns`**: ตรวจสอบว่าฟีเจอร์และ UI ที่ทำขึ้นมานั้นรองรับ Accessibility (คนพิการใช้งานได้สะดวก) ตรงตามมาตรฐานสากลหรือไม่
+
+---
+
+### 🛠️ 3. สำหรับการวิเคราะห์และ Fix Bug (แก้บั๊ก)
+*   **`debugger` (แนะนำหลัก)**: ใช้เมื่อเกิด Error หรือ Test พังกระทันหัน โดยจะช่วยแกะ Stack Trace และพฤติกรรมที่ผิดปกติ
+*   **`debugging-toolkit-smart-debug`**: ชุดเครื่องมือวิเคราะห์บั๊กเชิงลึก ช่วยแกะหา Root Cause ของปัญหาที่ซับซ้อน (เช่น ปัญหาเรื่อง State หรือ Logic ผิดพลาด)
+*   **`error-diagnostics-error-analysis`**: เน้นวิเคราะห์โค้ดที่เกิด Runtime Error หรือระบบล่ม เพื่อหาสาเหตุแล้วเสนอวิธีแก้ที่ปลอดภัย
+
+---
+
+### 💡 วิธีสั่งให้ผมเริ่มใช้งาน
+หากต้องการให้ผมช่วยทำสิ่งเหล่านี้ คุณสามารถสั่งในแชทได้ทันที เช่น:
+*   **สำหรับเขียน Test/ฟีเจอร์:** *"ช่วยเขียนโค้ดฟีเจอร์ [ชื่อฟีเจอร์] โดยทำ TDD แบบ `tdd-workflows-tdd-cycle` หน่อย"*
+*   **สำหรับแก้บั๊ก:** *"รันโค้ดแล้วเจอ Error [ใส่ข้อความ Error] ช่วยวิเคราะห์ด้วย `debugging-toolkit-smart-debug` และเขียนวิธีแก้ให้หน่อย"*
+
+[$agent-orchestration-improve-agent](/Users/oatrice/.agents/skills/agent-orchestration-improve-agent/SKILL.md) 
+[$agent-orchestration-multi-agent-optimize](/Users/oatrice/.agents/skills/agent-orchestration-multi-agent-optimize/SKILL.md) 
+[$agent-orchestrator](/Users/oatrice/.agents/skills/agent-orchestrator/SKILL.md) 
+[$agent-squad](/Users/oatrice/.agents/skills/agent-squad/SKILL.md) 
+---
+
+สำหรับการทำงานการ์ด **Issue #182** *(Fix `/tracking` and `/nowcast` Telegram commands not executing processing logic)* แนะนำให้ใช้ Agent Skills ตามลำดับและบทบาทดังนี้ครับ:
+
+---
+
+### 1. 🔍 **`systematic-debugging`** / **`debugger`** *(เริ่มแรก)*
+* **ทำไมถึงต้องใช้:** ใช้เพื่อวิเคราะห์สาเหตุเชิงลึก (Root Cause Analysis) ว่าทำไมเมื่อ Telegram ส่ง Webhook คำสั่ง `/tracking` หรือ `/nowcast` เข้ามาแล้ว Backend ถึงคืน `200 OK` แต่ไม่มีการประมวลผลต่อหรือส่งภาพกลับ โดยไล่เช็คจาก Routing ใน `webhook.py`, `webhook_commands.py` ไปจนถึง Background Worker
+
+---
+
+### 2. 🧪 **`tdd-workflow`** / **`test-driven-development`** *(ก่อนเริ่มแก้โค้ด)*
+* **ทำไมถึงต้องใช้:** ตามกฎของโปรเจกต์ (TDD Rule) จะต้อง **เขียน Unit/Integration Test ล้มก่อนเสมอ** เพื่อยีนยัน Bug นี้ใน `tests/test_command_router.py` หรือ `tests/test_webhook.py` แล้วจึงเขียนโค้ดแก้ไขเพื่อให้ Test ผ่าน
+
+---
+
+### 3. ⚡ **`backend-development`** / **`fastapi-router-py`** *(ขณะเขียนแก้ไข)*
+* **ทำไมถึงต้องใช้:** ช่วยให้คำสั่ง `/tracking` และ `/nowcast` (รวมถึงเมื่อมี parameter สถานที่ เช่น `/tracking home`) ถูก parse และส่งเข้าไปทำงานใน Async Queue / Cloud Tasks ตามแนวทาง *Serverless Webhook Fast Response* อย่างถูกต้อง
+
+---
+
+### 4. 🛡️ **`code-review`** / **`test-guard`** *(ก่อน Commit/PR)*
+* **ทำไมถึงต้องใช้:** ใช้ตรวจสอบคุณภาพโค้ด ตรวจสอบว่าแก้ไขตรงจุด ไม่ส่งผลกระทบต่อคำสั่งอื่น (เช่น `/rain`, `/check`) และตรวจสอบว่า `test_deploy_env_sync.py` ผ่านสมบูรณ์
+
+---
+
+นี่คือ **Agent Skills** ที่เหมาะมากสำหรับการ**วางแผน ออกแบบระบบ และวิเคราะห์ปัญหา (Planning, System Design & Problem Analysis)** ซึ่งช่วยยกระดับการทำงานตั้งแต่ระดับสถาปัตยกรรมไปจนถึงการแก้ไขปัญหาเชิงลึกครับ:
+
+---
+
+### 1. 🏗️ การวางแผนสถาปัตยกรรมและออกแบบระบบ (System Design & Architecture)
+
+* **`senior-architect`** / **`architect-review`**
+  * **จุดเด่น**: เหมาะสำหรับการประเมินโครงสร้างระบบในระดับภาพรวม (High-level Architecture), การเลือกใช้ Stack, และการรีวิว Design Pattern
+  * **การใช้งาน**: ใช้ประเมินความแข็งแกร่งของระบบ, Scalability, Security, และ Maintainability
+
+* **`c4-container`** (หรือกลุ่ม C4 Architecture Skills เช่น `c4-architecture-c4-architecture`, `c4-context`)
+  * **จุดเด่น**: ช่วยจัดทำแผนผังความคิดและโครงสร้างระบบตาม **C4 Model** (Context, Container, Component, Code) 
+  * **การใช้งาน**: สร้าง Diagram และระบุความสัมพันธ์ระหว่าง Service, Database, API Gateway ได้ชัดเจน
+
+* **`domain-driven-design`** / **`ddd-strategic-design`**
+  * **จุดเด่น**: เน้นการแบ่ง Bounded Context, Domain Models, และ Event-Driven Architecture
+  * **การใช้งาน**: เหมาะกับการวางโครงสร้างระบบที่มีความซับซ้อนของ Logic ทางธุรกิจสูง (Complex Business Domain)
+
+---
+
+### 2. 📝 การวางแผนการทำงานและการแตก Task (Planning & Work Breakdown)
+
+* **`writing-plans`** / **`planning-with-files`**
+  * **จุดเด่น**: สร้างไฟล์แผนงาน (`implementation_plan.md`) แบบละเอียดที่มีการแบ่ง phase, ชี้จุดเสี่ยง, และระบุขั้นตอนการตรวจสอบ (Verification Plan)
+  * **การใช้งาน**: ใช้เมื่อต้องการเริ่ม Feature ใหญ่หรือโปรเจกต์ใหม่ เพื่อให้เห็น Roadmap ชัดเจนก่อนลงมือเขียนโค้ด
+
+* **`executing-plans`**
+  * **จุดเด่น**: ช่วยติดตามการทำตามแผนที่เขียนไว้ มี Checkpoint สำหรับตรวจสอบความถูกต้องในแต่ละขั้นตอน
+  * **การใช้งาน**: ใช้ควบคู่กับ `writing-plans` เมื่อเริ่มเข้าสู่ขั้นตอนการพัฒนาระบบ
+
+---
+
+### 3. 🔍 การวิเคราะห์และแก้ปัญหาเชิงลึก (Problem Analysis & Systematic Debugging)
+
+* **`systematic-debugging`**
+  * **จุดเด่น**: เน้นการหาสาเหตุของปัญหา (Root Cause Analysis) อย่างเป็นระบบตามหลักวิทยาศาสตร์ 
+  * **การใช้งาน**: ป้องกันการแก้ไขปัญหาแบบสุ่มเดา (Trial & Error) โดยจะบังคับให้รวบรวมข้อมูล/Log และตั้งสมมติฐานก่อนแก้โค้ด
+
+* **`debugging-toolkit`** / **`debugging-toolkit-smart-debug`**
+  * **จุดเด่น**: ช่วยในการ Trace ปัญหา, อ่าน Error Log, วิเคราะห์ Call Stack และ Memory Leaks
+  * **การใช้งาน**: ใช้เมื่อเจอบั๊กซับซ้อน หรือประสิทธิภาพระบบตกต่ำ (Performance bottleneck)
+
+---
+
+### 4. 🎯 การวิเคราะห์ความคุ้มค่าและทิศทางผลิตภัณฑ์ (Product & Strategic Analysis)
+
+* **`jobs-to-be-done-analyst`**
+  * **จุดเด่น**: วิเคราะห์ความต้องการที่แท้จริงของผู้ใช้ (JTBD Framework) ก่อนออกแบบ Feature 
+  * **การใช้งาน**: ช่วยตอบคำถามว่า "ระบบนี้สร้างมาเพื่อแก้ปัญหาอะไรให้ใคร"
+
+* **`vibe-code-auditor`**
+  * **จุดเด่น**: ตรวจสอบความเปราะบางเชิงโครงสร้าง (Fragility) และความเสี่ยงในการนำไปใช้งานจริง (Production Risks)
+  * **การใช้งาน**: ใช้สแกนและวิเคราะห์โค้ดหรือแบบระบบที่ถูกสร้างขึ้นอย่างรวดเร็ว เพื่อค้นหาจุดอ่อนก่อน Deploy
+
+---
+
+💡 **คำแนะนำในการใช้งาน (Workflow ที่แนะนำ):**
+1. **เริ่มวางแผน**: เรียกใช้ **`writing-plans`** + **`senior-architect`** เพื่อร่างแผนและออกแบบโครงสร้างระบบ
+2. **ลงรายละเอียดสถาปัตยกรรม**: ใช้ **`c4-container`** หรือ **`domain-driven-design`** ร่างผังข้อมูลและการเชื่อมต่อ
+3. **เมื่อเจอปัญหา/บั๊ก**: ใช้ **`systematic-debugging`** เพื่อวิเคราะห์หาสาเหตุที่แท้จริงก่อนลงมือแก้ไข
+---
+
+/product-manager
+/track-management
+/antigravity-agent-manager
+---
+#Agent Skill for start new session
+
+#Handoff
+/senior-architect
+/architect-review
+/c4-container
+/domain-driven-design
+/writing-plans
+/jobs-to-be-done-analyst
+
+#Implement
+#ลอง Grill ก่อน implement ด้วย
+/senior-architect
+/architect-review
+/c4-container
+/domain-driven-design
+/writing-plans
+/executing-plans
+/jobs-to-be-done-analyst
+/vibe-code-auditor
+/tdd-workflows-tdd-cycle
+/using-git-worktree เพื่อให้ sub-agent ทำงานแบบ parallel ได้
+/doc-version-updater
+
+/agent-orchestration-improve-agent
+/agent-orchestration-multi-agent-optimize
+/agent-orchestrator
+/agent-squad
+/subagent-driven-development
+/subagent-orchestrator
+---
+
+#code review
+
+/code-review
+/code-reviewer
+/git-pr-review
+/comprehensive-review-full-review
+/differential-review
+
+/security-auditor
+/fix-review
+/pre-release-review
+/vibe-code-auditor
+
+/simplify-code
+/unslop-review
+/receiving-code-review
+
+/architect-review
+/react-component-performance
+/ui-review
+---
+
+# testing & cicd
+/api-security-testing
+/awt-e2e-testing
+/brooks-test
+/browser-testing-with-devtools
+/burp-suite-testing
+/e2e-testing
+/e2e-testing-patterns
+/lambdatest-agent-skills
+/performance-testing-review-multi-agent-review
+/performance-testing-review-ai-review
+/testing-qa
+/unit-testing-test-generate
+/test-automator
+/cicd-automation-workflow-automate
+/create-manual-verification
+/epic-branch-workflow
+
+---
+
+Before create MR
+/pr-merge-champion
+/smart-git-automation
+/subtask-branch-integrator
+/epic-branch-workflow
+/gitlab-ci-patterns
+/doc-version-updater
+
+===
+
+# debugging
+/debugging-toolkit-smart-debug
+/systematic-debugging
+/error-diagnostics-smart-debug
+/error-debugging-multi-agent-review
+/find-bugs
+/bug-hunter
+/mock-hunter
+/test-fixing
+/bug-hunter
+/mock-hunter
+/test-fixing
+/code-review
+/code-reviewer
+/vibe-code-auditor
+/differential-review
+/memory-leak-debugging
+/a11y-debugging
+/react-component-performance
+
+---
+
+/gitlab-ci-patterns
+/gitlab-automation
+/github-actions-templates
+/github-actions-debugger
+/github-actions-advanced
+/gha-security-review
+/deployment-pipeline-design
+/deployment-procedures
+/deployment-engineer
+/ci-cd-and-automation
+/gitops-workflow
+/expo-cicd-workflows
+/vercel-deployment
+/circleci-automation

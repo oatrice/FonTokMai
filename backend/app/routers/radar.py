@@ -325,4 +325,8 @@ async def get_radar_cloud_clusters():
     
     logger.info(f"📡 [GET /api/v1/radar/clusters] Serving {len(clusters)} cloud clusters (source={source}) to Web Frontend")
 
-    return {"clusters": clusters}
+    return {
+        "clusters": clusters,
+        "source": source,
+        "is_mock": source != "live_cache",
+    }

@@ -160,8 +160,12 @@ describe("RadarCloudMap Component (Issue #188 & #270)", () => {
     fireEvent.mouseMove(svgMap, { clientX: 250, clientY: 250 });
     fireEvent.mouseUp(svgMap);
 
-    // Zoom indicator should show current zoom multiplier e.g. 1.5x
-    expect(screen.getByText("1.5x")).toBeInTheDocument();
+    // Zoom indicator should show current zoom multiplier ~1.35x (multiplicative step)
+    const zoomBadges = screen.getAllByText(/\d+\.\d+x/);
+    expect(zoomBadges.length).toBeGreaterThan(0);
+    const zoomValue = parseFloat(zoomBadges[0].textContent?.replace(/[^0-9.]/g, "") ?? "0");
+    expect(zoomValue).toBeGreaterThan(1.3);
+    expect(zoomValue).toBeLessThan(1.5);
   });
 
   it("pins trajectory panel on cloud cluster click and supports closing via X button", () => {
@@ -243,5 +247,133 @@ describe("RadarCloudMap Component (Issue #188 & #270)", () => {
     fireEvent.click(toggleClusteringBtn);
     expect(screen.getByTestId("cloud-cluster-cluster-macro")).toBeInTheDocument();
     expect(screen.queryByTestId("cloud-cluster-sub-cell-1")).not.toBeInTheDocument();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CODE-REVIEW FIX REGRESSION TESTS (commit ed84413)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe("RadarCloudMap — Code Review Fix Regressions", () => {
+  // ── C3: SVG marker ID collision guard ──────────────────────────────────────
+
+  it("C3: SVG marker id must NOT be the literal string 'arrow' (useId namespacing)", () => {
+    const { container } = render(
+      <RadarCloudMap stations={mockStations} clusters={mockClusters} />
+    );
+    const marker = container.querySelector("marker");
+    expect(marker).toBeTruthy();
+    // The id must be namespaced (not bare 'arrow') to prevent collision on multi-SVG pages
+    const markerId = marker?.getAttribute("id") ?? "";
+    expect(markerId).not.toBe("arrow");
+    expect(markerId).toContain("arrow-"); // namespaced with useId() prefix
+  });
+
+  it("C3: Only ONE marker element should exist per RadarCloudMap instance", () => {
+    const { container } = render(
+      <RadarCloudMap stations={mockStations} clusters={mockClusters} />
+    );
+    const markers = container.querySelectorAll("marker");
+    expect(markers.length).toBe(1);
+  });
+
+  it("C3: Two RadarCloudMap instances on same page have DIFFERENT marker IDs", () => {
+    const { container: c1 } = render(
+      <RadarCloudMap stations={mockStations} clusters={mockClusters} />
+    );
+    const { container: c2 } = render(
+      <RadarCloudMap stations={mockStations} clusters={[]} />
+    );
+    const id1 = c1.querySelector("marker")?.getAttribute("id");
+    const id2 = c2.querySelector("marker")?.getAttribute("id");
+    expect(id1).not.toBe(id2);
+  });
+
+  // ── H1: Polygon useMemo — no NaN/empty in path ─────────────────────────────
+
+  it("H1: polygon SVG path d attributes must not contain NaN or empty values", () => {
+    const { container } = render(
+      <RadarCloudMap stations={mockStations} clusters={mockClusters} />
+    );
+    const paths = container.querySelectorAll("path[d]");
+    paths.forEach((p) => {
+      const d = p.getAttribute("d") ?? "";
+      expect(d.toLowerCase()).not.toContain("nan");
+      expect(d.toLowerCase()).not.toContain("infinity");
+    });
+  });
+
+  // ── H4: Zoom multiplicative step ───────────────────────────────────────────
+
+  it("H4: Zoom In from 1.00x produces approximately 1.35x (multiplicative, not additive)", () => {
+    render(<RadarCloudMap stations={mockStations} clusters={mockClusters} />);
+    const zoomInBtn = screen.getByLabelText("Zoom In");
+    fireEvent.click(zoomInBtn);
+
+    // Badge may appear alongside other zoom-related text — get all and check the numeric one
+    // NOTE: component uses .toFixed(1), so 1.35 → displays as "1.4x"
+    const badges = screen.getAllByText(/\d+\.\d+x/);
+    const numericBadgeText = badges.map(b => b.textContent ?? "").find(t => /^[\d.]+x$/.test(t.trim()));
+    const value = parseFloat(numericBadgeText?.replace("x", "") ?? "0");
+
+    // 1.35 * 1 = 1.35, rounded to 1 decimal → 1.4
+    expect(value).toBeGreaterThan(1.3);
+    expect(value).toBeLessThan(1.5);
+    expect(value).not.toBe(1.5); // old additive step guard
+  });
+
+  it("H4: Zoom Out from ~1.35x returns to 1.00x (multiplicative inverse)", () => {
+    render(<RadarCloudMap stations={mockStations} clusters={mockClusters} />);
+    const zoomInBtn = screen.getByLabelText("Zoom In");
+    const zoomOutBtn = screen.getByLabelText("Zoom Out");
+
+    // Zoom in then out
+    fireEvent.click(zoomInBtn);
+    fireEvent.click(zoomOutBtn);
+
+    // Reset View button should disappear (zoom back to 1.0)
+    expect(screen.queryByLabelText("Reset View")).not.toBeInTheDocument();
+  });
+
+  it("H4: Scroll wheel zoom and button zoom produce same first step (~1.35x)", () => {
+    const { unmount } = render(
+      <RadarCloudMap stations={mockStations} clusters={mockClusters} />
+    );
+    const zoomInBtn = screen.getByLabelText("Zoom In");
+    fireEvent.click(zoomInBtn);
+    const buttonBadges = screen.getAllByText(/\d+\.\d+x/);
+    const buttonValue = parseFloat(
+      buttonBadges.map(b => b.textContent ?? "").find(t => /^[\d.]+x$/.test(t.trim()))?.replace("x", "") ?? "0"
+    );
+
+    // Unmount + re-render fresh instance for wheel test
+    unmount();
+    const { container } = render(
+      <RadarCloudMap stations={mockStations} clusters={mockClusters} />
+    );
+    const svgMap = container.querySelector("svg[role='img']")!;
+    fireEvent.wheel(svgMap, { deltaY: -100 }); // scroll up = zoom in
+    const wheelBadges = screen.getAllByText(/\d+\.\d+x/);
+    const wheelValue = parseFloat(
+      wheelBadges.map(b => b.textContent ?? "").find(t => /^[\d.]+x$/.test(t.trim()))?.replace("x", "") ?? "0"
+    );
+
+    // Both should produce the same zoom step
+    expect(Math.abs(buttonValue - wheelValue)).toBeLessThan(0.05);
+  });
+
+  // ── M4: No duplicate style prop ────────────────────────────────────────────
+
+  it("M4: Province paths must not have both SVG attrs and redundant style prop", () => {
+    const { container } = render(
+      <RadarCloudMap stations={mockStations} clusters={mockClusters} />
+    );
+    // Province paths are identified by their pointer-events-none class
+    const provincePaths = container.querySelectorAll("path.pointer-events-none");
+    provincePaths.forEach((p) => {
+      // style attribute should be empty or absent (fill/stroke set via SVG attrs, not style)
+      const styleAttr = p.getAttribute("style") ?? "";
+      expect(styleAttr).toBe("");
+    });
   });
 });
