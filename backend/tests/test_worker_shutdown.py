@@ -4,7 +4,7 @@ from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
 from contextlib import asynccontextmanager
 
-from app.routers.worker import router as worker_router
+from app.routers.worker import router as worker_router, WORKER_SECRET
 
 @pytest.fixture
 def app():
@@ -28,7 +28,7 @@ async def test_worker_check_rain_blocked_on_emergency_shutdown(mock_get_repo_con
         yield mock_repo
     mock_get_repo_context.side_effect = mock_context
     
-    headers = {"X-Worker-Secret": "default_secret_for_local_testing"}
+    headers = {"X-Worker-Secret": WORKER_SECRET}
     response = client.post("/worker/check-rain", headers=headers)
     
     # Verify the request is blocked with 503 Service Unavailable
@@ -49,7 +49,7 @@ async def test_worker_check_rain_allowed_if_no_shutdown(mock_get_repo_context, c
     
     # Mock check_rain_and_alert task to do nothing
     with patch("app.routers.worker.check_rain_and_alert", new_callable=AsyncMock) as mock_check_rain:
-        headers = {"X-Worker-Secret": "default_secret_for_local_testing"}
+        headers = {"X-Worker-Secret": WORKER_SECRET}
         response = client.post("/worker/check-rain", headers=headers)
         
         # Verify the request goes through successfully
@@ -71,7 +71,7 @@ async def test_worker_bypass_paths_allowed_even_on_shutdown(mock_get_repo_contex
     
     # Mock handle_restore_public_access_command
     with patch("app.routers.webhook_admin.handle_restore_public_access_command", new_callable=AsyncMock):
-        headers = {"X-Worker-Secret": "default_secret_for_local_testing"}
+        headers = {"X-Worker-Secret": WORKER_SECRET}
         # /worker/handle-restore-public-access is a bypass path, should NOT return 503
         # It takes LocationPayload or command args. Let's send a mock payload
         payload = {

@@ -33,7 +33,7 @@ async def verify_worker_secret(request: Request, x_worker_secret: str = Header(N
     try:
         async with get_repo_context() as repo:
             settings = await repo.get_system_settings()
-            if settings and settings.get("emergency_shutdown"):
+            if settings and isinstance(settings, dict) and settings.get("emergency_shutdown") is True:
                 logger.warning(f"[verify_worker_secret] Blocking request to {path} due to emergency_shutdown=True")
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
