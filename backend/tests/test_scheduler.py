@@ -87,6 +87,8 @@ async def test_check_rain_and_alert_rain_incoming(
     assert len(kb) == 4
 
     mock_repo.update_last_alerted.assert_called_once()
+    # Verify Issue #279: DB context is opened 3 times (read locations, write alert, write metrics) instead of held open
+    assert mock_get_repo_context.call_count == 3
 
 
 @pytest.mark.asyncio
@@ -140,6 +142,8 @@ async def test_check_rain_and_alert_recently_alerted(
     # Should NOT send message (cooldown, ความรุนแรงไม่เพิ่มขึ้น)
     mock_send_msg.assert_not_called()
     mock_repo.update_last_alerted.assert_not_called()
+    # Verify Issue #279: DB context is opened twice (once to read, once to write metrics) since no alert is sent
+    assert mock_get_repo_context.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -628,3 +632,33 @@ async def test_update_daily_burn_rate_routine_rejects_mock_data(mock_billing_cla
 
     with pytest.raises(RuntimeError, match="mock billing data"):
         await update_daily_burn_rate_routine()
+
+
+@pytest.mark.asyncio
+@patch("app.scheduler_tasks.send_telegram_message", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.WeatherManager")
+@patch("app.scheduler_tasks.get_repo_context")
+@patch("app.scheduler_tasks.fetch_tmd_radar_routine", new_callable=AsyncMock)
+@patch("app.scheduler_tasks.MetricsService")
+async def test_check_rain_and_alert_does_not_fetch_radar(
+    mock_metrics,
+    mock_tmd_radar,
+    mock_get_repo_context,
+    mock_weather_mgr_cls,
+    mock_send_msg
+):
+    mock_repo = AsyncMock()
+    mock_metrics.return_value = AsyncMock()
+    
+    @asynccontextmanager
+    async def mock_context():
+        yield mock_repo
+    mock_get_repo_context.side_effect = mock_context
+    
+    mock_repo.get_active_locations.return_value = []
+    
+    await check_rain_and_alert()
+    
+    # Assert that fetch_tmd_radar_routine was NOT called
+    mock_tmd_radar.assert_not_called()
+
