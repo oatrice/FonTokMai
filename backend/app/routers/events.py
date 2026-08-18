@@ -5,22 +5,31 @@ from fastapi.responses import StreamingResponse
 
 from app.services.event_broadcaster import event_broadcaster
 
+MAX_SSE_DURATION = 30.0  # Limit connection lifetime to 30s to save Cloud Run costs
+
 router = APIRouter(prefix="/api/v1/events", tags=["events"])
 
 async def event_generator():
     queue = event_broadcaster.subscribe()
+    start_time = asyncio.get_event_loop().time()
+    max_duration = MAX_SSE_DURATION
     try:
-        while True:
+        while asyncio.get_event_loop().time() - start_time < max_duration:
             try:
-                event = await asyncio.wait_for(queue.get(), timeout=15.0)
+                remaining = max_duration - (asyncio.get_event_loop().time() - start_time)
+                if remaining <= 0:
+                    break
+                timeout = min(15.0, remaining)
+                event = await asyncio.wait_for(queue.get(), timeout=timeout)
                 event_type = event.get("event")
                 data = event.get("data")
                 
                 yield f"event: {event_type}\n"
                 yield f"data: {json.dumps(data)}\n\n"
             except asyncio.TimeoutError:
-                yield "event: ping\n"
-                yield "data: {}\n\n"
+                if asyncio.get_event_loop().time() - start_time < max_duration:
+                    yield "event: ping\n"
+                    yield "data: {}\n\n"
     except asyncio.CancelledError:
         pass
     finally:

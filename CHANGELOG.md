@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.73.1] - 2026-08-18
+
+### Changed
+- **Server-Sent Events connection lifetime optimization (Issue #280)**: Limited backend EventSource `/api/v1/events/stream` streaming connection to 30 seconds per request to prevent long-lived connections from driving up Cloud Run CPU-seconds billing.
+
+### Fixed
+- **Redundant TMD Radar fetching in check_rain_and_alert (Issue #278)**: Removed the redundant call to `fetch_tmd_radar_routine` inside the active rain checking loop, reducing average check-rain latency from 200s down to <10s.
+- **SQLAlchemy transaction corruption (Issue #279)**: Added robust session management, database transaction rollback, and shortened transaction lifetimes during cron tasks to prevent DB connections from timing out and corrupting SQLAlchemy transactions on warm Cloud Run instances.
+
 ## [0.73.0] - 2026-08-17
 
 ### Added

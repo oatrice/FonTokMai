@@ -1,106 +1,54 @@
-# Manual Verification Plan - TMD Radar Dynamic Station Integration & Calibration (Hat Yai `hyi`)
+# Manual Verification Plan - Cloud Run API Optimizations (Issues #278, #279, #280)
 
-- **Branch**: `feat/99-tmd-radar-auto-calibration`
-- **MR / Issue ID**: `Issue #99`, `Issue #273`
-- **Version**: `0.72.0`
-- **Date**: `2026-08-14`
+- **Branch**: `feat/278-optimize-backend-runway`
+- **MR / Issue ID**: Issues #278, #279, #280
+- **Date**: 2026-08-18
 
 ---
 
 ## 📌 Prerequisites & Environment Setup
-1. **Environment Setup:**
-   - PostgreSQL (Neon DB) or SQLite database connected.
-   - Python virtualenv activated (`backend/.venv/bin/activate`).
-2. **Backend Server Launch:**
+1. Standard environment configuration.
+2. Launch the backend server locally:
    ```bash
-   uvicorn app.main:app --reload --port 8000
-   ```
-3. **Database Seed Sync (Required for new radar configurations):**
-   ```bash
-   curl -X POST http://localhost:8000/api/v1/admin/radar/seed
+   cd backend
+   source .venv/bin/activate
+   uvicorn app.main:app --host 0.0.0.0 --port 8080
    ```
 
 ---
 
 ## 🧪 Verification Scenarios
 
-### Scenario 1: Seed & Sync Dynamic Radar Stations into Database (Happy Path)
-- **Goal**: Verify that all 13 validated TMD radar stations (including Hat Yai `hyi`, Surat Thani `srt`, and Chiang Rai `cri`) are seeded into Neon DB with their respective crop offsets and projection settings.
+### Scenario 1: Redundant Fetching & Short Transactions in `check_rain_and_alert`
+- **Goal**: Verify that `check_rain_and_alert` executes quickly without calling `fetch_tmd_radar_routine` and keeps DB connection transactions extremely short.
 - **Steps**:
-  1. Trigger the seed endpoint:
+  1. Trigger the check rain worker endpoint locally:
      ```bash
-     curl -X POST http://localhost:8000/api/v1/admin/radar/seed
+     curl -X POST http://localhost:8080/worker/check-rain -H "Authorization: Bearer my_super_secret_worker_key_123!"
      ```
-  2. Query active stations:
-     ```bash
-     curl -X GET http://localhost:8000/api/v1/admin/radar/stations
-     ```
+  2. Monitor the backend logs.
 - **Expected Outcome**:
-  - HTTP Status: `200 OK`
-  - Response Body contains `{"status": "ok", "message": "Successfully synced DB to 13 validated radar stations."}`
-  - Station list contains `hyi` with `projection_type: "linear"`, `static_crop_x: 55`, `static_crop_y: 34`, `static_crop_width: 720`, `static_crop_height: 720`.
+  - The request should complete in less than 5 seconds (not 200s).
+  - Logs should NOT output "Starting TMD Radar Cache Phase...".
+  - Logs should show: "Starting proactive rain check..." and then complete recording metrics without connection closed warnings.
 
 ---
 
-### Scenario 2: Hat Yai Radar Pin Location & Rainfall Prediction (Happy Path)
-- **Goal**: Verify that user coordinates in the Hat Yai area accurately map to pixel coordinates on the radar image without offset drift.
+### Scenario 2: Server-Sent Events (SSE) Stream 30s Lifetime Limit
+- **Goal**: Verify that `/api/v1/events/stream` automatically terminates the connection after 30 seconds to save Cloud Run billing costs.
 - **Steps**:
-  1. In Telegram bot (or Webhook Dev Mock), send:
-     ```text
-     /rain_pro_d tmd radar
-     ```
-  2. Inspect generated `radar_latest.png` and `radar_tracking.jpg`.
-- **Expected Outcome**:
-  - Center of Radar crosshair aligns with center circle at `(640, 638)`.
-  - User default location crosshair maps to `(857, 738)`.
-  - Image generation returns valid rain tracking vectors without out-of-bounds clipping.
-
----
-
-### Scenario 3: Marine & Terrain Green False-Positive Filtering (Edge Case)
-- **Goal**: Verify that sea background (Gulf of Thailand / Andaman Sea) and mountainous terrain colors in Hat Yai scans are ignored and do not trigger false rain alerts.
-- **Steps**:
-  1. Run automated color extractor test:
+  1. Make a request to the SSE endpoint using `curl` and track the duration:
      ```bash
-     backend/.venv/bin/pytest backend/tests/test_hat_yai_radar.py -k "test_hat_yai_maritime_and_terrain_colors_not_detected_as_rain"
+     time curl -i http://localhost:8080/api/v1/events/stream
      ```
 - **Expected Outcome**:
-  - Test passes: all terrain greens and maritime blues resolve to `0.0 dBZ`.
+  - The response headers should return `text/event-stream`.
+  - The connection should close automatically after exactly **30 seconds**.
+  - The `time` command should output approximately `real 0m30.xxx s`.
 
 ---
 
-## 📸 Proof of Verification (Automated Test & Build Logs)
-
-### 1. Backend Radar Unit Test Suite
-```text
-============================= test session starts ==============================
-backend/tests/test_admin_radar_router.py::test_preview_endpoint PASSED   [ 16%]
-backend/tests/test_admin_radar_router.py::test_save_and_list_stations_endpoints PASSED [ 33%]
-backend/tests/test_hat_yai_radar.py::test_hat_yai_station_registered PASSED [ 50%]
-backend/tests/test_hat_yai_radar.py::test_hat_yai_pin_pixel_location PASSED [ 66%]
-backend/tests/test_hat_yai_radar.py::test_hat_yai_maritime_and_terrain_colors_not_detected_as_rain PASSED [ 83%]
-backend/tests/test_hat_yai_radar.py::test_hat_yai_legitimate_rain_detected PASSED [100%]
-backend/tests/test_surat_thani_radar.py .... PASSED
-backend/tests/test_chiang_rai_radar.py .... PASSED
-backend/tests/test_tak_radar.py .... PASSED
-backend/tests/test_deploy_env_sync.py . PASSED
-========================= 20 passed in 3.42s =========================
-```
-
-### 2. Frontend Production Build Verification
-```text
-▲ Next.js 16.2.11 (Turbopack)
-- Environments: .env
-✓ Compiled successfully in 6.1s
-✓ Generating static pages using 9 workers (9/9) in 471ms
-Route (app)
-┌ ○ /
-├ ○ /_not-found
-├ ○ /admin/radar
-├ ƒ /api/metrics/gcp-costs
-├ ƒ /api/milestones
-├ ƒ /api/runway
-└ ○ /dashboard
-○  (Static)   prerendered as static content
-ƒ  (Dynamic)  server-rendered on demand
-```
+## 📸 Proof of Verification (Artifacts & Logs)
+- **Automated Verification Summary**:
+  - `pytest` result: `4 passed` in `test_event_broadcaster.py`
+  - `pytest` result: `17 passed` in `test_scheduler.py`

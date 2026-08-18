@@ -21,7 +21,7 @@ BKK_TZ = ZoneInfo("Asia/Bangkok")
 
 import asyncio
 
-async def _evaluate_location(loc, repo, weather_manager, now, sem):
+async def _evaluate_location(loc, mock_states, weather_manager, now, sem):
     async with sem:
         try:
             severity_escalated = False
@@ -29,7 +29,7 @@ async def _evaluate_location(loc, repo, weather_manager, now, sem):
                 time_since_last_alert = now - loc.last_alerted_at
                 if time_since_last_alert < timedelta(minutes=ALERT_COOLDOWN_MINUTES):
                     try:
-                        mock_state_pre = await repo.get_mock_state(loc.chat_id)
+                        mock_state_pre = mock_states.get(loc.chat_id)
                         pre_result = await weather_manager.predict_rain(loc.latitude, loc.longitude, mock_state=mock_state_pre, location_name=loc.name)
                         current_max_rain = pre_result.get("max_rain", 0.0)
                         last_max_rain = loc.last_alert_max_rain or 0.0
@@ -55,7 +55,7 @@ async def _evaluate_location(loc, repo, weather_manager, now, sem):
                         return None
 
             if not severity_escalated:
-                mock_state = await repo.get_mock_state(loc.chat_id)
+                mock_state = mock_states.get(loc.chat_id)
                 result = await weather_manager.predict_rain(loc.latitude, loc.longitude, mock_state=mock_state, location_name=loc.name)
 
             max_rain = result.get("max_rain", 0.0)
@@ -178,7 +178,7 @@ async def _evaluate_location(loc, repo, weather_manager, now, sem):
 
                 advanced_data = None
                 try:
-                    mock_state = await repo.get_mock_state(loc.chat_id)
+                    mock_state = mock_states.get(loc.chat_id)
                     advanced_data = await weather_manager.get_advanced_alerts(loc.latitude, loc.longitude, mock_state=mock_state)
                 except Exception as e:
                     logger.error(f"Failed to get advanced alerts: {e}")
@@ -198,7 +198,7 @@ async def _evaluate_location(loc, repo, weather_manager, now, sem):
             return {"loc": loc, "type": "error", "error": str(e)}
 
 
-async def _send_combined_alerts(chat_id, eval_results, repo, now):
+async def _send_combined_alerts(chat_id, eval_results, now):
     alerts_sent = 0
     errors = 0
 
@@ -284,14 +284,16 @@ async def _send_combined_alerts(chat_id, eval_results, repo, now):
                     errors += 1
             
             try:
-                await repo.update_last_alerted(loc, now, max_rain=r["max_rain"])
+                async with get_repo_context() as session_repo:
+                    await session_repo.update_last_alerted(loc, now, max_rain=r["max_rain"])
             except Exception as e:
                 logger.error(f"Failed to update db for {loc.name}: {e}")
                 errors += 1
         elif r["type"] == "all_clear":
             loc = r["loc"]
             try:
-                await repo.update_last_alerted(loc, now, max_rain=0.0)
+                async with get_repo_context() as session_repo:
+                    await session_repo.update_last_alerted(loc, now, max_rain=0.0)
             except Exception as e:
                 logger.error(f"Failed to update db for all-clear: {e}")
                 errors += 1
@@ -340,11 +342,11 @@ async def _send_combined_alerts(chat_id, eval_results, repo, now):
     return alerts_sent, errors
 
 
-async def _process_location(loc, repo, weather_manager, now, sem):
-    eval_res = await _evaluate_location(loc, repo, weather_manager, now, sem)
+async def _process_location(loc, mock_states, weather_manager, now, sem):
+    eval_res = await _evaluate_location(loc, mock_states, weather_manager, now, sem)
     if not eval_res:
         return 0, 0
-    return await _send_combined_alerts(loc.chat_id, [eval_res], repo, now)
+    return await _send_combined_alerts(loc.chat_id, [eval_res], now)
 
 
 async def run_alert_for_locations(target_locs: list):
@@ -353,21 +355,25 @@ async def run_alert_for_locations(target_locs: list):
     without triggering the full scheduler sweep.
     """
     try:
-        await fetch_tmd_radar_routine()
+        async with get_repo_context() as repo:
+            mock_states = {}
+            for loc in target_locs:
+                if loc.chat_id not in mock_states:
+                    mock_states[loc.chat_id] = await repo.get_mock_state(loc.chat_id)
     except Exception as e:
-        logger.error(f"[run_alert_for_locations] Radar fetch error: {e}")
+        logger.error(f"[run_alert_for_locations] Mock states fetch error: {e}")
+        return
 
-    async with get_repo_context() as repo:
-        weather_manager = WeatherManager()
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        sem = asyncio.Semaphore(5)
+    weather_manager = WeatherManager()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    sem = asyncio.Semaphore(5)
+    
+    async def _process_with_stagger(loc, idx):
+        await asyncio.sleep(idx * 0.5)
+        return await _process_location(loc, mock_states, weather_manager, now, sem)
         
-        async def _process_with_stagger(loc, idx):
-            await asyncio.sleep(idx * 0.5)
-            return await _process_location(loc, repo, weather_manager, now, sem)
-            
-        tasks = [_process_with_stagger(loc, idx) for idx, loc in enumerate(target_locs)]
-        await asyncio.gather(*tasks, return_exceptions=True)
+    tasks = [_process_with_stagger(loc, idx) for idx, loc in enumerate(target_locs)]
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def check_rain_and_alert():
@@ -377,56 +383,61 @@ async def check_rain_and_alert():
     errors = 0
     
     try:
-        await fetch_tmd_radar_routine()
-    except Exception as e:
-        logger.error(f"Error during cache phase: {e}")
-    
-    async with get_repo_context() as repo:
-        locations = await repo.get_active_locations()
-        if not locations:
-            logger.info("No active locations to check.")
-            return
-
-        weather_manager = WeatherManager()
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-
-        # Issue #122: Group locations by chat_id to prevent triple alert spam
-        chat_groups = {}
-        for loc in locations:
-            chat_groups.setdefault(loc.chat_id, []).append(loc)
-
-        # Issue #123: Reduce concurrency and add stagger
-        sem = asyncio.Semaphore(5)
-        
-        async def _process_chat_group(chat_id, locs, stagger_idx):
-            await asyncio.sleep(stagger_idx * 0.5)
+        async with get_repo_context() as repo:
+            locations = await repo.get_active_locations()
+            if not locations:
+                logger.info("No active locations to check.")
+                return
             
-            # Evaluate all user locations
-            eval_results = []
-            for loc in locs:
-                eval_res = await _evaluate_location(loc, repo, weather_manager, now, sem)
-                if eval_res:
-                    eval_results.append(eval_res)
-                    
-            if not eval_results:
-                return 0, 0
-                
-            # Send them combined
-            return await _send_combined_alerts(chat_id, eval_results, repo, now)
+            mock_states = {}
+            for loc in locations:
+                if loc.chat_id not in mock_states:
+                    mock_states[loc.chat_id] = await repo.get_mock_state(loc.chat_id)
+    except Exception as e:
+        logger.error(f"Error fetching locations/mock states from DB: {e}")
+        return
 
-        tasks = [_process_chat_group(chat_id, locs, idx) for idx, (chat_id, locs) in enumerate(chat_groups.items())]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+    weather_manager = WeatherManager()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    # Issue #122: Group locations by chat_id to prevent triple alert spam
+    chat_groups = {}
+    for loc in locations:
+        chat_groups.setdefault(loc.chat_id, []).append(loc)
+
+    # Issue #123: Reduce concurrency and add stagger
+    sem = asyncio.Semaphore(5)
+    
+    async def _process_chat_group(chat_id, locs, stagger_idx):
+        await asyncio.sleep(stagger_idx * 0.5)
         
-        for r in results:
-            if isinstance(r, tuple):
-                alerts_sent += r[0]
-                errors += r[1]
-            elif isinstance(r, Exception):
-                logger.error(f"Task raised an unhandled exception: {r}")
-                errors += 1
+        # Evaluate all user locations
+        eval_results = []
+        for loc in locs:
+            eval_res = await _evaluate_location(loc, mock_states, weather_manager, now, sem)
+            if eval_res:
+                eval_results.append(eval_res)
                 
-        duration_s = time.time() - start_time
-        try:
+        if not eval_results:
+            return 0, 0
+            
+        # Send them combined
+        return await _send_combined_alerts(chat_id, eval_results, now)
+
+    tasks = [_process_chat_group(chat_id, locs, idx) for idx, (chat_id, locs) in enumerate(chat_groups.items())]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    for r in results:
+        if isinstance(r, tuple):
+            alerts_sent += r[0]
+            errors += r[1]
+        elif isinstance(r, Exception):
+            logger.error(f"Task raised an unhandled exception: {r}")
+            errors += 1
+            
+    duration_s = time.time() - start_time
+    try:
+        async with get_repo_context() as repo:
             metrics_svc = MetricsService(repo)
             await metrics_svc.record_cron_run(
                 routine_name="check_rain",
@@ -435,8 +446,8 @@ async def check_rain_and_alert():
                 locations_checked=len(locations),
                 errors=errors
             )
-        except Exception as e:
-            logger.error(f"Failed to save metrics for check_rain: {e}")
+    except Exception as e:
+        logger.error(f"Failed to save metrics for check_rain: {e}")
 
 
 async def check_disasters_frequent_routine():
