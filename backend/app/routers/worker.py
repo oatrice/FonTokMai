@@ -1,7 +1,7 @@
 import os
-from fastapi import APIRouter, Header, HTTPException, Depends
 import logging
 import traceback
+from fastapi import APIRouter, Header, HTTPException, Depends, Request, status
 from app.scheduler_tasks import (
     check_rain_and_alert,
     check_disasters_frequent_routine,
@@ -14,10 +14,35 @@ logger = logging.getLogger(__name__)
 
 WORKER_SECRET = os.getenv("WORKER_SECRET", os.getenv("CRON_SECRET", "default_secret_for_local_testing"))
 
-def verify_worker_secret(x_worker_secret: str = Header(None)):
+async def verify_worker_secret(request: Request, x_worker_secret: str = Header(None)):
     if not x_worker_secret or x_worker_secret != WORKER_SECRET:
         logger.warning("Unauthorized access to worker endpoint")
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+    path = request.url.path
+    # Allow restore public access and set budget commands to bypass shutdown block
+    bypass_paths = [
+        "/worker/handle-restore-public-access",
+        "/worker/handle-setbudget",
+        "/worker/handle-status"
+    ]
+    if any(bp in path for bp in bypass_paths):
+        return
+
+    from app.dependencies import get_repo_context
+    try:
+        async with get_repo_context() as repo:
+            settings = await repo.get_system_settings()
+            if settings and isinstance(settings, dict) and settings.get("emergency_shutdown") is True:
+                logger.warning(f"[verify_worker_secret] Blocking request to {path} due to emergency_shutdown=True")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+                    detail="Service suspended due to budget limit exceeded"
+                )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[verify_worker_secret] Error checking emergency_shutdown settings: {e}")
 
 router = APIRouter(prefix="/worker", tags=["Worker"], dependencies=[Depends(verify_worker_secret)])
 
