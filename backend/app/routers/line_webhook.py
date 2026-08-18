@@ -101,7 +101,7 @@ async def process_line_location(user_id: str, lat: float, lng: float, title: str
         await asyncio.to_thread(_reply)
 
 async def process_line_command(user_id: str, command: str, reply_token: str):
-    from app.routers.webhook_utils import _build_forecast_text
+    from app.routers.webhook_utils import _build_forecast_text, build_formatted_forecast
     from app.services.notification import get_notification_service
     
     notifier = get_notification_service("line")
@@ -222,61 +222,32 @@ async def process_line_command(user_id: str, command: str, reply_token: str):
             chat_id=user_id
         )
         
-        text, actual_endpoint, eta_minutes = _build_forecast_text(result)
-        if loc_display:
-            text = f"📍 พื้นที่: {loc_display}\n\n" + text
-            
-        if result.get("is_outdated"):
-            text = "⚠️ ยังไม่มีข้อมูลล่าสุดจากกรมอุตุฯ (TMD Radar)\nแนะนำให้เปลี่ยนไปใช้ API อื่น (เช่น Tomorrow.io หรือ Open-Meteo) แทนชั่วคราวครับ\n"
-            
-        if actual_endpoint == "error":
+        show_advanced = (cmd_name == "/rain_pro")
+
+        formatted_res = build_formatted_forecast(
+            result,
+            cmd_name=cmd_name,
+            show_advanced=show_advanced,
+            location_name=loc_display
+        )
+        
+        if formatted_res.actual_endpoint == "error":
             reply_to_line(reply_token, [TextMessage(text="⚠️ ขออภัย ไม่สามารถเชื่อมต่อกับระบบพยากรณ์ฝนได้ในขณะนี้\nกรุณาลองใหม่อีกครั้งในภายหลัง")])
             return
             
-        reply_messages = [TextMessage(text=text)]
-        
-        static_bytes = result.get("radar_static_bytes")
-        tracking_bytes = result.get("radar_tracking_bytes")
-        gif_bytes = result.get("radar_gif_bytes")
-        timeline_bytes = result.get("rain_timeline_bytes")
-        multiframe_bytes = result.get("radar_multiframe_bytes")
-        
-        show_advanced = (cmd_name == "/rain_pro")
+        reply_messages = [TextMessage(text=formatted_res.text)]
         
         # Helper to upload media asynchronously and append ImageMessages
-        async def _upload_and_add_msg(data, ext, mime):
+        async def _upload_and_add_msg(data, filename, mime):
             import asyncio
+            ext = f"_{filename}"
             url = await asyncio.to_thread(notifier._upload_media, data, mime, ext)
             if url:
                 reply_messages.append(ImageMessage(original_content_url=url, preview_image_url=url))
-        
-        if show_advanced:
-            if static_bytes:
-                await _upload_and_add_msg(static_bytes, f"_{loc.name or 'default'}.png", "image/png")
-            if tracking_bytes:
-                await _upload_and_add_msg(tracking_bytes, f"_{loc.name or 'default'}.png", "image/png")
-            if timeline_bytes:
-                await _upload_and_add_msg(timeline_bytes, f"_{loc.name or 'default'}.png", "image/png")
-            if multiframe_bytes:
-                # Send GIF as ImageMessage for LINE
-                await _upload_and_add_msg(multiframe_bytes, f"_{loc.name or 'default'}.gif", "image/gif")
-        elif cmd_name in ("/rain", "/check"):
-            if tracking_bytes:
-                await _upload_and_add_msg(tracking_bytes, f"_{loc.name or 'default'}.png", "image/png")
-            if gif_bytes:
-                await _upload_and_add_msg(gif_bytes, f"_{loc.name or 'default'}.gif", "image/gif")
-        elif cmd_name == "/radar":
-            if static_bytes:
-                await _upload_and_add_msg(static_bytes, f"_{loc.name or 'default'}.png", "image/png")
-        elif cmd_name == "/tracking":
-            if tracking_bytes:
-                await _upload_and_add_msg(tracking_bytes, f"_{loc.name or 'default'}.png", "image/png")
-        elif cmd_name == "/timeline":
-            if timeline_bytes:
-                await _upload_and_add_msg(timeline_bytes, f"_{loc.name or 'default'}.png", "image/png")
-        elif cmd_name == "/nowcast":
-            if gif_bytes:
-                await _upload_and_add_msg(gif_bytes, f"_{loc.name or 'default'}.gif", "image/gif")
+
+        # Use unified media items from extract_forecast_media
+        for item in formatted_res.media_items:
+            await _upload_and_add_msg(item.data, item.filename, item.mime_type)
                 
         if show_advanced:
             advanced_data = result.get("advanced_alerts", {})

@@ -2,16 +2,21 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import * as d3geo from "d3-geo";
+import thailandProvincesJson from "../data/thailand_provinces.json";
 import * as turf from "@turf/turf";
+import { GlassCard } from "./ui/GlassCard";
 import { 
-  Radio, 
+  Eye, 
   MapPin, 
   Layers, 
-  Compass, 
-  Eye,
-  EyeOff
+  Activity, 
+  Compass,
+  Maximize2,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  Clock
 } from "lucide-react";
-import { GlassCard } from "./ui/GlassCard";
 import { GlassBadge } from "./ui/GlassBadge";
 
 export interface RadarStationCoverage {
@@ -22,6 +27,9 @@ export interface RadarStationCoverage {
   radius_km: number;
   is_active: boolean;
   region: "north" | "northeast" | "central" | "east" | "south";
+  status?: "online" | "delayed" | "offline";
+  latency_minutes?: number;
+  last_frame_timestamp?: string;
 }
 
 export interface ProvinceMarker {
@@ -109,24 +117,23 @@ export const PROVINCE_MARKERS: ProvinceMarker[] = [
   { code: 'NWT', name: 'นราธิวาส', lat: 6.42, lng: 101.82, x: 278.5, y: 733.1, region: 'south' }
 ];
 
-// Preset active stations data matching FonMaYang backend config
 export const DEFAULT_STATIONS: RadarStationCoverage[] = [
-  { code: "cri", name: "เชียงราย", center_lat: 19.9609, center_lng: 99.8824, radius_km: 240, is_active: true, region: "north" },
-  { code: "tak", name: "ตาก (ดอยมูเซอ)", center_lat: 16.75, center_lng: 98.93, radius_km: 240, is_active: true, region: "north" },
-  { code: "cmi240", name: "เชียงใหม่", center_lat: 18.77, center_lng: 98.97, radius_km: 240, is_active: true, region: "north" },
-  { code: "phs240", name: "พิษณุโลก", center_lat: 16.7828, center_lng: 100.2786, radius_km: 240, is_active: true, region: "north" },
-  { code: "kkn240", name: "ขอนแก่น (240k)", center_lat: 16.4322, center_lng: 102.8236, radius_km: 240, is_active: true, region: "northeast" },
-  { code: "kkn120", name: "ขอนแก่น (120k)", center_lat: 16.4322, center_lng: 102.8236, radius_km: 120, is_active: true, region: "northeast" },
-  { code: "skn240", name: "สกลนคร", center_lat: 17.1607, center_lng: 104.1486, radius_km: 240, is_active: true, region: "northeast" },
-  { code: "ubn240", name: "อุบลราชธานี", center_lat: 15.25, center_lng: 104.88, radius_km: 240, is_active: true, region: "northeast" },
-  { code: "chn", name: "ชัยนาท", center_lat: 15.1582, center_lng: 100.1912, radius_km: 240, is_active: true, region: "central" },
-  { code: "svp240", name: "สุวรรณภูมิ (กรุงเทพฯ)", center_lat: 13.686, center_lng: 100.7486, radius_km: 240, is_active: true, region: "central" },
-  { code: "ntp240", name: "นนทบุรี / ดอนเมือง", center_lat: 13.87, center_lng: 100.53, radius_km: 240, is_active: true, region: "central" },
-  { code: "ryg", name: "ระยอง", center_lat: 12.6814, center_lng: 101.2817, radius_km: 240, is_active: true, region: "east" },
-  { code: "cmp", name: "ชุมพร", center_lat: 10.4931, center_lng: 99.18, radius_km: 240, is_active: true, region: "south" },
-  { code: "srt", name: "สุราษฎร์ธานี", center_lat: 9.1333, center_lng: 99.3333, radius_km: 240, is_active: true, region: "south" },
-  { code: "hyi", name: "หาดใหญ่", center_lat: 6.9248, center_lng: 100.4385, radius_km: 240, is_active: true, region: "south" },
-  { code: "pkt240", name: "ภูเก็ต", center_lat: 7.88, center_lng: 98.32, radius_km: 240, is_active: true, region: "south" }
+  { code: "cri", name: "เชียงราย", center_lat: 19.9609, center_lng: 99.8824, radius_km: 240, is_active: true, region: "north", status: "online" },
+  { code: "tak", name: "ตาก (ดอยมูเซอ)", center_lat: 16.75, center_lng: 98.93, radius_km: 240, is_active: true, region: "north", status: "online" },
+  { code: "cmi240", name: "เชียงใหม่", center_lat: 18.77, center_lng: 98.97, radius_km: 240, is_active: true, region: "north", status: "online" },
+  { code: "phs240", name: "พิษณุโลก", center_lat: 16.7828, center_lng: 100.2786, radius_km: 240, is_active: true, region: "north", status: "online" },
+  { code: "kkn240", name: "ขอนแก่น (240k)", center_lat: 16.4322, center_lng: 102.8236, radius_km: 240, is_active: true, region: "northeast", status: "online" },
+  { code: "kkn120", name: "ขอนแก่น (120k)", center_lat: 16.4322, center_lng: 102.8236, radius_km: 120, is_active: true, region: "northeast", status: "online" },
+  { code: "skn240", name: "สกลนคร", center_lat: 17.1607, center_lng: 104.1486, radius_km: 240, is_active: true, region: "northeast", status: "online" },
+  { code: "ubn240", name: "อุบลราชธานี", center_lat: 15.25, center_lng: 104.88, radius_km: 240, is_active: true, region: "northeast", status: "online" },
+  { code: "chn", name: "ชัยนาท", center_lat: 15.1582, center_lng: 100.1912, radius_km: 240, is_active: true, region: "central", status: "online" },
+  { code: "svp240", name: "สุวรรณภูมิ (กรุงเทพฯ)", center_lat: 13.686, center_lng: 100.7486, radius_km: 240, is_active: true, region: "central", status: "online" },
+  { code: "ntp240", name: "นนทบุรี / ดอนเมือง", center_lat: 13.87, center_lng: 100.53, radius_km: 240, is_active: true, region: "central", status: "online" },
+  { code: "ryg", name: "ระยอง", center_lat: 12.6814, center_lng: 101.2817, radius_km: 240, is_active: true, region: "east", status: "online" },
+  { code: "cmp", name: "ชุมพร", center_lat: 10.4931, center_lng: 99.18, radius_km: 240, is_active: true, region: "south", status: "online" },
+  { code: "srt", name: "สุราษฎร์ธานี", center_lat: 9.1333, center_lng: 99.3333, radius_km: 240, is_active: true, region: "south", status: "online" },
+  { code: "hyi", name: "หาดใหญ่", center_lat: 6.9248, center_lng: 100.4385, radius_km: 240, is_active: true, region: "south", status: "online" },
+  { code: "pkt240", name: "ภูเก็ต", center_lat: 7.88, center_lng: 98.32, radius_km: 240, is_active: true, region: "south", status: "online" }
 ];
 
 interface RadarCoverageMapProps {
@@ -136,71 +143,142 @@ interface RadarCoverageMapProps {
 
 type ProvincePath = { id: string; nameTh: string; nameEn: string; d: string };
 
+const svgWidth = 520;
+const svgHeight = 780;
+
 export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation }: RadarCoverageMapProps) {
   const [selectedStationCode, setSelectedStationCode] = useState<string | null>(null);
   const [hoveredStationCode, setHoveredStationCode] = useState<string | null>(null);
-  const [selectedRegion, setSelectedRegion] = useState<string>("all");
   const [showCoverageCircles, setShowCoverageCircles] = useState(true);
   const [showProvinceNames, setShowProvinceNames] = useState(true);
   const [showProvinceBorders, setShowProvinceBorders] = useState(true);
-  const [showIntersectionMode, setShowIntersectionMode] = useState(false);
-  const [provincePaths, setProvincePaths] = useState<ProvincePath[]>([]);
-  const [rawGeoJson, setRawGeoJson] = useState<GeoJSON.FeatureCollection | null>(null);
-  const projectionRef = useRef<d3geo.GeoProjection | null>(null);
+  const [showIntersectionMode, setShowIntersectionMode] = useState(true);
+  const [selectedRegion, setSelectedRegion] = useState<"all" | "north" | "northeast" | "central" | "east" | "south">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "online" | "delayed" | "offline">("all");
 
-  // Map Thailand Lat/Lng Box to SVG Coordinates
-  const latMin = 5.5;
-  const latMax = 20.8;
-  const lngMin = 97.0;
-  const lngMax = 106.0;
+  const rawGeoJson = useMemo(() => thailandProvincesJson as GeoJSON.FeatureCollection, []);
 
-  const svgWidth = 520;
-  const svgHeight = 780;
+  const projection = useMemo(() => {
+    return d3geo.geoMercator().fitExtent(
+      [[8, 8], [svgWidth - 8, svgHeight - 8]],
+      rawGeoJson
+    );
+  }, [rawGeoJson]);
 
-  const latLngToSvg = (lat: number, lng: number) => {
-    const x = ((lng - lngMin) / (lngMax - lngMin)) * svgWidth;
-    const y = ((latMax - lat) / (latMax - latMin)) * svgHeight;
-    return { x, y };
-  };
-
-  const kmToSvgRadius = (km: number) => {
-    const degLat = km / 111.0;
-    return (degLat / (latMax - latMin)) * svgHeight;
-  };
-
-  // Load Thailand province GeoJSON and compute SVG paths
-  useEffect(() => {
-    import("../data/thailand_provinces.json").then((module) => {
-      const geojson = module.default as GeoJSON.FeatureCollection;
-
-      // Build a Mercator projection fitted to Thailand bounding box within SVG
-      const projection = d3geo.geoMercator().fitExtent(
-        [[8, 8], [svgWidth - 8, svgHeight - 8]],
-        geojson
-      );
-      projectionRef.current = projection;
-
-      const pathGenerator = d3geo.geoPath().projection(projection);
-
-      const paths: ProvincePath[] = geojson.features.map((feat) => {
-        const props = feat.properties as { pro_code: string; pro_th: string; pro_en: string };
-        return {
-          id: props.pro_code,
-          nameTh: props.pro_th,
-          nameEn: props.pro_en,
-          d: pathGenerator(feat) ?? "",
-        };
-      });
-
-      setProvincePaths(paths);
-      setRawGeoJson(geojson);
+  const provincePaths = useMemo(() => {
+    const pathGenerator = d3geo.geoPath().projection(projection);
+    return rawGeoJson.features.map((feat) => {
+      const props = feat.properties as { pro_code: string; pro_th: string; pro_en: string };
+      return {
+        id: props.pro_code,
+        nameTh: props.pro_th,
+        nameEn: props.pro_en,
+        d: pathGenerator(feat) ?? "",
+      };
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [projection, rawGeoJson]);
+
+  // Zoom & Pan Interactive State
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Zoom Controls — multiplicative step (M6 fix: consistent with RadarCloudMap)
+  const ZOOM_STEP = 1.35;
+
+  const handleZoomIn = () => {
+    setZoomLevel((prev) => Math.min(8, parseFloat((prev * ZOOM_STEP).toFixed(2))));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel((prev) => {
+      const next = Math.max(1, parseFloat((prev / ZOOM_STEP).toFixed(2)));
+      if (next <= 1.05) { setPanOffset({ x: 0, y: 0 }); return 1; }
+      return next;
+    });
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  // Mouse Drag Panning Handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setPanOffset((prev) => ({
+      x: prev.x + dx,
+      y: prev.y + dy,
+    }));
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Mouse Double Click to Zoom In centered on cursor coordinate
+  const handleDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    const svgRect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - svgRect.left;
+    const clickY = e.clientY - svgRect.top;
+
+    const normX = clickX / svgRect.width;
+    const normY = clickY / svgRect.height;
+
+    const nextZoom = Math.min(8, parseFloat((zoomLevel * ZOOM_STEP).toFixed(2)));
+    setZoomLevel(nextZoom);
+
+    const targetSvgX = normX * svgWidth;
+    const targetSvgY = normY * svgHeight;
+    setPanOffset({
+      x: (svgWidth / 2) - targetSvgX,
+      y: (svgHeight / 2) - targetSvgY,
+    });
+  };
+
+  // Mouse Wheel Zoom Support
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      handleZoomIn();
+    } else if (e.deltaY > 0) {
+      handleZoomOut();
+    }
+  };
+
+  // Compute dynamic viewBox for zoom and pan
+  const currentViewBox = useMemo(() => {
+    const currentW = svgWidth / zoomLevel;
+    const currentH = svgHeight / zoomLevel;
+    const centerX = (svgWidth / 2) - (panOffset.x / zoomLevel);
+    const centerY = (svgHeight / 2) - (panOffset.y / zoomLevel);
+
+    const minX = Math.max(-50, Math.min(svgWidth - currentW + 50, centerX - currentW / 2));
+    const minY = Math.max(-50, Math.min(svgHeight - currentH + 50, centerY - currentH / 2));
+
+    return `${minX} ${minY} ${currentW} ${currentH}`;
+  }, [zoomLevel, panOffset]);
+
+
 
   const filteredStations = stations.filter(s => {
-    if (selectedRegion === "all") return true;
-    return s.region === selectedRegion;
+    if (!s.is_active) return false;
+    if (selectedRegion !== "all" && s.region !== selectedRegion) return false;
+    if (statusFilter !== "all") {
+      const stStatus = s.status || (s.is_active ? "online" : "offline");
+      if (stStatus !== statusFilter) return false;
+    }
+    return true;
   });
 
   const filteredProvinces = PROVINCE_MARKERS.filter(p => {
@@ -208,7 +286,6 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
     return p.region === selectedRegion;
   });
 
-  // Calculate Coverage status for each province feature using Turf.js
   const provinceCoverageMap = useMemo(() => {
     if (!rawGeoJson) return new Map<string, boolean>();
 
@@ -219,14 +296,12 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
 
     for (const feat of rawGeoJson.features) {
       const code = (feat.properties as { pro_code: string }).pro_code;
-      // Check distance from station centers to province centroid / bbox
       try {
         const bbox = turf.bbox(feat);
         const centerLng = (bbox[0] + bbox[2]) / 2;
         const centerLat = (bbox[1] + bbox[3]) / 2;
         const provCenter = turf.point([centerLng, centerLat]);
 
-        // Province is covered if any active station reaches within radius_km
         const isCovered = stationPoints.some(pt => {
           const dist = turf.distance(pt, provCenter, { units: 'kilometers' });
           return dist <= (pt.properties?.radius_km ?? 240);
@@ -250,58 +325,127 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
   const totalProvincesCount = rawGeoJson?.features.length || 77;
   const coveragePercent = Math.round((coveredCount / totalProvincesCount) * 100);
 
-  const activeCount = stations.filter(s => s.is_active).length;
-  const totalCount = stations.length;
+  const latLngToSvg = (lat: number, lng: number) => {
+    if (projection) {
+      const coords = projection([lng, lat]);
+      if (coords) return { x: parseFloat(coords[0].toFixed(3)), y: parseFloat(coords[1].toFixed(3)) };
+    }
+    const minLat = 5.5;
+    const maxLat = 20.5;
+    const minLng = 97.0;
+    const maxLng = 106.0;
+
+    const x = ((lng - minLng) / (maxLng - minLng)) * svgWidth;
+    const y = ((maxLat - lat) / (maxLat - minLat)) * svgHeight;
+    return { x: parseFloat(x.toFixed(3)), y: parseFloat(y.toFixed(3)) };
+  };
+
+  const kmToSvgRadius = (radiusKm: number) => {
+    return (radiusKm / 111) * (svgHeight / 15.0) * 0.98;
+  };
+
+  // Helper: Status color resolver
+  const getStatusColor = (status?: string) => {
+    switch (status) {
+      case "offline":
+        return {
+          stroke: "#f43f5e",
+          fill: "#e11d48",
+          pulse: "rgba(244, 63, 94, 0.25)",
+          border: "border-rose-500/30",
+          bg: "bg-rose-500/10",
+          text: "text-rose-400"
+        };
+      case "delayed":
+        return {
+          stroke: "#f59e0b",
+          fill: "#d97706",
+          pulse: "rgba(245, 158, 11, 0.25)",
+          border: "border-amber-500/30",
+          bg: "bg-amber-500/10",
+          text: "text-amber-400"
+        };
+      case "online":
+      default:
+        return {
+          stroke: "#10b981",
+          fill: "#059669",
+          pulse: "rgba(16, 185, 129, 0.25)",
+          border: "border-emerald-500/30",
+          bg: "bg-emerald-500/10",
+          text: "text-emerald-400"
+        };
+    }
+  };
 
   return (
-    <GlassCard className="p-6 overflow-hidden relative border-cyan-500/30">
-      {/* Top Header & Overview Badges */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/10">
+    <GlassCard className="p-6">
+      {/* Header with KPI Metrics */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6 mb-6">
         <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <Radio className="h-6 w-6 text-cyan-400 animate-pulse" />
-            <h2 className="text-xl font-bold text-white tracking-tight">
-              แผนที่ขอบเขตพื้นที่ครอบคลุมเรดาร์ตรวจอากาศทั่วประเทศ (Thailand Radar Coverage Map)
-            </h2>
+          <div className="flex items-center gap-2">
+            <span className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              <Activity className="h-5 w-5 animate-pulse" />
+            </span>
+            <div>
+              <h2 className="text-xl font-bold text-white tracking-tight">
+                Thailand TMD Radar Live Coverage & Operational Status
+              </h2>
+              <p className="text-xs text-slate-400">
+                แผนที่เรดาร์ตรวจอากาศและขอบเขตพื้นที่ฝนครอบคลุมประเทศไทย (Live 77 จังหวัด)
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-slate-400">
-            แสดงรัศมีครอบคลุมการเฝ้าระวังพายุฝน (Coverage Radius 240km / 120km) ของสถานีเรดาร์ TMD ทั้งหมดที่เชื่อมต่อในระบบ FonMaYang
-          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {showIntersectionMode && (
-            <GlassBadge variant="emerald" dot className="px-3 py-1.5 text-xs font-semibold animate-pulse">
-              🎯 ครอบคลุมแล้ว {coveredCount}/{totalProvincesCount} จังหวัด ({coveragePercent}%)
-            </GlassBadge>
-          )}
-          <GlassBadge variant="cyan" dot className="px-3 py-1.5 text-xs font-semibold">
-            เปิดใช้งาน {activeCount} / {totalCount} สถานี
-          </GlassBadge>
-          <GlassBadge variant="emerald" className="px-3 py-1.5 text-xs font-semibold">
-            ⚡ 100% Fully Calibrated เรดาร์ทุกสถานีจูนพิกัดครบแล้ว
-          </GlassBadge>
+        {/* Coverage Percentage & Active Stations Stats */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-slate-900/80 px-3.5 py-2 rounded-xl border border-white/10">
+            <div className="text-right">
+              <div className="text-[10px] text-slate-400 uppercase tracking-wider">พื้นที่ครอบคลุม</div>
+              <div className="text-base font-extrabold text-cyan-400 font-mono">
+                {coveragePercent}% <span className="text-xs font-normal text-slate-400">({coveredCount}/{totalProvincesCount} จว.)</span>
+              </div>
+            </div>
+            <div className="h-7 w-7 rounded-full bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 text-xs font-bold">
+              🇹🇭
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 bg-slate-900/80 px-3.5 py-2 rounded-xl border border-white/10">
+            <div className="text-right">
+              <div className="text-[10px] text-slate-400 uppercase tracking-wider">สถานีพร้อมทำงาน</div>
+              <div className="text-base font-extrabold text-emerald-400 font-mono">
+                {stations.filter(s => s.is_active).length}/{stations.length}
+              </div>
+            </div>
+            <GlassBadge variant="emerald" className="text-xs px-2 py-1">ONLINE</GlassBadge>
+          </div>
         </div>
       </div>
 
-      {/* Region Filter Bar & Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 my-4">
-        <div className="flex flex-wrap items-center gap-1.5 bg-slate-900/60 p-1.5 rounded-xl border border-white/10">
+      {/* Control Bar: Region Filter, Status Filter & Layer Toggles */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 bg-slate-950/40 p-3 rounded-xl border border-white/5">
+        {/* Region Filter Buttons */}
+        <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+          <span className="text-xs font-medium text-slate-400 mr-1 flex items-center gap-1">
+            <Layers className="h-3.5 w-3.5" /> ภาค:
+          </span>
           {[
-            { id: "all", label: "ทั้งหมด" },
+            { id: "all", label: "ทั่วประเทศ" },
             { id: "north", label: "ภาคเหนือ" },
-            { id: "northeast", label: "ภาคตะวันออกเฉียงเหนือ" },
+            { id: "northeast", label: "ภาคอีสาน" },
             { id: "central", label: "ภาคกลาง" },
             { id: "east", label: "ภาคตะวันออก" },
-            { id: "south", label: "ภาคใต้" },
+            { id: "south", label: "ภาคใต้" }
           ].map(r => (
             <button
               key={r.id}
-              onClick={() => setSelectedRegion(r.id)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              onClick={() => setSelectedRegion(r.id as "all" | "north" | "northeast" | "central" | "east" | "south")}
+              className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
                 selectedRegion === r.id
-                  ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
-                  : "text-slate-300 hover:text-white hover:bg-white/5"
+                  ? "bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20"
+                  : "bg-slate-900/60 text-slate-300 hover:bg-slate-800 border border-white/5"
               }`}
             >
               {r.label}
@@ -309,49 +453,55 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Status Filter Buttons */}
+        <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+          <span className="text-xs font-medium text-slate-400 mr-1 flex items-center gap-1">
+            <Activity className="h-3.5 w-3.5" /> สถานะ:
+          </span>
+          {[
+            { id: "all", label: "ทั้งหมด", color: "bg-slate-800 text-slate-200" },
+            { id: "online", label: "Online", color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" },
+            { id: "delayed", label: "Delayed", color: "bg-amber-500/20 text-amber-300 border-amber-500/40" },
+            { id: "offline", label: "Offline", color: "bg-rose-500/20 text-rose-300 border-rose-500/40" }
+          ].map(st => (
+            <button
+              key={st.id}
+              onClick={() => setStatusFilter(st.id as "all" | "online" | "delayed" | "offline")}
+              className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all border ${
+                statusFilter === st.id
+                  ? "bg-sky-500 text-slate-950 font-bold border-sky-400 shadow-md shadow-sky-500/20"
+                  : "bg-slate-900/60 text-slate-300 hover:bg-slate-800 border-white/5"
+              }`}
+            >
+              {st.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Visibility Toggles */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowIntersectionMode(!showIntersectionMode)}
-            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
-              showIntersectionMode
-                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-lg shadow-emerald-500/10"
-                : "bg-slate-900/80 border-white/10 text-slate-300 hover:text-white"
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-lg border transition-all ${
+              showIntersectionMode 
+                ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-semibold"
+                : "bg-slate-900/60 border-white/5 text-slate-400"
             }`}
           >
-            <Layers className={`h-4 w-4 ${showIntersectionMode ? "text-emerald-400" : "text-slate-400"}`} />
-            <span>{showIntersectionMode ? "🎯 ปิดโหมดวิเคราะห์พื้นที่ (Intersection)" : "🎯 เปิดโหมดวิเคราะห์พื้นที่ครอบคลุม/ไม่ครอบคลุม"}</span>
-          </button>
-
-          <button
-            onClick={() => setShowProvinceBorders(!showProvinceBorders)}
-            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-xl border transition-all ${
-              showProvinceBorders
-                ? "bg-sky-500/20 border-sky-500/40 text-sky-300"
-                : "bg-slate-900/80 border-white/10 text-slate-400 hover:text-white"
-            }`}
-          >
-            <Layers className="h-4 w-4 text-sky-400" />
-            <span>{showProvinceBorders ? "ซ่อนเส้นขอบจังหวัด" : "แสดงเส้นขอบจังหวัด"}</span>
-          </button>
-
-          <button
-            onClick={() => setShowProvinceNames(!showProvinceNames)}
-            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-xl border transition-all ${
-              showProvinceNames
-                ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300"
-                : "bg-slate-900/80 border-white/10 text-slate-400 hover:text-white"
-            }`}
-          >
-            <MapPin className="h-4 w-4 text-amber-400" />
-            <span>{showProvinceNames ? "ซ่อนชื่อจังหวัด" : "แสดงชื่อ 72 จังหวัด"}</span>
+            <Maximize2 className="h-3.5 w-3.5" />
+            <span>ไฮไลต์จังหวัดที่ครอบคลุม</span>
           </button>
 
           <button
             onClick={() => setShowCoverageCircles(!showCoverageCircles)}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-xl bg-slate-900/80 border border-white/10 text-slate-300 hover:text-white transition-all"
+            className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-lg border transition-all ${
+              showCoverageCircles 
+                ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300 font-semibold"
+                : "bg-slate-900/60 border-white/5 text-slate-400"
+            }`}
           >
-            {showCoverageCircles ? <Eye className="h-4 w-4 text-cyan-400" /> : <EyeOff className="h-4 w-4 text-slate-500" />}
-            <span>{showCoverageCircles ? "ซ่อนวงกลมรัศมีเรดาร์" : "แสดงวงกลมรัศมีเรดาร์"}</span>
+            <Eye className="h-3.5 w-3.5" />
+            <span>วงรัศมีเรดาร์</span>
           </button>
         </div>
       </div>
@@ -360,14 +510,66 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* SVG Interactive Map Column */}
         <div className="lg:col-span-7 bg-slate-950/80 rounded-2xl border border-white/10 p-4 relative flex justify-center items-center overflow-hidden min-h-[580px]">
-          <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/80 border border-white/10 text-slate-400 text-[11px]">
-            <Compass className="h-3.5 w-3.5 text-cyan-400" />
-            <span>N (ทิศเหนือ)</span>
+          {/* Compass & Zoom Controls */}
+          <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/80 border border-white/10 text-slate-400 text-[11px]">
+              <Compass className="h-3.5 w-3.5 text-cyan-400" />
+              <span>N (ทิศเหนือ)</span>
+            </div>
+            <span className={`px-2 py-0.5 rounded-md border text-[10px] font-mono font-bold transition-all ${
+              zoomLevel > 1
+                ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 animate-pulse"
+                : "bg-slate-900/80 text-slate-400 border-white/10"
+            }`}>
+              🔍 {zoomLevel.toFixed(1)}x
+            </span>
+          </div>
+
+          {/* Quick Floating Zoom Buttons */}
+          <div className="absolute top-4 right-4 z-10 flex flex-col gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-white/10 shadow-2xl backdrop-blur-md">
+            <button
+              onClick={handleZoomIn}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-base font-bold transition-colors"
+              title="Zoom In (หรือ Double Click บนแผนที่)"
+              aria-label="Zoom In"
+            >
+              +
+            </button>
+            <button
+              onClick={handleZoomOut}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-base font-bold transition-colors"
+              title="Zoom Out"
+              aria-label="Zoom Out"
+            >
+              -
+            </button>
+            {zoomLevel > 1 && (
+              <>
+                <div className="w-full h-[1px] bg-white/10" />
+                <button
+                  onClick={handleResetZoom}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 text-[10px] font-mono font-bold transition-colors"
+                  title="Reset View (1.0x)"
+                  aria-label="Reset View"
+                >
+                  {zoomLevel.toFixed(1)}x
+                </button>
+              </>
+            )}
           </div>
 
           <svg
-            viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-            className="w-full h-auto max-h-[620px] drop-shadow-[0_0_20px_rgba(6,182,212,0.15)]"
+            role="img"
+            viewBox={currentViewBox}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onDoubleClick={handleDoubleClick}
+            onWheel={handleWheel}
+            className={`w-full h-auto max-h-[620px] drop-shadow-[0_0_20px_rgba(6,182,212,0.15)] select-none transition-all duration-200 ease-out ${
+              isDragging ? "cursor-grabbing" : zoomLevel > 1 ? "cursor-grab" : "cursor-default"
+            }`}
           >
             {/* Defs for Grid, Radar Pulse & Dynamic Coverage ClipPath */}
             <defs>
@@ -391,37 +593,48 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
               </clipPath>
             </defs>
 
-            <rect width={svgWidth} height={svgHeight} fill="url(#grid)" rx="16" />
+            <rect width={svgWidth} height={svgHeight} fill="url(#grid)" rx="16" className="pointer-events-none" />
 
-            {/* Thailand Province Polygon Boundaries — Base Layer (Default or Uncovered Red) */}
+            {/* Thailand Province Polygon Boundaries — Base Layer (Uncovered Red if highlight mode is active, otherwise Green) */}
             {showProvinceBorders && provincePaths.map((prov) => (
               <path
                 key={`base-${prov.id}`}
                 d={prov.d}
-                fill={showIntersectionMode ? "rgba(244, 63, 94, 0.35)" : "rgba(15, 23, 42, 0.65)"}
-                stroke={showIntersectionMode ? "rgba(251, 113, 133, 0.40)" : "rgba(56, 189, 248, 0.30)"}
-                strokeWidth={showIntersectionMode ? "0.8" : "0.8"}
-                className="transition-all duration-300"
+                fill={showIntersectionMode ? "#f43f5e" : "#059669"}
+                fillOpacity={showIntersectionMode ? 0.25 : 0.15}
+                stroke={showIntersectionMode ? "#fb7185" : "#10b981"}
+                strokeWidth="0.8"
+                strokeOpacity={showIntersectionMode ? 0.45 : 0.5}
+                style={{
+                  fill: showIntersectionMode ? "#f43f5e" : "#059669",
+                  fillOpacity: showIntersectionMode ? 0.25 : 0.15,
+                  stroke: showIntersectionMode ? "#fb7185" : "#10b981",
+                  strokeOpacity: showIntersectionMode ? 0.45 : 0.5,
+                }}
+                className="transition-all duration-300 pointer-events-none"
               />
             ))}
 
-            {/* Thailand Province Polygon Boundaries — Covered Layer (Clipped by Active Radar Circles) */}
+            {/* Thailand Province Polygon Boundaries — Covered Layer (Clipped by Active Radar Circles with brighter green) */}
             {showProvinceBorders && showIntersectionMode && (
-              <g clipPath="url(#allRadarCoverageClip)">
+              <g clipPath="url(#allRadarCoverageClip)" className="pointer-events-none">
                 {provincePaths.map((prov) => (
                   <path
                     key={`covered-${prov.id}`}
                     d={prov.d}
-                    fill="rgba(16, 185, 129, 0.45)"
-                    stroke="rgba(52, 211, 153, 0.80)"
-                    strokeWidth="1.2"
+                    fill="#10b981"
+                    fillOpacity={0.25}
+                    stroke="#34d399"
+                    strokeWidth="1.0"
+                    strokeOpacity={0.7}
+                    style={{ fill: "#10b981", fillOpacity: 0.25, stroke: "#34d399", strokeOpacity: 0.7 }}
                     className="transition-all duration-300"
                   />
                 ))}
               </g>
             )}
 
-            {/* Render 72 Province Name Labels & Markers */}
+            {/* Render Province Name Labels & Markers */}
             {showProvinceNames && filteredProvinces.map(prov => (
               <g key={`prov-${prov.code}`} className="pointer-events-none select-none">
                 <circle
@@ -445,12 +658,13 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
               </g>
             ))}
 
-            {/* Render Coverage Circles */}
+            {/* Render Coverage Circles with Status Awareness */}
             {showCoverageCircles && filteredStations.map(st => {
               const { x, y } = latLngToSvg(st.center_lat, st.center_lng);
               const r = kmToSvgRadius(st.radius_km);
               const isSelected = selectedStationCode === st.code;
               const isHovered = hoveredStationCode === st.code;
+              const statusStyle = getStatusColor(st.status);
 
               return (
                 <g key={`circle-${st.code}`}>
@@ -458,8 +672,8 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
                     cx={x}
                     cy={y}
                     r={r}
-                    fill={isSelected || isHovered ? "rgba(34, 211, 238, 0.25)" : "url(#radarPulse)"}
-                    stroke={isSelected || isHovered ? "#22d3ee" : "rgba(14, 165, 233, 0.45)"}
+                    fill={isSelected || isHovered ? statusStyle.pulse : "url(#radarPulse)"}
+                    stroke={isSelected || isHovered ? statusStyle.stroke : statusStyle.stroke + "70"}
                     strokeWidth={isSelected || isHovered ? 2.5 : 1.2}
                     strokeDasharray={st.radius_km === 120 ? "3 3" : undefined}
                     className="transition-all duration-300 pointer-events-none"
@@ -469,23 +683,26 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
                     cy={y}
                     r={r * 0.5}
                     fill="none"
-                    stroke={isSelected ? "rgba(34, 211, 238, 0.5)" : "rgba(255, 255, 255, 0.05)"}
+                    stroke={isSelected ? statusStyle.stroke : "rgba(255, 255, 255, 0.05)"}
                     strokeWidth="0.8"
                     strokeDasharray="2 2"
+                    className="pointer-events-none"
                   />
                 </g>
               );
             })}
 
-            {/* Render Station Center Pins */}
+            {/* Render Station Center Pins with Status Colors */}
             {filteredStations.map(st => {
               const { x, y } = latLngToSvg(st.center_lat, st.center_lng);
               const isSelected = selectedStationCode === st.code;
               const isHovered = hoveredStationCode === st.code;
+              const statusStyle = getStatusColor(st.status);
 
               return (
                 <g
                   key={`pin-${st.code}`}
+                  data-testid={`station-marker-${st.code}`}
                   className="cursor-pointer group"
                   onClick={() => {
                     setSelectedStationCode(st.code);
@@ -500,9 +717,9 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
                       cy={y}
                       r="16"
                       fill="none"
-                      stroke="#22d3ee"
+                      stroke={statusStyle.stroke}
                       strokeWidth="2"
-                      className="animate-ping origin-center"
+                      className="animate-ping origin-center pointer-events-none"
                     />
                   )}
 
@@ -510,7 +727,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
                     cx={x}
                     cy={y}
                     r={isSelected ? "9" : "7"}
-                    fill={isSelected || isHovered ? "#22d3ee" : "#0284c7"}
+                    fill={isSelected || isHovered ? statusStyle.stroke : statusStyle.fill}
                     stroke="#ffffff"
                     strokeWidth="2"
                     className="transition-all duration-200"
@@ -521,7 +738,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
                   <text
                     x={x + 10}
                     y={y + 4}
-                    fill={isSelected || isHovered ? "#38bdf8" : "#94a3b8"}
+                    fill={isSelected || isHovered ? statusStyle.stroke : "#94a3b8"}
                     fontSize={isSelected ? "12" : "10"}
                     fontWeight={isSelected ? "bold" : "600"}
                     className="pointer-events-none select-none drop-shadow-md"
@@ -533,20 +750,20 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
             })}
           </svg>
 
-          {/* Floating Map Legend */}
+          {/* Floating Map Legend with Status Identifiers */}
           <div className="absolute bottom-4 right-4 bg-slate-900/90 backdrop-blur-md border border-white/10 p-3 rounded-xl text-[11px] space-y-1.5 shadow-xl">
-            <div className="font-semibold text-slate-300 border-b border-white/10 pb-1 mb-1">สัญลักษณ์แผนที่</div>
+            <div className="font-semibold text-slate-300 border-b border-white/10 pb-1 mb-1">สถานะและความคุ้มครอง</div>
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block"></span>
-              <span className="text-slate-300">สถานีเรดาร์จูนพิกัดครบแล้ว (100% Calibrated)</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span>
+              <span className="text-slate-300">Online (&lt;30 นาที)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-cyan-400 inline-block"></span>
-              <span className="text-slate-300">รัศมีเรดาร์ 240km</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
+              <span className="text-slate-300">Delayed (30-60 นาที)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full border border-dashed border-cyan-400 inline-block"></span>
-              <span className="text-slate-300">รัศมีเรดาร์ 120km</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-400 inline-block"></span>
+              <span className="text-slate-300">Offline (&gt;60 นาที)</span>
             </div>
           </div>
         </div>
@@ -564,6 +781,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
           <div className="space-y-2 max-h-[550px] overflow-y-auto pr-1 custom-scrollbar">
             {filteredStations.map(st => {
               const isSelected = selectedStationCode === st.code;
+              const statusStyle = getStatusColor(st.status);
 
               return (
                 <div
@@ -581,19 +799,27 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
+                    <div className={`p-2 rounded-lg ${statusStyle.bg} ${statusStyle.text}`}>
                       <MapPin className="h-4 w-4" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-white">{st.name}</span>
-                        <GlassBadge variant="emerald" className="py-0.5 px-1.5 text-[9px]">
-                          CALIBRATED
-                        </GlassBadge>
+                        <span
+                          data-testid={`station-status-${st.code}`}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${statusStyle.bg} ${statusStyle.text} border ${statusStyle.border}`}
+                        >
+                          {st.status ? st.status.toUpperCase() : "ONLINE"}
+                        </span>
                       </div>
                       <div className="text-xs text-slate-400 font-mono mt-0.5">
                         Code: <span className="text-cyan-300 font-bold">{st.code}</span> | Lat: {st.center_lat}, Lng: {st.center_lng}
                       </div>
+                      {st.latency_minutes !== undefined && (
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                          <Clock className="w-3 h-3" /> Latency: {st.latency_minutes}m
+                        </div>
+                      )}
                     </div>
                   </div>
 

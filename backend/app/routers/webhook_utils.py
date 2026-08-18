@@ -152,3 +152,170 @@ def _build_forecast_text(result: dict) -> str:
         text = f"ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน 1-2 ชั่วโมงนี้ (ตรวจสอบด้วย: {endpoint_label})\n"
 
     return text, actual_endpoint, eta_minutes
+
+
+from dataclasses import dataclass, field
+from typing import List, Optional, Any
+
+@dataclass
+class ForecastMediaItem:
+    media_type: str  # "photo", "document", "animation"
+    data: bytes
+    filename: str
+    mime_type: str = "image/png"
+
+
+@dataclass
+class FormattedForecastResponse:
+    text: str
+    actual_endpoint: str
+    eta_minutes: Optional[int]
+    advanced_text: Optional[str] = None
+    media_items: List[ForecastMediaItem] = field(default_factory=list)
+
+
+def _build_advanced_text(
+    advanced_data: Optional[dict] = None,
+    advisories: Optional[list] = None,
+    lightning: Optional[dict] = None,
+    stormcells: Optional[list] = None,
+    stormcell: Optional[dict] = None,
+) -> str:
+    """
+    สร้างข้อความเตือนภัยขั้นสูง (advisories, lightning, stormcell)
+    ใช้ร่วมกันทั้ง Telegram และ LINE
+    """
+    if advanced_data:
+        advisories = advanced_data.get("advisories", [])
+        lightning = advanced_data.get("lightning")
+        stormcell = advanced_data.get("stormcell") or (advanced_data.get("stormcells", [None])[0] if advanced_data.get("stormcells") else None)
+    elif stormcells and not stormcell:
+        stormcell = stormcells[0] if len(stormcells) > 0 else None
+
+    has_advisory = bool(advisories and len(advisories) > 0)
+    has_lightning = bool(
+        lightning and isinstance(lightning, dict) and lightning.get("detected", False)
+    )
+    has_stormcell = bool(stormcell)
+
+    if has_advisory or has_lightning or has_stormcell:
+        adv_text = "🚨 *ข้อมูลเตือนภัยขั้นสูงรอบตัวคุณ*\n\n"
+        if has_advisory:
+            for adv in advisories:
+                adv_text += f"⚠️ ประกาศเตือนภัย: {adv.get('name', '')}\n"
+            adv_text += "\n"
+        if has_lightning:
+            dist = lightning.get('distance_km', 0) if isinstance(lightning, dict) else 0
+            adv_text += f"⚡ ฟ้าผ่าระยะใกล้สุด: {dist:.1f} กม.\n\n"
+        if has_stormcell:
+            dist_km = stormcell.get('distance_km')
+            if dist_km is None:
+                adv_text += f"🌪️ แนวโน้มกลุ่มฝน/ลม (Contingency):\n"
+                adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
+                adv_text += f"   - ความเร็วลม: {stormcell.get('speed_kmh', 0):.1f} km/h\n\n"
+                adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Open-Meteo (Fallback)"
+            else:
+                adv_text += f"🌪️ ตรวจพบกลุ่มพายุ: ระยะห่าง {dist_km:.1f} กม.\n"
+                adv_text += f"   - ทิศทาง: {stormcell.get('direction', 'N/A')}\n"
+                adv_text += f"   - ความเร็ว: {stormcell.get('speed_kmh', 0):.1f} km/h\n"
+                adv_text += f"   - ความรุนแรงสูงสุด (dBZ): {stormcell.get('max_dbz', 0)}\n\n"
+                adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
+        elif has_advisory or has_lightning:
+            adv_text += "ℹ️ ข้อมูลขั้นสูงจาก Xweather"
+        return adv_text
+
+    return "ℹ️ ข้อมูลเตือนภัยขั้นสูง: ไม่พบประกาศเตือนภัย พายุ หรือฟ้าผ่าในระยะใกล้"
+
+
+def extract_forecast_media(
+    result: dict,
+    cmd_name: str = "/rain",
+    show_advanced: bool = False,
+    location_name: str = "default"
+) -> List[ForecastMediaItem]:
+    """
+    สกัด media bytes จาก result dict ของ WeatherManager เป็นรายการ ForecastMediaItem
+    ที่ใช้ร่วมกันได้ทั้ง Telegram และ LINE
+    """
+    media_items: List[ForecastMediaItem] = []
+    
+    static_bytes = result.get("radar_static_bytes")
+    tracking_bytes = result.get("radar_tracking_bytes")
+    timeline_bytes = result.get("rain_timeline_bytes")
+    multiframe_bytes = result.get("radar_multiframe_bytes")
+    hq_gif_bytes = result.get("radar_hq_gif_bytes")
+    gif_bytes = result.get("radar_gif_bytes")
+
+    if show_advanced or cmd_name == "/rain_pro":
+        if tracking_bytes:
+            media_items.append(ForecastMediaItem("photo", tracking_bytes, "radar_tracking.png", "image/png"))
+        if static_bytes:
+            media_items.append(ForecastMediaItem("photo", static_bytes, "radar_latest.png", "image/png"))
+        if timeline_bytes:
+            media_items.append(ForecastMediaItem("photo", timeline_bytes, "rain_timeline.png", "image/png"))
+        if multiframe_bytes:
+            media_items.append(ForecastMediaItem("photo", multiframe_bytes, "radar_multiframe.png", "image/png"))
+        if hq_gif_bytes:
+            media_items.append(ForecastMediaItem("document", hq_gif_bytes, "radar_nowcast_full.gif", "image/gif"))
+        if gif_bytes:
+            media_items.append(ForecastMediaItem("animation", gif_bytes, "radar_nowcast.gif", "image/gif"))
+    elif cmd_name in ("/rain", "/check"):
+        if tracking_bytes:
+            media_items.append(ForecastMediaItem("photo", tracking_bytes, "radar_tracking.png", "image/png"))
+        if gif_bytes:
+            media_items.append(ForecastMediaItem("animation", gif_bytes, "radar_nowcast.gif", "image/gif"))
+    elif cmd_name == "/radar":
+        if static_bytes:
+            media_items.append(ForecastMediaItem("photo", static_bytes, "radar_latest.png", "image/png"))
+    elif cmd_name == "/tracking":
+        if tracking_bytes:
+            media_items.append(ForecastMediaItem("photo", tracking_bytes, "radar_tracking.png", "image/png"))
+    elif cmd_name == "/timeline":
+        if timeline_bytes:
+            media_items.append(ForecastMediaItem("photo", timeline_bytes, "rain_timeline.png", "image/png"))
+    elif cmd_name == "/nowcast":
+        if gif_bytes:
+            media_items.append(ForecastMediaItem("animation", gif_bytes, "radar_nowcast.gif", "image/gif"))
+
+    return media_items
+
+
+def build_formatted_forecast(
+    result: dict,
+    cmd_name: str = "/rain",
+    show_advanced: bool = False,
+    location_name: Optional[str] = None,
+    advanced_data: Optional[dict] = None
+) -> FormattedForecastResponse:
+    """
+    จัดรูปแบบผลลัพธ์พยากรณ์ฝนเป็น FormattedForecastResponse มาตรฐาน
+    """
+    text, actual_endpoint, eta_minutes = _build_forecast_text(result)
+
+    if location_name:
+        text = f"📍 **พื้นที่:** {location_name}\n\n" + text
+
+    if result.get("is_outdated"):
+        text = "⚠️ **ยังไม่มีข้อมูลล่าสุดจากกรมอุตุฯ (TMD Radar)**\nแนะนำให้เปลี่ยนไปใช้ API อื่น (เช่น Tomorrow.io หรือ Open-Meteo) แทนชั่วคราวครับ\n"
+
+    adv_text = None
+    if show_advanced or cmd_name == "/rain_pro":
+        if advanced_data is not None:
+            adv_text = _build_advanced_text(advanced_data)
+        elif result.get("advanced_alerts"):
+            adv_text = _build_advanced_text(result.get("advanced_alerts"))
+
+    media_items = extract_forecast_media(
+        result=result,
+        cmd_name=cmd_name,
+        show_advanced=show_advanced,
+        location_name=location_name or "default"
+    )
+
+    return FormattedForecastResponse(
+        text=text,
+        actual_endpoint=actual_endpoint,
+        eta_minutes=eta_minutes,
+        advanced_text=adv_text,
+        media_items=media_items
+    )

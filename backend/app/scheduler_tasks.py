@@ -484,10 +484,18 @@ async def fetch_tmd_radar_routine():
     from app.services.tmd_radar_processor import TMDRadarProcessor
     from app.dependencies import get_repo_context
     from app.services.metrics_service import MetricsService
+    from app.database import AsyncSessionLocal
+    from app.services.tmd_radar_registry import radar_registry
     import httpx
     import asyncio
 
-    stations_to_update = ["kkn120", "kkn240", "skn240"]
+    # Dynamically load all active stations from Neon DB (or registry fallback)
+    async with AsyncSessionLocal() as session:
+        active_stations_map = await radar_registry.get_all_stations(session)
+        stations_to_update = list(active_stations_map.keys())
+
+    if not stations_to_update:
+        stations_to_update = ["kkn240", "skn240", "tak", "cri", "chn", "cmp", "hyi", "phs", "ryg", "srt", "svp240", "ubn240"]
 
     async def _process_station(station: str) -> dict:
         try:

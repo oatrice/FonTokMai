@@ -170,6 +170,7 @@ async def test_line_webhook_text_commands():
     from fastapi import BackgroundTasks
     import json
     import asyncio
+    import inspect
 
     payload = {
         "events": [
@@ -222,7 +223,7 @@ async def test_line_webhook_text_commands():
             while bg_tasks.tasks:
                 t = bg_tasks.tasks.pop(0)
                 print(f"RUNNING TASK: {t.func.__name__} with args {t.args}")
-                if asyncio.iscoroutinefunction(t.func):
+                if inspect.iscoroutinefunction(t.func):
                     await t.func(*t.args, **t.kwargs)
                 else:
                     t.func(*t.args, **t.kwargs)
@@ -241,6 +242,7 @@ async def test_line_webhook_text_commands_uses_reply_api():
     from fastapi import BackgroundTasks
     import json
     import asyncio
+    import inspect
 
     payload = {
         "events": [
@@ -289,7 +291,7 @@ async def test_line_webhook_text_commands_uses_reply_api():
             # Execute background tasks
             while bg_tasks.tasks:
                 t = bg_tasks.tasks.pop(0)
-                if asyncio.iscoroutinefunction(t.func):
+                if inspect.iscoroutinefunction(t.func):
                     await t.func(*t.args, **t.kwargs)
                 else:
                     t.func(*t.args, **t.kwargs)
@@ -309,6 +311,7 @@ async def test_line_webhook_individual_media_commands():
     from fastapi import BackgroundTasks
     import json
     import asyncio
+    import inspect
 
     # Test for /radar command
     payload = {
@@ -376,7 +379,7 @@ async def test_line_webhook_individual_media_commands():
                     
                     while bg_tasks.tasks:
                         t = bg_tasks.tasks.pop(0)
-                        if asyncio.iscoroutinefunction(t.func):
+                        if inspect.iscoroutinefunction(t.func):
                             await t.func(*t.args, **t.kwargs)
                         else:
                             t.func(*t.args, **t.kwargs)

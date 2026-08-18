@@ -152,7 +152,7 @@ KNOWN_TMD_RADAR_PRESETS = [
     {
         "code": "srt",
         "name": "Surat Thani (240km) / สุราษฎร์ธานี",
-        "static_image_url": "https://weather.tmd.go.th/srt/srt240_latest.png",
+        "static_image_url": "https://weather.tmd.go.th/srt/srt240_latest.jpg",
         "loop_page_url": "https://weather.tmd.go.th/srtloop.php",
         "loop_gif_url": "https://weather.tmd.go.th/srt/srtloop.gif",
         "center_lat": 9.1333,

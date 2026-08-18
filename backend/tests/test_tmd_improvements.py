@@ -96,7 +96,7 @@ def test_verbose_vs_draw_debug_grid(monkeypatch):
         }
     ]
     
-    # 1. With verbose = True but draw_debug_grid = False (or absent), the output should be a single panel (480x480)
+    # 1. With verbose = True but draw_debug_grid = False (or absent), the output should be a single panel (720x720)
     monkeypatch.setitem(_DEV_CONFIG, "verbose", True)
     img_bytes = processor.generate_radar_tracking_image(
         frame, user_x=400, user_y=400,
@@ -105,11 +105,10 @@ def test_verbose_vs_draw_debug_grid(monkeypatch):
     assert img_bytes is not None
     img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
     assert img is not None
-    # A single panel at scale 3x from crop_r=120 should be 720x720. 2x2 grid would be 1440x1440.
-    # Therefore, single panel height is < 1000
-    assert img.shape[0] < 1000, f"Expected single panel, got height {img.shape[0]}"
-    
-    # 2. With draw_debug_grid = True, the output should be 2x2 grid
+    # A single panel at scale 3x from crop_r=120 should be 720x720. 2-panel layout would be 720x1440.
+    assert img.shape[1] == img.shape[0], f"Expected square single panel, got shape {img.shape}"
+
+    # 2. With draw_debug_grid = True (Issue #263: 2 sub-images: Raw with grid + Final overlay), width should be double height
     monkeypatch.setitem(_DEV_CONFIG, "draw_debug_grid", True)
     img_bytes_grid = processor.generate_radar_tracking_image(
         frame, user_x=400, user_y=400,
@@ -118,6 +117,49 @@ def test_verbose_vs_draw_debug_grid(monkeypatch):
     assert img_bytes_grid is not None
     img_grid = cv2.imdecode(np.frombuffer(img_bytes_grid, np.uint8), cv2.IMREAD_COLOR)
     assert img_grid is not None
-    # 2x2 grid should be > 1000 (twice the single panel height)
-    assert img_grid.shape[0] > 1000, f"Expected 2x2 grid, got height {img_grid.shape[0]}"
+    # 2-panel side-by-side: width is 2x height (e.g. 720x1440)
+    assert img_grid.shape[1] == img_grid.shape[0] * 2, f"Expected 2-subimage side-by-side (1x2), got shape {img_grid.shape}"
+
+
+def test_generate_radar_tracking_image_suppress_orphaned_trajectory():
+    """
+    Issue #268: Suppress trajectory rendering if source cloud is not detected in current frame.
+    """
+    processor = TMDRadarProcessor("kkn240")
+    frame = np.zeros((800, 800, 3), dtype=np.uint8)
+
+    # Predictions with rain from cloud A
+    predictions = [
+        {"time_offset": 0, "dbz": 30.0, "src_x": 400, "src_y": 400, "cluster": "A"},
+        {"time_offset": 15, "dbz": 30.0, "src_x": 410, "src_y": 410, "cluster": "A"},
+    ]
+
+    # 1. Cloud A is NOT in clouds or all_rain_clusters -> Trajectory line should NOT be rendered
+    img_bytes_orphaned = processor.generate_radar_tracking_image(
+        frame, user_x=400, user_y=400,
+        clouds=[], all_rain_clusters=[], predictions=predictions,
+        show_trajectory=True
+    )
+    assert img_bytes_orphaned is not None
+    img_orphaned = cv2.imdecode(np.frombuffer(img_bytes_orphaned, np.uint8), cv2.IMREAD_COLOR)
+    # Yellow trajectory line color in BGR is (0, 255, 255)
+    # Check that no yellow trajectory line pixels exist
+    yellow_mask_orphaned = (img_orphaned[:, :, 0] == 0) & (img_orphaned[:, :, 1] == 255) & (img_orphaned[:, :, 2] == 255)
+    assert not np.any(yellow_mask_orphaned), "Orphaned trajectory line was rendered when cloud was missing!"
+
+    # 2. Cloud A IS in clouds -> Trajectory line is rendered
+    cloud_a = {
+        "cx": 400, "cy": 400, "label": "A", "dbz_now": 30.0, "predicted_dbz": 30.0,
+        "approaching": True, "eta_min": 0.0, "pixels": [(400, 400)]
+    }
+    img_bytes_active = processor.generate_radar_tracking_image(
+        frame, user_x=400, user_y=400,
+        clouds=[cloud_a], all_rain_clusters=[cloud_a], predictions=predictions,
+        show_trajectory=True
+    )
+    assert img_bytes_active is not None
+    img_active = cv2.imdecode(np.frombuffer(img_bytes_active, np.uint8), cv2.IMREAD_COLOR)
+    yellow_mask_active = (img_active[:, :, 0] == 0) & (img_active[:, :, 1] == 255) & (img_active[:, :, 2] == 255)
+    assert np.any(yellow_mask_active), "Active cloud trajectory line should be rendered!"
+
 
