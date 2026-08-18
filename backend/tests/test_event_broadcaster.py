@@ -70,3 +70,34 @@ async def test_sse_endpoint(mocker):
         assert 'text/event-stream' in response.headers['content-type']
         assert 'event: custom_event' in response.text
         assert 'data: {"foo": "bar"}' in response.text
+
+@pytest.mark.asyncio
+async def test_sse_endpoint_duration_limit(mocker):
+    from app.routers.events import router as events_router
+    from app.services.event_broadcaster import event_broadcaster
+    import app.routers.events
+    
+    # Temporarily set MAX_SSE_DURATION to a very short time (0.2s)
+    mocker.patch.object(app.routers.events, 'MAX_SSE_DURATION', 0.2)
+    
+    app = FastAPI()
+    app.include_router(events_router)
+
+    fake_queue = asyncio.Queue()
+    # Mock queue.get to simulate no events, raising TimeoutError
+    async def mock_get():
+        await asyncio.sleep(0.5)
+        raise asyncio.TimeoutError()
+    fake_queue.get = mock_get
+    
+    mocker.patch.object(event_broadcaster, 'subscribe', return_value=fake_queue)
+    mocker.patch.object(event_broadcaster, 'unsubscribe')
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url='http://testserver') as client:
+        response = await client.get('/api/v1/events/stream')
+        assert response.status_code == 200
+        # The connection should close quickly because MAX_SSE_DURATION is 0.2s
+        # and queue.get would take 0.5s (meaning remaining <= 0 and loop breaks)
+        assert 'text/event-stream' in response.headers['content-type']
+

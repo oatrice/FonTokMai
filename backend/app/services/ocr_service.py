@@ -80,7 +80,7 @@ class OCRService:
     async def _call_cloud_vision(self, content: bytes) -> Optional[str]:
         """Call Google Cloud Vision API to extract text."""
         if vision is None:
-            print("Cloud Vision API package not installed. Skipping.")
+            logger.debug("Cloud Vision API package not installed. Skipping.")
             return None
             
         try:
@@ -90,7 +90,7 @@ class OCRService:
             response = await asyncio.to_thread(client.text_detection, image=image)
             
             if response.error.message:
-                print(f"Cloud Vision API Error: {response.error.message}")
+                logger.warning(f"Cloud Vision API Error: {response.error.message}")
                 return None
                 
             texts = response.text_annotations
@@ -98,17 +98,17 @@ class OCRService:
                 return texts[0].description
             return None
         except Exception as e:
-            print(f"Cloud Vision Exception: {e}")
+            logger.error(f"Cloud Vision Exception: {e}")
             return None
 
     async def _call_gemini(self, content: bytes) -> Optional[str]:
         """Call Gemini 2.5 Flash to extract text."""
         if genai is None:
-            print("Gemini API package not installed. Skipping.")
+            logger.debug("Gemini API package not installed. Skipping.")
             return None
             
         if not self.gemini_client:
-            print("Gemini API key not found or client not initialized.")
+            logger.debug("Gemini API key not found or client not initialized.")
             return None
             
         try:
@@ -123,7 +123,7 @@ class OCRService:
             )
             return response.text
         except Exception as e:
-            print(f"Gemini Exception: {e}")
+            logger.error(f"Gemini Exception: {e}")
             return None
 
     def _compress_for_ocr_space(self, content: bytes, max_dim: int = 1024) -> bytes:
@@ -150,7 +150,7 @@ class OCRService:
     async def _call_ocr_space(self, content: bytes) -> Optional[str]:
         """Call OCR.space API."""
         if not self.ocr_space_key:
-            print("OCR.space API key not found.")
+            logger.warning("OCR.space API key not found.")
             return None
             
         try:
@@ -170,7 +170,7 @@ class OCRService:
             result = response.json()
                 
             if result.get("IsErroredOnProcessing"):
-                print(f"OCR.space Error: {result.get('ErrorMessage')}")
+                logger.warning(f"OCR.space Error: {result.get('ErrorMessage')}")
                 return None
                 
             parsed_results = result.get("ParsedResults", [])
@@ -178,13 +178,13 @@ class OCRService:
                 return parsed_results[0].get("ParsedText")
             return None
         except Exception as e:
-            print(f"OCR.space Exception: {e}")
+            logger.error(f"OCR.space Exception: {e}")
             return None
 
     async def _call_pytesseract(self, frame: np.ndarray) -> Optional[str]:
         """Call local Tesseract OCR engine."""
         if pytesseract is None:
-            print("pytesseract is not installed. Skipping local OCR.")
+            logger.debug("pytesseract is not installed. Skipping local OCR.")
             return None
             
         import shutil
@@ -198,7 +198,7 @@ class OCRService:
         if tesseract_cmd:
             pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
         else:
-            print("Tesseract binary not found in PATH or standard locations.")
+            logger.debug("Tesseract binary not found in PATH or standard locations.")
             return None
             
         try:
@@ -208,7 +208,7 @@ class OCRService:
             text = await asyncio.to_thread(pytesseract.image_to_string, frame, config="--psm 6")
             return text
         except Exception as e:
-            print(f"pytesseract Exception: {e}")
+            logger.error(f"pytesseract Exception: {e}")
             return None
 
     def _extract_timestamp_from_text(self, text: str, *, _debug_hash: str = "") -> Optional[int]:
@@ -287,7 +287,7 @@ class OCRService:
                     )
                 return ts
             except Exception as e:
-                print(f"OCR Parsing error: {e}")
+                logger.error(f"OCR Parsing error: {e}")
         return None
 
     def timestamp_crop(self, frame: np.ndarray) -> np.ndarray:

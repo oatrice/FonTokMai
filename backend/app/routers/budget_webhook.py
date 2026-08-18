@@ -245,10 +245,16 @@ async def handle_budget_alert(payload: PubSubPushPayload, request: Request):
             settings = await repo.get_system_settings()
             if not settings:
                 settings = {}
+            modified = False
             if settings.get("budget_alert_80_sent"):
                 settings["budget_alert_80_sent"] = False
+                modified = True
+            if settings.get("emergency_shutdown"):
+                settings["emergency_shutdown"] = False
+                modified = True
+            if modified:
                 await repo.set_system_settings(settings)
-                logger.info("[BudgetAlert] Reset budget_alert_80_sent flag because ratio is below 80%.")
+                logger.info("[BudgetAlert] Reset budget_alert_80_sent and emergency_shutdown flags because ratio is below 80%.")
 
     # ─── Warning Alert (80%) ───
     is_warning_threshold = (0.79 < alert_threshold < 1.0) or (0.80 <= ratio < 1.0)
@@ -278,6 +284,15 @@ async def handle_budget_alert(payload: PubSubPushPayload, request: Request):
     # ─── Shutdown Trigger (100%) ───
     if _is_budget_exceeded(budget_data):
         logger.warning("[BudgetAlert] 🚨 Budget 100% exceeded! Initiating Cloud Run shutdown...")
+
+        async with get_repo_context() as repo:
+            settings = await repo.get_system_settings()
+            if not settings:
+                settings = {}
+            if not settings.get("emergency_shutdown"):
+                settings["emergency_shutdown"] = True
+                await repo.set_system_settings(settings)
+                logger.info("[BudgetAlert] Set emergency_shutdown = True in database.")
 
         scale_status = _revoke_public_access()
 

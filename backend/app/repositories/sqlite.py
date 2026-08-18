@@ -315,14 +315,14 @@ class SQLiteLocationRepository(LocationRepository):
             
         await self.session.commit()
 
+    _global_mock_settings = {"enable_gif_fallback": True}
+
     async def get_system_settings(self) -> dict:
         # SQLite implementation for local dev can just return defaults
-        # or implement a simple JSON file read if needed. 
-        # For simplicity, default to True for local testing.
-        return getattr(self, "_mock_system_settings", {"enable_gif_fallback": True})
+        return SQLiteLocationRepository._global_mock_settings
 
     async def set_system_settings(self, settings: dict):
-        self._mock_system_settings = settings
+        SQLiteLocationRepository._global_mock_settings = settings
 
     async def record_cron_run(
         self,
