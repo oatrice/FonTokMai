@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.73.1] - 2026-08-18
 
+### Added
+- **Automated Worker Shutdown on GCP Budget Exceeded (Issue #281)**: Implemented an automated database flag `emergency_shutdown` set by the budget alert webhook upon 100% threshold. All cron scheduler background endpoints under `/worker/*` now instantly reject requests with `503 Service Unavailable` when active, preventing redundant CPU-second charges. Bypass routes are permitted for administrative commands like `/restore-public-access` and `/setbudget`.
+- **Tesseract OCR Integration & Logging Cleanup**: Configured container-level `tesseract-ocr` installation in Dockerfile and added `pytesseract` to requirements.txt for lightning-fast local image processing. Cleaned up ocr_service.py print statements, redirecting them to logger streams to stop logging spam.
+
 ### Changed
 - **Server-Sent Events connection lifetime optimization (Issue #280)**: Limited backend EventSource `/api/v1/events/stream` streaming connection to 30 seconds per request to prevent long-lived connections from driving up Cloud Run CPU-seconds billing.
 

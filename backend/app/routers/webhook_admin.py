@@ -141,6 +141,19 @@ async def _run_admin_script(script_relative_path: str, success_msg: str, chat_id
 
 @cmd_router.bind("/restore_public_access", requires_admin=True, task_route="worker/handle-restore-public-access", loading_text="⏳ กำลังกู้คืนสิทธิ์ Public Access ให้กับ API...")
 async def handle_restore_public_access_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
+    try:
+        from app.dependencies import get_repo_context
+        async with get_repo_context() as repo:
+            settings = await repo.get_system_settings()
+            if not settings:
+                settings = {}
+            if settings.get("emergency_shutdown"):
+                settings["emergency_shutdown"] = False
+                await repo.set_system_settings(settings)
+                logger.info("[restore_public_access] Reset emergency_shutdown = False in database.")
+    except Exception as e:
+        logger.error(f"[restore_public_access] Failed to reset emergency_shutdown flag: {e}")
+
     await _run_admin_script(
         "../../scripts/restore_public_access.sh",
         "✅ กู้คืนสิทธิ์ Public Access ให้กับ fontokmai-api สำเร็จแล้วครับ",
