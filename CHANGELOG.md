@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.73.2] - 2026-09-07
+
+### Added
+- **Rotating File Logging**: Added `setup_file_logging` configured with Python's `RotatingFileHandler` writing to `logs/backend.log` (10MB max, 5 backups) with automatic directory creation and `SensitiveDataFilter` masking.
+- **Radar Cell Growth/Decay Telemetry**: Added structured logging `[GROWTH_DECAY]` and `[GROWTH_DECAY_CALC]` tracking radar cluster growth/decay rates, trends, and intensity changes over 15-minute intervals.
+
 ## [0.73.1] - 2026-08-18
 
 ### Added
