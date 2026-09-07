@@ -164,3 +164,43 @@ async def test_setbudget_command_invalid_args():
                 mock_send.assert_called_with(
                     chat_id, "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณาพิมพ์: /setbudget <จำนวนงบประมาณ (ตัวเลข)>"
                 )
+
+@pytest.mark.asyncio
+async def test_restore_public_access_command_resumes_schedulers():
+    from app.routers.webhook_admin import handle_restore_public_access_command
+    chat_id = 123
+
+    with patch("app.dependencies.get_repo_context") as mock_ctx:
+        mock_repo = AsyncMock()
+        mock_repo.get_system_settings.return_value = {"emergency_shutdown": True}
+        mock_ctx.return_value.__aenter__.return_value = mock_repo
+
+        with patch("app.routers.webhook_admin._run_admin_script", new_callable=AsyncMock) as mock_run_script:
+            with patch("app.routers.webhook_admin._resume_cloud_scheduler_jobs") as mock_resume:
+                mock_resume.return_value = {"fonmayang-check-rain": "RESUMED"}
+                await handle_restore_public_access_command(chat_id, "/restore_public_access")
+
+                mock_repo.set_system_settings.assert_called_once_with({"emergency_shutdown": False})
+                mock_resume.assert_called_once()
+                mock_run_script.assert_called_once()
+
+def test_resume_cloud_scheduler_jobs_direct():
+    from app.routers.webhook_admin import _resume_cloud_scheduler_jobs
+    import subprocess
+    from unittest.mock import MagicMock
+
+    with patch("subprocess.run") as mock_subprocess_run:
+        mock_res = MagicMock()
+        mock_res.returncode = 0
+        mock_res.stdout = "resumed"
+        mock_subprocess_run.return_value = mock_res
+
+        results = _resume_cloud_scheduler_jobs()
+        assert isinstance(results, dict)
+        assert len(results) > 0
+        for job_name, status in results.items():
+            assert status == "RESUMED"
+        # Should not resume jobs configured as PAUSED by default (like fonmayang-disasters-freq)
+        assert "fonmayang-disasters-freq" not in results
+
+

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.73.3] - 2026-09-07
+
+### Added
+- **Pause Cloud Scheduler on Budget Exceed (Issue #286)**: Automatically pause all managed Google Cloud Scheduler jobs when GCP budget hits 100% threshold to prevent recurring invocation charges and eliminate 403 error log spam.
+- **Resume Cloud Scheduler on Service Restoration (Issue #286)**: Automatically resume configured active Cloud Scheduler jobs when admin issues `/restore_public_access` command.
+
 ## [0.73.2] - 2026-09-07
 
 ### Added

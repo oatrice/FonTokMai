@@ -139,6 +139,53 @@ async def _run_admin_script(script_relative_path: str, success_msg: str, chat_id
     await _reply(chat_id, msg, message_id_to_edit)
 
 
+def _resume_cloud_scheduler_jobs() -> dict[str, str]:
+    """
+    สั่ง Resume Google Cloud Scheduler jobs ทั้งหมดที่ระบบกำหนดไว้ให้เป็น ACTIVE (ข้ามตัวที่มี state: PAUSED ใน config)
+    Returns dict mapping job_name -> status ("RESUMED" or error message)
+    """
+    results: dict[str, str] = {}
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../config/schedulers.json")
+    jobs_to_resume = []
+    if os.path.isfile(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                jobs_config = json.load(f)
+                for j in jobs_config:
+                    job_name = j.get("job_name")
+                    # เฉพาะ jobs ที่ใน config ไม่ได้ตั้งใจให้เป็น PAUSED ถาวร
+                    if job_name and j.get("state") != "PAUSED":
+                        jobs_to_resume.append(job_name)
+        except Exception as e:
+            logger.error(f"[restore_public_access] Failed to read schedulers.json: {e}")
+
+    if not jobs_to_resume:
+        jobs_to_resume = [
+            "fonmayang-check-rain",
+            "fonmayang-fetch-radar",
+            "fonmayang-sync-burn-rate",
+        ]
+
+    project_id = os.getenv("GCP_PROJECT", os.getenv("GCP_PROJECT_ID", "fonmayang"))
+    region = os.getenv("GCP_LOCATION", "asia-southeast1")
+
+    for job_name in jobs_to_resume:
+        try:
+            cmd_args = ["gcloud", "scheduler", "jobs", "resume", job_name, f"--project={project_id}", f"--location={region}", "--quiet"]
+            res = subprocess.run(cmd_args, capture_output=True, text=True)
+            if res.returncode == 0:
+                logger.info(f"[restore_public_access] ▶️ Resumed Cloud Scheduler job: {job_name}")
+                results[job_name] = "RESUMED"
+            else:
+                logger.warning(f"[restore_public_access] ⚠️ Failed to resume {job_name}: {res.stderr or res.stdout}")
+                results[job_name] = f"EXIT_{res.returncode}"
+        except Exception as e:
+            logger.error(f"[restore_public_access] ❌ Exception resuming {job_name}: {e}")
+            results[job_name] = f"ERROR: {e}"
+
+    return results
+
+
 @cmd_router.bind("/restore_public_access", requires_admin=True, task_route="worker/handle-restore-public-access", loading_text="⏳ กำลังกู้คืนสิทธิ์ Public Access ให้กับ API...")
 async def handle_restore_public_access_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
     try:
@@ -154,9 +201,16 @@ async def handle_restore_public_access_command(chat_id: int, command: str, usern
     except Exception as e:
         logger.error(f"[restore_public_access] Failed to reset emergency_shutdown flag: {e}")
 
+    # Resume Cloud Scheduler jobs
+    try:
+        scheduler_resume_results = _resume_cloud_scheduler_jobs()
+        logger.info(f"[restore_public_access] Cloud Scheduler resume results: {scheduler_resume_results}")
+    except Exception as e:
+        logger.error(f"[restore_public_access] Failed to resume Cloud Scheduler jobs: {e}")
+
     await _run_admin_script(
         "../../scripts/restore_public_access.sh",
-        "✅ กู้คืนสิทธิ์ Public Access ให้กับ fontokmai-api สำเร็จแล้วครับ",
+        "✅ กู้คืนสิทธิ์ Public Access ให้กับ fontokmai-api และสั่ง Resume Cloud Scheduler สำเร็จแล้วครับ",
         chat_id, command, username, message_id_to_edit
     )
 

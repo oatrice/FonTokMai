@@ -100,20 +100,23 @@ def _is_budget_exceeded(budget_data: dict[str, Any]) -> bool:
     return alert_threshold >= 1.0 or ratio >= 1.0
 
 
+def _get_gcp_access_token() -> str:
+    """Get GCP access token using default credentials."""
+    import google.auth
+    from google.auth.transport.requests import Request as GoogleAuthRequest
+
+    credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+    credentials.refresh(GoogleAuthRequest())
+    return credentials.token
+
+
 def _revoke_public_access() -> str:
     """
     สั่งลบสิทธิ์ allUsers บน Cloud Run service (ทำให้เข้าถึงไม่ได้ = ปิด) ผ่าน REST API
     Returns: "REVOKED", "ALREADY_PRIVATE", or "ERROR"
     """
     try:
-        import google.auth
-        from google.auth.transport.requests import Request as GoogleAuthRequest
-
-        # Get default credentials (works seamlessly on Cloud Run)
-        credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
-        credentials.refresh(GoogleAuthRequest())
-        token = credentials.token
-
+        token = _get_gcp_access_token()
         resource = f"projects/{GCP_PROJECT_ID}/locations/{GCP_REGION}/services/{CLOUD_RUN_SERVICE}"
         url_get = f"https://run.googleapis.com/v1/{resource}:getIamPolicy"
         url_set = f"https://run.googleapis.com/v1/{resource}:setIamPolicy"
@@ -156,6 +159,60 @@ def _revoke_public_access() -> str:
     except Exception as e:
         logger.error(f"[BudgetAlert] ❌ Exception during IAM modification: {e}")
         return "ERROR"
+
+
+def _pause_cloud_scheduler_jobs() -> dict[str, str]:
+    """
+    สั่ง Pause Google Cloud Scheduler jobs ทั้งหมดที่ระบบจัดการ เพื่อหยุดการ trigger อัตโนมัติ
+    Returns dict mapping job_name -> status ("PAUSED", "ALREADY_PAUSED", or "ERROR")
+    """
+    results: dict[str, str] = {}
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../config/schedulers.json")
+    job_names = []
+    if os.path.isfile(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                jobs_config = json.load(f)
+                job_names = [j.get("job_name") for j in jobs_config if j.get("job_name")]
+        except Exception as e:
+            logger.error(f"[BudgetAlert] Failed to read schedulers.json: {e}")
+
+    if not job_names:
+        # Fallback default jobs if config file cannot be read
+        job_names = [
+            "fonmayang-check-rain",
+            "fonmayang-fetch-radar",
+            "fonmayang-disasters-freq",
+            "fonmayang-disasters-infreq",
+            "fonmayang-sync-burn-rate",
+        ]
+
+    try:
+        token = _get_gcp_access_token()
+    except Exception as e:
+        logger.error(f"[BudgetAlert] Failed to get GCP access token for Cloud Scheduler: {e}")
+        return {name: f"ERROR: {e}" for name in job_names}
+
+    with httpx.Client(timeout=10) as client:
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        for job_name in job_names:
+            url = f"https://cloudscheduler.googleapis.com/v1/projects/{GCP_PROJECT_ID}/locations/{GCP_REGION}/jobs/{job_name}:pause"
+            try:
+                resp = client.post(url, headers=headers)
+                if resp.status_code == 200:
+                    logger.info(f"[BudgetAlert] ⏸️ Paused Cloud Scheduler job: {job_name}")
+                    results[job_name] = "PAUSED"
+                else:
+                    logger.warning(f"[BudgetAlert] ⚠️ Failed to pause job {job_name} (HTTP {resp.status_code}): {resp.text}")
+                    results[job_name] = f"HTTP_{resp.status_code}"
+            except Exception as e:
+                logger.error(f"[BudgetAlert] ❌ Exception pausing job {job_name}: {e}")
+                results[job_name] = f"ERROR: {e}"
+
+    return results
 
 
 async def _send_telegram_alert(message: str) -> None:
@@ -295,11 +352,18 @@ async def handle_budget_alert(payload: PubSubPushPayload, request: Request):
                 logger.info("[BudgetAlert] Set emergency_shutdown = True in database.")
 
         scale_status = _revoke_public_access()
+        scheduler_pause_results = _pause_cloud_scheduler_jobs()
+        logger.info(f"[BudgetAlert] Cloud Scheduler pause results: {scheduler_pause_results}")
 
         if scale_status == "REVOKED":
+            paused_jobs = [k for k, v in scheduler_pause_results.items() if v == "PAUSED"]
+            sched_note = ""
+            if paused_jobs:
+                sched_note = f"\n⏸️ <b>Cloud Scheduler:</b> ระงับ {len(paused_jobs)} jobs ชั่วคราวแล้ว"
+
             shutdown_msg = (
                 f"🚨 <b>Budget Exceeded — Emergency Shutdown</b>\n\n"
-                f"⚡ สิทธิ์การเข้าถึงแบบ Public (allUsers) ของ <code>{CLOUD_RUN_SERVICE}</code> ถูกระงับแล้ว (ไม่มีการรับ traffic ใหม่)\n\n"
+                f"⚡ สิทธิ์การเข้าถึงแบบ Public (allUsers) ของ <code>{CLOUD_RUN_SERVICE}</code> ถูกระงับแล้ว (ไม่มีการรับ traffic ใหม่){sched_note}\n\n"
                 f"💳 ค่าใช้จ่ายปัจจุบัน: <code>{cost_amount:.2f} {currency}</code>\n"
                 f"🎯 Budget limit: <code>{budget_amount:.2f} {currency}</code>\n\n"
                 f"ℹ️ เพื่อ restore service ให้กลับมาออนไลน์:\n"

@@ -215,4 +215,48 @@ async def test_budget_alert_uses_dev_telegram_bot_token(mock_get_repo_context, m
         assert response.status_code == 200
         assert route.called
 
+@patch("app.routers.budget_webhook._pause_cloud_scheduler_jobs")
+@patch("app.routers.budget_webhook._revoke_public_access")
+@patch("app.routers.budget_webhook._send_telegram_alert", new_callable=AsyncMock)
+def test_budget_alert_shutdown_pauses_schedulers(mock_send_telegram, mock_revoke, mock_pause_schedulers):
+    mock_revoke.return_value = "REVOKED"
+    mock_pause_schedulers.return_value = {"fonmayang-check-rain": "PAUSED"}
+    data = {
+        "budgetDisplayName": "Test Budget",
+        "alertThresholdExceeded": 1.0,
+        "costAmount": 10.0,
+        "budgetAmount": 10.0,
+        "currencyCode": "USD"
+    }
+    payload = create_pubsub_payload(data)
+    response = client.post("/api/v1/internal/budget-alert", json=payload)
+    
+    assert response.status_code == 200
+    assert response.json()["status"] == "shutdown_success"
+    mock_revoke.assert_called_once()
+    mock_pause_schedulers.assert_called_once()
+    mock_send_telegram.assert_called_once()
+
+@patch("app.routers.budget_webhook._get_gcp_access_token")
+def test_pause_cloud_scheduler_jobs_direct(mock_get_token):
+    from app.routers.budget_webhook import _pause_cloud_scheduler_jobs
+    import respx
+    from httpx import Response
+
+    mock_get_token.return_value = "fake-token"
+
+    with respx.mock:
+        # Mock pause calls for all jobs
+        route = respx.post(url__regex=r"https://cloudscheduler\.googleapis\.com/v1/projects/.*/locations/.*/jobs/.*:pause").mock(
+            return_value=Response(200, json={})
+        )
+
+        results = _pause_cloud_scheduler_jobs()
+        assert isinstance(results, dict)
+        assert len(results) > 0
+        for job_name, status in results.items():
+            assert status == "PAUSED"
+
+
+
 
