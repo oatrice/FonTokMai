@@ -62,6 +62,8 @@ htmlcov/
 backend/fonmayang.db
 fonmayang.db
 firebase-debug.log
+backend/logs/
+*.log
 
 # AI Agent Artifacts
 docs/features/

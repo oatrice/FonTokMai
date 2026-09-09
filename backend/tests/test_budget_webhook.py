@@ -67,10 +67,12 @@ def test_budget_alert_warning(mock_send_telegram, mock_get_repo_context):
     mock_send_telegram.assert_called_once()
 
 
+@patch("app.routers.budget_webhook._pause_cloud_scheduler_jobs")
 @patch("app.routers.budget_webhook._revoke_public_access")
 @patch("app.routers.budget_webhook._send_telegram_alert", new_callable=AsyncMock)
-def test_budget_alert_shutdown_success(mock_send_telegram, mock_revoke):
+def test_budget_alert_shutdown_success(mock_send_telegram, mock_revoke, mock_pause_sched):
     mock_revoke.return_value = "REVOKED"
+    mock_pause_sched.return_value = {}
     data = {
         "budgetDisplayName": "Test Budget",
         "alertThresholdExceeded": 1.0,
@@ -86,10 +88,12 @@ def test_budget_alert_shutdown_success(mock_send_telegram, mock_revoke):
     mock_revoke.assert_called_once()
     mock_send_telegram.assert_called_once()
 
+@patch("app.routers.budget_webhook._pause_cloud_scheduler_jobs")
 @patch("app.routers.budget_webhook._revoke_public_access")
 @patch("app.routers.budget_webhook._send_telegram_alert", new_callable=AsyncMock)
-def test_budget_alert_already_private(mock_send_telegram, mock_revoke):
+def test_budget_alert_already_private(mock_send_telegram, mock_revoke, mock_pause_sched):
     mock_revoke.return_value = "ALREADY_PRIVATE"
+    mock_pause_sched.return_value = {}
     data = {
         "budgetDisplayName": "Test Budget",
         "alertThresholdExceeded": 1.0,
@@ -105,10 +109,34 @@ def test_budget_alert_already_private(mock_send_telegram, mock_revoke):
     mock_revoke.assert_called_once()
     mock_send_telegram.assert_not_called()
 
+@patch("app.routers.budget_webhook._pause_cloud_scheduler_jobs")
 @patch("app.routers.budget_webhook._revoke_public_access")
 @patch("app.routers.budget_webhook._send_telegram_alert", new_callable=AsyncMock)
-def test_budget_alert_shutdown_failed(mock_send_telegram, mock_revoke):
+def test_budget_alert_already_private_notifies_if_jobs_newly_paused(mock_send_telegram, mock_revoke, mock_pause_sched):
+    mock_revoke.return_value = "ALREADY_PRIVATE"
+    mock_pause_sched.return_value = {"fonmayang-check-rain": "PAUSED"}
+    data = {
+        "budgetDisplayName": "Test Budget",
+        "alertThresholdExceeded": 1.0,
+        "costAmount": 10.0,
+        "budgetAmount": 10.0,
+        "currencyCode": "USD"
+    }
+    payload = create_pubsub_payload(data)
+    response = client.post("/api/v1/internal/budget-alert", json=payload)
+    
+    assert response.status_code == 200
+    assert response.json()["status"] == "already_private"
+    mock_revoke.assert_called_once()
+    mock_send_telegram.assert_called_once()
+    assert "Cloud Scheduler Suspended" in mock_send_telegram.call_args[0][0]
+
+@patch("app.routers.budget_webhook._pause_cloud_scheduler_jobs")
+@patch("app.routers.budget_webhook._revoke_public_access")
+@patch("app.routers.budget_webhook._send_telegram_alert", new_callable=AsyncMock)
+def test_budget_alert_shutdown_failed(mock_send_telegram, mock_revoke, mock_pause_sched):
     mock_revoke.return_value = "ERROR"
+    mock_pause_sched.return_value = {}
     data = {
         "budgetDisplayName": "Test Budget",
         "alertThresholdExceeded": 1.0,
@@ -214,5 +242,62 @@ async def test_budget_alert_uses_dev_telegram_bot_token(mock_get_repo_context, m
         
         assert response.status_code == 200
         assert route.called
+
+@patch("app.routers.budget_webhook._pause_cloud_scheduler_jobs")
+@patch("app.routers.budget_webhook._revoke_public_access")
+@patch("app.routers.budget_webhook._send_telegram_alert", new_callable=AsyncMock)
+def test_budget_alert_shutdown_pauses_schedulers(mock_send_telegram, mock_revoke, mock_pause_schedulers):
+    mock_revoke.return_value = "REVOKED"
+    mock_pause_schedulers.return_value = {"fonmayang-check-rain": "PAUSED"}
+    data = {
+        "budgetDisplayName": "Test Budget",
+        "alertThresholdExceeded": 1.0,
+        "costAmount": 10.0,
+        "budgetAmount": 10.0,
+        "currencyCode": "USD"
+    }
+    payload = create_pubsub_payload(data)
+    response = client.post("/api/v1/internal/budget-alert", json=payload)
+    
+    assert response.status_code == 200
+    assert response.json()["status"] == "shutdown_success"
+    mock_revoke.assert_called_once()
+    mock_pause_schedulers.assert_called_once()
+    mock_send_telegram.assert_called_once()
+    telegram_text = mock_send_telegram.call_args[0][0]
+    assert "Cloud Scheduler:" in telegram_text
+    assert "fonmayang-check-rain" in telegram_text
+
+@patch("app.routers.budget_webhook._get_gcp_access_token")
+def test_pause_cloud_scheduler_jobs_successfully_pauses_all_configured_jobs(mock_get_token):
+    from app.routers.budget_webhook import _pause_cloud_scheduler_jobs
+    import respx
+    from httpx import Response
+
+    mock_get_token.return_value = "fake-token"
+
+    with respx.mock:
+        route = respx.post(url__regex=r"https://cloudscheduler\.googleapis\.com/v1/projects/.*/locations/.*/jobs/.*:pause").mock(
+            return_value=Response(200, json={})
+        )
+
+        results = _pause_cloud_scheduler_jobs()
+        assert isinstance(results, dict)
+        assert len(results) > 0
+        for job_name, status in results.items():
+            assert status == "PAUSED"
+
+@patch("app.routers.budget_webhook._get_gcp_access_token")
+def test_pause_cloud_scheduler_jobs_handles_token_exception_gracefully(mock_get_token):
+    from app.routers.budget_webhook import _pause_cloud_scheduler_jobs
+    mock_get_token.side_effect = Exception("Auth failed")
+
+    results = _pause_cloud_scheduler_jobs()
+    assert isinstance(results, dict)
+    assert len(results) > 0
+    for job_name, status in results.items():
+        assert "ERROR: Auth failed" in status
+
+
 
 

@@ -164,3 +164,46 @@ async def test_setbudget_command_invalid_args():
                 mock_send.assert_called_with(
                     chat_id, "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณาพิมพ์: /setbudget <จำนวนงบประมาณ (ตัวเลข)>"
                 )
+
+@patch("app.routers.webhook_admin.check_admin_access", new_callable=AsyncMock, return_value=True)
+@pytest.mark.asyncio
+async def test_restore_public_access_command_resumes_schedulers(mock_admin_check):
+    from app.routers.webhook_admin import handle_restore_public_access_command
+    chat_id = 123
+
+    with patch("app.dependencies.get_repo_context") as mock_ctx:
+        mock_repo = AsyncMock()
+        mock_repo.get_system_settings.return_value = {"emergency_shutdown": True}
+        mock_ctx.return_value.__aenter__.return_value = mock_repo
+
+        with patch("app.routers.webhook_admin._run_admin_script", new_callable=AsyncMock) as mock_run_script:
+            with patch("app.routers.webhook_admin._resume_cloud_scheduler_jobs") as mock_resume:
+                mock_resume.return_value = {"fonmayang-check-rain": "RESUMED"}
+                await handle_restore_public_access_command(chat_id, "/restore_public_access")
+
+                mock_repo.set_system_settings.assert_called_once_with({"emergency_shutdown": False})
+                mock_resume.assert_called_once()
+                mock_run_script.assert_called_once()
+
+@patch("app.routers.webhook_admin.get_gcp_access_token")
+def test_resume_cloud_scheduler_jobs_skips_permanently_paused_jobs(mock_get_token):
+    from app.routers.webhook_admin import _resume_cloud_scheduler_jobs
+    import respx
+    from httpx import Response
+
+    mock_get_token.return_value = "fake-token"
+
+    with respx.mock:
+        respx.post(url__regex=r"https://cloudscheduler\.googleapis\.com/v1/projects/.*/locations/.*/jobs/.*:resume").mock(
+            return_value=Response(200, json={})
+        )
+
+        results = _resume_cloud_scheduler_jobs()
+        assert isinstance(results, dict)
+        assert len(results) > 0
+        for job_name, status in results.items():
+            assert status == "RESUMED"
+        # Should not resume jobs configured as PAUSED by default (like fonmayang-disasters-freq)
+        assert "fonmayang-disasters-freq" not in results
+
+

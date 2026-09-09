@@ -20,6 +20,15 @@ if [ -f "$SCRIPT_DIR/cloudrun.env" ]; then
   source "$SCRIPT_DIR/cloudrun.env"
   set +a
 fi
+if [ -n "${CI_COMMIT_BRANCH:-}" ]; then
+  if [ "$CI_COMMIT_BRANCH" == "dev" ]; then
+    export CLOUD_RUN_SERVICE="fontokmai-api-dev"
+  elif [ "$CI_COMMIT_BRANCH" == "staging" ]; then
+    export CLOUD_RUN_SERVICE="fontokmai-api-staging"
+  else
+    export CLOUD_RUN_SERVICE="fontokmai-api"
+  fi
+fi
 
 : "${CLOUD_RUN_SERVICE:=fontokmai-api}"
 : "${CLOUD_RUN_REGION:=asia-southeast1}"

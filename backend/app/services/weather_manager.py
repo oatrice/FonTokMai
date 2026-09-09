@@ -58,6 +58,29 @@ _DEV_CONFIG: dict = {
     "show_backward_trajectory": True,  # Draw historical backward trajectory line
 }
 
+def log_growth_decay_telemetry(
+    target_label: Optional[str],
+    dbz_now: float,
+    dbz_prev: float,
+    growth_rate: float,
+    context: str = "general"
+) -> None:
+    """Logs structured telemetry for cloud cell growth / decay rates."""
+    sign = "+" if growth_rate >= 0 else ""
+    rate_pct = growth_rate * 100.0
+    if rate_pct > 5.0:
+        trend = "intensifying"
+    elif rate_pct < -5.0:
+        trend = "dissipating"
+    else:
+        trend = "steady"
+        
+    lbl_str = target_label or "UNKNOWN"
+    logger.info(
+        f"[GROWTH_DECAY] context={context} target={lbl_str} now={dbz_now:.1f}dBZ prev={dbz_prev:.1f}dBZ "
+        f"rate={sign}{rate_pct:.1f}%/15min trend={trend}"
+    )
+
 
 # ─── Parametric Mock Scenario Helpers ────────────────────────────────────────
 
@@ -1422,6 +1445,15 @@ class WeatherManager:
                     wind_speed = processor.get_wind_speed_kmh_from_vector(clouds[0]["vx"], clouds[0]["vy"])
                     wind_dir = processor.get_wind_direction_text_from_vector(clouds[0]["vx"], clouds[0]["vy"])
                     percent_change = clouds[0]["growth_rate"] * 100.0
+                    # Log telemetry for approaching clouds
+                    for c in clouds:
+                        log_growth_decay_telemetry(
+                            target_label=c.get("label"),
+                            dbz_now=float(c.get("dbz_now", 0.0)),
+                            dbz_prev=float(c.get("dbz_prev", 0.0)),
+                            growth_rate=float(c.get("growth_rate", 0.0)),
+                            context="predict_rain_approaching"
+                        )
                 else:
                     wind_speed = processor.get_wind_speed_kmh(flow, px, py)
                     wind_dir = processor.get_wind_direction_text(flow, px, py)

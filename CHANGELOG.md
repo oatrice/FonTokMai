@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.73.3] - 2026-09-07
+
+### Added
+- **Pause Cloud Scheduler on Budget Exceed (Issue #286)**: Automatically pause all managed Google Cloud Scheduler jobs when GCP budget hits 100% threshold to prevent recurring invocation charges and eliminate 403 error log spam.
+- **Resume Cloud Scheduler on Service Restoration (Issue #286)**: Automatically resume configured active Cloud Scheduler jobs when admin issues `/restore_public_access` command.
+- **Rotating File Logging**: Added `setup_file_logging` configured with Python's `RotatingFileHandler` writing to `logs/backend.log` (10MB max, 5 backups) with automatic directory creation and `SensitiveDataFilter` masking.
+- **Radar Cell Growth/Decay Telemetry**: Added structured logging `[GROWTH_DECAY]` and `[GROWTH_DECAY_CALC]` tracking radar cluster growth/decay rates, trends, and intensity changes over 15-minute intervals.
+
+## [0.73.2] - 2026-08-19
+
+### Fixed
+- **CI/CD Auto-Deploy rule conflict**: Resolved a bug in `.gitlab-ci.yml` where branch pipelines for `dev`, `staging`, and `main` were skipped when a downstream merge request was open, which prevented automated deployments to Cloud Run.
+- **Cloud Run configuration script routing**: Resolved a bug in `apply_cloudrun_config.sh` where it lacked branch-based routing for `CLOUD_RUN_SERVICE`, causing staging pipelines to update the production service configuration instead of staging.
+
 ## [0.73.1] - 2026-08-18
 
 ### Added
