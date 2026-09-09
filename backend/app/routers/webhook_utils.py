@@ -32,6 +32,47 @@ def log_audit_event(event_type: str, chat_id: int, username: str, details: dict)
     }
     logger.info(json.dumps(audit_data, ensure_ascii=False))
 
+def get_gcp_project_id() -> str:
+    """Return unified GCP Project ID with standard fallbacks."""
+    return os.getenv("GCP_PROJECT_ID", os.getenv("GCP_PROJECT", os.getenv("GOOGLE_CLOUD_PROJECT", "fonmayang")))
+
+def get_gcp_region() -> str:
+    """Return GCP region/location with fallback."""
+    return os.getenv("GCP_LOCATION", "asia-southeast1")
+
+def get_gcp_access_token() -> str:
+    """Get GCP access token using default credentials."""
+    import google.auth
+    from google.auth.transport.requests import Request as GoogleAuthRequest
+
+    credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+    credentials.refresh(GoogleAuthRequest())
+    return credentials.token
+
+DEFAULT_SCHEDULER_JOBS = [
+    {"job_name": "fonmayang-check-rain", "state": "ENABLED"},
+    {"job_name": "fonmayang-fetch-radar", "state": "ENABLED"},
+    {"job_name": "fonmayang-disasters-freq", "state": "PAUSED"},
+    {"job_name": "fonmayang-disasters-infreq", "state": "PAUSED"},
+    {"job_name": "fonmayang-sync-burn-rate", "state": "ENABLED"},
+]
+
+def load_scheduler_jobs_config() -> list[dict]:
+    """
+    Load Cloud Scheduler configuration from backend/config/schedulers.json
+    Fallback to DEFAULT_SCHEDULER_JOBS if missing or corrupted.
+    """
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../config/schedulers.json")
+    if os.path.isfile(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                jobs_config = json.load(f)
+                if isinstance(jobs_config, list) and jobs_config:
+                    return jobs_config
+        except Exception as e:
+            logger.error(f"Failed to read schedulers.json: {e}")
+    return list(DEFAULT_SCHEDULER_JOBS)
+
 async def check_admin_access(chat_id: int) -> bool:
     is_prod = os.getenv("ENVIRONMENT", "production").lower() != "development"
 

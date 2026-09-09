@@ -18,12 +18,23 @@ echo "=================================================="
 echo "🔒 Disabling Public Access to $SERVICE_NAME"
 echo "=================================================="
 
-gcloud run services remove-iam-policy-binding "$SERVICE_NAME" \
+# Attempt to remove IAM policy binding
+IAM_OUTPUT=$(gcloud run services remove-iam-policy-binding "$SERVICE_NAME" \
   --project="$PROJECT_ID" \
   --region="$REGION" \
   --member="allUsers" \
   --role="roles/run.invoker" \
-  --quiet
+  --quiet 2>&1) || IAM_EXIT_CODE=$?
+
+if [ "${IAM_EXIT_CODE:-0}" -ne 0 ]; then
+  if echo "$IAM_OUTPUT" | grep -q -i -E "(not found|does not exist)"; then
+    echo "ℹ️ Public access is already disabled (IAM policy binding was not present)."
+  else
+    echo "❌ Error removing IAM policy binding:" >&2
+    echo "$IAM_OUTPUT" >&2
+    exit "${IAM_EXIT_CODE}"
+  fi
+fi
 
 echo "✅ Public access disabled successfully."
 

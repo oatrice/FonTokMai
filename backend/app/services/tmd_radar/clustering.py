@@ -444,6 +444,11 @@ class TMDClusteringMixin:
             eta_min  = (dist_c / dot_c) * 15.0
 
             growth_rate   = (dbz_now - dbz_prev) / dbz_prev if dbz_prev > 0 else 0.0
+            sign = "+" if growth_rate >= 0 else ""
+            logger.info(
+                f"[GROWTH_DECAY_CALC] Cloud cluster at ({cx}, {cy}): now={dbz_now:.1f}dBZ, prev={dbz_prev:.1f}dBZ, "
+                f"rate={sign}{growth_rate * 100:.1f}%/15min"
+            )
             
             # Predict future intensity only if incoming, otherwise use current
             eta_steps = max(0.0, eta_min / 15.0)
