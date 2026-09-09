@@ -165,8 +165,9 @@ async def test_setbudget_command_invalid_args():
                     chat_id, "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณาพิมพ์: /setbudget <จำนวนงบประมาณ (ตัวเลข)>"
                 )
 
+@patch("app.routers.webhook_admin.check_admin_access", new_callable=AsyncMock, return_value=True)
 @pytest.mark.asyncio
-async def test_restore_public_access_command_resumes_schedulers():
+async def test_restore_public_access_command_resumes_schedulers(mock_admin_check):
     from app.routers.webhook_admin import handle_restore_public_access_command
     chat_id = 123
 
@@ -184,16 +185,18 @@ async def test_restore_public_access_command_resumes_schedulers():
                 mock_resume.assert_called_once()
                 mock_run_script.assert_called_once()
 
-def test_resume_cloud_scheduler_jobs_direct():
+@patch("app.routers.webhook_admin.get_gcp_access_token")
+def test_resume_cloud_scheduler_jobs_skips_permanently_paused_jobs(mock_get_token):
     from app.routers.webhook_admin import _resume_cloud_scheduler_jobs
-    import subprocess
-    from unittest.mock import MagicMock
+    import respx
+    from httpx import Response
 
-    with patch("subprocess.run") as mock_subprocess_run:
-        mock_res = MagicMock()
-        mock_res.returncode = 0
-        mock_res.stdout = "resumed"
-        mock_subprocess_run.return_value = mock_res
+    mock_get_token.return_value = "fake-token"
+
+    with respx.mock:
+        respx.post(url__regex=r"https://cloudscheduler\.googleapis\.com/v1/projects/.*/locations/.*/jobs/.*:resume").mock(
+            return_value=Response(200, json={})
+        )
 
         results = _resume_cloud_scheduler_jobs()
         assert isinstance(results, dict)

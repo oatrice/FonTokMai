@@ -1,9 +1,11 @@
 import os
 import json
 import subprocess
+import httpx
 from app.services.command_router import router as cmd_router
 from .webhook_utils import (
-    _reply, log_audit_event, check_admin_access, get_repo_context, logger
+    _reply, log_audit_event, check_admin_access, get_repo_context, logger,
+    get_gcp_project_id, get_gcp_region, get_gcp_access_token, load_scheduler_jobs_config
 )
 from app.services import telegram
 from datetime import datetime, timezone
@@ -120,9 +122,6 @@ async def handle_bypass_login_command(chat_id: int, command: str, username: str 
 
 
 async def _run_admin_script(script_relative_path: str, success_msg: str, chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
-    import subprocess
-    import os
-    
     if str(chat_id) not in telegram.DEVELOPER_CHAT_IDS:
         log_audit_event("admin_command_executed", chat_id, username, {"command": command})
 
@@ -132,8 +131,11 @@ async def _run_admin_script(script_relative_path: str, success_msg: str, chat_id
         if result.returncode == 0:
             msg = success_msg
         else:
-            msg = f"❌ เกิดข้อผิดพลาดในการรันสคริปต์ (Exit code: {result.returncode})\nError: {result.stderr or result.stdout}"
+            raw_err = (result.stderr or result.stdout or "").strip()
+            clean_err = raw_err[:200] + ("..." if len(raw_err) > 200 else "")
+            msg = f"❌ เกิดข้อผิดพลาดในการรันสคริปต์ (Exit code: {result.returncode})\nError: {clean_err}\n(กรุณาดูรายละเอียดใน server logs)"
     except Exception as e:
+        logger.error(f"_run_admin_script error: {e}")
         msg = f"❌ เกิดข้อผิดพลาดในระบบ: {e}"
 
     await _reply(chat_id, msg, message_id_to_edit)
@@ -141,55 +143,54 @@ async def _run_admin_script(script_relative_path: str, success_msg: str, chat_id
 
 def _resume_cloud_scheduler_jobs() -> dict[str, str]:
     """
-    สั่ง Resume Google Cloud Scheduler jobs ทั้งหมดที่ระบบกำหนดไว้ให้เป็น ACTIVE (ข้ามตัวที่มี state: PAUSED ใน config)
+    สั่ง Resume Google Cloud Scheduler jobs ทั้งหมดที่ระบบกำหนดไว้ให้เป็น ACTIVE
+    ผ่าน Cloud Scheduler REST API (ข้ามตัวที่มี state: PAUSED ใน config)
     Returns dict mapping job_name -> status ("RESUMED" or error message)
     """
     results: dict[str, str] = {}
-    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../config/schedulers.json")
-    jobs_to_resume = []
-    if os.path.isfile(config_path):
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                jobs_config = json.load(f)
-                for j in jobs_config:
-                    job_name = j.get("job_name")
-                    # เฉพาะ jobs ที่ใน config ไม่ได้ตั้งใจให้เป็น PAUSED ถาวร
-                    if job_name and j.get("state") != "PAUSED":
-                        jobs_to_resume.append(job_name)
-        except Exception as e:
-            logger.error(f"[restore_public_access] Failed to read schedulers.json: {e}")
+    jobs_config = load_scheduler_jobs_config()
+    jobs_to_resume = [
+        j.get("job_name") for j in jobs_config
+        if j.get("job_name") and j.get("state") != "PAUSED"
+    ]
 
-    if not jobs_to_resume:
-        jobs_to_resume = [
-            "fonmayang-check-rain",
-            "fonmayang-fetch-radar",
-            "fonmayang-sync-burn-rate",
-        ]
+    project_id = get_gcp_project_id()
+    region = get_gcp_region()
 
-    project_id = os.getenv("GCP_PROJECT", os.getenv("GCP_PROJECT_ID", "fonmayang"))
-    region = os.getenv("GCP_LOCATION", "asia-southeast1")
+    try:
+        token = get_gcp_access_token()
+    except Exception as e:
+        logger.error(f"[restore_public_access] Failed to get GCP access token: {e}")
+        return {name: f"ERROR: {e}" for name in jobs_to_resume}
 
-    for job_name in jobs_to_resume:
-        try:
-            cmd_args = ["gcloud", "scheduler", "jobs", "resume", job_name, f"--project={project_id}", f"--location={region}", "--quiet"]
-            res = subprocess.run(cmd_args, capture_output=True, text=True)
-            if res.returncode == 0:
-                logger.info(f"[restore_public_access] ▶️ Resumed Cloud Scheduler job: {job_name}")
-                results[job_name] = "RESUMED"
-            else:
-                logger.warning(f"[restore_public_access] ⚠️ Failed to resume {job_name}: {res.stderr or res.stdout}")
-                results[job_name] = f"EXIT_{res.returncode}"
-        except Exception as e:
-            logger.error(f"[restore_public_access] ❌ Exception resuming {job_name}: {e}")
-            results[job_name] = f"ERROR: {e}"
+    with httpx.Client(timeout=10) as client:
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        for job_name in jobs_to_resume:
+            url = f"https://cloudscheduler.googleapis.com/v1/projects/{project_id}/locations/{region}/jobs/{job_name}:resume"
+            try:
+                resp = client.post(url, headers=headers)
+                if resp.status_code == 200:
+                    logger.info(f"[restore_public_access] ▶️ Resumed Cloud Scheduler job: {job_name}")
+                    results[job_name] = "RESUMED"
+                else:
+                    logger.warning(f"[restore_public_access] ⚠️ Failed to resume {job_name} (HTTP {resp.status_code}): {resp.text}")
+                    results[job_name] = f"HTTP_{resp.status_code}"
+            except Exception as e:
+                logger.error(f"[restore_public_access] ❌ Exception resuming {job_name}: {e}")
+                results[job_name] = f"ERROR: {e}"
 
     return results
 
 
 @cmd_router.bind("/restore_public_access", requires_admin=True, task_route="worker/handle-restore-public-access", loading_text="⏳ กำลังกู้คืนสิทธิ์ Public Access ให้กับ API...")
 async def handle_restore_public_access_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
+    if not await check_admin_access(chat_id):
+        return
+
     try:
-        from app.dependencies import get_repo_context
         async with get_repo_context() as repo:
             settings = await repo.get_system_settings()
             if not settings:
@@ -217,6 +218,9 @@ async def handle_restore_public_access_command(chat_id: int, command: str, usern
 
 @cmd_router.bind("/disable_public_access", requires_admin=True, task_route="worker/handle-disable-public-access", loading_text="⏳ กำลังยกเลิกสิทธิ์ Public Access (โหมด Private)...")
 async def handle_disable_public_access_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
+    if not await check_admin_access(chat_id):
+        return
+
     await _run_admin_script(
         "../../scripts/disable_public_access.sh",
         "✅ ยกเลิกสิทธิ์ Public Access (โหมด Private) เรียบร้อยแล้วครับ",
@@ -226,6 +230,9 @@ async def handle_disable_public_access_command(chat_id: int, command: str, usern
 
 @cmd_router.bind("/job", requires_admin=True, audit_log=True, task_route="worker/handle-job", loading_text="⏳ กำลังจัดการสถานะ Scheduler Job...")
 async def handle_job_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
+    if not await check_admin_access(chat_id):
+        return
+
     parts = command.strip().split()
     if len(parts) < 3:
         msg = "❌ รูปแบบการใช้งานไม่ถูกต้อง กรุณาใช้:\n`/job <pause|resume> <check-rain|fetch-radar|disasters-freq|disasters-infreq>`"
@@ -253,19 +260,21 @@ async def handle_job_command(chat_id: int, command: str, username: str = "", mes
         await _reply(chat_id, msg, message_id_to_edit)
         return
 
-    import os
-    project_id = os.getenv("GCP_PROJECT_ID", "fonmayang")
-    region = os.getenv("GCP_LOCATION", "asia-southeast1")
+    project_id = get_gcp_project_id()
+    region = get_gcp_region()
 
     try:
-        cmd_args = ["gcloud", "scheduler", "jobs", action, job_name, f"--project={project_id}", f"--location={region}", "--quiet"]
-        result = subprocess.run(cmd_args, capture_output=True, text=True)
-        if result.returncode == 0:
-            status_emoji = "⏸️" if action == "pause" else "▶️"
-            msg = f"{status_emoji} จัดการสถานะ Job {job_name} เป็น {action.upper()} สำเร็จแล้วครับ"
-        else:
-            msg = f"❌ เกิดข้อผิดพลาดจาก gcloud API (Exit code: {result.returncode})\nError: {result.stderr or result.stdout}"
+        token = get_gcp_access_token()
+        url = f"https://cloudscheduler.googleapis.com/v1/projects/{project_id}/locations/{region}/jobs/{job_name}:{action}"
+        with httpx.Client(timeout=10) as client:
+            resp = client.post(url, headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+            if resp.status_code == 200:
+                status_emoji = "⏸️" if action == "pause" else "▶️"
+                msg = f"{status_emoji} จัดการสถานะ Job {job_name} เป็น {action.upper()} สำเร็จแล้วครับ"
+            else:
+                msg = f"❌ เกิดข้อผิดพลาดจาก Cloud Scheduler API (HTTP {resp.status_code})\nError: {resp.text[:200]}"
     except Exception as e:
+        logger.error(f"handle_job_command error: {e}")
         msg = f"❌ เกิดข้อผิดพลาดในการรันคำสั่ง: {e}"
 
     await _reply(chat_id, msg, message_id_to_edit)
@@ -273,8 +282,11 @@ async def handle_job_command(chat_id: int, command: str, username: str = "", mes
 
 @cmd_router.bind("/status", requires_admin=True, audit_log=True, task_route="worker/handle-status", loading_text="⏳ กำลังดึงข้อมูลสถานะระบบและ GCP...")
 async def handle_status_command(chat_id: int, command: str, username: str = "", message_id_to_edit: int = None):
-    project_id = os.getenv("GCP_PROJECT_ID", "fonmayang")
-    region = os.getenv("GCP_LOCATION", "asia-southeast1")
+    if not await check_admin_access(chat_id):
+        return
+
+    project_id = get_gcp_project_id()
+    region = get_gcp_region()
 
     # 1. Check Cloud Run Public Access
     run_access_str = "❓ Unknown"
@@ -303,23 +315,26 @@ async def handle_status_command(chat_id: int, command: str, username: str = "", 
     except Exception as e:
         budget_str = f"❓ Exception: {e}"
 
-    # 3. Check Cloud Scheduler Jobs
+    # 3. Check Cloud Scheduler Jobs via REST API
     jobs_str = ""
     try:
-        cmd_args = ["gcloud", "scheduler", "jobs", "list", f"--project={project_id}", f"--location={region}", "--format=json"]
-        result = subprocess.run(cmd_args, capture_output=True, text=True)
-        if result.returncode == 0:
-            jobs_data = json.loads(result.stdout)
-            job_states = []
-            for job in jobs_data:
-                name = job.get("name", "").split("/")[-1]
-                state = job.get("state", "UNKNOWN")
-                state_emoji = "🟢 ACTIVE" if state == "ENABLED" else "⏸️ PAUSED" if state == "PAUSED" else f"❓ {state}"
-                job_states.append(f"• <code>{name}</code>: {state_emoji}")
-            jobs_str = "\n".join(job_states)
-        else:
-            jobs_str = f"❌ ไม่สามารถดึงข้อมูล Jobs ได้: {result.stderr or result.stdout}"
+        token = get_gcp_access_token()
+        url = f"https://cloudscheduler.googleapis.com/v1/projects/{project_id}/locations/{region}/jobs"
+        with httpx.Client(timeout=10) as client:
+            resp = client.get(url, headers={"Authorization": f"Bearer {token}"})
+            if resp.status_code == 200:
+                jobs_data = resp.json().get("jobs", [])
+                job_states = []
+                for job in jobs_data:
+                    name = job.get("name", "").split("/")[-1]
+                    state = job.get("state", "UNKNOWN")
+                    state_emoji = "🟢 ACTIVE" if state == "ENABLED" else "⏸️ PAUSED" if state == "PAUSED" else f"❓ {state}"
+                    job_states.append(f"• <code>{name}</code>: {state_emoji}")
+                jobs_str = "\n".join(job_states)
+            else:
+                jobs_str = f"⚠️ ไม่สามารถดึงข้อมูล Jobs ได้ (HTTP {resp.status_code})"
     except Exception as e:
+        logger.error(f"Failed to fetch Cloud Scheduler jobs via API: {e}")
         jobs_str = f"❌ Exception: {e}"
 
     msg = (

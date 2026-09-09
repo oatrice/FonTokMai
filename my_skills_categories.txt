@@ -168,15 +168,21 @@
 #Agent Skill for start new session
 
 #Handoff
+/grill-with-docs
+/wayfinder
 /senior-architect
 /architect-review
 /c4-container
 /domain-driven-design
 /writing-plans
 /jobs-to-be-done-analyst
+/create-issue-gate + /dos-verify-done-claims
+/git-pr-review + /pr-writer + /create-pr
+
+*ใช้ model: claude
 
 #Implement
-#ลอง Grill ก่อน implement ด้วย
+/grill-with-docs #ลอง Grill ก่อน implement ด้วย
 /senior-architect
 /architect-review
 /c4-container
@@ -195,6 +201,10 @@
 /agent-squad
 /subagent-driven-development
 /subagent-orchestrator
+
+*ใช้ model: gemini
+
+เริ่ม implement ด้วย Agent Skills ทั้งหมดนี้ได้เลย จะทำ worktree เพื่อ parallel ด้วย sub-agent ด้วยก็ได้
 ---
 
 #code review
@@ -217,6 +227,22 @@
 /architect-review
 /react-component-performance
 /ui-review
+
+/ui-a11y
+/ux-audit
+/ui-lint
+
+/test-guard
+/webapp-testing
+/api-endpoint-verification
+
+/privacy-by-design
+/sast-configuration
+
+*ใช้ model: claude
+
+ใช้ Agent Skills เหล่านี้ให้หมด เพื่อทำการ code review ในทุกวิธี ทุกมิติ
+ตั้งแต่ dev/staging/main branch to head commit
 ---
 
 # testing & cicd
@@ -237,9 +263,31 @@
 /create-manual-verification
 /epic-branch-workflow
 
+/k6-load-testing
+/performance-profiling
+/sql-injection-testing
+/xss-html-injection
+/idor-testing
+/api-fuzzing-bug-bounty
+/screen-reader-testing
+/wcag-audit-patterns
+/android_ui_verification
+/appium-skill
+/cypress-skill
+/webdriverio-skill
+/puppeteer-skill
+/pypict-skill
+
+ใช้ Agent Skills เหล่านี้ให้หมด เพื่อทำการทดสอบในทุกวิธี ทุกมิติ
+create/update/remove(deprecated, unused) test files ด้วย
+
+มี Agent Skills ไหนบ้างที่ยังไม่ได้ใช้ตอนทำ code review, รวมถึงตอนที่ทำการทดสอบ
+ตั้งแต่ dev/staging/main branch to head commit
 ---
 
 Before create MR
+/create-issue-gate + /dos-verify-done-claims
+/git-pr-review + /pr-writer + /create-pr
 /pr-merge-champion
 /smart-git-automation
 /subtask-branch-integrator
@@ -247,8 +295,13 @@ Before create MR
 /gitlab-ci-patterns
 /doc-version-updater
 
-สร้าง MR to dev branch ได้เลย
+[git-pr-review](slashCommand;git-pr-review) 
+เช็ค commit ตั้งแต่ staging to head ว่ามีการ์ด issues อะไรที่เกี่ยวข้องบ้าง ถ้ายังไม่มีก็สร้างใหม่ได้เลย แล้วแนบเข้าไปใน PR ด้วย
+
+ใช้ Agent Skills เหล่านี้ให้หมด เพื่อจัดการ docs ที่สำคัญ ก่อนการ update PR/MR ที่มีอยู่แล้ว หรือถ้ายังไม่มีก็สร้างใหม่ได้เลย
+สร้าง MR to staging/main branch ได้เลย
 รวมถึงการ update เอกสารต่างๆด้วย
+
 changelog ถ้า version ยิบย่อยหลายๆอันใน MR นี้ต้อง merge รวมให้เป็น version เดียว
 
 ===
@@ -289,3 +342,60 @@ changelog ถ้า version ยิบย่อยหลายๆอันใน 
 /expo-cicd-workflows
 /vercel-deployment
 /circleci-automation
+/git-workflow-and-versioning
+
+---
+
+Searched for "git diff"
+Searched for "issue-gate"
+Viewed SKILL.md:1-100
+Searched for "pre-ship-gate"
+Viewed SKILL.md:1-130
+Viewed SKILL.md:1-186
+
+สำหรับคำถามเรื่อง **Agent Skills ที่คอยตรวจสอบว่าการเปลี่ยนแปลงในโค้ด (Git Diff จาก `main` ถึง `HEAD`) มี Issue/Task cards รองรับครบถ้วนก่อนเปิด PRs/MRs หรือไม่** รวมถึงจังหวะเวลาที่เหมาะสมในการใช้งาน มีรายละเอียดดังนี้ครับ:
+
+---
+
+### 1. Skills / กฎที่เกี่ยวข้องและรูปแบบการทำงาน
+
+ใน ecosystem ของ Agent Skills มีชุดเครื่องมือและแนวคิดด้าน **Quality Gates & Issue Tracking Verification** ที่สอดคล้องกับ Requirement นี้โดยตรง:
+
+1. **`create-issue-gate` + `dos-verify-done-claims` (ชุดตรวจสอบ Ground Truth)**
+   - **`create-issue-gate`**: บังคับให้งานทุกชิ้นต้องมี Issue card ที่มี Scope, Acceptance Criteria ชัดเจน ก่อนเริ่มลงมือทำ
+   - **`dos-verify-done-claims`**: ใช้ตรวจสอบ **Git Diff (`git diff main..HEAD`) และ Commit History จริง** (Ground Truth) ย้อนกลับไปเทียบกับ Claim/Issue ว่าสิ่งที่ commit หรือเปลี่ยนแปลงไปนั้น มีการ์ดหรือ Phase รองรับครบทุกจุด ไม่ได้แก้โค้ดหลุด Scope หรือมีงานที่ยังไม่มีการ์ด
+2. **`git-pr-review` / `pr-writer` / `create-pr`**
+   - ทำหน้าที่ scan diff ทั้งหมด (`git diff $(git merge-base main HEAD)..HEAD`) สรุปการเปลี่ยนแปลง และ cross-check ว่าแต่ละ change item แมปกับ Issue Number/Card ใน GitLab/GitHub ครบถ้วนหรือไม่ก่อนกดสร้าง PR/MR
+3. **`Issue Planning Rule` (User Global Rule ใน Workspace ของคุณ)**
+   - สอดรับกับ workflow ที่บังคับให้ใช้ `glab issue view` / `gh issue view` ดึง issue specification มาเทียบกับ implementation ก่อนส่งมอบงาน
+
+---
+
+### 2. ตัวอย่าง Workflow ที่ Agent ใช้ Cross-check จริง
+
+เมื่อสั่ง Agent ให้ทำ pre-PR check Agent จะรันกระบวนการดังนี้:
+
+```mermaid
+flowchart TD
+    A["1. Inspect Git Diff<br/>(git diff main..HEAD)"] --> B["2. Extract Changed Modules & Features"]
+    B --> C["3. Query Issue Tracker<br/>(glab issue list / gh issue list)"]
+    C --> D{"ทุก Change มี Issue รองรับ<br/>และ AC ครบไหม?"}
+    D -- "ครบถ้วน" --> E["สร้าง PR/MR พร้อม link Issue IDs"]
+    D -- "มี Change ที่ไม่มี Issue" --> F["แจ้งเตือน / สร้าง Issue ย่อยเพิ่มเติม<br/>(create-issue-gate)"]
+```
+
+---
+
+### 3. ควรใช้ Skills / Workflow นี้ตอนไหน?
+
+| จังหวะเวลา | กิจกรรมที่ทำ | ประโยชน์ |
+| :--- | :--- | :--- |
+| **1. Pre-PR / Pre-MR Phase** *(สำคัญที่สุด)* | ก่อนจะรันคำสั่ง `glab mr create` หรือ `gh pr create` ให้ Agent ตรวจสอบ `git diff main...HEAD` เทียบกับ Issue ที่เปิดไว้ | ป้องกัน **Scope Creep**, การลืมผูก Issue card, หรือมีโค้ดส่วนเกินที่ไม่ได้ผ่านการวางแผนและประเมิน Acceptance Criteria |
+| **2. Post-Implementation Gate** | หลังจาก implement เสร็จและรัน Test ผ่านหมดแล้ว (Green phase) ก่อนจะ push branch ขึ้น remote | ยืนยันว่าผลงานตรงกับ Acceptance Criteria ใน Issue card แบบ 1:1 |
+| **3. Release / Staging Promotion Gate** | ก่อนตัด release branch หรือ merge เข้า `main` / `production` | มั่นใจได้ว่า Release Notes และ Changelog จะสมบูรณ์แบบ เพราะทุก diff มี issue traceability ครบ 100% |
+
+---
+
+> 💡 **Tip ในการสั่งการ Agent:**
+> คุณสามารถพิมพ์สั่งได้ทันที เช่น:
+> *"ก่อนเปิด MR ให้ช่วย cross-check `git diff main..HEAD` กับ GitLab issues ดูว่ามีชิ้นงานไหนยังไม่มี Issue card หรือหลุด scope หรือไม่ ถ้ามีให้ลิสต์ออกมาหรือสร้าง issue ให้ครบก่อน"*

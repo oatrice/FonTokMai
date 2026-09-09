@@ -22,7 +22,7 @@ Run all targeted unit and integration tests:
 pytest backend/tests/test_budget_webhook.py backend/tests/test_developer_commands.py
 ```
 **Expected Result:**
-All 16 tests pass without errors.
+All 18 tests pass without errors.
 
 Verify environment sync check:
 ```bash

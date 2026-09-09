@@ -11,7 +11,6 @@ import base64
 import json
 import logging
 import os
-import subprocess
 from typing import Any
 
 import httpx
@@ -20,6 +19,12 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
 from app.dependencies import get_repo_context
+from .webhook_utils import (
+    get_gcp_project_id,
+    get_gcp_region,
+    get_gcp_access_token,
+    load_scheduler_jobs_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +53,8 @@ class PubSubPushPayload(BaseModel):
 # Config
 # ─────────────────────────────────────────────────────
 
-GCP_PROJECT_ID = os.getenv("GCP_PROJECT", os.getenv("GOOGLE_CLOUD_PROJECT", "fonmayang"))
-GCP_REGION = os.getenv("GCP_LOCATION", "asia-southeast1")
+GCP_PROJECT_ID = get_gcp_project_id()
+GCP_REGION = get_gcp_region()
 CLOUD_RUN_SERVICE = os.getenv("CLOUD_RUN_SERVICE_NAME", "fontokmai-api")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 DEVELOPER_CHAT_IDS = os.getenv("DEVELOPER_CHAT_IDS", "")
@@ -102,12 +107,7 @@ def _is_budget_exceeded(budget_data: dict[str, Any]) -> bool:
 
 def _get_gcp_access_token() -> str:
     """Get GCP access token using default credentials."""
-    import google.auth
-    from google.auth.transport.requests import Request as GoogleAuthRequest
-
-    credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
-    credentials.refresh(GoogleAuthRequest())
-    return credentials.token
+    return get_gcp_access_token()
 
 
 def _revoke_public_access() -> str:
@@ -164,28 +164,11 @@ def _revoke_public_access() -> str:
 def _pause_cloud_scheduler_jobs() -> dict[str, str]:
     """
     สั่ง Pause Google Cloud Scheduler jobs ทั้งหมดที่ระบบจัดการ เพื่อหยุดการ trigger อัตโนมัติ
-    Returns dict mapping job_name -> status ("PAUSED", "ALREADY_PAUSED", or "ERROR")
+    Returns dict mapping job_name -> status ("PAUSED", "HTTP_{code}", or "ERROR: {msg}")
     """
     results: dict[str, str] = {}
-    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../config/schedulers.json")
-    job_names = []
-    if os.path.isfile(config_path):
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                jobs_config = json.load(f)
-                job_names = [j.get("job_name") for j in jobs_config if j.get("job_name")]
-        except Exception as e:
-            logger.error(f"[BudgetAlert] Failed to read schedulers.json: {e}")
-
-    if not job_names:
-        # Fallback default jobs if config file cannot be read
-        job_names = [
-            "fonmayang-check-rain",
-            "fonmayang-fetch-radar",
-            "fonmayang-disasters-freq",
-            "fonmayang-disasters-infreq",
-            "fonmayang-sync-burn-rate",
-        ]
+    jobs_config = load_scheduler_jobs_config()
+    job_names = [j.get("job_name") for j in jobs_config if j.get("job_name")]
 
     try:
         token = _get_gcp_access_token()
@@ -342,48 +325,60 @@ async def handle_budget_alert(payload: PubSubPushPayload, request: Request):
     if _is_budget_exceeded(budget_data):
         logger.warning("[BudgetAlert] 🚨 Budget 100% exceeded! Initiating Cloud Run shutdown...")
 
-        async with get_repo_context() as repo:
-            settings = await repo.get_system_settings()
-            if not settings:
-                settings = {}
-            if not settings.get("emergency_shutdown"):
-                settings["emergency_shutdown"] = True
-                await repo.set_system_settings(settings)
-                logger.info("[BudgetAlert] Set emergency_shutdown = True in database.")
-
         scale_status = _revoke_public_access()
         scheduler_pause_results = _pause_cloud_scheduler_jobs()
         logger.info(f"[BudgetAlert] Cloud Scheduler pause results: {scheduler_pause_results}")
 
-        if scale_status == "REVOKED":
-            paused_jobs = [k for k, v in scheduler_pause_results.items() if v == "PAUSED"]
-            sched_note = ""
-            if paused_jobs:
-                sched_note = f"\n⏸️ <b>Cloud Scheduler:</b> ระงับ {len(paused_jobs)} jobs ชั่วคราวแล้ว"
+        # Set emergency_shutdown in DB only if revocation succeeded or was already private
+        if scale_status in ("REVOKED", "ALREADY_PRIVATE"):
+            async with get_repo_context() as repo:
+                settings = await repo.get_system_settings()
+                if not settings:
+                    settings = {}
+                if not settings.get("emergency_shutdown"):
+                    settings["emergency_shutdown"] = True
+                    await repo.set_system_settings(settings)
+                    logger.info("[BudgetAlert] Set emergency_shutdown = True in database.")
 
+        paused_jobs = [k for k, v in scheduler_pause_results.items() if v == "PAUSED"]
+        failed_pause_jobs = [k for k, v in scheduler_pause_results.items() if v != "PAUSED"]
+
+        sched_note = ""
+        if paused_jobs:
+            sched_note = f"\n⏸️ <b>Cloud Scheduler:</b> ระงับ {len(paused_jobs)} jobs ชั่วคราวแล้ว ({', '.join(paused_jobs)})"
+        if failed_pause_jobs:
+            sched_note += f"\n⚠️ <b>Cloud Scheduler Pause Failed:</b> {', '.join(failed_pause_jobs)}"
+
+        if scale_status == "REVOKED":
             shutdown_msg = (
                 f"🚨 <b>Budget Exceeded — Emergency Shutdown</b>\n\n"
                 f"⚡ สิทธิ์การเข้าถึงแบบ Public (allUsers) ของ <code>{CLOUD_RUN_SERVICE}</code> ถูกระงับแล้ว (ไม่มีการรับ traffic ใหม่){sched_note}\n\n"
                 f"💳 ค่าใช้จ่ายปัจจุบัน: <code>{cost_amount:.2f} {currency}</code>\n"
                 f"🎯 Budget limit: <code>{budget_amount:.2f} {currency}</code>\n\n"
-                f"ℹ️ เพื่อ restore service ให้กลับมาออนไลน์:\n"
-                f"<code>gcloud run services add-iam-policy-binding {CLOUD_RUN_SERVICE} --region={GCP_REGION} --member=\"allUsers\" --role=\"roles/run.invoker\"</code>"
+                f"ℹ️ เพื่อ restore service ให้กลับมาออนไลน์: พิมพ์ <code>/restore_public_access</code> ใน Telegram Bot"
             )
             await _send_telegram_alert(shutdown_msg)
             return {"status": "shutdown_success", "cost": cost_amount, "budget": budget_amount}
             
         elif scale_status == "ALREADY_PRIVATE":
-            # Deduplicate alert: if it's already private, we don't spam Telegram again
-            logger.info("[BudgetAlert] Muting duplicate Telegram alert because service is already private.")
+            # If schedulers were newly paused, notify developers so they are aware
+            if paused_jobs:
+                note_msg = (
+                    f"⏸️ <b>Cloud Scheduler Suspended</b>\n\n"
+                    f"Cloud Run อยู่ในโหมด Private อยู่แล้ว แต่ระบบได้ระงับ {len(paused_jobs)} Cloud Scheduler jobs เพื่อป้องกันค่าใช้จ่ายเพิ่มเติม{sched_note}\n\n"
+                    f"ℹ️ เพื่อคืนสถานะ: พิมพ์ <code>/restore_public_access</code> ใน Telegram Bot"
+                )
+                await _send_telegram_alert(note_msg)
+            else:
+                logger.info("[BudgetAlert] Muting duplicate Telegram alert because service is already private.")
             return {"status": "already_private", "cost": cost_amount, "budget": budget_amount}
 
         else:
             shutdown_msg = (
                 f"🔴 <b>Budget Exceeded — Shutdown FAILED</b>\n\n"
-                f"❌ ไม่สามารถระงับการเข้าถึง Cloud Run ได้ กรุณาตรวจสอบด่วน!\n\n"
+                f"❌ ไม่สามารถระงับการเข้าถึง Cloud Run ได้ กรุณาตรวจสอบด่วน!{sched_note}\n\n"
                 f"💳 ค่าใช้จ่าย: <code>{cost_amount:.2f} {currency}</code> / <code>{budget_amount:.2f} {currency}</code>\n"
-                f"🛠️ กรุณาระงับ manually:\n"
-                f"<code>gcloud run services remove-iam-policy-binding {CLOUD_RUN_SERVICE} --region={GCP_REGION} --member=\"allUsers\" --role=\"roles/run.invoker\"</code>"
+                f"🛠️ กรุณาตรวจสอบสิทธิ์ IAM หรือสั่งระงับผ่าน gcloud CLI"
             )
             await _send_telegram_alert(shutdown_msg)
             return {"status": "shutdown_failed", "cost": cost_amount, "budget": budget_amount}
