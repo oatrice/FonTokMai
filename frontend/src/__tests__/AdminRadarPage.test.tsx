@@ -114,4 +114,20 @@ describe("Admin Radar Page (/admin/radar) Unified Interactive Experience", () =>
     expect(screen.getAllByText(/Sakon Nakhon \(240km\) \/ สกลนคร/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Total Stations/i)).toBeInTheDocument();
   });
+
+  it("WCAG & Screen Reader: provides accessible headings, semantic regions, and interactive labels", async () => {
+    render(<AdminRadarPage />);
+
+    // Screen reader accessible landmarks & headings
+    const headings = screen.getAllByRole("heading");
+    expect(headings.length).toBeGreaterThan(0);
+
+    // Interactive buttons have accessible text or aria-label
+    const buttons = screen.getAllByRole("button");
+    expect(buttons.length).toBeGreaterThan(0);
+    buttons.forEach((btn) => {
+      const label = btn.getAttribute("aria-label") || btn.textContent;
+      expect(label?.trim().length).toBeGreaterThan(0);
+    });
+  });
 });

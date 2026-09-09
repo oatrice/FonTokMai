@@ -151,3 +151,47 @@ async def test_clusters_response_content_type_is_json(client):
         res = await client.get("/api/v1/radar/clusters")
     ct = res.headers.get("content-type", "")
     assert "application/json" in ct
+
+
+# ── XSS / HTML Injection & Boundary Fuzzing ───────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_clusters_xss_html_injection_in_query_param(client):
+    """XSS payloads in query parameters should not be executed or reflected as raw HTML."""
+    xss_payload = "<script>alert('xss')</script><img src=x onerror=alert(1)>"
+    with patch("app.routers.radar.get_repo_context", return_value=_cold_repo()):
+        res = await client.get(f"/api/v1/radar/clusters?code={xss_payload}")
+    assert res.status_code in (200, 422)
+    assert res.headers.get("content-type", "").startswith("application/json")
+    if "<script>" in res.text:
+        assert False, "Raw HTML/script tags reflected in response without JSON encoding"
+
+
+@pytest.mark.asyncio
+async def test_radar_fuzzing_special_characters(client):
+    """Fuzzing with unicode, encoded control chars, and path traversal strings must be handled cleanly."""
+    fuzz_inputs = ["%00", "%0d%0a", "undefined", "null", "NaN", "🔥" * 100, "../../../etc/passwd"]
+    for fuzz in fuzz_inputs:
+        res = await client.get(f"/api/v1/radar/stations?filter={fuzz}")
+        assert res.status_code in (200, 400, 404, 422), f"Unexpected crash status {res.status_code} on input {fuzz}"
+
+
+# ── IDOR & Authorization Boundary Testing ─────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_worker_endpoints_idor_prevented_without_secret():
+    """Accessing worker routes without valid worker secret must fail (401 Unauthorized)."""
+    from app.main import app as main_app
+    async with AsyncClient(transport=ASGITransport(app=main_app), base_url="http://test") as ac:
+        res = await ac.post("/worker/check-rain", json={})
+        assert res.status_code == 401
+        assert res.json().get("detail") == "Unauthorized"
+
+
+@pytest.mark.asyncio
+async def test_budget_webhook_rejects_malformed_token_and_invalid_data():
+    """Budget webhook must reject requests with invalid base64 or invalid schema with 400/422."""
+    from app.main import app as main_app
+    async with AsyncClient(transport=ASGITransport(app=main_app), base_url="http://test") as ac:
+        res = await ac.post("/api/v1/internal/budget-alert", json={"message": {"data": "not_valid_b64???"}})
+        assert res.status_code == 400

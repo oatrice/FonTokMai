@@ -37,13 +37,6 @@ class SensitiveDataFilter(logging.Filter):
 
 logging.basicConfig(level=logging.INFO)
 
-logging.info(
-    "Backend env loaded: ENVIRONMENT=%s FORCE_GCP_REAL_DATA=%s DATABASE_URL=%s",
-    os.getenv("ENVIRONMENT", "development"),
-    os.getenv("FORCE_GCP_REAL_DATA", ""),
-    "set" if os.getenv("DATABASE_URL") else "missing",
-)
-
 # Apply filter to handlers
 sensitive_filter = SensitiveDataFilter()
 for handler in logging.root.handlers:
@@ -51,6 +44,54 @@ for handler in logging.root.handlers:
 
 # Also explicitly add to httpx since it logs the URLs
 logging.getLogger("httpx").addFilter(sensitive_filter)
+
+def setup_file_logging(log_file_path: str = None) -> logging.Handler | None:
+    """Configures a RotatingFileHandler for application logging."""
+    from logging.handlers import RotatingFileHandler
+    
+    target_path = log_file_path or os.getenv("LOG_FILE_PATH", "logs/backend.log")
+    if not target_path or not target_path.strip():
+        return None
+        
+    try:
+        log_dir = os.path.dirname(target_path)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+            
+        file_handler = RotatingFileHandler(
+            target_path,
+            maxBytes=10 * 1024 * 1024,  # 10 MB per file
+            backupCount=5,
+            encoding="utf-8"
+        )
+        file_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        )
+        file_handler.setFormatter(formatter)
+        file_handler.addFilter(sensitive_filter)
+        
+        logging.root.addHandler(file_handler)
+        # Also attach to uvicorn loggers so access and error logs go to file
+        for uvicorn_logger_name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+            u_logger = logging.getLogger(uvicorn_logger_name)
+            u_logger.addHandler(file_handler)
+            u_logger.addFilter(sensitive_filter)
+            
+        return file_handler
+    except Exception as e:
+        logging.warning("Failed to initialize file logging at %s: %s", target_path, e)
+        return None
+
+# Initialize file logging if configured or default to logs/backend.log
+setup_file_logging()
+
+logging.info(
+    "Backend env loaded: ENVIRONMENT=%s FORCE_GCP_REAL_DATA=%s DATABASE_URL=%s",
+    os.getenv("ENVIRONMENT", "development"),
+    os.getenv("FORCE_GCP_REAL_DATA", ""),
+    "set" if os.getenv("DATABASE_URL") else "missing",
+)
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
