@@ -168,46 +168,39 @@
 #Agent Skill for start new session
 
 #Handoff
-[grill-with-docs](slashCommand;grill-with-docs) 
+/grill-with-docs
 /wayfinder
-[senior-architect](slashCommand;senior-architect) 
-[architect-review](slashCommand;architect-review) 
-[c4-container](slashCommand;c4-container) 
-[domain-driven-design](slashCommand;domain-driven-design) 
-[writing-plans](slashCommand;writing-plans) 
-[jobs-to-be-done-analyst](slashCommand;jobs-to-be-done-analyst) 
-[create-issue-gate](slashCommand;create-issue-gate)  + [dos-verify-done-claims](slashCommand;dos-verify-done-claims) 
-[git-pr-review](slashCommand;git-pr-review)  + [pr-writer](slashCommand;pr-writer)  + [create-pr](slashCommand;create-pr) 
-[evaluation](slashCommand;evaluation) 
-[advanced-evaluation](slashCommand;advanced-evaluation) 
-[agent-evaluation](slashCommand;agent-evaluation) 
+/senior-architect
+/architect-review
+/c4-container
+/domain-driven-design
+/writing-plans
+/jobs-to-be-done-analyst
+/create-issue-gate + /dos-verify-done-claims
+/git-pr-review + /pr-writer + /create-pr
 
 *ใช้ model: claude
 
-วิเคราะห์ requirements, ออกแบบแผนงาน และ evaluate
-
----
-
 #Implement
-[grill-with-docs](slashCommand;grill-with-docs)  #ลอง Grill ก่อน implement ด้วย
-[senior-architect](slashCommand;senior-architect) 
-[architect-review](slashCommand;architect-review) 
-[c4-container](slashCommand;c4-container) 
-[domain-driven-design](slashCommand;domain-driven-design) 
-[writing-plans](slashCommand;writing-plans) 
-[executing-plans](slashCommand;executing-plans) 
-[jobs-to-be-done-analyst](slashCommand;jobs-to-be-done-analyst) 
-[vibe-code-auditor](slashCommand;vibe-code-auditor) 
-[tdd-workflows-tdd-cycle](slashCommand;tdd-workflows-tdd-cycle) 
-[using-git-worktrees](slashCommand;using-git-worktrees)  เพื่อให้ sub-agent ทำงานแบบ parallel ได้
-[doc-version-updater](slashCommand;doc-version-updater) 
+/grill-with-docs #ลอง Grill ก่อน implement ด้วย
+/senior-architect
+/architect-review
+/c4-container
+/domain-driven-design
+/writing-plans
+/executing-plans
+/jobs-to-be-done-analyst
+/vibe-code-auditor
+/tdd-workflows-tdd-cycle
+/using-git-worktree เพื่อให้ sub-agent ทำงานแบบ parallel ได้
+/doc-version-updater
 
-[agent-orchestration-improve-agent](slashCommand;agent-orchestration-improve-agent) 
-[agent-orchestration-multi-agent-optimize](slashCommand;agent-orchestration-multi-agent-optimize) 
-[agent-orchestrator](slashCommand;agent-orchestrator) 
-[agent-squad](slashCommand;agent-squad) 
-[subagent-driven-development](slashCommand;subagent-driven-development) 
-[subagent-orchestrator](slashCommand;subagent-orchestrator) 
+/agent-orchestration-improve-agent
+/agent-orchestration-multi-agent-optimize
+/agent-orchestrator
+/agent-squad
+/subagent-driven-development
+/subagent-orchestrator
 
 *ใช้ model: gemini
 
@@ -303,12 +296,11 @@ Before create MR
 /doc-version-updater
 
 [git-pr-review](slashCommand;git-pr-review) 
-เช็ค commit ตั้งแต่ staging/main to head ว่ามีการ์ด issues อะไรที่เกี่ยวข้องบ้าง ถ้ายังไม่มีก็สร้างใหม่ได้เลย แล้วแนบเข้าไปใน PR ด้วย
+เช็ค commit ตั้งแต่ staging to head ว่ามีการ์ด issues อะไรที่เกี่ยวข้องบ้าง ถ้ายังไม่มีก็สร้างใหม่ได้เลย แล้วแนบเข้าไปใน PR ด้วย
 
 ใช้ Agent Skills เหล่านี้ให้หมด เพื่อจัดการ docs ที่สำคัญ ก่อนการ update PR/MR ที่มีอยู่แล้ว หรือถ้ายังไม่มีก็สร้างใหม่ได้เลย
 สร้าง MR to staging/main branch ได้เลย
 รวมถึงการ update เอกสารต่างๆด้วย
-ทำ Squad commit ด้วย
 
 changelog ถ้า version ยิบย่อยหลายๆอันใน MR นี้ต้อง merge รวมให้เป็น version เดียว
 
