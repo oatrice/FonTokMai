@@ -138,6 +138,51 @@ class SQLiteLocationRepository(LocationRepository):
         await self.session.refresh(loc)
         return loc
 
+    async def get_presence_answer(self, chat_id: Union[str, int], location_name: str) -> Optional[str]:
+        from app.models import PresenceAnswerCache
+        from sqlalchemy import func
+        chat_id_str = str(chat_id)
+        name_lower = location_name.lower()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        result = await self.session.execute(
+            select(PresenceAnswerCache).where(
+                PresenceAnswerCache.chat_id == chat_id_str,
+                func.lower(PresenceAnswerCache.location_name) == name_lower,
+                PresenceAnswerCache.expires_at > now
+            ).order_by(PresenceAnswerCache.id.desc())
+        )
+        record = result.scalars().first()
+        return record.answer if record else None
+
+    async def set_presence_answer(self, chat_id: Union[str, int], location_name: str, answer: str, ttl_minutes: int = 120):
+        from app.models import PresenceAnswerCache
+        chat_id_str = str(chat_id)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        expires_at = now + timedelta(minutes=ttl_minutes)
+
+        cache_entry = PresenceAnswerCache(
+            chat_id=chat_id_str,
+            location_name=location_name,
+            answer=answer,
+            expires_at=expires_at,
+            created_at=now
+        )
+        self.session.add(cache_entry)
+        await self.session.commit()
+        await self.session.refresh(cache_entry)
+        return cache_entry
+
+    async def clear_expired_presence_cache(self) -> int:
+        from app.models import PresenceAnswerCache
+        from sqlalchemy import delete
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        result = await self.session.execute(
+            delete(PresenceAnswerCache).where(PresenceAnswerCache.expires_at <= now)
+        )
+        await self.session.commit()
+        return result.rowcount
+
 
     async def get_mock_state(self, chat_id: Union[str, int]) -> Optional[str]:
         from app.models import DeveloperMock

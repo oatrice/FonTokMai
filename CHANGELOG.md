@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.75.0] - 2026-09-10
+
+### Added
+- **Presence Answer Cache & Policy Configuration (Issue #289)**: Created `presence_answer_cache` database table with countdown TTL support and added presence policy columns (`presence_policy`, `schedule_active_days`, `schedule_active_start`, `schedule_active_end`, `presence_answer_ttl_minutes`, `default_fallback_policy`) to `UserLocation`. Implemented cache getter, setter, and cleanup methods in SQLite and Firestore repositories.
+- **Telegram Presence Settings Menu (Issue #290)**: Added `/presence [location_name]` bot command and interactive Inline Keyboard settings flows permitting users to choose between `always_notify`, `always_ask`, `schedule_based`, and `silent_card` policies, adjust answer memory TTL (1h, 2h, 4h), and view schedule windows.
+- **Worker Presence Decision Flow (Issue #291)**: Rain Analysis Worker now intelligently evaluates presence policies before dispatching full alerts. For locations on `always_ask`, the worker issues a lightweight Presence Ping (`ตรวจพบกลุ่มฝนใกล้พิกัด [...] คุณอยู่ที่นี่ไหม?`) with quick response buttons (`✅ ใช่ ส่งข้อมูลเต็ม`, `❌ ไม่ต้องส่ง`, `🔕 ปิด 4 ชม.`). Confirmed answers are cached in memory for the chosen TTL, suppressing redundant prompt loops.
+
 ## [0.74.0] - 2026-09-10
 
 ### Added

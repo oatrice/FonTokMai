@@ -244,11 +244,87 @@ async def _send_combined_alerts(chat_id, eval_results, now):
     combined_text = combined_text.join(combined_text_parts)
 
     try:
-        if platform == "telegram":
-            await send_telegram_message(int(chat_id), combined_text, reply_markup=reply_markup)
+        # Check presence policy and cached answers for rain alerts (Issue #291)
+        rain_alerts = [r for r in valid_results if r["type"] == "rain"]
+        send_full_alert = True
+
+        if rain_alerts and platform == "telegram":
+            for r in rain_alerts:
+                loc = r["loc"]
+                policy = getattr(loc, "presence_policy", "always_ask")
+                loc_name = loc.name or "default"
+
+                if policy == "always_notify":
+                    continue
+
+                if policy == "silent_card":
+                    # Send silent notification without sound
+                    await send_telegram_message(int(chat_id), combined_text, reply_markup=reply_markup, disable_notification=True)
+                    send_full_alert = False
+                    break
+
+                if policy == "schedule_based":
+                    # Check schedule window
+                    import json
+                    bkk_now = datetime.now(BKK_TZ)
+                    current_weekday = bkk_now.isoweekday() # 1=Mon .. 7=Sun
+                    current_time_str = bkk_now.strftime("%H:%M")
+                    
+                    in_schedule = True
+                    if loc.schedule_active_days:
+                        try:
+                            active_days = json.loads(loc.schedule_active_days)
+                            if current_weekday not in active_days:
+                                in_schedule = False
+                        except Exception:
+                            pass
+                    if in_schedule and loc.schedule_active_start and loc.schedule_active_end:
+                        if not (loc.schedule_active_start <= current_time_str <= loc.schedule_active_end):
+                            in_schedule = False
+
+                    if in_schedule:
+                        continue # Inside window -> send full alert directly
+
+                # For 'always_ask' or outside 'schedule_based' window: check cache
+                async with get_repo_context() as repo:
+                    cached_answer = await repo.get_presence_answer(chat_id, loc_name)
+                    if cached_answer == "yes":
+                        continue # User confirmed presence previously
+                    elif cached_answer == "no":
+                        logger.info(f"Skipping alert for {chat_id} at {loc_name} due to cached 'no' presence answer.")
+                        return 0, errors
+                    else:
+                        # Cache MISS -> Send Presence Ping with Countdown and inline actions
+                        eta_min = r.get("result", {}).get("eta_minutes", 20)
+                        max_r = r.get("max_rain", 1.0)
+                        ping_text = (
+                            f"🌧️ **ตรวจพบกลุ่มฝนใกล้พิกัด [{loc_name}]**\n\n"
+                            f"• ความรุนแรง: `{max_r:.1f} mm/hr`\n"
+                            f"• คาดว่าจะเริ่มตกในอีก: `{eta_min}` นาที\n\n"
+                            f"ตอนนี้คุณอยู่ที่นี่และต้องการรับการแจ้งเตือนแบบเต็มรูปแบบไหมครับ?"
+                        )
+                        ping_keyboard = [
+                            [
+                                {"text": "✅ ใช่ ส่งข้อมูลเต็ม", "callback_data": f"presence_ans_{loc_name}_yes"},
+                                {"text": "❌ ไม่ต้องส่ง", "callback_data": f"presence_ans_{loc_name}_no"}
+                            ],
+                            [
+                                {"text": "🔕 ปิด 4 ชม.", "callback_data": f"loc_snooze_{loc_name}_4"},
+                                {"text": "⚙️ ตั้งค่า", "callback_data": f"presence_menu_{loc_name}"}
+                            ]
+                        ]
+                        await send_telegram_message(int(chat_id), ping_text, reply_markup={"inline_keyboard": ping_keyboard})
+                        send_full_alert = False
+                        break
+
+        if send_full_alert:
+            if platform == "telegram":
+                await send_telegram_message(int(chat_id), combined_text, reply_markup=reply_markup)
+            else:
+                await notifier.send_text_message(str(chat_id), combined_text, reply_markup=reply_markup)
+            alerts_sent += 1
         else:
-            await notifier.send_text_message(str(chat_id), combined_text, reply_markup=reply_markup)
-        alerts_sent += 1
+            return 1, errors
     except Exception as e:
         logger.error(f"Failed to send combined text alert for chat_id {chat_id} on {platform}: {e}")
         return 0, errors + 1

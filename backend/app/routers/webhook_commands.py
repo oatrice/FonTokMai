@@ -734,11 +734,20 @@ async def handle_locations_command(chat_id: int, command: str, message_id_to_edi
 
         for loc in locs:
             is_snoozed_active = loc.is_snoozed and (loc.snooze_until is None or loc.snooze_until > now)
+            policy = getattr(loc, "presence_policy", "always_ask")
+            policy_labels = {
+                "always_notify": "เตือนทันที",
+                "always_ask": "ถามก่อนเสมอ",
+                "schedule_based": "ตามตารางเวลา",
+                "silent_card": "เตือนแบบเงียบ"
+            }
+            policy_text = policy_labels.get(policy, policy)
+
             if is_snoozed_active:
                 until_str = format_local_time_for_location(loc.snooze_until, loc.latitude, loc.longitude) if loc.snooze_until else "ถาวร"
                 status_badge = f"🔕 Snoozed (ถึง {until_str} น.)"
             else:
-                status_badge = "🟢 Active"
+                status_badge = f"🟢 Active ({policy_text})"
 
             msg_lines.append(f"• <b>{loc.name}</b> ({loc.latitude:.4f}, {loc.longitude:.4f}) — {status_badge}")
             
@@ -750,12 +759,15 @@ async def handle_locations_command(chat_id: int, command: str, message_id_to_edi
                 loc_buttons.append({"text": f"🔕 ปิด 1ชม. [{loc.name}]", "callback_data": f"loc_snooze_{loc.name}_1"})
                 loc_buttons.append({"text": f"🔕 4ชม.", "callback_data": f"loc_snooze_{loc.name}_4"})
                 loc_buttons.append({"text": f"🔕 24ชม.", "callback_data": f"loc_snooze_{loc.name}_24"})
+            
+            # Add presence config button per location
+            loc_buttons.append({"text": f"⚙️ ตั้งค่าเตือน [{loc.name}]", "callback_data": f"presence_menu_{loc.name}"})
             inline_keyboard.append(loc_buttons)
 
         guide_text = (
             "\n💡 <b>วิธีจัดการพิกัด:</b>\n"
-            "- เปลี่ยนชื่อพิกัด: <code>/rename [ชื่อเดิม] [ชื่อใหม่]</code>\n"
-            "- ลบพิกัด: เลือกลบจากปุ่มหรือบันทึกทับได้เลย"
+            "- ตั้งค่าโหมดการเตือน/ตารางเวลา: <code>/presence [ชื่อพิกัด]</code> หรือกดปุ่ม ⚙️\n"
+            "- เปลี่ยนชื่อพิกัด: <code>/rename [ชื่อเดิม] [ชื่อใหม่]</code>"
         )
         msg_lines.append(guide_text)
         reply_markup = {"inline_keyboard": inline_keyboard} if inline_keyboard else None
@@ -790,4 +802,65 @@ async def handle_rename_command(chat_id: int, command: str, message_id_to_edit: 
             await _reply(chat_id, f"✅ เปลี่ยนชื่อพิกัดจาก <b>{old_name}</b> เป็น <b>{new_name}</b> สำเร็จแล้วครับ", message_id_to_edit)
         else:
             await _reply(chat_id, f"❌ ไม่สามารถเปลี่ยนชื่อพิกัดได้ (ไม่พบพิกัด '{old_name}' หรือชื่อ '{new_name}' ซ้ำกับพิกัดอื่น)", message_id_to_edit)
+
+
+@cmd_router.bind("/presence", loading_text="⏳ กำลังโหลดการตั้งค่าการแจ้งเตือน...")
+async def handle_presence_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    ตั้งค่า Presence Policy และตารางเวลา: /presence [ชื่อพิกัด]
+    """
+    target_name = command.removeprefix("/presence").strip()
+    async with get_repo_context() as repo:
+        locs = await repo.get_user_locations(chat_id)
+        if not locs:
+            await _reply(chat_id, "⚠️ ยังไม่มีพิกัดในระบบ กรุณาส่งพิกัดก่อนครับ", message_id_to_edit)
+            return
+
+        matched_loc = None
+        if target_name:
+            for l in locs:
+                if l.name.lower() == target_name.lower():
+                    matched_loc = l
+                    break
+        else:
+            matched_loc = locs[0]
+
+        if not matched_loc:
+            await _reply(chat_id, f"⚠️ ไม่พบพิกัด '{target_name}'", message_id_to_edit)
+            return
+
+        loc_name = matched_loc.name
+        curr_policy = getattr(matched_loc, "presence_policy", "always_ask")
+        ttl = getattr(matched_loc, "presence_answer_ttl_minutes", 120)
+        fallback = getattr(matched_loc, "default_fallback_policy", "notify")
+
+        text = (
+            f"⚙️ <b>ตั้งค่าโหมดแจ้งเตือนสำหรับ [{loc_name}]</b>\n\n"
+            f"• โหมดปัจจุบัน: <code>{curr_policy}</code>\n"
+            f"• ระยะเวลาจำคำตอบ (TTL): <code>{ttl}</code> นาที\n"
+            f"• หากไม่ตอบคำถามใน 5 นาที: <code>{fallback}</code>\n\n"
+            f"กรุณาเลือกโหมดที่ต้องการ:"
+        )
+
+        keyboard = [
+            [
+                {"text": "🔔 เตือนทันที (ไม่ถาม)", "callback_data": f"set_policy_{loc_name}_always_notify"},
+                {"text": "❓ ถามก่อนเสมอ", "callback_data": f"set_policy_{loc_name}_always_ask"}
+            ],
+            [
+                {"text": "⏰ ตามตารางเวลา", "callback_data": f"set_policy_{loc_name}_schedule_based"},
+                {"text": "🔕 เตือนแบบเงียบ", "callback_data": f"set_policy_{loc_name}_silent_card"}
+            ],
+            [
+                {"text": "⏰ จำ 1 ชม.", "callback_data": f"set_ttl_{loc_name}_60"},
+                {"text": "⏰ จำ 2 ชม.", "callback_data": f"set_ttl_{loc_name}_120"},
+                {"text": "⏰ จำ 4 ชม.", "callback_data": f"set_ttl_{loc_name}_240"}
+            ]
+        ]
+        reply_markup = {"inline_keyboard": keyboard}
+
+        if message_id_to_edit:
+            await telegram.edit_telegram_message(chat_id, message_id_to_edit, text, reply_markup=reply_markup)
+        else:
+            await telegram.send_telegram_message(chat_id, text, reply_markup=reply_markup)
 

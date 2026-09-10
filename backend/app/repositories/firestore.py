@@ -199,6 +199,62 @@ class FirestoreLocationRepository(LocationRepository):
         loc.snooze_until = None
         return loc
 
+    async def get_presence_answer(self, chat_id: Union[str, int], location_name: str) -> Optional[str]:
+        chat_id_str = str(chat_id)
+        name_lower = location_name.lower()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        doc_ref = self.db.collection("presence_cache").document(f"{chat_id_str}_{name_lower}")
+        doc = await doc_ref.get()
+        if doc.exists:
+            data = doc.to_dict()
+            exp = data.get("expires_at")
+            if exp and getattr(exp, "tzinfo", None):
+                exp = exp.astimezone(timezone.utc).replace(tzinfo=None)
+            if exp and exp > now:
+                return data.get("answer")
+        return None
+
+    async def set_presence_answer(self, chat_id: Union[str, int], location_name: str, answer: str, ttl_minutes: int = 120):
+        from app.models import PresenceAnswerCache
+        chat_id_str = str(chat_id)
+        name_lower = location_name.lower()
+        now = datetime.now(timezone.utc)
+        from datetime import timedelta
+        expires_at = now + timedelta(minutes=ttl_minutes)
+
+        data = {
+            "chat_id": chat_id_str,
+            "location_name": location_name,
+            "answer": answer,
+            "expires_at": expires_at,
+            "created_at": now
+        }
+        doc_ref = self.db.collection("presence_cache").document(f"{chat_id_str}_{name_lower}")
+        await doc_ref.set(data)
+        
+        return PresenceAnswerCache(
+            chat_id=chat_id_str,
+            location_name=location_name,
+            answer=answer,
+            expires_at=expires_at.replace(tzinfo=None),
+            created_at=now.replace(tzinfo=None)
+        )
+
+    async def clear_expired_presence_cache(self) -> int:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        count = 0
+        async for doc in self.db.collection("presence_cache").stream():
+            data = doc.to_dict()
+            exp = data.get("expires_at")
+            if exp and getattr(exp, "tzinfo", None):
+                exp = exp.astimezone(timezone.utc).replace(tzinfo=None)
+            if exp and exp <= now:
+                await doc.reference.delete()
+                count += 1
+        return count
+
+
     def _dict_to_model(self, data: dict) -> UserLocation:
         from datetime import timezone
         for field in ["expires_at", "last_alerted_at", "snooze_until"]:

@@ -127,11 +127,18 @@ async def lifespan(app: FastAPI):
                 ("locked_target_cy", "INTEGER"),
                 ("is_snoozed", "BOOLEAN DEFAULT FALSE NOT NULL"),
                 ("snooze_until", "TIMESTAMP"),
+                ("presence_policy", "VARCHAR DEFAULT 'always_ask' NOT NULL"),
+                ("schedule_active_days", "VARCHAR"),
+                ("schedule_active_start", "VARCHAR"),
+                ("schedule_active_end", "VARCHAR"),
+                ("presence_answer_ttl_minutes", "INTEGER DEFAULT 120 NOT NULL"),
+                ("default_fallback_policy", "VARCHAR DEFAULT 'notify' NOT NULL"),
             ]:
                 try:
                     await conn.execute(text(f"ALTER TABLE user_locations ADD COLUMN {col_name} {col_type}"))
                 except Exception:
                     pass
+
 
                     
             # Dynamically add source column to radar_latest_cache if it does not exist

@@ -19,6 +19,15 @@ class UserLocation(Base):
     is_snoozed = Column(Boolean, default=False, nullable=False)
     snooze_until = Column(DateTime, nullable=True)
 
+    # Presence Verification & Policy (Issue #289, #290, #291)
+    # presence_policy: 'always_notify' | 'always_ask' | 'schedule_based' | 'silent_card'
+    presence_policy = Column(String, default="always_ask", nullable=False)
+    schedule_active_days = Column(String, nullable=True) # e.g. "[1,2,3,4,5]"
+    schedule_active_start = Column(String, nullable=True) # e.g. "08:00"
+    schedule_active_end = Column(String, nullable=True) # e.g. "18:00"
+    presence_answer_ttl_minutes = Column(Integer, default=120, nullable=False) # Countdown TTL in minutes
+    default_fallback_policy = Column(String, default="notify", nullable=False) # 'notify' | 'skip'
+
     @property
     def is_snoozed_bool(self) -> bool:
         if not self.is_snoozed:
@@ -33,6 +42,23 @@ class UserLocation(Base):
     @property
     def is_snoozed_state(self) -> bool:
         return bool(self.is_snoozed)
+
+
+class PresenceAnswerCache(Base):
+    """
+    Caches user confirmation answers on whether to receive alerts at a given location.
+    Countdown TTL enables asking again only after the cache expires (Issue #289).
+    """
+    __tablename__ = "presence_answer_cache"
+
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(String, index=True, nullable=False)
+    location_name = Column(String, index=True, nullable=False)
+    answer = Column(String, nullable=False) # 'yes' | 'no'
+    expires_at = Column(DateTime, index=True, nullable=False)
+    created_at = Column(DateTime, nullable=False)
+
+
 class DeveloperMock(Base):
     __tablename__ = "developer_mocks"
 

@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.74.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
+**v0.75.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
 Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical Flow Cloud Tracking.
 
 ---
@@ -29,6 +29,7 @@ Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical F
 |---|---|
 | (Send Location) | Forecast rain at the sent location and save it for proactive notifications |
 | `/locations` | View all saved locations with status badges and quick mute/snooze inline controls |
+| `/presence [loc]` | Configure Presence Policy (always notify / ask / schedule / silent) and countdown TTL |
 | `/rename <old> <new>` | Rename a saved location |
 | `/rain` | View weather for the most recent location |
 | `/rain tmd-radar` | Force use of TMD Radar endpoint |
