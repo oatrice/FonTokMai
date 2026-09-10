@@ -715,3 +715,78 @@ async def handle_calibrate_command(chat_id: int, command: str, message_id_to_edi
     except Exception as e:
         await _reply(chat_id, f"❌ เกิดข้อผิดพลาดในการ Calibrate: {str(e)}", message_id_to_edit)
 
+
+@cmd_router.bind("/locations", loading_text="⏳ กำลังโหลดรายการพิกัด...")
+async def handle_locations_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    แสดงรายการพิกัดทั้งหมดของผู้ใช้ พร้อมปุ่ม Mute/Snooze และสถานะ
+    """
+    async with get_repo_context() as repo:
+        locs = await repo.get_user_locations(chat_id)
+        if not locs:
+            await _reply(chat_id, "📍 คุณยังไม่มีพิกัดที่บันทึกไว้ในระบบ สามารถส่ง Location ใน Telegram เพื่อบันทึกพิกัดได้ครับ", message_id_to_edit)
+            return
+
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        msg_lines = ["📍 **รายการพิกัดของคุณ**\n"]
+        inline_keyboard = []
+
+        for loc in locs:
+            is_snoozed_active = loc.is_snoozed and (loc.snooze_until is None or loc.snooze_until > now)
+            if is_snoozed_active:
+                until_str = loc.snooze_until.strftime("%H:%M") if loc.snooze_until else "ถาวร"
+                status_badge = f"🔕 Snoozed (ถึง {until_str})"
+            else:
+                status_badge = "🟢 Active"
+
+            msg_lines.append(f"• **{loc.name}** ({loc.latitude:.4f}, {loc.longitude:.4f}) — {status_badge}")
+            
+            # Action buttons per location
+            loc_buttons = []
+            if is_snoozed_active:
+                loc_buttons.append({"text": f"✅ เปิดเตือน [{loc.name}]", "callback_data": f"loc_unsnooze_{loc.name}"})
+            else:
+                loc_buttons.append({"text": f"🔕 ปิด 1ชม. [{loc.name}]", "callback_data": f"loc_snooze_{loc.name}_1"})
+                loc_buttons.append({"text": f"🔕 4ชม.", "callback_data": f"loc_snooze_{loc.name}_4"})
+                loc_buttons.append({"text": f"🔕 24ชม.", "callback_data": f"loc_snooze_{loc.name}_24"})
+            inline_keyboard.append(loc_buttons)
+
+        guide_text = (
+            "\n💡 **วิธีจัดการพิกัด:**\n"
+            "- เปลี่ยนชื่อพิกัด: `/rename <ชื่อเดิม> <ชื่อใหม่>`\n"
+            "- ลบพิกัด: เลือกลบจากปุ่มหรือบันทึกทับได้เลย"
+        )
+        msg_lines.append(guide_text)
+        reply_markup = {"inline_keyboard": inline_keyboard} if inline_keyboard else None
+
+        if message_id_to_edit:
+            await telegram.edit_telegram_message(chat_id, message_id_to_edit, "\n".join(msg_lines), reply_markup=reply_markup)
+        else:
+            await telegram.send_telegram_message(chat_id, "\n".join(msg_lines), reply_markup=reply_markup)
+
+
+@cmd_router.bind("/rename", loading_text="⏳ กำลังเปลี่ยนชื่อพิกัด...")
+async def handle_rename_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    เปลี่ยนชื่อพิกัด: /rename <old_name> <new_name>
+    """
+    parts = command.removeprefix("/rename").strip().split()
+    if len(parts) < 2:
+        usage_msg = (
+            "⚠️ รูปแบบคำสั่งไม่ถูกต้อง\n\n"
+            "**การใช้งาน:** `/rename <ชื่อเดิม> <ชื่อใหม่>`\n"
+            "**ตัวอย่าง:** `/rename home condo`"
+        )
+        await _reply(chat_id, usage_msg, message_id_to_edit)
+        return
+
+    old_name = parts[0].strip()
+    new_name = parts[1].strip()
+
+    async with get_repo_context() as repo:
+        success = await repo.rename_location(chat_id, old_name, new_name)
+        if success:
+            await _reply(chat_id, f"✅ เปลี่ยนชื่อพิกัดจาก **{old_name}** เป็น **{new_name}** สำเร็จแล้วครับ", message_id_to_edit)
+        else:
+            await _reply(chat_id, f"❌ ไม่สามารถเปลี่ยนชื่อพิกัดได้ (ไม่พบพิกัด '{old_name}' หรือชื่อ '{new_name}' ซ้ำกับพิกัดอื่น)", message_id_to_edit)
+

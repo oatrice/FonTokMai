@@ -47,6 +47,29 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
                 name = parts[2].lower()
                 await repo.delete_location(chat_id, name)
                 answer_text = f"ลบข้อมูลพิกัด {name} เรียบร้อยแล้ว"
+        elif data.startswith("loc_snooze_"):
+            # Format: loc_snooze_<name>_<hours>
+            parts = data.split("_")
+            if len(parts) >= 4:
+                try:
+                    name = parts[2].lower()
+                    hours = float(parts[3])
+                    res = await repo.snooze_location(chat_id, name, hours=hours)
+                    if res and res.snooze_until:
+                        until_str = res.snooze_until.strftime("%H:%M")
+                        answer_text = f"🔕 ปิดการแจ้งเตือนพิกัด [{name}] ชั่วคราวถึง {until_str} ({int(hours)} ชม.) แล้วครับ"
+                    else:
+                        answer_text = f"🔕 ปิดการแจ้งเตือนพิกัด [{name}] ชั่วคราวเรียบร้อยแล้ว"
+                except Exception as e:
+                    logger.error(f"Error in loc_snooze callback: {e}")
+                    answer_text = "เกิดข้อผิดพลาดในการปิดการแจ้งเตือน"
+        elif data.startswith("loc_unsnooze_"):
+            # Format: loc_unsnooze_<name>
+            parts = data.split("_")
+            if len(parts) >= 3:
+                name = parts[2].lower()
+                await repo.unsnooze_location(chat_id, name)
+                answer_text = f"✅ เปิดการแจ้งเตือนพิกัด [{name}] อีกครั้งแล้วครับ"
         elif data == "loc_no":
             answer_text = "ระบบรับทราบ จะไม่จดจำตำแหน่งใหม่"
         elif data.startswith("fb_falsealarm_"):

@@ -74,10 +74,12 @@ class SQLiteLocationRepository(LocationRepository):
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         result = await self.session.execute(
             select(UserLocation).where(
-                (UserLocation.expires_at == None) | (UserLocation.expires_at > now)
+                ((UserLocation.expires_at == None) | (UserLocation.expires_at > now)),
+                ((UserLocation.is_snoozed == False) | (UserLocation.is_snoozed.is_(None)) | ((UserLocation.snooze_until != None) & (UserLocation.snooze_until <= now)))
             )
         )
         return list(result.scalars().all())
+
 
     async def update_last_alerted(
         self,
@@ -99,6 +101,43 @@ class SQLiteLocationRepository(LocationRepository):
             await self.session.commit()
             return True
         return False
+
+    async def rename_location(self, chat_id: Union[str, int], old_name: str, new_name: str) -> bool:
+        chat_id_str = str(chat_id)
+        loc = await self.get_location(chat_id_str, old_name)
+        if not loc:
+            return False
+        # Check if target name already exists
+        existing_target = await self.get_location(chat_id_str, new_name)
+        if existing_target and existing_target.id != loc.id:
+            return False
+        loc.name = new_name
+        await self.session.commit()
+        return True
+
+    async def snooze_location(self, chat_id: Union[str, int], name: str, hours: float = 4.0) -> Optional[UserLocation]:
+        chat_id_str = str(chat_id)
+        loc = await self.get_location(chat_id_str, name)
+        if not loc:
+            return None
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        loc.is_snoozed = True
+        loc.snooze_until = now + timedelta(hours=hours)
+        await self.session.commit()
+        await self.session.refresh(loc)
+        return loc
+
+    async def unsnooze_location(self, chat_id: Union[str, int], name: str) -> Optional[UserLocation]:
+        chat_id_str = str(chat_id)
+        loc = await self.get_location(chat_id_str, name)
+        if not loc:
+            return None
+        loc.is_snoozed = False
+        loc.snooze_until = None
+        await self.session.commit()
+        await self.session.refresh(loc)
+        return loc
+
 
     async def get_mock_state(self, chat_id: Union[str, int]) -> Optional[str]:
         from app.models import DeveloperMock

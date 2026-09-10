@@ -112,7 +112,9 @@ class FirestoreLocationRepository(LocationRepository):
         async for doc in self.collection.stream():
             data = doc.to_dict()
             loc = self._dict_to_model(data)
-            if loc.expires_at is None or loc.expires_at > now:
+            is_expired = loc.expires_at is not None and loc.expires_at <= now
+            is_snoozed_active = loc.is_snoozed and (loc.snooze_until is None or loc.snooze_until > now)
+            if not is_expired and not is_snoozed_active:
                 locations.append(loc)
                 
         return locations
@@ -134,7 +136,6 @@ class FirestoreLocationRepository(LocationRepository):
             location.last_alert_max_rain = max_rain
         return location
 
-
     async def delete_location(self, chat_id: Union[str, int], name: str = "default") -> bool:
         chat_id_str = str(chat_id)
         doc_ref = self.collection.document(f"{chat_id_str}_{name}")
@@ -146,14 +147,68 @@ class FirestoreLocationRepository(LocationRepository):
         await doc_ref.delete()
         return True
 
+    async def rename_location(self, chat_id: Union[str, int], old_name: str, new_name: str) -> bool:
+        chat_id_str = str(chat_id)
+        old_doc_ref = self.collection.document(f"{chat_id_str}_{old_name}")
+        doc = await old_doc_ref.get()
+        if not doc.exists and old_name == "default":
+            old_doc_ref = self.collection.document(chat_id_str)
+            doc = await old_doc_ref.get()
+        if not doc.exists:
+            return False
+
+        # Target doc check
+        new_doc_ref = self.collection.document(f"{chat_id_str}_{new_name}")
+        new_doc = await new_doc_ref.get()
+        if new_doc.exists:
+            return False
+
+        data = doc.to_dict()
+        data["name"] = new_name
+        await new_doc_ref.set(data)
+        await old_doc_ref.delete()
+        return True
+
+    async def snooze_location(self, chat_id: Union[str, int], name: str, hours: float = 4.0) -> Optional[UserLocation]:
+        chat_id_str = str(chat_id)
+        loc = await self.get_location(chat_id_str, name)
+        if not loc:
+            return None
+        from datetime import timedelta
+        snooze_until = datetime.now(timezone.utc) + timedelta(hours=hours)
+        doc_ref = self.collection.document(f"{chat_id_str}_{name}")
+        await doc_ref.update({
+            "is_snoozed": 1,
+            "snooze_until": snooze_until
+        })
+        loc.is_snoozed = 1
+        loc.snooze_until = snooze_until.replace(tzinfo=None)
+        return loc
+
+    async def unsnooze_location(self, chat_id: Union[str, int], name: str) -> Optional[UserLocation]:
+        chat_id_str = str(chat_id)
+        loc = await self.get_location(chat_id_str, name)
+        if not loc:
+            return None
+        doc_ref = self.collection.document(f"{chat_id_str}_{name}")
+        await doc_ref.update({
+            "is_snoozed": 0,
+            "snooze_until": None
+        })
+        loc.is_snoozed = 0
+        loc.snooze_until = None
+        return loc
+
     def _dict_to_model(self, data: dict) -> UserLocation:
         from datetime import timezone
-        for field in ["expires_at", "last_alerted_at"]:
+        for field in ["expires_at", "last_alerted_at", "snooze_until"]:
             val = data.get(field)
             if val and getattr(val, "tzinfo", None):
                 data[field] = val.astimezone(timezone.utc).replace(tzinfo=None)
         if "tracking_mode" not in data:
             data["tracking_mode"] = "auto"
+        if "is_snoozed" not in data:
+            data["is_snoozed"] = 0
         return UserLocation(**data)
 
     async def get_mock_state(self, chat_id: Union[str, int]) -> Optional[str]:

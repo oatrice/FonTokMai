@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime, Text
+from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime, Text, Boolean
 from app.database import Base
 
 class UserLocation(Base):
@@ -16,9 +16,23 @@ class UserLocation(Base):
     last_alert_max_rain = Column(Float, nullable=True, default=0.0)  # mm/hr ของการแจ้งเตือนครั้งล่าสุด
     tracking_mode = Column(String, default="auto", nullable=False) # "auto" | "manual"
     locked_target_id = Column(String, nullable=True) # e.g. "A"
-    locked_target_cx = Column(Integer, nullable=True)
-    locked_target_cy = Column(Integer, nullable=True)
+    is_snoozed = Column(Boolean, default=False, nullable=False)
+    snooze_until = Column(DateTime, nullable=True)
 
+    @property
+    def is_snoozed_bool(self) -> bool:
+        if not self.is_snoozed:
+            return False
+        if self.snooze_until:
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            return self.snooze_until > now
+        return bool(self.is_snoozed)
+
+    # Allow accessing is_snoozed as boolean for ease of use
+    @property
+    def is_snoozed_state(self) -> bool:
+        return bool(self.is_snoozed)
 class DeveloperMock(Base):
     __tablename__ = "developer_mocks"
 

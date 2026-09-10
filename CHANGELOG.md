@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.74.0] - 2026-09-10
+
+### Added
+- **Location Name CRUD & Snooze Capabilities (Issue #287)**: Added `is_snoozed` and `snooze_until` columns to `UserLocation` model with dynamic database schema migration. Added `rename_location()`, `snooze_location()`, and `unsnooze_location()` to SQLite and Firestore repository layers, automatically filtering out snoozed locations from active notification sweeps.
+- **Telegram Bot Location Management Commands (Issue #288)**: Added `/locations` command listing all registered locations with real-time status badges (`🟢 Active` or `🔕 Snoozed until HH:MM`) and interactive Inline Keyboard buttons for quick muting (`1hr`, `4hr`, `24hr`) and unsnoozing. Added `/rename <old_name> <new_name>` command for fast location renaming.
+
 ## [0.73.3] - 2026-09-07
 
 ### Added

@@ -43,6 +43,21 @@ class LocationRepository(ABC):
         pass
 
     @abstractmethod
+    async def rename_location(self, chat_id: Union[str, int], old_name: str, new_name: str) -> bool:
+        """เปลี่ยนชื่อพิกัดของผู้ใช้"""
+        pass
+
+    @abstractmethod
+    async def snooze_location(self, chat_id: Union[str, int], name: str, hours: float = 4.0) -> Optional[UserLocation]:
+        """ปิดการแจ้งเตือนชั่วคราวตามจำนวนชั่วโมงที่กำหนด"""
+        pass
+
+    @abstractmethod
+    async def unsnooze_location(self, chat_id: Union[str, int], name: str) -> Optional[UserLocation]:
+        """เปิดการแจ้งเตือนพิกัดที่ถูก Snooze อีกครั้งทันที"""
+        pass
+
+    @abstractmethod
     async def get_mock_state(self, chat_id: Union[str, int]) -> Optional[str]:
         """Get the developer mock state for a chat_id. Returns 'rain', 'clear', or None."""
         pass
