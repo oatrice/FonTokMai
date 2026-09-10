@@ -323,8 +323,30 @@ async def _send_combined_alerts(chat_id, eval_results, now):
             else:
                 await notifier.send_text_message(str(chat_id), combined_text, reply_markup=reply_markup)
             alerts_sent += 1
+
+            # Log to AlertNotificationLog for Accuracy & False Alarm Verification (Issue #292)
+            try:
+                from app.models import AlertNotificationLog
+                async with get_repo_context() as repo:
+                    if hasattr(repo, "session") and repo.session:
+                        for r in valid_results:
+                            loc = r["loc"]
+                            log_entry = AlertNotificationLog(
+                                chat_id=str(chat_id),
+                                location_name=loc.name or "default",
+                                latitude=loc.latitude,
+                                longitude=loc.longitude,
+                                alerted_at=now.replace(tzinfo=None),
+                                rain_intensity_mm=r.get("max_rain", 0.0),
+                                alert_type=r.get("type", "rain")
+                            )
+                            repo.session.add(log_entry)
+                        await repo.session.commit()
+            except Exception as e:
+                logger.error(f"Failed to write to AlertNotificationLog: {e}")
         else:
             return 1, errors
+
     except Exception as e:
         logger.error(f"Failed to send combined text alert for chat_id {chat_id} on {platform}: {e}")
         return 0, errors + 1
@@ -728,3 +750,55 @@ async def update_daily_burn_rate_routine():
     except Exception as e:
         logger.error(f"[GCP_BILLING_SYNC] Failed to sync daily burn rate: {e}", exc_info=True)
         raise  # Re-raise so worker endpoint can surface the actual error
+
+
+async def auto_verify_false_alarms_routine():
+    """
+    Auto-Verification Worker (Issue #292):
+    Runs periodically to check alerts sent between 30 and 90 minutes ago
+    that do not yet have an auto_verify_result. Re-predicts rain intensity;
+    if max_rain <= 0.0 mm/hr, marks as 'false_alarm', otherwise 'true_alarm'.
+    """
+    logger.info("Starting auto-verify false alarms routine...")
+    from app.database import AsyncSessionLocal
+    from app.models import AlertNotificationLog
+    from sqlalchemy.future import select
+    from app.services.weather_manager import WeatherManager
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    min_time = now - timedelta(minutes=90)
+    max_time = now - timedelta(minutes=30)
+
+    verified_count = 0
+    wm = WeatherManager()
+
+    try:
+        async with AsyncSessionLocal() as session:
+            stmt = select(AlertNotificationLog).where(
+                AlertNotificationLog.auto_verify_result.is_(None),
+                AlertNotificationLog.alerted_at >= min_time,
+                AlertNotificationLog.alerted_at <= max_time
+            )
+            res = await session.execute(stmt)
+            unverified_logs = res.scalars().all()
+
+            for entry in unverified_logs:
+                try:
+                    result = await wm.predict_rain(entry.latitude, entry.longitude, location_name=entry.location_name)
+                    actual_rain = result.get("max_rain", 0.0)
+                    entry.auto_verified_at = now
+                    if actual_rain <= 0.0:
+                        entry.auto_verify_result = "false_alarm"
+                    else:
+                        entry.auto_verify_result = "true_alarm"
+                    verified_count += 1
+                except Exception as ex:
+                    logger.warning(f"Failed to auto-verify alert log #{entry.id}: {ex}")
+
+            await session.commit()
+            logger.info(f"Auto-verify routine completed: verified {verified_count} alert logs.")
+            return {"status": "ok", "verified_count": verified_count}
+    except Exception as e:
+        logger.error(f"Error in auto_verify_false_alarms_routine: {e}", exc_info=True)
+        return {"status": "error", "error": str(e)}
+

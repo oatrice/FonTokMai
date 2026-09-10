@@ -892,3 +892,63 @@ async def handle_presence_command(chat_id: int, command: str, message_id_to_edit
             await telegram.send_telegram_message(chat_id, text, reply_markup=reply_markup)
 
 
+@cmd_router.bind("/stats", requires_admin=True, loading_text="⏳ กำลังคำนวณสถิติความแม่นยำ...")
+async def handle_stats_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    Admin Command: /stats [YYYY-MM]
+    """
+    arg_month = command.removeprefix("/stats").strip() or None
+    from app.routers.metrics import get_monthly_metrics
+    try:
+        data = await get_monthly_metrics(month=arg_month)
+        month_str = data["month"]
+        total = data["total_alerts"]
+        true_alarms = data["true_alarms"]
+        false_alarms = data["false_alarms_total"]
+        rate = data["false_alarm_rate_pct"]
+        user_fa = data["false_alarms_user"]
+        auto_fa = data["false_alarms_auto"]
+
+        true_pct = round(100.0 - rate, 1) if total > 0 else 0.0
+
+        msg = (
+            f"📊 <b>สรุปความแม่นยำเรดาร์ประจำเดือน {month_str}</b>\n\n"
+            f"• จำนวนการแจ้งเตือนทั้งหมด: <b>{total}</b> ครั้ง\n"
+            f"• ฝนตกจริง (True Alarms): <b>{true_alarms}</b> ครั้ง (<code>{true_pct}%</code>)\n"
+            f"• แจ้งเตือนพลาด (False Alarms): <b>{false_alarms}</b> ครั้ง (<code>{rate}%</code>)\n"
+            f"  - ผู้ใช้รายงาน: {user_fa} ครั้ง\n"
+            f"  - ตรวจสอบอัตโนมัติ (เรดาร์ 30น.): {auto_fa} ครั้ง\n"
+        )
+        await _reply(chat_id, msg, message_id_to_edit)
+    except Exception as e:
+        await _reply(chat_id, f"❌ ไม่สามารถดึงสถิติได้: {e}", message_id_to_edit)
+
+
+@cmd_router.bind("/cost", requires_admin=True, loading_text="⏳ กำลังคำนวณต้นทุนระบบ...")
+async def handle_cost_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    Admin Command: /cost [YYYY-MM]
+    """
+    arg_month = command.removeprefix("/cost").strip() or None
+    from app.routers.metrics import get_monthly_costs
+    try:
+        data = await get_monthly_costs(month=arg_month)
+        month_str = data["month"]
+        gcp_cost = data["gcp_cost"]
+        ext_cost = data["external_cost"]
+        total_cost = data["total_cost"]
+        cost_per_alert = data["cost_per_alert"]
+        cost_per_true = data["cost_per_true_alert"]
+
+        msg = (
+            f"💰 <b>สรุปต้นทุนระบบประจำเดือน {month_str}</b>\n\n"
+            f"☁️ Google Cloud: <code>฿{gcp_cost:.2f}</code>\n"
+            f"🌐 External (Radar + Proxy): <code>฿{ext_cost:.2f}</code>\n"
+            f"💵 รวมต้นทุนทั้งสิ้น: <b>฿{total_cost:.2f}</b>\n"
+            f"─────────────────────\n"
+            f"📉 Cost / Alert: <code>฿{cost_per_alert:.2f}</code>\n"
+            f"🎯 Cost / True Alert: <code>฿{cost_per_true:.2f}</code>\n"
+        )
+        await _reply(chat_id, msg, message_id_to_edit)
+    except Exception as e:
+        await _reply(chat_id, f"❌ ไม่สามารถดึงข้อมูลต้นทุนได้: {e}", message_id_to_edit)

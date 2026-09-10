@@ -144,3 +144,142 @@ async def get_gcp_costs(
     else:
         breakdown = svc.get_current_month_costs(period=period)
     return JSONResponse(content=asdict(breakdown))
+
+
+@router.get("/monthly")
+async def get_monthly_metrics(month: Optional[str] = None):
+    """
+    Monthly Alert Accuracy Metrics (Issue #292, #293):
+    Returns aggregated stats and daily breakdown for the requested month ('YYYY-MM').
+    Defaults to current UTC month.
+    """
+    import datetime
+    from app.database import AsyncSessionLocal
+    from app.models import AlertNotificationLog
+    from sqlalchemy.future import select
+    from sqlalchemy import func
+
+    if not month:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        month = now.strftime("%Y-%m")
+
+    try:
+        start_date = datetime.datetime.strptime(f"{month}-01", "%Y-%m-%d")
+        # Compute end date (first day of next month)
+        if start_date.month == 12:
+            end_date = datetime.datetime(start_date.year + 1, 1, 1)
+        else:
+            end_date = datetime.datetime(start_date.year, start_date.month + 1, 1)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid month format, expected YYYY-MM")
+
+    async with AsyncSessionLocal() as session:
+        stmt = select(AlertNotificationLog).where(
+            AlertNotificationLog.alerted_at >= start_date,
+            AlertNotificationLog.alerted_at < end_date
+        )
+        res = await session.execute(stmt)
+        logs = res.scalars().all()
+
+        total_alerts = len(logs)
+        false_alarms_user = sum(1 for l in logs if l.user_feedback_result == "false_alarm")
+        false_alarms_auto = sum(1 for l in logs if l.auto_verify_result == "false_alarm")
+        # Combined false alarms count (unique alert IDs that were false alarms by user or auto)
+        false_alarms_total = sum(1 for l in logs if l.user_feedback_result == "false_alarm" or l.auto_verify_result == "false_alarm")
+        true_alarms = total_alerts - false_alarms_total
+
+        false_alarm_rate_pct = round((false_alarms_total / total_alerts) * 100.0, 1) if total_alerts > 0 else 0.0
+
+        # Daily breakdown for charting
+        daily_map = {}
+        for l in logs:
+            day_str = l.alerted_at.strftime("%Y-%m-%d")
+            if day_str not in daily_map:
+                daily_map[day_str] = {"date": day_str, "total": 0, "true_alarm": 0, "false_alarm": 0}
+            daily_map[day_str]["total"] += 1
+            if l.user_feedback_result == "false_alarm" or l.auto_verify_result == "false_alarm":
+                daily_map[day_str]["false_alarm"] += 1
+            else:
+                daily_map[day_str]["true_alarm"] += 1
+
+        daily_breakdown = sorted(daily_map.values(), key=lambda x: x["date"])
+
+        return {
+            "month": month,
+            "total_alerts": total_alerts,
+            "true_alarms": true_alarms,
+            "false_alarms_total": false_alarms_total,
+            "false_alarms_user": false_alarms_user,
+            "false_alarms_auto": false_alarms_auto,
+            "false_alarm_rate_pct": false_alarm_rate_pct,
+            "daily_breakdown": daily_breakdown
+        }
+
+
+@router.get("/cost")
+async def get_monthly_cost(month: Optional[str] = None):
+    """
+    Monthly Infrastructure & Unit Economics Cost (Issue #292, #293):
+    GCP + External Costs, Cost per Alert, Cost per True Alert.
+    """
+    import datetime
+    from app.database import AsyncSessionLocal
+    from app.models import ExternalCostConfig, AlertNotificationLog
+    from sqlalchemy.future import select
+
+    if not month:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        month = now.strftime("%Y-%m")
+
+    # 1. Fetch GCP cost
+    gcp_svc = GCPBillingService()
+    try:
+        gcp_breakdown = gcp_svc.get_current_month_costs(period="current_month")
+        gcp_cost_thb = float(gcp_breakdown.total_thb)
+    except Exception:
+        gcp_cost_thb = 0.0
+
+    # 2. Fetch external costs
+    async with AsyncSessionLocal() as session:
+        stmt = select(ExternalCostConfig).where(ExternalCostConfig.month == month)
+        res = await session.execute(stmt)
+        ext_configs = res.scalars().all()
+        external_cost_thb = sum(c.amount_thb for c in ext_configs)
+
+        # Baseline fallback for external cost if none configured (default proxy pool estimate)
+        if external_cost_thb == 0.0:
+            external_cost_thb = 150.0 # Standard proxy baseline
+
+        total_cost_thb = round(gcp_cost_thb + external_cost_thb, 2)
+
+        # 3. Calculate Unit Economics
+        start_date = datetime.datetime.strptime(f"{month}-01", "%Y-%m-%d")
+        if start_date.month == 12:
+            end_date = datetime.datetime(start_date.year + 1, 1, 1)
+        else:
+            end_date = datetime.datetime(start_date.year, start_date.month + 1, 1)
+
+        stmt_alerts = select(AlertNotificationLog).where(
+            AlertNotificationLog.alerted_at >= start_date,
+            AlertNotificationLog.alerted_at < end_date
+        )
+        res_alerts = await session.execute(stmt_alerts)
+        logs = res_alerts.scalars().all()
+        total_alerts = len(logs)
+        false_alarms = sum(1 for l in logs if l.user_feedback_result == "false_alarm" or l.auto_verify_result == "false_alarm")
+        true_alerts = total_alerts - false_alarms
+
+        cost_per_alert = round(total_cost_thb / total_alerts, 2) if total_alerts > 0 else 0.0
+        cost_per_true_alert = round(total_cost_thb / true_alerts, 2) if true_alerts > 0 else cost_per_alert
+
+        return {
+            "month": month,
+            "gcp_cost_thb": gcp_cost_thb,
+            "external_cost_thb": external_cost_thb,
+            "total_cost_thb": total_cost_thb,
+            "total_alerts": total_alerts,
+            "true_alerts": true_alerts,
+            "cost_per_alert": cost_per_alert,
+            "cost_per_true_alert": cost_per_true_alert
+        }
+

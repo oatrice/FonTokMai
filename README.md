@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.75.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
+**v0.76.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
 Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical Flow Cloud Tracking.
 
 ---
@@ -44,7 +44,10 @@ Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical F
 ### Developer Commands (DEVELOPER_CHAT_IDS only)
 | Command | Description |
 |---|---|
+| `/stats [month]` | View monthly alert accuracy statistics (True Alarms, User False Alarms, Auto-verified) |
+| `/cost [month]` | View monthly infrastructure cost breakdown (GCP + External) and Cost/Alert metrics |
 | `/bypass <password>` | Verify password to activate Emergency Admin Bypass (1 hour) |
+
 | `/bypass_logout` | Log out from Emergency Admin Bypass |
 | `/metrics [days]` | Export Cron metrics history as a CSV file |
 | `/setbudget <amount>` | Dynamically adjust GCP budget limit |

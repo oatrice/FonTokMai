@@ -76,6 +76,38 @@ class UserFeedback(Base):
     feedback_type = Column(String, nullable=False) # e.g. 'false_alarm'
     prediction_context = Column(String, nullable=True) # e.g. "max_rain: 1.5 mm/hr"
 
+class AlertNotificationLog(Base):
+    """
+    Tracks rain alert dispatches and their actual accuracy verification (Issue #291, #292).
+    """
+    __tablename__ = "alert_notification_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(String, index=True, nullable=False)
+    location_name = Column(String, index=True, nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    alerted_at = Column(DateTime, index=True, nullable=False)
+    rain_intensity_mm = Column(Float, default=0.0, nullable=False)
+    alert_type = Column(String, default="rain", nullable=False)
+    user_feedback_result = Column(String, nullable=True) # 'false_alarm' | 'true_alarm' | None
+    auto_verify_result = Column(String, nullable=True)   # 'false_alarm' | 'true_alarm' | None
+    auto_verified_at = Column(DateTime, nullable=True)
+
+
+class ExternalCostConfig(Base):
+    """
+    Configures non-GCP monthly infrastructure costs (Proxy pools, external weather APIs).
+    Used to compute total Cost Per Alert accurately (Issue #292).
+    """
+    __tablename__ = "external_cost_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    service_name = Column(String, index=True, nullable=False) # 'tmd_proxy', 'tomorrow_api', etc.
+    month = Column(String, index=True, nullable=False)        # 'YYYY-MM'
+    amount_thb = Column(Float, default=0.0, nullable=False)
+
+
 class DisasterAlertHistory(Base):
     __tablename__ = "disaster_alert_history"
 
