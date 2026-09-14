@@ -1463,11 +1463,34 @@ class WeatherManager:
                     from PIL import Image, ImageFont, ImageDraw
                     import io
                     import cv2
+                    import numpy as np
+
+                    # Uncrop to full canvas (e.g. 800×800) so the raw TMD timestamp strip at the bottom is preserved
+                    th, tw = target_frame.shape[:2]
+                    cfg = proc.config
+                    scx = getattr(cfg, "static_crop_x", 0)
+                    scy = getattr(cfg, "static_crop_y", 0)
+                    full_w = getattr(cfg, "raw_width", 800) or 800
+                    full_h = getattr(cfg, "raw_height", 800) or 800
+
+                    if th < full_h or tw < full_w:
+                        canvas = np.zeros((full_h, full_w, 3), dtype=target_frame.dtype)
+                        paste_h = min(th, full_h - scy)
+                        paste_w = min(tw, full_w - scx)
+                        canvas[scy:scy + paste_h, scx:scx + paste_w] = target_frame[:paste_h, :paste_w]
+                        full_frame = canvas
+                        full_pin_x = pin_x + scx
+                        full_pin_y = pin_y + scy
+                    else:
+                        full_frame = target_frame
+                        full_pin_x = pin_x
+                        full_pin_y = pin_y
+
                     # Scale to 3x first (LANCZOS4 or NEAREST)
                     scale = 3.0
-                    img_hq_cv = cv2.resize(target_frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
+                    img_hq_cv = cv2.resize(full_frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
                     # Draw location pin identical to radar_tracking
-                    proc.draw_pin_on_frame(img_hq_cv, int(pin_x * scale), int(pin_y * scale), scale=scale)
+                    proc.draw_pin_on_frame(img_hq_cv, int(full_pin_x * scale), int(full_pin_y * scale), scale=scale)
                     img_hq = Image.fromarray(img_hq_cv)
 
                     # Add IDC timestamp overlay
