@@ -48,9 +48,16 @@ async def test_locations_command_and_rename():
         "message": {"message_id": 100}
     }
     with patch("app.services.telegram.answer_callback_query", new_callable=AsyncMock):
-        with patch("app.dependencies.get_http_client") as mock_client:
-            mock_client.return_value.post = AsyncMock()
-            await handle_callback_query(callback)
+        with patch("app.services.telegram.edit_telegram_message", new_callable=AsyncMock) as mock_edit:
+            with patch("app.dependencies.get_http_client") as mock_client:
+                mock_client.return_value.post = AsyncMock()
+                await handle_callback_query(callback)
+                assert mock_edit.called
+                edit_chat_id, edit_msg_id, edit_text = mock_edit.call_args[0][:3]
+                assert edit_chat_id == chat_id
+                assert edit_msg_id == 100
+                assert "Snoozed" in edit_text
+                assert "condo" in edit_text
         
     async with get_repo_context() as repo:
         loc = await repo.get_location(chat_id, "condo")
@@ -65,9 +72,16 @@ async def test_locations_command_and_rename():
         "message": {"message_id": 100}
     }
     with patch("app.services.telegram.answer_callback_query", new_callable=AsyncMock):
-        with patch("app.dependencies.get_http_client") as mock_client:
-            mock_client.return_value.post = AsyncMock()
-            await handle_callback_query(callback_un)
+        with patch("app.services.telegram.edit_telegram_message", new_callable=AsyncMock) as mock_edit_un:
+            with patch("app.dependencies.get_http_client") as mock_client:
+                mock_client.return_value.post = AsyncMock()
+                await handle_callback_query(callback_un)
+                assert mock_edit_un.called
+                edit_chat_id, edit_msg_id, edit_text = mock_edit_un.call_args[0][:3]
+                assert edit_chat_id == chat_id
+                assert edit_msg_id == 100
+                assert "Active" in edit_text
+                assert "condo" in edit_text
         
     async with get_repo_context() as repo:
         loc = await repo.get_location(chat_id, "condo")
@@ -76,3 +90,4 @@ async def test_locations_command_and_rename():
 
         # Clean up
         await repo.delete_location(chat_id, "condo")
+

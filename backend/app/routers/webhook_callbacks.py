@@ -60,6 +60,9 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
                         answer_text = f"🔕 ปิดการแจ้งเตือนพิกัด [{name}] ชั่วคราวถึง {until_str} น. ({int(hours)} ชม.) แล้วครับ"
                     else:
                         answer_text = f"🔕 ปิดการแจ้งเตือนพิกัด [{name}] ชั่วคราวเรียบร้อยแล้ว"
+                    if message_id:
+                        from app.routers.webhook_commands import handle_locations_command
+                        await handle_locations_command(chat_id, "/locations", message_id_to_edit=message_id)
                 except Exception as e:
                     logger.error(f"Error in loc_snooze callback: {e}")
                     answer_text = "เกิดข้อผิดพลาดในการปิดการแจ้งเตือน"
@@ -70,6 +73,9 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
                 name = parts[2].lower()
                 await repo.unsnooze_location(chat_id, name)
                 answer_text = f"✅ เปิดการแจ้งเตือนพิกัด [{name}] อีกครั้งแล้วครับ"
+                if message_id:
+                    from app.routers.webhook_commands import handle_locations_command
+                    await handle_locations_command(chat_id, "/locations", message_id_to_edit=message_id)
         elif data.startswith("presence_menu_"):
             # Format: presence_menu_<name>
             parts = data.split("_")
@@ -436,7 +442,7 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
     from app.dependencies import get_http_client
     client = get_http_client()
     # ลบ Inline Keyboard ยกเว้นหน้าเมนูที่มีการโต้ตอบต่อเนื่อง
-    if message_id and not (data.startswith("raw_") or data.startswith("switch_") or data.startswith("set_policy_") or data.startswith("set_ttl_") or data.startswith("presence_menu_")):
+    if message_id and not (data.startswith("raw_") or data.startswith("switch_") or data.startswith("set_policy_") or data.startswith("set_ttl_") or data.startswith("presence_menu_") or data.startswith("loc_snooze_") or data.startswith("loc_unsnooze_")):
         await client.post(TELEGRAM_EDIT_REPLY_MARKUP_URL, json={
             "chat_id": chat_id,
             "message_id": message_id,
