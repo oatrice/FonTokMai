@@ -169,7 +169,7 @@
 
 #Handoff
 [grill-with-docs](slashCommand;grill-with-docs) 
-/wayfinder
+[wayfinder](slashCommand;wayfinder) 
 [senior-architect](slashCommand;senior-architect) 
 [architect-review](slashCommand;architect-review) 
 [c4-container](slashCommand;c4-container) 
@@ -189,25 +189,25 @@
 ---
 
 #Implement
-[grill-with-docs](slashCommand;grill-with-docs)  #ลอง Grill ก่อน implement ด้วย
-[senior-architect](slashCommand;senior-architect) 
-[architect-review](slashCommand;architect-review) 
-[c4-container](slashCommand;c4-container) 
-[domain-driven-design](slashCommand;domain-driven-design) 
-[writing-plans](slashCommand;writing-plans) 
-[executing-plans](slashCommand;executing-plans) 
-[jobs-to-be-done-analyst](slashCommand;jobs-to-be-done-analyst) 
-[vibe-code-auditor](slashCommand;vibe-code-auditor) 
-[tdd-workflows-tdd-cycle](slashCommand;tdd-workflows-tdd-cycle) 
-[using-git-worktrees](slashCommand;using-git-worktrees)  เพื่อให้ sub-agent ทำงานแบบ parallel ได้
-[doc-version-updater](slashCommand;doc-version-updater) 
+/grill-with-docs #ลอง Grill ก่อน implement ด้วย
+/senior-architect
+/architect-review
+/c4-container
+/domain-driven-design
+/writing-plans
+/executing-plans
+/jobs-to-be-done-analyst
+/vibe-code-auditor
+/tdd-workflows-tdd-cycle
+/using-git-worktree เพื่อให้ sub-agent ทำงานแบบ parallel ได้
+/doc-version-updater
 
-[agent-orchestration-improve-agent](slashCommand;agent-orchestration-improve-agent) 
-[agent-orchestration-multi-agent-optimize](slashCommand;agent-orchestration-multi-agent-optimize) 
-[agent-orchestrator](slashCommand;agent-orchestrator) 
-[agent-squad](slashCommand;agent-squad) 
-[subagent-driven-development](slashCommand;subagent-driven-development) 
-[subagent-orchestrator](slashCommand;subagent-orchestrator) 
+/agent-orchestration-improve-agent
+/agent-orchestration-multi-agent-optimize
+/agent-orchestrator
+/agent-squad
+/subagent-driven-development
+/subagent-orchestrator
 
 *ใช้ model: gemini
 
@@ -315,25 +315,26 @@ changelog ถ้า version ยิบย่อยหลายๆอันใน 
 ===
 
 # debugging
-/debugging-toolkit-smart-debug
-/systematic-debugging
-/error-diagnostics-smart-debug
-/error-debugging-multi-agent-review
-/find-bugs
-/bug-hunter
-/mock-hunter
-/test-fixing
-/bug-hunter
-/mock-hunter
-/test-fixing
-/code-review
-/code-reviewer
-/vibe-code-auditor
-/differential-review
+[$debugging-toolkit-smart-debug](/Users/oatrice/.agents/skills/debugging-toolkit-smart-debug/SKILL.md) 
+[$systematic-debugging](/Users/oatrice/.agents/skills/systematic-debugging/SKILL.md) 
+[$error-diagnostics-smart-debug](/Users/oatrice/.agents/skills/error-diagnostics-smart-debug/SKILL.md) 
+[$error-debugging-multi-agent-review](/Users/oatrice/.agents/skills/error-debugging-multi-agent-review/SKILL.md) 
+[$find-bugs](/Users/oatrice/.agents/skills/find-bugs/SKILL.md) 
+[$bug-hunter](/Users/oatrice/.agents/skills/bug-hunter/SKILL.md) 
+[$mock-hunter](/Users/oatrice/.agents/skills/mock-hunter/SKILL.md) 
+[$test-fixing](/Users/oatrice/.agents/skills/test-fixing/SKILL.md) 
+[$bug-hunter](/Users/oatrice/.agents/skills/bug-hunter/SKILL.md) 
+[$mock-hunter](/Users/oatrice/.agents/skills/mock-hunter/SKILL.md) 
+[$test-fixing](/Users/oatrice/.agents/skills/test-fixing/SKILL.md) 
+[$code-review](/Users/oatrice/.agents/skills/code-review/SKILL.md) 
+[$code-reviewer](/Users/oatrice/.agents/skills/code-reviewer/SKILL.md) 
+[$vibe-code-auditor](/Users/oatrice/.agents/skills/vibe-code-auditor/SKILL.md) 
+[$differential-review](/Users/oatrice/.agents/skills/differential-review/SKILL.md) 
 /memory-leak-debugging
 /a11y-debugging
-/react-component-performance
+[$react-component-performance](/Users/oatrice/.agents/skills/react-component-performance/SKILL.md) 
 
+ใช้ Agent Skills ทั้งหมดนี้ให้หมดทุก Skills
 ---
 #CI fixing:
 /gitlab-ci-patterns

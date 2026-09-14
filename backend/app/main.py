@@ -14,6 +14,31 @@ from datetime import datetime, timezone
 
 import re
 
+from sqlalchemy import inspect, text
+
+
+USER_LOCATION_SCHEMA_COLUMNS = (
+    ("name", "VARCHAR DEFAULT 'default' NOT NULL"),
+    ("last_alert_max_rain", "FLOAT DEFAULT 0.0"),
+    ("tracking_mode", "VARCHAR DEFAULT 'auto' NOT NULL"),
+    ("locked_target_id", "VARCHAR"),
+    ("locked_target_cx", "INTEGER"),
+    ("locked_target_cy", "INTEGER"),
+    ("is_snoozed", "BOOLEAN DEFAULT FALSE NOT NULL"),
+    ("snooze_until", "TIMESTAMP"),
+    ("presence_policy", "VARCHAR DEFAULT 'always_ask' NOT NULL"),
+    ("schedule_active_days", "VARCHAR"),
+    ("schedule_active_start", "VARCHAR"),
+    ("schedule_active_end", "VARCHAR"),
+    ("presence_answer_ttl_minutes", "INTEGER DEFAULT 120 NOT NULL"),
+    ("default_fallback_policy", "VARCHAR DEFAULT 'notify' NOT NULL"),
+)
+
+RADAR_LATEST_CACHE_SCHEMA_COLUMNS = (
+    ("source", "VARCHAR DEFAULT 'api'"),
+)
+
+
 class SensitiveDataFilter(logging.Filter):
     def __init__(self):
         super().__init__()
@@ -24,17 +49,28 @@ class SensitiveDataFilter(logging.Filter):
             (re.compile(r"(/bot)[^/\s'\"]+", flags=re.IGNORECASE), r"\1***"),
         ]
 
+    def _sanitize(self, value):
+        if isinstance(value, str):
+            for pattern, replacement in self.patterns:
+                value = pattern.sub(replacement, value)
+            return value
+        if isinstance(value, tuple):
+            return tuple(self._sanitize(item) for item in value)
+        if isinstance(value, list):
+            return [self._sanitize(item) for item in value]
+        if isinstance(value, dict):
+            return {
+                key: self._sanitize(item)
+                for key, item in value.items()
+            }
+        return value
+
     def filter(self, record):
         try:
-            # For uvicorn access logger, record.args contains (client_addr, method, full_path, http_version, status_code)
-            # which uvicorn.logging.AccessFormatter expects to unpack. Emptying args causes a ValueError.
             if record.name == "uvicorn.access":
                 return True
-            msg = record.getMessage()
-            for pattern, replacement in self.patterns:
-                msg = pattern.sub(replacement, msg)
-            record.msg = msg
-            record.args = ()
+            record.msg = self._sanitize(record.msg)
+            record.args = self._sanitize(record.args)
         except Exception:
             pass
         return True
@@ -111,41 +147,38 @@ import os
 
 import asyncio
 
+def ensure_schema_migrations(connection):
+    inspector = inspect(connection)
+    for table_name, columns in (
+        ("user_locations", USER_LOCATION_SCHEMA_COLUMNS),
+        ("radar_latest_cache", RADAR_LATEST_CACHE_SCHEMA_COLUMNS),
+    ):
+        if not inspector.has_table(table_name):
+            continue
+
+        existing_columns = {
+            column["name"]
+            for column in inspector.get_columns(table_name)
+        }
+        for column_name, column_type in columns:
+            if column_name in existing_columns:
+                continue
+            connection.execute(
+                text(
+                    f'ALTER TABLE "{table_name}" '
+                    f'ADD COLUMN "{column_name}" {column_type}'
+                )
+            )
+            existing_columns.add(column_name)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create database tables
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-            
-            # Dynamically add manual tracking columns to user_locations if they do not exist
-            from sqlalchemy import text
-            for col_name, col_type in [
-                ("tracking_mode", "VARCHAR DEFAULT 'auto' NOT NULL"),
-                ("locked_target_id", "VARCHAR"),
-                ("locked_target_cx", "INTEGER"),
-                ("locked_target_cy", "INTEGER"),
-                ("is_snoozed", "BOOLEAN DEFAULT FALSE NOT NULL"),
-                ("snooze_until", "TIMESTAMP"),
-                ("presence_policy", "VARCHAR DEFAULT 'always_ask' NOT NULL"),
-                ("schedule_active_days", "VARCHAR"),
-                ("schedule_active_start", "VARCHAR"),
-                ("schedule_active_end", "VARCHAR"),
-                ("presence_answer_ttl_minutes", "INTEGER DEFAULT 120 NOT NULL"),
-                ("default_fallback_policy", "VARCHAR DEFAULT 'notify' NOT NULL"),
-            ]:
-                try:
-                    await conn.execute(text(f"ALTER TABLE user_locations ADD COLUMN {col_name} {col_type}"))
-                except Exception:
-                    pass
-
-
-                    
-            # Dynamically add source column to radar_latest_cache if it does not exist
-            try:
-                await conn.execute(text("ALTER TABLE radar_latest_cache ADD COLUMN source VARCHAR DEFAULT 'api'"))
-            except Exception:
-                pass
+            await conn.run_sync(ensure_schema_migrations)
 
         # Automatic Seed Initial system_config settings if not already present
         async with AsyncSessionLocal() as session:
