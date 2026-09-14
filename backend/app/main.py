@@ -67,8 +67,6 @@ class SensitiveDataFilter(logging.Filter):
 
     def filter(self, record):
         try:
-            if record.name == "uvicorn.access":
-                return True
             record.msg = self._sanitize(record.msg)
             record.args = self._sanitize(record.args)
         except Exception:
