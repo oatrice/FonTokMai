@@ -184,7 +184,7 @@
 
 *ใช้ model: claude
 
-วิเคราะห์ requirements, ออกแบบแผนงาน และ evaluate
+วิเคราะห์ requirements, ออกแบบแผนงาน และ evaluate อย่าเพิ่งเริ่ม implement ใดๆ
 
 ---
 
@@ -212,39 +212,40 @@
 *ใช้ model: gemini
 
 เริ่ม implement ด้วย Agent Skills ทั้งหมดนี้ได้เลย จะทำ worktree เพื่อ parallel ด้วย sub-agent ด้วยก็ได้
+เช็คด้วยว่ามี AI Agent อื่นๆกำลังทำงานใน branch, worktree เดียวกันไหม ถ้ามีให้แยก worktree เสมอ
 ---
 
 #code review
 
-/code-review
-/code-reviewer
-/git-pr-review
-/comprehensive-review-full-review
-/differential-review
+[code-review](slashCommand;code-review) 
+[code-reviewer](slashCommand;code-reviewer) 
+[git-pr-review](slashCommand;git-pr-review) 
+[comprehensive-review-full-review](slashCommand;comprehensive-review-full-review) 
+[differential-review](slashCommand;differential-review) 
 
-/security-auditor
-/fix-review
-/pre-release-review
-/vibe-code-auditor
+[security-auditor](slashCommand;security-auditor) 
+[fix-review](slashCommand;fix-review) 
+[pre-release-review](slashCommand;pre-release-review) 
+[vibe-code-auditor](slashCommand;vibe-code-auditor) 
 
-/simplify-code
-/unslop-review
-/receiving-code-review
+[simplify-code](slashCommand;simplify-code) 
+[unslop-review](slashCommand;unslop-review) 
+[receiving-code-review](slashCommand;receiving-code-review) 
 
-/architect-review
-/react-component-performance
-/ui-review
+[architect-review](slashCommand;architect-review) 
+[react-component-performance](slashCommand;react-component-performance) 
+[ui-review](slashCommand;ui-review) 
 
-/ui-a11y
-/ux-audit
-/ui-lint
+[ui-a11y](slashCommand;ui-a11y) 
+[ux-audit](slashCommand;ux-audit) 
+[ui-lint](slashCommand;ui-lint) 
 
-/test-guard
-/webapp-testing
-/api-endpoint-verification
+[test-guard](slashCommand;test-guard) 
+[webapp-testing](slashCommand;webapp-testing) 
+[api-endpoint-verification](slashCommand;api-endpoint-verification) 
 
-/privacy-by-design
-/sast-configuration
+[privacy-by-design](slashCommand;privacy-by-design) 
+[sast-configuration](slashCommand;sast-configuration) 
 
 *ใช้ model: claude
 
