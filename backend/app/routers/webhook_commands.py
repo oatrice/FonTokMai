@@ -930,13 +930,13 @@ async def handle_cost_command(chat_id: int, command: str, message_id_to_edit: in
     Admin Command: /cost [YYYY-MM]
     """
     arg_month = command.removeprefix("/cost").strip() or None
-    from app.routers.metrics import get_monthly_costs
+    from app.routers.metrics import get_monthly_cost
     try:
-        data = await get_monthly_costs(month=arg_month)
+        data = await get_monthly_cost(month=arg_month)
         month_str = data["month"]
-        gcp_cost = data["gcp_cost"]
-        ext_cost = data["external_cost"]
-        total_cost = data["total_cost"]
+        gcp_cost = data["gcp_cost_thb"]
+        ext_cost = data["external_cost_thb"]
+        total_cost = data["total_cost_thb"]
         cost_per_alert = data["cost_per_alert"]
         cost_per_true = data["cost_per_true_alert"]
 

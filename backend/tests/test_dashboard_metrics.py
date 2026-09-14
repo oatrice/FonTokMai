@@ -67,3 +67,20 @@ async def test_alert_log_metrics_and_cost():
         mock_predict.return_value = {"max_rain": 0.0} # Rain stopped -> false alarm
         result = await auto_verify_false_alarms_routine()
         assert result["status"] == "ok"
+
+    # 4. Test admin Telegram commands: /stats and /cost
+    from app.routers.webhook_commands import handle_stats_command, handle_cost_command
+    with patch("app.routers.webhook_commands._reply", new_callable=AsyncMock) as mock_reply:
+        await handle_stats_command(998877, f"/stats {current_month}")
+        assert mock_reply.called
+        stats_text = mock_reply.call_args[0][1]
+        assert "สรุปความแม่นยำเรดาร์" in stats_text
+        assert current_month in stats_text
+
+    with patch("app.routers.webhook_commands._reply", new_callable=AsyncMock) as mock_reply:
+        await handle_cost_command(998877, f"/cost {current_month}")
+        assert mock_reply.called
+        cost_text = mock_reply.call_args[0][1]
+        assert "สรุปต้นทุนระบบ" in cost_text
+        assert current_month in cost_text
+
