@@ -5,7 +5,8 @@ import subprocess
 from app.services.command_router import router as cmd_router
 from .webhook_utils import (
     _reply, LAST_ACTIVE_LOCATION, LAST_PINNED_LOCATION,
-    get_repo_context, logger, log_audit_event, check_admin_access
+    get_repo_context, logger, log_audit_event, check_admin_access,
+    format_local_time_for_location
 )
 from app.services import telegram
 from .webhook_location import process_telegram_location
@@ -728,18 +729,18 @@ async def handle_locations_command(chat_id: int, command: str, message_id_to_edi
             return
 
         now = datetime.now(timezone.utc).replace(tzinfo=None)
-        msg_lines = ["📍 **รายการพิกัดของคุณ**\n"]
+        msg_lines = ["📍 <b>รายการพิกัดของคุณ</b>\n"]
         inline_keyboard = []
 
         for loc in locs:
             is_snoozed_active = loc.is_snoozed and (loc.snooze_until is None or loc.snooze_until > now)
             if is_snoozed_active:
-                until_str = loc.snooze_until.strftime("%H:%M") if loc.snooze_until else "ถาวร"
-                status_badge = f"🔕 Snoozed (ถึง {until_str})"
+                until_str = format_local_time_for_location(loc.snooze_until, loc.latitude, loc.longitude) if loc.snooze_until else "ถาวร"
+                status_badge = f"🔕 Snoozed (ถึง {until_str} น.)"
             else:
                 status_badge = "🟢 Active"
 
-            msg_lines.append(f"• **{loc.name}** ({loc.latitude:.4f}, {loc.longitude:.4f}) — {status_badge}")
+            msg_lines.append(f"• <b>{loc.name}</b> ({loc.latitude:.4f}, {loc.longitude:.4f}) — {status_badge}")
             
             # Action buttons per location
             loc_buttons = []
@@ -752,8 +753,8 @@ async def handle_locations_command(chat_id: int, command: str, message_id_to_edi
             inline_keyboard.append(loc_buttons)
 
         guide_text = (
-            "\n💡 **วิธีจัดการพิกัด:**\n"
-            "- เปลี่ยนชื่อพิกัด: `/rename [ชื่อเดิม] [ชื่อใหม่]`\n"
+            "\n💡 <b>วิธีจัดการพิกัด:</b>\n"
+            "- เปลี่ยนชื่อพิกัด: <code>/rename [ชื่อเดิม] [ชื่อใหม่]</code>\n"
             "- ลบพิกัด: เลือกลบจากปุ่มหรือบันทึกทับได้เลย"
         )
         msg_lines.append(guide_text)
@@ -774,8 +775,8 @@ async def handle_rename_command(chat_id: int, command: str, message_id_to_edit: 
     if len(parts) < 2:
         usage_msg = (
             "⚠️ รูปแบบคำสั่งไม่ถูกต้อง\n\n"
-            "**การใช้งาน:** `/rename [ชื่อเดิม] [ชื่อใหม่]`\n"
-            "**ตัวอย่าง:** `/rename home condo`"
+            "<b>การใช้งาน:</b> <code>/rename [ชื่อเดิม] [ชื่อใหม่]</code>\n"
+            "<b>ตัวอย่าง:</b> <code>/rename home condo</code>"
         )
         await _reply(chat_id, usage_msg, message_id_to_edit)
         return
@@ -786,7 +787,7 @@ async def handle_rename_command(chat_id: int, command: str, message_id_to_edit: 
     async with get_repo_context() as repo:
         success = await repo.rename_location(chat_id, old_name, new_name)
         if success:
-            await _reply(chat_id, f"✅ เปลี่ยนชื่อพิกัดจาก **{old_name}** เป็น **{new_name}** สำเร็จแล้วครับ", message_id_to_edit)
+            await _reply(chat_id, f"✅ เปลี่ยนชื่อพิกัดจาก <b>{old_name}</b> เป็น <b>{new_name}</b> สำเร็จแล้วครับ", message_id_to_edit)
         else:
             await _reply(chat_id, f"❌ ไม่สามารถเปลี่ยนชื่อพิกัดได้ (ไม่พบพิกัด '{old_name}' หรือชื่อ '{new_name}' ซ้ำกับพิกัดอื่น)", message_id_to_edit)
 

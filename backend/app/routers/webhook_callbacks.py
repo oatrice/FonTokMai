@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from app.services import weather_manager
 from app.dependencies import get_repo_context
 from app.routers.webhook_location import process_telegram_location
-from app.routers.webhook_utils import check_admin_access, format_duration_text
+from app.routers.webhook_utils import check_admin_access, format_duration_text, format_local_time_for_location
 from app.services import telegram
 
 logger = logging.getLogger(__name__)
@@ -56,8 +56,8 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
                     hours = float(parts[3])
                     res = await repo.snooze_location(chat_id, name, hours=hours)
                     if res and res.snooze_until:
-                        until_str = res.snooze_until.strftime("%H:%M")
-                        answer_text = f"🔕 ปิดการแจ้งเตือนพิกัด [{name}] ชั่วคราวถึง {until_str} ({int(hours)} ชม.) แล้วครับ"
+                        until_str = format_local_time_for_location(res.snooze_until, res.latitude, res.longitude)
+                        answer_text = f"🔕 ปิดการแจ้งเตือนพิกัด [{name}] ชั่วคราวถึง {until_str} น. ({int(hours)} ชม.) แล้วครับ"
                     else:
                         answer_text = f"🔕 ปิดการแจ้งเตือนพิกัด [{name}] ชั่วคราวเรียบร้อยแล้ว"
                 except Exception as e:
