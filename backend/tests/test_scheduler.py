@@ -45,7 +45,8 @@ async def test_check_rain_and_alert_rain_incoming(
         name="home",
         latitude=13.0,
         longitude=100.0,
-        last_alerted_at=None
+        last_alerted_at=None,
+        presence_policy="always_notify",
     )
     mock_repo.get_active_locations.return_value = [loc1]
     mock_repo.get_mock_state.return_value = None
@@ -87,8 +88,8 @@ async def test_check_rain_and_alert_rain_incoming(
     assert len(kb) == 4
 
     mock_repo.update_last_alerted.assert_called_once()
-    # Verify Issue #279: DB context is opened 3 times (read locations, write alert, write metrics) instead of held open
-    assert mock_get_repo_context.call_count == 3
+    # Verify DB context is opened 4 times (read locations, write alert, log alert notification, write metrics) instead of held open
+    assert mock_get_repo_context.call_count == 4
 
 
 @pytest.mark.asyncio
@@ -180,6 +181,7 @@ async def test_check_rain_and_alert_smart_cooldown_override(
         longitude=100.0,
         last_alerted_at=datetime.now() - timedelta(minutes=30),
         last_alert_max_rain=2.0,
+        presence_policy="always_notify",
     )
     mock_repo.get_active_locations.return_value = [loc1]
     mock_repo.get_mock_state.return_value = None
@@ -336,7 +338,8 @@ async def test_check_rain_and_alert_with_advanced_alerts(
         name="home",
         latitude=13.0,
         longitude=100.0,
-        last_alerted_at=None
+        last_alerted_at=None,
+        presence_policy="always_notify",
     )
     mock_repo.get_active_locations.return_value = [loc1]
 

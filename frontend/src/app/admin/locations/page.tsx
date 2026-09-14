@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import useSWR from "swr";
 import { GlassNavbar } from "@/components/GlassNavbar";
-import { MapPin, Bell, Clock, ShieldAlert, Moon } from "lucide-react";
+import { MapPin } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -19,8 +18,7 @@ interface LocationItem {
 }
 
 export default function AdminLocationsPage() {
-  const { data: locations, mutate } = useSWR<LocationItem[]>("/api/locations", fetcher);
-  const [selectedLoc, setSelectedLoc] = useState<LocationItem | null>(null);
+  const { data: locations } = useSWR<LocationItem[]>("/api/locations", fetcher);
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">

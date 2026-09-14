@@ -11,12 +11,12 @@ export default function AdminMetricsPage() {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
-  const { data: metricsData, error: metricsError, isLoading: metricsLoading } = useSWR(
+  const { data: metricsData, isLoading: metricsLoading } = useSWR(
     `/api/v1/metrics/monthly?month=${selectedMonth}`,
     fetcher
   );
 
-  const { data: costData, error: costError, isLoading: costLoading } = useSWR(
+  const { data: costData } = useSWR(
     `/api/v1/metrics/cost?month=${selectedMonth}`,
     fetcher
   );

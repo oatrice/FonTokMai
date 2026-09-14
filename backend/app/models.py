@@ -16,6 +16,8 @@ class UserLocation(Base):
     last_alert_max_rain = Column(Float, nullable=True, default=0.0)  # mm/hr ของการแจ้งเตือนครั้งล่าสุด
     tracking_mode = Column(String, default="auto", nullable=False) # "auto" | "manual"
     locked_target_id = Column(String, nullable=True) # e.g. "A"
+    locked_target_cx = Column(Integer, nullable=True)
+    locked_target_cy = Column(Integer, nullable=True)
     is_snoozed = Column(Boolean, default=False, nullable=False)
     snooze_until = Column(DateTime, nullable=True)
 

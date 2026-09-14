@@ -146,7 +146,6 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
                     answer_text = f"✅ รับทราบ! ระบบจะส่งข้อมูลฝนแบบเต็มรูปแบบสำหรับ [{name}] ให้ครับ"
                     # Trigger full alert process
                     if loc:
-                        from app.routers.webhook_location import process_telegram_location
                         await process_telegram_location(chat_id, loc.latitude, loc.longitude, location_name=loc.name, is_saved_location=True)
                 else:
                     answer_text = f"👌 รับทราบ! จะไม่ส่งการแจ้งเตือนพิกัด [{name}] ในอีก {ttl} นาทีนี้ครับ"

@@ -53,7 +53,7 @@ export function DonationModal({ isOpen, onClose }: DonationModalProps) {
       } else {
         throw new Error("No URL returned from server");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Donation error:", err);
       setError("Failed to connect to payment gateway. Please try again.");
       setIsSubmitting(false);
