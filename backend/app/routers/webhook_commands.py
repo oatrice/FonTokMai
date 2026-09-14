@@ -804,6 +804,61 @@ async def handle_rename_command(chat_id: int, command: str, message_id_to_edit: 
             await _reply(chat_id, f"❌ ไม่สามารถเปลี่ยนชื่อพิกัดได้ (ไม่พบพิกัด '{old_name}' หรือชื่อ '{new_name}' ซ้ำกับพิกัดอื่น)", message_id_to_edit)
 
 
+def build_presence_menu_payload(loc):
+    """สร้าง text และ inline keyboard สำหรับเมนูตั้งค่า presence ของพิกัด"""
+    loc_name = loc.name
+    curr_policy = getattr(loc, "presence_policy", "always_ask")
+    ttl = getattr(loc, "presence_answer_ttl_minutes", 120)
+    fallback = getattr(loc, "default_fallback_policy", "notify")
+
+    policy_labels = {
+        "always_notify": "🔔 เตือนทันที (Always Notify)",
+        "always_ask": "❓ ถามก่อนเสมอ (Always Ask)",
+        "schedule_based": "⏰ ตามตารางเวลา (Schedule Based)",
+        "silent_card": "🔕 เตือนแบบเงียบ (Silent Card)",
+    }
+    fallback_labels = {
+        "notify": "ส่งเตือน (Notify)",
+        "silent": "ไม่ส่งเตือน (Silent)"
+    }
+    policy_display = policy_labels.get(curr_policy, curr_policy)
+    fallback_display = fallback_labels.get(fallback, fallback)
+
+    text = (
+        f"⚙️ <b>การตั้งค่าโหมดแจ้งเตือนสำหรับ [{loc_name}]</b>\n\n"
+        f"• <b>นโยบาย:</b> {policy_display}\n"
+        f"• <b>จดจำคำตอบ:</b> {ttl} นาที\n"
+        f"• <b>Timeout Fallback:</b> {fallback_display}\n\n"
+        f"<i>เลือกแตะปุ่มด้านล่างเพื่อเปลี่ยนโหมดหรือเวลาจำคำตอบ:</i>"
+    )
+
+    btn_notify_label = "✅ เตือนทันที" if curr_policy == "always_notify" else "🔔 เตือนทันที (ไม่ถาม)"
+    btn_ask_label = "✅ ถามก่อนเสมอ" if curr_policy == "always_ask" else "❓ ถามก่อนเสมอ"
+    btn_sched_label = "✅ ตามตารางเวลา" if curr_policy == "schedule_based" else "⏰ ตามตารางเวลา"
+    btn_silent_label = "✅ เตือนแบบเงียบ" if curr_policy == "silent_card" else "🔕 เตือนแบบเงียบ"
+
+    btn_ttl_60 = "✅ จำ 1 ชม." if ttl == 60 else "⏰ จำ 1 ชม."
+    btn_ttl_120 = "✅ จำ 2 ชม." if ttl == 120 else "⏰ จำ 2 ชม."
+    btn_ttl_240 = "✅ จำ 4 ชม." if ttl == 240 else "⏰ จำ 4 ชม."
+
+    keyboard = [
+        [
+            {"text": btn_notify_label, "callback_data": f"set_policy_{loc_name}_always_notify"},
+            {"text": btn_ask_label, "callback_data": f"set_policy_{loc_name}_always_ask"}
+        ],
+        [
+            {"text": btn_sched_label, "callback_data": f"set_policy_{loc_name}_schedule_based"},
+            {"text": btn_silent_label, "callback_data": f"set_policy_{loc_name}_silent_card"}
+        ],
+        [
+            {"text": btn_ttl_60, "callback_data": f"set_ttl_{loc_name}_60"},
+            {"text": btn_ttl_120, "callback_data": f"set_ttl_{loc_name}_120"},
+            {"text": btn_ttl_240, "callback_data": f"set_ttl_{loc_name}_240"}
+        ]
+    ]
+    return text, {"inline_keyboard": keyboard}
+
+
 @cmd_router.bind("/presence", loading_text="⏳ กำลังโหลดการตั้งค่าการแจ้งเตือน...")
 async def handle_presence_command(chat_id: int, command: str, message_id_to_edit: int = None):
     """
@@ -829,38 +884,11 @@ async def handle_presence_command(chat_id: int, command: str, message_id_to_edit
             await _reply(chat_id, f"⚠️ ไม่พบพิกัด '{target_name}'", message_id_to_edit)
             return
 
-        loc_name = matched_loc.name
-        curr_policy = getattr(matched_loc, "presence_policy", "always_ask")
-        ttl = getattr(matched_loc, "presence_answer_ttl_minutes", 120)
-        fallback = getattr(matched_loc, "default_fallback_policy", "notify")
-
-        text = (
-            f"⚙️ <b>ตั้งค่าโหมดแจ้งเตือนสำหรับ [{loc_name}]</b>\n\n"
-            f"• โหมดปัจจุบัน: <code>{curr_policy}</code>\n"
-            f"• ระยะเวลาจำคำตอบ (TTL): <code>{ttl}</code> นาที\n"
-            f"• หากไม่ตอบคำถามใน 5 นาที: <code>{fallback}</code>\n\n"
-            f"กรุณาเลือกโหมดที่ต้องการ:"
-        )
-
-        keyboard = [
-            [
-                {"text": "🔔 เตือนทันที (ไม่ถาม)", "callback_data": f"set_policy_{loc_name}_always_notify"},
-                {"text": "❓ ถามก่อนเสมอ", "callback_data": f"set_policy_{loc_name}_always_ask"}
-            ],
-            [
-                {"text": "⏰ ตามตารางเวลา", "callback_data": f"set_policy_{loc_name}_schedule_based"},
-                {"text": "🔕 เตือนแบบเงียบ", "callback_data": f"set_policy_{loc_name}_silent_card"}
-            ],
-            [
-                {"text": "⏰ จำ 1 ชม.", "callback_data": f"set_ttl_{loc_name}_60"},
-                {"text": "⏰ จำ 2 ชม.", "callback_data": f"set_ttl_{loc_name}_120"},
-                {"text": "⏰ จำ 4 ชม.", "callback_data": f"set_ttl_{loc_name}_240"}
-            ]
-        ]
-        reply_markup = {"inline_keyboard": keyboard}
+        text, reply_markup = build_presence_menu_payload(matched_loc)
 
         if message_id_to_edit:
             await telegram.edit_telegram_message(chat_id, message_id_to_edit, text, reply_markup=reply_markup)
         else:
             await telegram.send_telegram_message(chat_id, text, reply_markup=reply_markup)
+
 

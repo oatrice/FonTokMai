@@ -98,6 +98,11 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
                         "silent_card": "🔕 เตือนแบบเงียบ"
                     }
                     answer_text = f"✅ ตั้งค่าโหมด [{name}] เป็น: {policy_labels.get(policy, policy)} สำเร็จครับ"
+                    # Edit original message with live updated summary and keep buttons
+                    if message_id:
+                        from app.routers.webhook_commands import build_presence_menu_payload
+                        new_text, new_markup = build_presence_menu_payload(loc)
+                        await telegram.edit_telegram_message(chat_id, message_id, new_text, reply_markup=new_markup)
                 else:
                     answer_text = "❌ ไม่พบพิกัดที่ระบุ"
         elif data.startswith("set_ttl_"):
@@ -115,6 +120,11 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
                         elif hasattr(repo, "collection") and repo.collection:
                             await repo.collection.document(f"{chat_id}_{name}").update({"presence_answer_ttl_minutes": ttl_m})
                         answer_text = f"✅ ตั้งเวลาจำคำตอบ (TTL) [{name}] เป็น {ttl_m} นาที แล้วครับ"
+                        # Edit original message with live updated summary and keep buttons
+                        if message_id:
+                            from app.routers.webhook_commands import build_presence_menu_payload
+                            new_text, new_markup = build_presence_menu_payload(loc)
+                            await telegram.edit_telegram_message(chat_id, message_id, new_text, reply_markup=new_markup)
                 except ValueError:
                     answer_text = "เกิดข้อผิดพลาดในการตั้งค่า TTL"
         elif data.startswith("presence_ans_"):
@@ -425,8 +435,8 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
     
     from app.dependencies import get_http_client
     client = get_http_client()
-    # ลบ Inline Keyboard
-    if message_id and not (data.startswith("raw_") or data.startswith("switch_")):
+    # ลบ Inline Keyboard ยกเว้นหน้าเมนูที่มีการโต้ตอบต่อเนื่อง
+    if message_id and not (data.startswith("raw_") or data.startswith("switch_") or data.startswith("set_policy_") or data.startswith("set_ttl_") or data.startswith("presence_menu_")):
         await client.post(TELEGRAM_EDIT_REPLY_MARKUP_URL, json={
             "chat_id": chat_id,
             "message_id": message_id,

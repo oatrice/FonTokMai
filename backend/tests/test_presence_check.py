@@ -78,7 +78,7 @@ async def test_presence_commands_and_worker_flow():
         assert mock_send.called
         text = mock_send.call_args[0][1]
         assert "garden" in text
-        assert "always_ask" in text
+        assert "Always Ask" in text or "ถามก่อนเสมอ" in text
 
     # 2. Test Callback set policy to always_notify
     callback = {
