@@ -5,26 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.76.0] - 2026-09-10
+## [0.74.0] - 2026-09-14
 
 ### Added
-- **Alert Notification Log & Auto-Verification Scheduler (Issue #292)**: Added `alert_notification_log` database table tracking all alert dispatches, rain intensity, user false alarm feedback, and automatic verification outcomes. Added `auto_verify_false_alarms_routine` to Cloud Scheduler tasks, which re-checks radar data 30 to 90 minutes after an alert was sent to independently flag false alarms.
-- **Monthly Metrics & Unit Economics Cost API (Issue #293)**: Added `GET /api/v1/metrics/monthly` returning aggregated alert volume, false alarm rates, and daily trend breakdown. Added `GET /api/v1/metrics/cost` combining GCP BigQuery billing data with `external_cost_config` table (radar APIs, proxy pools) to calculate Cost per Alert and Cost per True Alert.
-- **Admin Dashboard & Location Settings UI (Issue #294, #296)**: Built Web Admin interfaces at `/admin/metrics` for visualizing alert accuracy and operational cost breakdowns, and at `/admin/locations` for configuring per-location Presence Policies and Countdown TTL.
-- **Admin Telegram Summary Commands (Issue #295)**: Added `/stats [month]` and `/cost [month]` commands for administrators to quickly check monthly accuracy rates and operational unit economics directly from Telegram.
-
-## [0.75.0] - 2026-09-10
-
-### Added
-- **Presence Answer Cache & Policy Configuration (Issue #289)**: Created `presence_answer_cache` database table with countdown TTL support and added presence policy columns (`presence_policy`, `schedule_active_days`, `schedule_active_start`, `schedule_active_end`, `presence_answer_ttl_minutes`, `default_fallback_policy`) to `UserLocation`. Implemented cache getter, setter, and cleanup methods in SQLite and Firestore repositories.
-- **Telegram Presence Settings Menu (Issue #290)**: Added `/presence [location_name]` bot command and interactive Inline Keyboard settings flows permitting users to choose between `always_notify`, `always_ask`, `schedule_based`, and `silent_card` policies, adjust answer memory TTL (1h, 2h, 4h), and view schedule windows.
-- **Worker Presence Decision Flow (Issue #291)**: Rain Analysis Worker now intelligently evaluates presence policies before dispatching full alerts. For locations on `always_ask`, the worker issues a lightweight Presence Ping (`ตรวจพบกลุ่มฝนใกล้พิกัด [...] คุณอยู่ที่นี่ไหม?`) with quick response buttons (`✅ ใช่ ส่งข้อมูลเต็ม`, `❌ ไม่ต้องส่ง`, `🔕 ปิด 4 ชม.`). Confirmed answers are cached in memory for the chosen TTL, suppressing redundant prompt loops.
-
-## [0.74.0] - 2026-09-10
-
-### Added
-- **Location Name CRUD & Snooze Capabilities (Issue #287)**: Added `is_snoozed` and `snooze_until` columns to `UserLocation` model with dynamic database schema migration. Added `rename_location()`, `snooze_location()`, and `unsnooze_location()` to SQLite and Firestore repository layers, automatically filtering out snoozed locations from active notification sweeps.
-- **Telegram Bot Location Management Commands (Issue #288)**: Added `/locations` command listing all registered locations with real-time status badges (`🟢 Active` or `🔕 Snoozed until HH:MM`) and interactive Inline Keyboard buttons for quick muting (`1hr`, `4hr`, `24hr`) and unsnoozing. Added `/rename <old_name> <new_name>` command for fast location renaming.
+- **Location Name CRUD & Snooze Controls (Issues #287, #288)**: Added `is_snoozed` and `snooze_until` columns to `UserLocation` model with dynamic database schema migration. Added `rename_location()`, `snooze_location()`, and `unsnooze_location()` to repository layers, automatically filtering out snoozed locations from notification sweeps. Added `/locations` command with real-time status badges (`🟢 Active` or `🔕 Snoozed until HH:MM`) and interactive Inline Keyboard buttons for quick muting (`1hr`, `4hr`, `24hr`), live-updating messages, and `/rename <old> <new>`.
+- **Presence Verification System & Policy Decision Flow (Issues #289, #290, #291)**: Created `presence_answer_cache` database table with countdown TTL support and added presence policy columns (`presence_policy`, `schedule_active_days`, `schedule_active_start`, `schedule_active_end`, `presence_answer_ttl_minutes`, `default_fallback_policy`) to `UserLocation`. Added `/presence [location_name]` command with interactive Inline Keyboard settings menu (`always_notify`, `always_ask`, `schedule_based`, `silent_card`, TTL 1h/2h/4h). Rain analysis worker issues lightweight Presence Pings (`ตรวจพบกลุ่มฝนใกล้พิกัด [...] คุณอยู่ที่นี่ไหม?`) with response caching to avoid redundant prompts.
+- **Alert Accuracy Dashboard & Multi-Tier Unit Economics (Issues #292, #293, #294, #295, #296)**: Added `alert_notification_log` database table tracking all alert dispatches, rain intensity, user false alarm feedback, and automatic verification outcomes. Added `auto_verify_false_alarms_routine` to Cloud Scheduler re-checking radar data 30–90 minutes post-alert. Added `GET /api/v1/metrics/monthly` and `GET /api/v1/metrics/cost` combining GCP BigQuery billing data with `external_cost_config` table (radar APIs, proxy pools) to calculate Cost per Alert and Cost per True Alert. Built Web Admin interfaces at `/admin/metrics` and `/admin/locations`, and added Admin Telegram `/stats [month]` and `/cost [month]` commands.
 
 ## [0.73.3] - 2026-09-07
 
