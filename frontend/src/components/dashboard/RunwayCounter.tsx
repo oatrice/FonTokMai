@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useSyncExternalStore } from "react";
 import useSWR from "swr";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GlassBadge } from "@/components/ui/GlassBadge";
@@ -44,19 +44,25 @@ export function RunwayCounter() {
   const runway = data;
   const targetEndTimeRef = useRef<number | null>(null);
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("numeric");
-  const [isClient, setIsClient] = useState(false);
+  const isClient = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
-  useEffect(() => {
-    setIsClient(true);
-    const saved = localStorage.getItem("runwayViewMode") as ViewMode;
-    if (saved === "numeric" || saved === "storytelling" || saved === "compact") {
-      setViewMode(saved);
-    }
-  }, []);
+  const [storedViewMode, setStoredViewMode] = useState<ViewMode>("numeric");
+
+  const viewMode = useSyncExternalStore(
+    (callback) => {
+      window.addEventListener("storage", callback);
+      return () => window.removeEventListener("storage", callback);
+    },
+    () => (localStorage.getItem("runwayViewMode") as ViewMode) || storedViewMode,
+    () => "numeric"
+  );
 
   const handleViewModeChange = (mode: ViewMode) => {
-    setViewMode(mode);
+    setStoredViewMode(mode);
     localStorage.setItem("runwayViewMode", mode);
   };
 

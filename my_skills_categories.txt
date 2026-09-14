@@ -168,18 +168,25 @@
 #Agent Skill for start new session
 
 #Handoff
-/grill-with-docs
-/wayfinder
-/senior-architect
-/architect-review
-/c4-container
-/domain-driven-design
-/writing-plans
-/jobs-to-be-done-analyst
-/create-issue-gate + /dos-verify-done-claims
-/git-pr-review + /pr-writer + /create-pr
+[grill-with-docs](slashCommand;grill-with-docs) 
+[wayfinder](slashCommand;wayfinder) 
+[senior-architect](slashCommand;senior-architect) 
+[architect-review](slashCommand;architect-review) 
+[c4-container](slashCommand;c4-container) 
+[domain-driven-design](slashCommand;domain-driven-design) 
+[writing-plans](slashCommand;writing-plans) 
+[jobs-to-be-done-analyst](slashCommand;jobs-to-be-done-analyst) 
+[create-issue-gate](slashCommand;create-issue-gate)  + [dos-verify-done-claims](slashCommand;dos-verify-done-claims) 
+[git-pr-review](slashCommand;git-pr-review)  + [pr-writer](slashCommand;pr-writer)  + [create-pr](slashCommand;create-pr) 
+[evaluation](slashCommand;evaluation) 
+[advanced-evaluation](slashCommand;advanced-evaluation) 
+[agent-evaluation](slashCommand;agent-evaluation) 
 
 *ใช้ model: claude
+
+วิเคราะห์ requirements, ออกแบบแผนงาน และ evaluate อย่าเพิ่งเริ่ม implement ใดๆ
+
+---
 
 #Implement
 /grill-with-docs #ลอง Grill ก่อน implement ด้วย
@@ -205,39 +212,40 @@
 *ใช้ model: gemini
 
 เริ่ม implement ด้วย Agent Skills ทั้งหมดนี้ได้เลย จะทำ worktree เพื่อ parallel ด้วย sub-agent ด้วยก็ได้
+เช็คด้วยว่ามี AI Agent อื่นๆกำลังทำงานใน branch, worktree เดียวกันไหม ถ้ามีให้แยก worktree เสมอ
 ---
 
 #code review
 
-/code-review
-/code-reviewer
-/git-pr-review
-/comprehensive-review-full-review
-/differential-review
+[code-review](slashCommand;code-review) 
+[code-reviewer](slashCommand;code-reviewer) 
+[git-pr-review](slashCommand;git-pr-review) 
+[comprehensive-review-full-review](slashCommand;comprehensive-review-full-review) 
+[differential-review](slashCommand;differential-review) 
 
-/security-auditor
-/fix-review
-/pre-release-review
-/vibe-code-auditor
+[security-auditor](slashCommand;security-auditor) 
+[fix-review](slashCommand;fix-review) 
+[pre-release-review](slashCommand;pre-release-review) 
+[vibe-code-auditor](slashCommand;vibe-code-auditor) 
 
-/simplify-code
-/unslop-review
-/receiving-code-review
+[simplify-code](slashCommand;simplify-code) 
+[unslop-review](slashCommand;unslop-review) 
+[receiving-code-review](slashCommand;receiving-code-review) 
 
-/architect-review
-/react-component-performance
-/ui-review
+[architect-review](slashCommand;architect-review) 
+[react-component-performance](slashCommand;react-component-performance) 
+[ui-review](slashCommand;ui-review) 
 
-/ui-a11y
-/ux-audit
-/ui-lint
+[ui-a11y](slashCommand;ui-a11y) 
+[ux-audit](slashCommand;ux-audit) 
+[ui-lint](slashCommand;ui-lint) 
 
-/test-guard
-/webapp-testing
-/api-endpoint-verification
+[test-guard](slashCommand;test-guard) 
+[webapp-testing](slashCommand;webapp-testing) 
+[api-endpoint-verification](slashCommand;api-endpoint-verification) 
 
-/privacy-by-design
-/sast-configuration
+[privacy-by-design](slashCommand;privacy-by-design) 
+[sast-configuration](slashCommand;sast-configuration) 
 
 *ใช้ model: claude
 
@@ -296,36 +304,38 @@ Before create MR
 /doc-version-updater
 
 [git-pr-review](slashCommand;git-pr-review) 
-เช็ค commit ตั้งแต่ staging to head ว่ามีการ์ด issues อะไรที่เกี่ยวข้องบ้าง ถ้ายังไม่มีก็สร้างใหม่ได้เลย แล้วแนบเข้าไปใน PR ด้วย
+เช็ค commit ตั้งแต่ staging/main to head ว่ามีการ์ด issues อะไรที่เกี่ยวข้องบ้าง ถ้ายังไม่มีก็สร้างใหม่ได้เลย แล้วแนบเข้าไปใน PR ด้วย
 
 ใช้ Agent Skills เหล่านี้ให้หมด เพื่อจัดการ docs ที่สำคัญ ก่อนการ update PR/MR ที่มีอยู่แล้ว หรือถ้ายังไม่มีก็สร้างใหม่ได้เลย
 สร้าง MR to staging/main branch ได้เลย
 รวมถึงการ update เอกสารต่างๆด้วย
+ทำ Squad commit ด้วย
 
 changelog ถ้า version ยิบย่อยหลายๆอันใน MR นี้ต้อง merge รวมให้เป็น version เดียว
 
 ===
 
 # debugging
-/debugging-toolkit-smart-debug
-/systematic-debugging
-/error-diagnostics-smart-debug
-/error-debugging-multi-agent-review
-/find-bugs
-/bug-hunter
-/mock-hunter
-/test-fixing
-/bug-hunter
-/mock-hunter
-/test-fixing
-/code-review
-/code-reviewer
-/vibe-code-auditor
-/differential-review
+[$debugging-toolkit-smart-debug](/Users/oatrice/.agents/skills/debugging-toolkit-smart-debug/SKILL.md) 
+[$systematic-debugging](/Users/oatrice/.agents/skills/systematic-debugging/SKILL.md) 
+[$error-diagnostics-smart-debug](/Users/oatrice/.agents/skills/error-diagnostics-smart-debug/SKILL.md) 
+[$error-debugging-multi-agent-review](/Users/oatrice/.agents/skills/error-debugging-multi-agent-review/SKILL.md) 
+[$find-bugs](/Users/oatrice/.agents/skills/find-bugs/SKILL.md) 
+[$bug-hunter](/Users/oatrice/.agents/skills/bug-hunter/SKILL.md) 
+[$mock-hunter](/Users/oatrice/.agents/skills/mock-hunter/SKILL.md) 
+[$test-fixing](/Users/oatrice/.agents/skills/test-fixing/SKILL.md) 
+[$bug-hunter](/Users/oatrice/.agents/skills/bug-hunter/SKILL.md) 
+[$mock-hunter](/Users/oatrice/.agents/skills/mock-hunter/SKILL.md) 
+[$test-fixing](/Users/oatrice/.agents/skills/test-fixing/SKILL.md) 
+[$code-review](/Users/oatrice/.agents/skills/code-review/SKILL.md) 
+[$code-reviewer](/Users/oatrice/.agents/skills/code-reviewer/SKILL.md) 
+[$vibe-code-auditor](/Users/oatrice/.agents/skills/vibe-code-auditor/SKILL.md) 
+[$differential-review](/Users/oatrice/.agents/skills/differential-review/SKILL.md) 
 /memory-leak-debugging
 /a11y-debugging
-/react-component-performance
+[$react-component-performance](/Users/oatrice/.agents/skills/react-component-performance/SKILL.md) 
 
+ใช้ Agent Skills ทั้งหมดนี้ให้หมดทุก Skills
 ---
 #CI fixing:
 /gitlab-ci-patterns

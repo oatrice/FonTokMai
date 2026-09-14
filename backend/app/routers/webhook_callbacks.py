@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from app.services import weather_manager
 from app.dependencies import get_repo_context
 from app.routers.webhook_location import process_telegram_location
-from app.routers.webhook_utils import check_admin_access, format_duration_text
+from app.routers.webhook_utils import check_admin_access, format_duration_text, format_local_time_for_location
 from app.services import telegram
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,108 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
                 name = parts[2].lower()
                 await repo.delete_location(chat_id, name)
                 answer_text = f"ลบข้อมูลพิกัด {name} เรียบร้อยแล้ว"
+        elif data.startswith("loc_snooze_"):
+            # Format: loc_snooze_<name>_<hours>
+            parts = data.split("_")
+            if len(parts) >= 4:
+                try:
+                    name = parts[2].lower()
+                    hours = float(parts[3])
+                    res = await repo.snooze_location(chat_id, name, hours=hours)
+                    if res and res.snooze_until:
+                        until_str = format_local_time_for_location(res.snooze_until, res.latitude, res.longitude)
+                        answer_text = f"🔕 ปิดการแจ้งเตือนพิกัด [{name}] ชั่วคราวถึง {until_str} น. ({int(hours)} ชม.) แล้วครับ"
+                    else:
+                        answer_text = f"🔕 ปิดการแจ้งเตือนพิกัด [{name}] ชั่วคราวเรียบร้อยแล้ว"
+                    if message_id:
+                        from app.routers.webhook_commands import handle_locations_command
+                        await handle_locations_command(chat_id, "/locations", message_id_to_edit=message_id)
+                except Exception as e:
+                    logger.error(f"Error in loc_snooze callback: {e}")
+                    answer_text = "เกิดข้อผิดพลาดในการปิดการแจ้งเตือน"
+        elif data.startswith("loc_unsnooze_"):
+            # Format: loc_unsnooze_<name>
+            parts = data.split("_")
+            if len(parts) >= 3:
+                name = parts[2].lower()
+                await repo.unsnooze_location(chat_id, name)
+                answer_text = f"✅ เปิดการแจ้งเตือนพิกัด [{name}] อีกครั้งแล้วครับ"
+                if message_id:
+                    from app.routers.webhook_commands import handle_locations_command
+                    await handle_locations_command(chat_id, "/locations", message_id_to_edit=message_id)
+        elif data.startswith("presence_menu_"):
+            # Format: presence_menu_<name>
+            parts = data.split("_")
+            if len(parts) >= 3:
+                name = parts[2]
+                from app.routers.webhook_commands import handle_presence_command
+                await handle_presence_command(chat_id, f"/presence {name}", message_id_to_edit=message_id)
+                answer_text = f"เปิดเมนูตั้งค่า [{name}] แล้วครับ"
+        elif data.startswith("set_policy_"):
+            # Format: set_policy_<name>_<policy>
+            parts = data.split("_")
+            if len(parts) >= 4:
+                name = parts[2].lower()
+                policy = "_".join(parts[3:])
+                loc = await repo.get_location(chat_id, name)
+                if loc:
+                    loc.presence_policy = policy
+                    if hasattr(repo, "session") and repo.session:
+                        await repo.session.commit()
+                    elif hasattr(repo, "collection") and repo.collection:
+                        await repo.collection.document(f"{chat_id}_{name}").update({"presence_policy": policy})
+                    policy_labels = {
+                        "always_notify": "🔔 เตือนทันที (ไม่ถาม)",
+                        "always_ask": "❓ ถามก่อนเสมอ",
+                        "schedule_based": "⏰ ตามตารางเวลา",
+                        "silent_card": "🔕 เตือนแบบเงียบ"
+                    }
+                    answer_text = f"✅ ตั้งค่าโหมด [{name}] เป็น: {policy_labels.get(policy, policy)} สำเร็จครับ"
+                    # Edit original message with live updated summary and keep buttons
+                    if message_id:
+                        from app.routers.webhook_commands import build_presence_menu_payload
+                        new_text, new_markup = build_presence_menu_payload(loc)
+                        await telegram.edit_telegram_message(chat_id, message_id, new_text, reply_markup=new_markup)
+                else:
+                    answer_text = "❌ ไม่พบพิกัดที่ระบุ"
+        elif data.startswith("set_ttl_"):
+            # Format: set_ttl_<name>_<minutes>
+            parts = data.split("_")
+            if len(parts) >= 4:
+                name = parts[2].lower()
+                try:
+                    ttl_m = int(parts[3])
+                    loc = await repo.get_location(chat_id, name)
+                    if loc:
+                        loc.presence_answer_ttl_minutes = ttl_m
+                        if hasattr(repo, "session") and repo.session:
+                            await repo.session.commit()
+                        elif hasattr(repo, "collection") and repo.collection:
+                            await repo.collection.document(f"{chat_id}_{name}").update({"presence_answer_ttl_minutes": ttl_m})
+                        answer_text = f"✅ ตั้งเวลาจำคำตอบ (TTL) [{name}] เป็น {ttl_m} นาที แล้วครับ"
+                        # Edit original message with live updated summary and keep buttons
+                        if message_id:
+                            from app.routers.webhook_commands import build_presence_menu_payload
+                            new_text, new_markup = build_presence_menu_payload(loc)
+                            await telegram.edit_telegram_message(chat_id, message_id, new_text, reply_markup=new_markup)
+                except ValueError:
+                    answer_text = "เกิดข้อผิดพลาดในการตั้งค่า TTL"
+        elif data.startswith("presence_ans_"):
+            # Format: presence_ans_<name>_<yes|no>
+            parts = data.split("_")
+            if len(parts) >= 4:
+                name = parts[2].lower()
+                ans = parts[3].lower()
+                loc = await repo.get_location(chat_id, name)
+                ttl = getattr(loc, "presence_answer_ttl_minutes", 120) if loc else 120
+                await repo.set_presence_answer(chat_id, name, ans, ttl_minutes=ttl)
+                if ans == "yes":
+                    answer_text = f"✅ รับทราบ! ระบบจะส่งข้อมูลฝนแบบเต็มรูปแบบสำหรับ [{name}] ให้ครับ"
+                    # Trigger full alert process
+                    if loc:
+                        await process_telegram_location(chat_id, loc.latitude, loc.longitude, location_name=loc.name, is_saved_location=True)
+                else:
+                    answer_text = f"👌 รับทราบ! จะไม่ส่งการแจ้งเตือนพิกัด [{name}] ในอีก {ttl} นาทีนี้ครับ"
         elif data == "loc_no":
             answer_text = "ระบบรับทราบ จะไม่จดจำตำแหน่งใหม่"
         elif data.startswith("fb_falsealarm_"):
@@ -338,8 +440,8 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
     
     from app.dependencies import get_http_client
     client = get_http_client()
-    # ลบ Inline Keyboard
-    if message_id and not (data.startswith("raw_") or data.startswith("switch_")):
+    # ลบ Inline Keyboard ยกเว้นหน้าเมนูที่มีการโต้ตอบต่อเนื่อง
+    if message_id and not (data.startswith("raw_") or data.startswith("switch_") or data.startswith("set_policy_") or data.startswith("set_ttl_") or data.startswith("presence_menu_") or data.startswith("loc_snooze_") or data.startswith("loc_unsnooze_")):
         await client.post(TELEGRAM_EDIT_REPLY_MARKUP_URL, json={
             "chat_id": chat_id,
             "message_id": message_id,

@@ -107,6 +107,32 @@ def format_duration_text(minutes: int) -> str:
         return f"{hrs} ชม. {mins} นาที"
     return f"{hrs} ชม."
 
+def format_local_time_for_location(dt: datetime, lat: float = None, lon: float = None) -> str:
+    """Format UTC datetime into local time string based on location coordinates (default Asia/Bangkok / ICT)."""
+    if dt is None:
+        return ""
+    from zoneinfo import ZoneInfo
+    from datetime import timezone, timedelta
+    
+    # Check if inside Thailand geographical bounds (UTC+7 / Asia/Bangkok)
+    if lat is not None and lon is not None:
+        if 5.0 <= lat <= 21.0 and 97.0 <= lon <= 106.0:
+            tz = ZoneInfo("Asia/Bangkok")
+        else:
+            # Estimate timezone offset from longitude (15 deg per hour)
+            offset_hours = round(lon / 15.0)
+            tz = timezone(timedelta(hours=offset_hours))
+    else:
+        tz = ZoneInfo("Asia/Bangkok")
+
+    # If dt is naive, assume UTC
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    local_dt = dt.astimezone(tz)
+    return local_dt.strftime("%H:%M")
+
+
 def _build_forecast_text(result: dict) -> str:
     """
     สร้างข้อความพยากรณ์ฝนจาก result dict ที่ได้จาก WeatherManager
