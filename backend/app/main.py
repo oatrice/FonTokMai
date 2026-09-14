@@ -26,6 +26,10 @@ class SensitiveDataFilter(logging.Filter):
 
     def filter(self, record):
         try:
+            # For uvicorn access logger, record.args contains (client_addr, method, full_path, http_version, status_code)
+            # which uvicorn.logging.AccessFormatter expects to unpack. Emptying args causes a ValueError.
+            if record.name == "uvicorn.access":
+                return True
             msg = record.getMessage()
             for pattern, replacement in self.patterns:
                 msg = pattern.sub(replacement, msg)
