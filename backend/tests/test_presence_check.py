@@ -128,7 +128,7 @@ async def test_presence_commands_and_worker_flow():
         "message": {"message_id": 102}
     }
     with patch("app.services.telegram.answer_callback_query", new_callable=AsyncMock):
-        with patch("app.routers.webhook_location.process_telegram_location", new_callable=AsyncMock) as mock_full_alert:
+        with patch("app.routers.webhook_callbacks.process_telegram_location", new_callable=AsyncMock) as mock_full_alert:
             with patch("app.dependencies.get_http_client") as mock_client:
                 mock_client.return_value.post = AsyncMock()
                 await handle_callback_query(cb_yes)
