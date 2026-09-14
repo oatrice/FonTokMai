@@ -7,6 +7,10 @@ import { AlertTriangle, CheckCircle2, TrendingDown, DollarSign, Calendar } from 
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+function SkeletonPulse({ className = "h-8 w-20" }: { className?: string }) {
+  return <span className={`inline-block bg-slate-700/60 animate-pulse rounded-lg align-middle ${className}`} />;
+}
+
 export default function AdminMetricsPage() {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
@@ -40,6 +44,7 @@ export default function AdminMetricsPage() {
             <Calendar className="w-5 h-5 text-cyan-400" />
             <input
               type="month"
+              aria-label="เลือกเดือนสำหรับดูสถิติ"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="bg-slate-800/80 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -57,7 +62,7 @@ export default function AdminMetricsPage() {
             </div>
             <div className="mt-4">
               <span className="text-3xl font-extrabold text-white">
-                {costLoading ? "..." : costData?.proactive_count ?? 0}
+                {costLoading ? <SkeletonPulse /> : costData?.proactive_count ?? 0}
               </span>
               <span className="text-xs text-slate-400 ml-2">ครั้ง</span>
             </div>
@@ -71,7 +76,7 @@ export default function AdminMetricsPage() {
             </div>
             <div className="mt-4">
               <span className="text-3xl font-extrabold text-emerald-400">
-                {costLoading ? "..." : costData?.ondemand_count ?? 0}
+                {costLoading ? <SkeletonPulse /> : costData?.ondemand_count ?? 0}
               </span>
               <span className="text-xs text-slate-400 ml-2">
                 ครั้ง
@@ -87,7 +92,7 @@ export default function AdminMetricsPage() {
             </div>
             <div className="mt-4">
               <span className="text-3xl font-extrabold text-amber-400">
-                {costLoading ? "..." : `฿${costData?.cost_per_proactive_alert?.toFixed(2) ?? "0.00"}`}
+                {costLoading ? <SkeletonPulse /> : `฿${costData?.cost_per_proactive_alert?.toFixed(2) ?? "0.00"}`}
               </span>
               <span className="text-xs text-slate-400 ml-2">
                 ต่อครั้ง
@@ -103,7 +108,7 @@ export default function AdminMetricsPage() {
             </div>
             <div className="mt-4">
               <span className="text-3xl font-extrabold text-cyan-400">
-                {costLoading ? "..." : `฿${costData?.cost_per_ondemand_query?.toFixed(2) ?? "0.00"}`}
+                {costLoading ? <SkeletonPulse /> : `฿${costData?.cost_per_ondemand_query?.toFixed(2) ?? "0.00"}`}
               </span>
               <span className="text-xs text-slate-400 ml-2">ต่อครั้ง</span>
             </div>
@@ -119,7 +124,7 @@ export default function AdminMetricsPage() {
             </div>
             <div className="mt-4">
               <span className="text-3xl font-extrabold text-white">
-                {costLoading ? "..." : costData?.mau_count ?? 0}
+                {costLoading ? <SkeletonPulse /> : costData?.mau_count ?? 0}
               </span>
               <span className="text-xs text-slate-400 ml-2">คน</span>
             </div>
@@ -133,7 +138,7 @@ export default function AdminMetricsPage() {
             </div>
             <div className="mt-4">
               <span className="text-3xl font-extrabold text-indigo-400">
-                {costLoading ? "..." : `฿${costData?.blended_cost_per_active_user?.toFixed(2) ?? "0.00"}`}
+                {costLoading ? <SkeletonPulse /> : `฿${costData?.blended_cost_per_active_user?.toFixed(2) ?? "0.00"}`}
               </span>
               <span className="text-xs text-slate-400 ml-2">ต่อคน</span>
             </div>
@@ -147,7 +152,7 @@ export default function AdminMetricsPage() {
             </div>
             <div className="mt-4">
               <span className="text-3xl font-extrabold text-amber-500">
-                {metricsLoading ? "..." : `${metricsData?.false_alarm_rate_pct ?? 0}%`}
+                {metricsLoading ? <SkeletonPulse /> : `${metricsData?.false_alarm_rate_pct ?? 0}%`}
               </span>
               <span className="text-xs text-slate-400 ml-2">
                 ({metricsData?.false_alarms_total ?? 0} ครั้ง)

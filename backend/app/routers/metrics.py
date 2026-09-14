@@ -146,6 +146,21 @@ async def get_gcp_costs(
     return JSONResponse(content=asdict(breakdown))
 
 
+def _get_month_date_range(month: Optional[str] = None):
+    import datetime
+    now = datetime.datetime.now(datetime.timezone.utc)
+    target_month = month or now.strftime("%Y-%m")
+    try:
+        start_date = datetime.datetime.strptime(f"{target_month}-01", "%Y-%m-%d")
+        if start_date.month == 12:
+            end_date = datetime.datetime(start_date.year + 1, 1, 1)
+        else:
+            end_date = datetime.datetime(start_date.year, start_date.month + 1, 1)
+        return target_month, start_date, end_date
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid month format, expected YYYY-MM")
+
+
 @router.get("/monthly")
 async def get_monthly_metrics(month: Optional[str] = None):
     """
@@ -153,61 +168,60 @@ async def get_monthly_metrics(month: Optional[str] = None):
     Returns aggregated stats and daily breakdown for the requested month ('YYYY-MM').
     Defaults to current UTC month.
     """
-    import datetime
     from app.database import AsyncSessionLocal
     from app.models import SystemUsageEvent
     from sqlalchemy.future import select
-    from sqlalchemy import func
+    from sqlalchemy import func, case
 
-    if not month:
-        now = datetime.datetime.now(datetime.timezone.utc)
-        month = now.strftime("%Y-%m")
-
-    try:
-        start_date = datetime.datetime.strptime(f"{month}-01", "%Y-%m-%d")
-        # Compute end date (first day of next month)
-        if start_date.month == 12:
-            end_date = datetime.datetime(start_date.year + 1, 1, 1)
-        else:
-            end_date = datetime.datetime(start_date.year, start_date.month + 1, 1)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid month format, expected YYYY-MM")
+    target_month, start_date, end_date = _get_month_date_range(month)
 
     async with AsyncSessionLocal() as session:
-        stmt = select(SystemUsageEvent).where(
+        # Aggregated totals query
+        stmt_summary = select(
+            func.count(SystemUsageEvent.id).label("total_alerts"),
+            func.coalesce(func.sum(case((SystemUsageEvent.user_feedback_result == "false_alarm", 1), else_=0)), 0).label("false_alarms_user"),
+            func.coalesce(func.sum(case((SystemUsageEvent.auto_verify_result == "false_alarm", 1), else_=0)), 0).label("false_alarms_auto"),
+            func.coalesce(func.sum(case(((SystemUsageEvent.user_feedback_result == "false_alarm") | (SystemUsageEvent.auto_verify_result == "false_alarm"), 1), else_=0)), 0).label("false_alarms_total"),
+        ).where(
             SystemUsageEvent.alerted_at >= start_date,
             SystemUsageEvent.alerted_at < end_date,
             SystemUsageEvent.is_mock == False,
             SystemUsageEvent.event_category == "proactive_alert"
         )
-        res = await session.execute(stmt)
-        logs = res.scalars().all()
-
-        total_alerts = len(logs)
-        false_alarms_user = sum(1 for l in logs if l.user_feedback_result == "false_alarm")
-        false_alarms_auto = sum(1 for l in logs if l.auto_verify_result == "false_alarm")
-        # Combined false alarms count (unique alert IDs that were false alarms by user or auto)
-        false_alarms_total = sum(1 for l in logs if l.user_feedback_result == "false_alarm" or l.auto_verify_result == "false_alarm")
+        summary_res = await session.execute(stmt_summary)
+        row = summary_res.one()
+        total_alerts = int(row.total_alerts or 0)
+        false_alarms_user = int(row.false_alarms_user or 0)
+        false_alarms_auto = int(row.false_alarms_auto or 0)
+        false_alarms_total = int(row.false_alarms_total or 0)
         true_alarms = total_alerts - false_alarms_total
-
         false_alarm_rate_pct = round((false_alarms_total / total_alerts) * 100.0, 1) if total_alerts > 0 else 0.0
 
-        # Daily breakdown for charting
-        daily_map = {}
-        for l in logs:
-            day_str = l.alerted_at.strftime("%Y-%m-%d")
-            if day_str not in daily_map:
-                daily_map[day_str] = {"date": day_str, "total": 0, "true_alarm": 0, "false_alarm": 0}
-            daily_map[day_str]["total"] += 1
-            if l.user_feedback_result == "false_alarm" or l.auto_verify_result == "false_alarm":
-                daily_map[day_str]["false_alarm"] += 1
-            else:
-                daily_map[day_str]["true_alarm"] += 1
-
-        daily_breakdown = sorted(daily_map.values(), key=lambda x: x["date"])
+        # Daily breakdown query
+        stmt_daily = select(
+            func.date(SystemUsageEvent.alerted_at).label("day_str"),
+            func.count(SystemUsageEvent.id).label("total"),
+            func.coalesce(func.sum(case(((SystemUsageEvent.user_feedback_result == "false_alarm") | (SystemUsageEvent.auto_verify_result == "false_alarm"), 1), else_=0)), 0).label("false_alarm")
+        ).where(
+            SystemUsageEvent.alerted_at >= start_date,
+            SystemUsageEvent.alerted_at < end_date,
+            SystemUsageEvent.is_mock == False,
+            SystemUsageEvent.event_category == "proactive_alert"
+        ).group_by(func.date(SystemUsageEvent.alerted_at)).order_by(func.date(SystemUsageEvent.alerted_at))
+        daily_res = await session.execute(stmt_daily)
+        daily_breakdown = []
+        for d in daily_res.all():
+            d_total = int(d.total or 0)
+            d_fa = int(d.false_alarm or 0)
+            daily_breakdown.append({
+                "date": str(d.day_str),
+                "total": d_total,
+                "true_alarm": d_total - d_fa,
+                "false_alarm": d_fa
+            })
 
         return {
-            "month": month,
+            "month": target_month,
             "total_alerts": total_alerts,
             "true_alarms": true_alarms,
             "false_alarms_total": false_alarms_total,
@@ -224,14 +238,12 @@ async def get_monthly_cost(month: Optional[str] = None):
     Monthly Infrastructure & Unit Economics Cost (Issue #292, #293):
     GCP + External Costs, Cost per Alert, Cost per True Alert.
     """
-    import datetime
     from app.database import AsyncSessionLocal
     from app.models import ExternalCostConfig, SystemUsageEvent
     from sqlalchemy.future import select
+    from sqlalchemy import func, case, distinct
 
-    if not month:
-        now = datetime.datetime.now(datetime.timezone.utc)
-        month = now.strftime("%Y-%m")
+    target_month, start_date, end_date = _get_month_date_range(month)
 
     # 1. Fetch GCP cost
     gcp_svc = GCPBillingService()
@@ -243,7 +255,7 @@ async def get_monthly_cost(month: Optional[str] = None):
 
     # 2. Fetch external costs
     async with AsyncSessionLocal() as session:
-        stmt = select(ExternalCostConfig).where(ExternalCostConfig.month == month)
+        stmt = select(ExternalCostConfig).where(ExternalCostConfig.month == target_month)
         res = await session.execute(stmt)
         ext_configs = res.scalars().all()
         external_cost_thb = sum(c.amount_thb for c in ext_configs)
@@ -254,23 +266,22 @@ async def get_monthly_cost(month: Optional[str] = None):
 
         total_cost_thb = round(gcp_cost_thb + external_cost_thb, 2)
 
-        # 3. Calculate Unit Economics
-        start_date = datetime.datetime.strptime(f"{month}-01", "%Y-%m-%d")
-        if start_date.month == 12:
-            end_date = datetime.datetime(start_date.year + 1, 1, 1)
-        else:
-            end_date = datetime.datetime(start_date.year, start_date.month + 1, 1)
-
-        stmt_alerts = select(SystemUsageEvent).where(
+        # 3. Calculate Unit Economics via SQL Aggregation
+        stmt_agg = select(
+            func.coalesce(func.sum(case((SystemUsageEvent.event_category == "proactive_alert", 1), else_=0)), 0).label("proactive_count"),
+            func.coalesce(func.sum(case((SystemUsageEvent.event_category == "ondemand_query", 1), else_=0)), 0).label("ondemand_count"),
+            func.count(distinct(SystemUsageEvent.chat_id)).label("unique_users")
+        ).where(
             SystemUsageEvent.alerted_at >= start_date,
             SystemUsageEvent.alerted_at < end_date,
             SystemUsageEvent.is_mock == False
         )
-        res_alerts = await session.execute(stmt_alerts)
-        logs = res_alerts.scalars().all()
-        
-        proactive_count = sum(1 for l in logs if l.event_category == "proactive_alert")
-        ondemand_count = sum(1 for l in logs if l.event_category == "ondemand_query")
+        agg_res = await session.execute(stmt_agg)
+        agg_row = agg_res.one()
+
+        proactive_count = int(agg_row.proactive_count or 0)
+        ondemand_count = int(agg_row.ondemand_count or 0)
+        unique_users = int(agg_row.unique_users or 0)
         total_system_usage = proactive_count + ondemand_count
 
         cost_per_proactive_alert = 0.0
@@ -280,14 +291,13 @@ async def get_monthly_cost(month: Optional[str] = None):
             cost_per_proactive_alert = round((total_cost_thb * (proactive_count / total_system_usage)) / proactive_count, 2) if proactive_count > 0 else 0.0
             cost_per_ondemand_query = round((total_cost_thb * (ondemand_count / total_system_usage)) / ondemand_count, 2) if ondemand_count > 0 else 0.0
 
-        unique_users = len(set(l.chat_id for l in logs))
         blended_cost_per_active_user = round(total_cost_thb / unique_users, 2) if unique_users > 0 else 0.0
 
         # Preserve legacy fields for backward compatibility if needed by older dashboards
         cost_per_alert = round(total_cost_thb / total_system_usage, 2) if total_system_usage > 0 else 0.0
 
         return {
-            "month": month,
+            "month": target_month,
             "gcp_cost_thb": gcp_cost_thb,
             "external_cost_thb": external_cost_thb,
             "total_cost_thb": total_cost_thb,

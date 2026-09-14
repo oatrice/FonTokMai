@@ -180,6 +180,16 @@ def ensure_schema_migrations(connection):
             )
             existing_columns.add(column_name)
 
+    if inspector.has_table("system_usage_events"):
+        existing_indexes = {idx["name"] for idx in inspector.get_indexes("system_usage_events")}
+        if "ix_usage_events_date_mock_cat" not in existing_indexes:
+            try:
+                connection.execute(
+                    text('CREATE INDEX IF NOT EXISTS "ix_usage_events_date_mock_cat" ON "system_usage_events" ("alerted_at", "is_mock", "event_category")')
+                )
+            except Exception:
+                pass
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

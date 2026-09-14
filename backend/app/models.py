@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime, Text, Boolean
+from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime, Text, Boolean, Index
 from app.database import Base
 
 class UserLocation(Base):
@@ -97,9 +97,13 @@ class SystemUsageEvent(Base):
     auto_verify_result = Column(String, nullable=True)   # 'false_alarm' | 'true_alarm' | None
     auto_verified_at = Column(DateTime, nullable=True)
     
-    event_category = Column(String, default="proactive_alert", nullable=False)
+    event_category = Column(String, default="proactive_alert", index=True, nullable=False)
     command_name = Column(String, nullable=True)
-    is_mock = Column(Boolean, default=False, nullable=False)
+    is_mock = Column(Boolean, default=False, index=True, nullable=False)
+
+    __table_args__ = (
+        Index("ix_usage_events_date_mock_cat", "alerted_at", "is_mock", "event_category"),
+    )
 
 
 class ExternalCostConfig(Base):
