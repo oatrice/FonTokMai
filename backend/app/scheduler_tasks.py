@@ -198,7 +198,7 @@ async def _evaluate_location(loc, mock_states, weather_manager, now, sem):
             return {"loc": loc, "type": "error", "error": str(e)}
 
 
-async def _send_combined_alerts(chat_id, eval_results, now):
+async def _send_combined_alerts(chat_id, eval_results, now, is_mock: bool = False):
     alerts_sent = 0
     errors = 0
 
@@ -324,26 +324,29 @@ async def _send_combined_alerts(chat_id, eval_results, now):
                 await notifier.send_text_message(str(chat_id), combined_text, reply_markup=reply_markup)
             alerts_sent += 1
 
-            # Log to AlertNotificationLog for Accuracy & False Alarm Verification (Issue #292)
+            # Log to SystemUsageEvent for Accuracy & False Alarm Verification (Issue #292 & #298)
             try:
-                from app.models import AlertNotificationLog
+                from app.models import SystemUsageEvent
                 async with get_repo_context() as repo:
                     if hasattr(repo, "session") and repo.session:
                         for r in valid_results:
                             loc = r["loc"]
-                            log_entry = AlertNotificationLog(
+                            log_entry = SystemUsageEvent(
                                 chat_id=str(chat_id),
                                 location_name=loc.name or "default",
                                 latitude=loc.latitude,
                                 longitude=loc.longitude,
                                 alerted_at=now.replace(tzinfo=None),
                                 rain_intensity_mm=r.get("max_rain", 0.0),
-                                alert_type=r.get("type", "rain")
+                                alert_type=r.get("type", "rain"),
+                                event_category="mock_test" if is_mock else "proactive_alert",
+                                command_name="/mock_rain" if is_mock else "proactive_scheduler",
+                                is_mock=is_mock
                             )
                             repo.session.add(log_entry)
                         await repo.session.commit()
             except Exception as e:
-                logger.error(f"Failed to write to AlertNotificationLog: {e}")
+                logger.error(f"Failed to write to SystemUsageEvent: {e}")
         else:
             return 1, errors
 
@@ -761,7 +764,7 @@ async def auto_verify_false_alarms_routine():
     """
     logger.info("Starting auto-verify false alarms routine...")
     from app.database import AsyncSessionLocal
-    from app.models import AlertNotificationLog
+    from app.models import SystemUsageEvent
     from sqlalchemy.future import select
     from app.services.weather_manager import WeatherManager
 
@@ -774,10 +777,10 @@ async def auto_verify_false_alarms_routine():
 
     try:
         async with AsyncSessionLocal() as session:
-            stmt = select(AlertNotificationLog).where(
-                AlertNotificationLog.auto_verify_result.is_(None),
-                AlertNotificationLog.alerted_at >= min_time,
-                AlertNotificationLog.alerted_at <= max_time
+            stmt = select(SystemUsageEvent).where(
+                SystemUsageEvent.auto_verify_result.is_(None),
+                SystemUsageEvent.alerted_at >= min_time,
+                SystemUsageEvent.alerted_at <= max_time
             )
             res = await session.execute(stmt)
             unverified_logs = res.scalars().all()

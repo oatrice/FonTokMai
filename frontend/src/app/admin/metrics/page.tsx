@@ -49,63 +49,109 @@ export default function AdminMetricsPage() {
 
         {/* Summary Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Total Alerts */}
+          {/* Proactive Alerts */}
           <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-lg border border-white/10 flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-400">
-              <span className="text-xs uppercase tracking-wider font-semibold">Total Alerts</span>
+              <span className="text-xs uppercase tracking-wider font-semibold">Proactive Alerts</span>
               <Calendar className="w-4 h-4 text-cyan-400" />
             </div>
             <div className="mt-4">
               <span className="text-3xl font-extrabold text-white">
-                {metricsLoading ? "..." : metricsData?.total_alerts ?? 0}
+                {costLoading ? "..." : costData?.proactive_count ?? 0}
               </span>
               <span className="text-xs text-slate-400 ml-2">ครั้ง</span>
             </div>
           </div>
 
-          {/* True Alarms */}
+          {/* On-Demand Queries */}
           <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-lg border border-white/10 flex flex-col justify-between">
             <div className="flex items-center justify-between text-emerald-400">
-              <span className="text-xs uppercase tracking-wider font-semibold">True Alarms (ฝนตกจริง)</span>
+              <span className="text-xs uppercase tracking-wider font-semibold">On-Demand Queries</span>
               <CheckCircle2 className="w-4 h-4" />
             </div>
             <div className="mt-4">
               <span className="text-3xl font-extrabold text-emerald-400">
-                {metricsLoading ? "..." : metricsData?.true_alarms ?? 0}
+                {costLoading ? "..." : costData?.ondemand_count ?? 0}
               </span>
               <span className="text-xs text-slate-400 ml-2">
-                ({metricsData?.total_alerts ? Math.round((metricsData.true_alarms / metricsData.total_alerts) * 100) : 0}%)
+                ครั้ง
               </span>
             </div>
           </div>
 
-          {/* False Alarms */}
+          {/* Cost per Proactive Alert */}
           <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-lg border border-white/10 flex flex-col justify-between">
             <div className="flex items-center justify-between text-amber-400">
+              <span className="text-xs uppercase tracking-wider font-semibold">Cost / Proactive Alert</span>
+              <DollarSign className="w-4 h-4" />
+            </div>
+            <div className="mt-4">
+              <span className="text-3xl font-extrabold text-amber-400">
+                {costLoading ? "..." : `฿${costData?.cost_per_proactive_alert?.toFixed(2) ?? "0.00"}`}
+              </span>
+              <span className="text-xs text-slate-400 ml-2">
+                ต่อครั้ง
+              </span>
+            </div>
+          </div>
+
+          {/* Cost per On-Demand Query */}
+          <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-lg border border-white/10 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-cyan-400">
+              <span className="text-xs uppercase tracking-wider font-semibold">Cost / On-Demand Query</span>
+              <DollarSign className="w-4 h-4" />
+            </div>
+            <div className="mt-4">
+              <span className="text-3xl font-extrabold text-cyan-400">
+                {costLoading ? "..." : `฿${costData?.cost_per_ondemand_query?.toFixed(2) ?? "0.00"}`}
+              </span>
+              <span className="text-xs text-slate-400 ml-2">ต่อครั้ง</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Active Users (MAU) */}
+          <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-lg border border-white/10 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-xs uppercase tracking-wider font-semibold">Active Users (MAU)</span>
+              <Calendar className="w-4 h-4 text-indigo-400" />
+            </div>
+            <div className="mt-4">
+              <span className="text-3xl font-extrabold text-white">
+                {costLoading ? "..." : costData?.mau_count ?? 0}
+              </span>
+              <span className="text-xs text-slate-400 ml-2">คน</span>
+            </div>
+          </div>
+
+          {/* Blended Cost per User */}
+          <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-lg border border-white/10 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-indigo-400">
+              <span className="text-xs uppercase tracking-wider font-semibold">Blended Cost / User</span>
+              <DollarSign className="w-4 h-4" />
+            </div>
+            <div className="mt-4">
+              <span className="text-3xl font-extrabold text-indigo-400">
+                {costLoading ? "..." : `฿${costData?.blended_cost_per_active_user?.toFixed(2) ?? "0.00"}`}
+              </span>
+              <span className="text-xs text-slate-400 ml-2">ต่อคน</span>
+            </div>
+          </div>
+
+          {/* False Alarms Rate */}
+          <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-lg border border-white/10 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-amber-500">
               <span className="text-xs uppercase tracking-wider font-semibold">False Alarms Rate</span>
               <AlertTriangle className="w-4 h-4" />
             </div>
             <div className="mt-4">
-              <span className="text-3xl font-extrabold text-amber-400">
+              <span className="text-3xl font-extrabold text-amber-500">
                 {metricsLoading ? "..." : `${metricsData?.false_alarm_rate_pct ?? 0}%`}
               </span>
               <span className="text-xs text-slate-400 ml-2">
                 ({metricsData?.false_alarms_total ?? 0} ครั้ง)
               </span>
-            </div>
-          </div>
-
-          {/* Cost per True Alert */}
-          <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-lg border border-white/10 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-cyan-400">
-              <span className="text-xs uppercase tracking-wider font-semibold">Cost / True Alert</span>
-              <DollarSign className="w-4 h-4" />
-            </div>
-            <div className="mt-4">
-              <span className="text-3xl font-extrabold text-cyan-400">
-                {costLoading ? "..." : `฿${costData?.cost_per_true_alert?.toFixed(2) ?? "0.00"}`}
-              </span>
-              <span className="text-xs text-slate-400 ml-2">ต่อครั้ง</span>
             </div>
           </div>
         </div>

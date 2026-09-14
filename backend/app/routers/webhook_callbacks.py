@@ -146,7 +146,6 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
                     answer_text = f"✅ รับทราบ! ระบบจะส่งข้อมูลฝนแบบเต็มรูปแบบสำหรับ [{name}] ให้ครับ"
                     # Trigger full alert process
                     if loc:
-                        from app.routers.webhook_location import process_telegram_location
                         await process_telegram_location(chat_id, loc.latitude, loc.longitude, location_name=loc.name, is_saved_location=True)
                 else:
                     answer_text = f"👌 รับทราบ! จะไม่ส่งการแจ้งเตือนพิกัด [{name}] ในอีก {ttl} นาทีนี้ครับ"
@@ -428,6 +427,24 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
                 reply_markup = {"inline_keyboard": keyboard}
                 
                 await telegram.edit_telegram_message(chat_id, message_id, text, reply_markup=reply_markup)
+                
+                from app.models import SystemUsageEvent
+                async with get_repo_context() as repo:
+                    if hasattr(repo, "session") and repo.session:
+                        event = SystemUsageEvent(
+                            chat_id=str(chat_id),
+                            location_name="default", # Doesn't have the loc name here easily
+                            latitude=lat,
+                            longitude=lng,
+                            alerted_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                            rain_intensity_mm=0.0,
+                            alert_type="rain",
+                            event_category="ondemand_query",
+                            command_name="compare_api",
+                            is_mock=False
+                        )
+                        repo.session.add(event)
+                        await repo.session.commit()
                 
                 if not already_answered:
                     await telegram.answer_callback_query(query_id)

@@ -163,10 +163,10 @@ async def test_schema_migrations_add_missing_columns_idempotently():
             await conn.run_sync(ensure_schema_migrations)
             await conn.run_sync(ensure_schema_migrations)
 
-            columns = {
-                column["name"]
-                for column in inspect(conn).get_columns("user_locations")
-            }
+            def get_cols(sync_conn, table_name):
+                return {column["name"] for column in inspect(sync_conn).get_columns(table_name)}
+
+            columns = await conn.run_sync(get_cols, "user_locations")
             assert {
                 "last_alert_max_rain",
                 "tracking_mode",
@@ -183,10 +183,7 @@ async def test_schema_migrations_add_missing_columns_idempotently():
                 "default_fallback_policy",
             }.issubset(columns)
 
-            radar_columns = {
-                column["name"]
-                for column in inspect(conn).get_columns("radar_latest_cache")
-            }
+            radar_columns = await conn.run_sync(get_cols, "radar_latest_cache")
             assert "source" in radar_columns
 
             row = (

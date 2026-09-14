@@ -38,6 +38,12 @@ RADAR_LATEST_CACHE_SCHEMA_COLUMNS = (
     ("source", "VARCHAR DEFAULT 'api'"),
 )
 
+SYSTEM_USAGE_EVENTS_SCHEMA_COLUMNS = (
+    ("event_category", "VARCHAR DEFAULT 'proactive_alert' NOT NULL"),
+    ("command_name", "VARCHAR"),
+    ("is_mock", "BOOLEAN DEFAULT FALSE NOT NULL"),
+)
+
 
 class SensitiveDataFilter(logging.Filter):
     def __init__(self):
@@ -147,9 +153,14 @@ import asyncio
 
 def ensure_schema_migrations(connection):
     inspector = inspect(connection)
+    
+    if inspector.has_table("alert_notification_log") and not inspector.has_table("system_usage_events"):
+        connection.execute(text('ALTER TABLE "alert_notification_log" RENAME TO "system_usage_events"'))
+        
     for table_name, columns in (
         ("user_locations", USER_LOCATION_SCHEMA_COLUMNS),
         ("radar_latest_cache", RADAR_LATEST_CACHE_SCHEMA_COLUMNS),
+        ("system_usage_events", SYSTEM_USAGE_EVENTS_SCHEMA_COLUMNS),
     ):
         if not inspector.has_table(table_name):
             continue

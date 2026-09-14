@@ -567,7 +567,7 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
                     chat_id, lat=l.latitude, lng=l.longitude,
                     force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
                     show_advanced=show_advanced, location_name=loc_display,
-                    is_saved_location=True
+                    is_saved_location=True, command_name=parts[0]
                 )
             return
 
@@ -598,7 +598,7 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
         chat_id, lat=loc.latitude, lng=loc.longitude,
         force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
         show_advanced=show_advanced, location_name=loc_display,
-        is_saved_location=True
+        is_saved_location=True, command_name=parts[0]
     )
 
 @cmd_router.bind("/multiframe", task_route="worker/handle-multiframe", loading_text="⏳ กำลังสร้างภาพวิเคราะห์เรดาร์ 6 เฟรม...")
@@ -658,6 +658,25 @@ async def handle_multiframe_command(chat_id: int, command: str, message_id_to_ed
         await telegram.send_telegram_photo(chat_id, multiframe_bytes, "radar_multiframe.png")
     else:
         await telegram.send_telegram_message(chat_id, "⚠️ ไม่สามารถสร้างภาพวิเคราะห์ 6 เฟรมได้ในขณะนี้")
+
+    from datetime import datetime, timezone
+    from app.models import SystemUsageEvent
+    async with get_repo_context() as repo:
+        if hasattr(repo, "session") and repo.session:
+            event = SystemUsageEvent(
+                chat_id=str(chat_id),
+                location_name=loc.name or "default",
+                latitude=loc.latitude,
+                longitude=loc.longitude,
+                alerted_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                rain_intensity_mm=result.get("max_rain", 0.0),
+                alert_type="rain",
+                event_category="ondemand_query",
+                command_name="/multiframe",
+                is_mock=False
+            )
+            repo.session.add(event)
+            await repo.session.commit()
 
 
 @cmd_router.bind("/calibrate ", requires_admin=True, loading_text="⏳ กำลังวิเคราะห์และ Calibrate เรดาร์...")
@@ -937,8 +956,9 @@ async def handle_cost_command(chat_id: int, command: str, message_id_to_edit: in
         gcp_cost = data["gcp_cost_thb"]
         ext_cost = data["external_cost_thb"]
         total_cost = data["total_cost_thb"]
-        cost_per_alert = data["cost_per_alert"]
-        cost_per_true = data["cost_per_true_alert"]
+        cost_per_proactive = data.get("cost_per_proactive_alert", 0)
+        cost_per_ondemand = data.get("cost_per_ondemand_query", 0)
+        blended_cost_per_user = data.get("blended_cost_per_active_user", 0)
 
         msg = (
             f"💰 <b>สรุปต้นทุนระบบประจำเดือน {month_str}</b>\n\n"
@@ -946,8 +966,9 @@ async def handle_cost_command(chat_id: int, command: str, message_id_to_edit: in
             f"🌐 External (Radar + Proxy): <code>฿{ext_cost:.2f}</code>\n"
             f"💵 รวมต้นทุนทั้งสิ้น: <b>฿{total_cost:.2f}</b>\n"
             f"─────────────────────\n"
-            f"📉 Cost / Alert: <code>฿{cost_per_alert:.2f}</code>\n"
-            f"🎯 Cost / True Alert: <code>฿{cost_per_true:.2f}</code>\n"
+            f"🔔 Cost / Proactive Alert: <code>฿{cost_per_proactive:.2f}</code>\n"
+            f"🔍 Cost / On-Demand Query: <code>฿{cost_per_ondemand:.2f}</code>\n"
+            f"👤 Blended Cost / Active User: <code>฿{blended_cost_per_user:.2f}</code>\n"
         )
         await _reply(chat_id, msg, message_id_to_edit)
     except Exception as e:
@@ -1015,7 +1036,7 @@ async def handle_mock_rain_command(chat_id: int, command: str, message_id_to_edi
             }
         }]
 
-        sent, errors = await _send_combined_alerts(chat_id, simulated_eval_result, datetime.now(timezone.utc))
+        sent, errors = await _send_combined_alerts(chat_id, simulated_eval_result, datetime.now(timezone.utc), is_mock=True)
         reset_notice = " (🔄 รีเซ็ต Cache แล้ว)" if do_reset else ""
         await _reply(chat_id, f"🎯 จำลองแจ้งเตือนฝนพิกัด <b>{loc.name}</b> เรียบร้อยแล้ว{reset_notice} (sent={sent}, errors={errors})", message_id_to_edit)
 

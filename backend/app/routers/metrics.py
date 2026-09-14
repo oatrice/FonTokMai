@@ -155,7 +155,7 @@ async def get_monthly_metrics(month: Optional[str] = None):
     """
     import datetime
     from app.database import AsyncSessionLocal
-    from app.models import AlertNotificationLog
+    from app.models import SystemUsageEvent
     from sqlalchemy.future import select
     from sqlalchemy import func
 
@@ -174,9 +174,11 @@ async def get_monthly_metrics(month: Optional[str] = None):
         raise HTTPException(status_code=400, detail="Invalid month format, expected YYYY-MM")
 
     async with AsyncSessionLocal() as session:
-        stmt = select(AlertNotificationLog).where(
-            AlertNotificationLog.alerted_at >= start_date,
-            AlertNotificationLog.alerted_at < end_date
+        stmt = select(SystemUsageEvent).where(
+            SystemUsageEvent.alerted_at >= start_date,
+            SystemUsageEvent.alerted_at < end_date,
+            SystemUsageEvent.is_mock == False,
+            SystemUsageEvent.event_category == "proactive_alert"
         )
         res = await session.execute(stmt)
         logs = res.scalars().all()
@@ -224,7 +226,7 @@ async def get_monthly_cost(month: Optional[str] = None):
     """
     import datetime
     from app.database import AsyncSessionLocal
-    from app.models import ExternalCostConfig, AlertNotificationLog
+    from app.models import ExternalCostConfig, SystemUsageEvent
     from sqlalchemy.future import select
 
     if not month:
@@ -259,27 +261,43 @@ async def get_monthly_cost(month: Optional[str] = None):
         else:
             end_date = datetime.datetime(start_date.year, start_date.month + 1, 1)
 
-        stmt_alerts = select(AlertNotificationLog).where(
-            AlertNotificationLog.alerted_at >= start_date,
-            AlertNotificationLog.alerted_at < end_date
+        stmt_alerts = select(SystemUsageEvent).where(
+            SystemUsageEvent.alerted_at >= start_date,
+            SystemUsageEvent.alerted_at < end_date,
+            SystemUsageEvent.is_mock == False
         )
         res_alerts = await session.execute(stmt_alerts)
         logs = res_alerts.scalars().all()
-        total_alerts = len(logs)
-        false_alarms = sum(1 for l in logs if l.user_feedback_result == "false_alarm" or l.auto_verify_result == "false_alarm")
-        true_alerts = total_alerts - false_alarms
+        
+        proactive_count = sum(1 for l in logs if l.event_category == "proactive_alert")
+        ondemand_count = sum(1 for l in logs if l.event_category == "ondemand_query")
+        total_system_usage = proactive_count + ondemand_count
 
-        cost_per_alert = round(total_cost_thb / total_alerts, 2) if total_alerts > 0 else 0.0
-        cost_per_true_alert = round(total_cost_thb / true_alerts, 2) if true_alerts > 0 else cost_per_alert
+        cost_per_proactive_alert = 0.0
+        cost_per_ondemand_query = 0.0
+        
+        if total_system_usage > 0:
+            cost_per_proactive_alert = round((total_cost_thb * (proactive_count / total_system_usage)) / proactive_count, 2) if proactive_count > 0 else 0.0
+            cost_per_ondemand_query = round((total_cost_thb * (ondemand_count / total_system_usage)) / ondemand_count, 2) if ondemand_count > 0 else 0.0
+
+        unique_users = len(set(l.chat_id for l in logs))
+        blended_cost_per_active_user = round(total_cost_thb / unique_users, 2) if unique_users > 0 else 0.0
+
+        # Preserve legacy fields for backward compatibility if needed by older dashboards
+        cost_per_alert = round(total_cost_thb / total_system_usage, 2) if total_system_usage > 0 else 0.0
 
         return {
             "month": month,
             "gcp_cost_thb": gcp_cost_thb,
             "external_cost_thb": external_cost_thb,
             "total_cost_thb": total_cost_thb,
-            "total_alerts": total_alerts,
-            "true_alerts": true_alerts,
+            "total_alerts": total_system_usage,
             "cost_per_alert": cost_per_alert,
-            "cost_per_true_alert": cost_per_true_alert
+            "cost_per_proactive_alert": cost_per_proactive_alert,
+            "cost_per_ondemand_query": cost_per_ondemand_query,
+            "blended_cost_per_active_user": blended_cost_per_active_user,
+            "proactive_count": proactive_count,
+            "ondemand_count": ondemand_count,
+            "mau_count": unique_users
         }
 

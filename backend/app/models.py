@@ -16,6 +16,8 @@ class UserLocation(Base):
     last_alert_max_rain = Column(Float, nullable=True, default=0.0)  # mm/hr ของการแจ้งเตือนครั้งล่าสุด
     tracking_mode = Column(String, default="auto", nullable=False) # "auto" | "manual"
     locked_target_id = Column(String, nullable=True) # e.g. "A"
+    locked_target_cx = Column(Integer, nullable=True)
+    locked_target_cy = Column(Integer, nullable=True)
     is_snoozed = Column(Boolean, default=False, nullable=False)
     snooze_until = Column(DateTime, nullable=True)
 
@@ -76,11 +78,12 @@ class UserFeedback(Base):
     feedback_type = Column(String, nullable=False) # e.g. 'false_alarm'
     prediction_context = Column(String, nullable=True) # e.g. "max_rain: 1.5 mm/hr"
 
-class AlertNotificationLog(Base):
+class SystemUsageEvent(Base):
     """
-    Tracks rain alert dispatches and their actual accuracy verification (Issue #291, #292).
+    Unified Event Log: Tracks proactive rain alerts, on-demand queries, and mock tests.
+    Used for accuracy verification and multi-tier unit economics (Issue #298).
     """
-    __tablename__ = "alert_notification_log"
+    __tablename__ = "system_usage_events"
 
     id = Column(Integer, primary_key=True, index=True)
     chat_id = Column(String, index=True, nullable=False)
@@ -93,6 +96,10 @@ class AlertNotificationLog(Base):
     user_feedback_result = Column(String, nullable=True) # 'false_alarm' | 'true_alarm' | None
     auto_verify_result = Column(String, nullable=True)   # 'false_alarm' | 'true_alarm' | None
     auto_verified_at = Column(DateTime, nullable=True)
+    
+    event_category = Column(String, default="proactive_alert", nullable=False)
+    command_name = Column(String, nullable=True)
+    is_mock = Column(Boolean, default=False, nullable=False)
 
 
 class ExternalCostConfig(Base):
