@@ -20,7 +20,7 @@ export default function AdminMetricsPage() {
     fetcher
   );
 
-  const { data: costData } = useSWR(
+  const { data: costData, isLoading: costLoading } = useSWR(
     `/api/v1/metrics/cost?month=${selectedMonth}`,
     fetcher
   );

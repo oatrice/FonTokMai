@@ -209,7 +209,7 @@ export function GCPCostBreakdown() {
           </div>
         ) : data ? (
           // Data rows
-          SERVICE_ITEMS.map(({ key, fallbackKey, label, icon: Icon, colorClass, bgClass, barClass }) => {
+          SERVICE_ITEMS.map(({ key, fallbackKey, label, icon: Icon, colorClass, bgClass }) => {
             const rawCost = data[key] !== undefined ? (data[key] as number) : (data[fallbackKey] as number) || 0;
             const costThb = data.currency === "THB" || data[key] !== undefined ? rawCost : rawCost * 35;
             const pct = totalThb > 0 ? (costThb / totalThb) * 100 : 0;
