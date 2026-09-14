@@ -142,10 +142,10 @@ async def test_ocr_space_fail_uses_fallback_ts(ocr_service, dummy_frame):
     with patch.object(ocr_service, "_call_ocr_space", new_callable=AsyncMock) as mock_ocr:
         mock_ocr.return_value = None  # OCR.space ล้มเหลว
 
-        fallback = 1718793600  # dummy timestamp
+        fallback = 1718793600  # dummy timestamp (10:40:00 UTC)
         ts = await ocr_service.get_frame_timestamp(dummy_frame, fallback_ts=fallback)
 
-    assert ts == fallback
+    assert ts == (fallback // 900) * 900
 
 
 # ────────────────────────────────────────────────────────────
@@ -169,7 +169,7 @@ async def test_ocr_garbage_text_uses_fallback_ts(ocr_service, dummy_frame):
         fallback = 1718793600
         ts = await ocr_service.get_frame_timestamp(dummy_frame, fallback_ts=fallback)
 
-    assert ts == fallback
+    assert ts == (fallback // 900) * 900
 
 
 # ────────────────────────────────────────────────────────────

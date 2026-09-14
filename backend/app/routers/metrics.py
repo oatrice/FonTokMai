@@ -258,11 +258,7 @@ async def get_monthly_cost(month: Optional[str] = None):
         stmt = select(ExternalCostConfig).where(ExternalCostConfig.month == target_month)
         res = await session.execute(stmt)
         ext_configs = res.scalars().all()
-        external_cost_thb = sum(c.amount_thb for c in ext_configs)
-
-        # Baseline fallback for external cost if none configured (default proxy pool estimate)
-        if external_cost_thb == 0.0:
-            external_cost_thb = 150.0 # Standard proxy baseline
+        external_cost_thb = float(sum(c.amount_thb for c in ext_configs)) if ext_configs else 0.0
 
         total_cost_thb = round(gcp_cost_thb + external_cost_thb, 2)
 
