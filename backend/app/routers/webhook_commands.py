@@ -753,7 +753,7 @@ async def handle_locations_command(chat_id: int, command: str, message_id_to_edi
 
         guide_text = (
             "\n💡 **วิธีจัดการพิกัด:**\n"
-            "- เปลี่ยนชื่อพิกัด: `/rename <ชื่อเดิม> <ชื่อใหม่>`\n"
+            "- เปลี่ยนชื่อพิกัด: `/rename [ชื่อเดิม] [ชื่อใหม่]`\n"
             "- ลบพิกัด: เลือกลบจากปุ่มหรือบันทึกทับได้เลย"
         )
         msg_lines.append(guide_text)
@@ -774,7 +774,7 @@ async def handle_rename_command(chat_id: int, command: str, message_id_to_edit: 
     if len(parts) < 2:
         usage_msg = (
             "⚠️ รูปแบบคำสั่งไม่ถูกต้อง\n\n"
-            "**การใช้งาน:** `/rename <ชื่อเดิม> <ชื่อใหม่>`\n"
+            "**การใช้งาน:** `/rename [ชื่อเดิม] [ชื่อใหม่]`\n"
             "**ตัวอย่าง:** `/rename home condo`"
         )
         await _reply(chat_id, usage_msg, message_id_to_edit)
