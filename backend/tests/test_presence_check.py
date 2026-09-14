@@ -65,6 +65,9 @@ from app.dependencies import get_repo_context
 
 @pytest.mark.asyncio
 async def test_presence_commands_and_worker_flow():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     chat_id = 112233
     async with get_repo_context() as repo:
         loc = await repo.save_location(chat_id, 13.75, 100.5, "FOREVER", "garden")
