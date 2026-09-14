@@ -26,13 +26,34 @@ from app.dependencies import get_repo_context
 from app.scheduler_tasks import _send_combined_alerts
 
 async def main():
-    loc_name = sys.argv[1] if len(sys.argv) > 1 else "home"
-    chat_id = int(sys.argv[2]) if len(sys.argv) > 2 else 6346467495
-    rain_mm = float(sys.argv[3]) if len(sys.argv) > 3 else 3.5
+    args = sys.argv[1:]
+    do_reset = False
+    if "--reset" in args:
+        do_reset = True
+        args.remove("--reset")
+    if "-r" in args:
+        do_reset = True
+        args.remove("-r")
+
+    loc_name = args[0] if len(args) > 0 else "home"
+    chat_id = int(args[1]) if len(args) > 1 else 6346467495
+    rain_mm = float(args[2]) if len(args) > 2 else 3.5
 
     print(f"🚀 กำลังจำลองการตรวจพบฝนสำหรับพิกัด [{loc_name}] (Chat ID: {chat_id}, Rain: {rain_mm} mm/hr)...")
 
     async with get_repo_context() as repo:
+        if do_reset and hasattr(repo, "session") and repo.session:
+            from app.models import PresenceAnswerCache
+            from sqlalchemy import delete
+            await repo.session.execute(
+                delete(PresenceAnswerCache).where(
+                    PresenceAnswerCache.chat_id == str(chat_id),
+                    PresenceAnswerCache.location_name == loc_name.lower()
+                )
+            )
+            await repo.session.commit()
+            print(f"🔄 รีเซ็ต Cache สำหรับพิกัด [{loc_name}] เรียบร้อยแล้ว")
+
         loc = await repo.get_location(chat_id, loc_name)
         if not loc:
             print(f"❌ ไม่พบพิกัด [{loc_name}] ของ chat_id={chat_id}")
@@ -48,6 +69,7 @@ async def main():
         print(f"⚙️ นโยบายแจ้งเตือนของพิกัด: {loc.presence_policy} (TTL: {loc.presence_answer_ttl_minutes} นาที)")
 
         simulated_eval_result = [{
+
             "loc": loc,
             "type": "rain",
             "text": f"🌧️ ตรวจพบกลุ่มฝนใกล้พิกัด [{loc.name}] ความแรง {rain_mm:.1f} mm/hr",

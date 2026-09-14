@@ -957,18 +957,45 @@ async def handle_cost_command(chat_id: int, command: str, message_id_to_edit: in
 @cmd_router.bind("/mock_rain", requires_admin=True, loading_text="⏳ กำลังจำลองส่งสัญญาณเตือนฝน...")
 async def handle_mock_rain_command(chat_id: int, command: str, message_id_to_edit: int = None):
     """
-    Admin Command: /mock_rain [loc_name] [rain_mm]
+    Admin Command: /mock_rain [loc_name] [rain_mm] [--reset]
     จำลองการส่งแจ้งเตือนฝนหรือ Presence Ping เข้าแชท
     """
-    parts = command.removeprefix("/mock_rain").strip().split()
-    loc_name = parts[0] if parts else "home"
-    rain_mm = float(parts[1]) if len(parts) > 1 else 3.5
+    args = command.removeprefix("/mock_rain").strip().split()
+    do_reset = False
+    if "--reset" in args:
+        do_reset = True
+        args.remove("--reset")
+    if "-r" in args:
+        do_reset = True
+        args.remove("-r")
+
+    loc_name = "home"
+    rain_mm = 3.5
+
+    if len(args) >= 1:
+        loc_name = args[0]
+    if len(args) >= 2:
+        try:
+            rain_mm = float(args[1])
+        except ValueError:
+            rain_mm = 3.5
 
     from app.dependencies import get_repo_context
     from app.scheduler_tasks import _send_combined_alerts
+    from app.models import PresenceAnswerCache
+    from sqlalchemy import delete
     from datetime import datetime, timezone
 
     async with get_repo_context() as repo:
+        if do_reset and hasattr(repo, "session") and repo.session:
+            await repo.session.execute(
+                delete(PresenceAnswerCache).where(
+                    PresenceAnswerCache.chat_id == str(chat_id),
+                    PresenceAnswerCache.location_name == loc_name.lower()
+                )
+            )
+            await repo.session.commit()
+
         loc = await repo.get_location(chat_id, loc_name)
         if not loc:
             locs = await repo.get_user_locations(chat_id)
@@ -989,5 +1016,7 @@ async def handle_mock_rain_command(chat_id: int, command: str, message_id_to_edi
         }]
 
         sent, errors = await _send_combined_alerts(chat_id, simulated_eval_result, datetime.now(timezone.utc))
-        await _reply(chat_id, f"🎯 จำลองแจ้งเตือนฝนพิกัด <b>{loc.name}</b> เรียบร้อยแล้ว (sent={sent}, errors={errors})", message_id_to_edit)
+        reset_notice = " (🔄 รีเซ็ต Cache แล้ว)" if do_reset else ""
+        await _reply(chat_id, f"🎯 จำลองแจ้งเตือนฝนพิกัด <b>{loc.name}</b> เรียบร้อยแล้ว{reset_notice} (sent={sent}, errors={errors})", message_id_to_edit)
+
 
