@@ -952,3 +952,42 @@ async def handle_cost_command(chat_id: int, command: str, message_id_to_edit: in
         await _reply(chat_id, msg, message_id_to_edit)
     except Exception as e:
         await _reply(chat_id, f"❌ ไม่สามารถดึงข้อมูลต้นทุนได้: {e}", message_id_to_edit)
+
+
+@cmd_router.bind("/mock_rain", requires_admin=True, loading_text="⏳ กำลังจำลองส่งสัญญาณเตือนฝน...")
+async def handle_mock_rain_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    Admin Command: /mock_rain [loc_name] [rain_mm]
+    จำลองการส่งแจ้งเตือนฝนหรือ Presence Ping เข้าแชท
+    """
+    parts = command.removeprefix("/mock_rain").strip().split()
+    loc_name = parts[0] if parts else "home"
+    rain_mm = float(parts[1]) if len(parts) > 1 else 3.5
+
+    from app.dependencies import get_repo_context
+    from app.scheduler_tasks import _send_combined_alerts
+    from datetime import datetime, timezone
+
+    async with get_repo_context() as repo:
+        loc = await repo.get_location(chat_id, loc_name)
+        if not loc:
+            locs = await repo.get_user_locations(chat_id)
+            loc_names = ", ".join(f"<code>{l.name}</code>" for l in locs) if locs else "ไม่มี"
+            await _reply(chat_id, f"❌ ไม่พบพิกัด <code>{loc_name}</code>\n📍 พิกัดที่คุณมี: {loc_names}", message_id_to_edit)
+            return
+
+        simulated_eval_result = [{
+            "loc": loc,
+            "type": "rain",
+            "text": f"🌧️ ตรวจพบกลุ่มฝนใกล้พิกัด [{loc.name}] ความแรง {rain_mm:.1f} mm/hr",
+            "max_rain": rain_mm,
+            "result": {
+                "endpoint": "tomorrow",
+                "eta_minutes": 15,
+                "duration_minutes": 45
+            }
+        }]
+
+        sent, errors = await _send_combined_alerts(chat_id, simulated_eval_result, datetime.now(timezone.utc))
+        await _reply(chat_id, f"🎯 จำลองแจ้งเตือนฝนพิกัด <b>{loc.name}</b> เรียบร้อยแล้ว (sent={sent}, errors={errors})", message_id_to_edit)
+
