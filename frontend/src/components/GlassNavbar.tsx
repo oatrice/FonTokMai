@@ -27,6 +27,9 @@ export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const isDashboardActive = pathname === "/dashboard";
+  const isRadarActive = pathname === "/admin/radar";
+  const isLocationsActive = pathname === "/admin/locations";
+  const isMetricsActive = pathname === "/admin/metrics";
 
   return (
     <header className="sticky top-0 z-50 w-full backdrop-blur-md transform-gpu bg-slate-950/70 border-b border-white/10 shadow-lg">
@@ -55,7 +58,7 @@ export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
           <nav className="hidden md:flex items-center gap-1">
             <Link 
               href="/dashboard" 
-              className={`px-3.5 py-2 text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-2 text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
                 isDashboardActive 
                   ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20" 
                   : "text-slate-300 hover:text-white hover:bg-white/5"
@@ -64,20 +67,48 @@ export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
               <Activity className="h-4 w-4" />
               <span>Dashboard</span>
             </Link>
-            <Link href="/admin/radar" className="px-3.5 py-2 text-sm font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 rounded-xl transition-all flex items-center gap-1.5 hover:bg-cyan-500/20">
-              <Radio className="h-4 w-4 text-cyan-400 animate-pulse" />
-              <span>Radar Coverage Map</span>
+            <Link 
+              href="/admin/radar" 
+              className={`px-3 py-2 text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
+                isRadarActive
+                  ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20"
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Radio className={`h-4 w-4 ${isRadarActive ? "text-cyan-400 animate-pulse" : "text-slate-400"}`} />
+              <span>Radar</span>
             </Link>
-            <Link href="/#overview" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+            <Link 
+              href="/admin/locations" 
+              className={`px-3 py-2 text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
+                isLocationsActive
+                  ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20"
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <span>Locations</span>
+            </Link>
+            <Link 
+              href="/admin/metrics" 
+              className={`px-3 py-2 text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
+                isMetricsActive
+                  ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20"
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>Metrics</span>
+            </Link>
+            <Link href="/#overview" className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
               Overview
             </Link>
-            <Link href="/#jars" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+            <Link href="/#jars" className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
               Jars
             </Link>
-            <Link href="/#runway" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+            <Link href="/#runway" className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
               Runway
             </Link>
-            <Link href="/#resiliency" className="px-3.5 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
+            <Link href="/#resiliency" className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all">
               Resiliency
             </Link>
           </nav>
@@ -106,22 +137,50 @@ export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
           <div className="md:hidden py-4 border-t border-white/10 space-y-2 animate-in fade-in slide-in-from-top-2">
             <Link 
               href="/dashboard"
+              onClick={() => setMobileMenuOpen(false)}
               className={`block px-4 py-2.5 text-sm font-semibold rounded-xl ${
-                isDashboardActive ? "text-cyan-400 bg-cyan-500/10" : "text-slate-200 hover:bg-white/5"
+                isDashboardActive ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20" : "text-slate-200 hover:bg-white/5"
               }`}
             >
               System Dashboard
             </Link>
-            <Link href="/#overview" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
+            <Link 
+              href="/admin/radar"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block px-4 py-2.5 text-sm font-semibold rounded-xl ${
+                isRadarActive ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20" : "text-slate-200 hover:bg-white/5"
+              }`}
+            >
+              Radar Coverage Map
+            </Link>
+            <Link 
+              href="/admin/locations"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block px-4 py-2.5 text-sm font-semibold rounded-xl ${
+                isLocationsActive ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20" : "text-slate-200 hover:bg-white/5"
+              }`}
+            >
+              Locations Admin
+            </Link>
+            <Link 
+              href="/admin/metrics"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`block px-4 py-2.5 text-sm font-semibold rounded-xl ${
+                isMetricsActive ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20" : "text-slate-200 hover:bg-white/5"
+              }`}
+            >
+              Metrics Admin
+            </Link>
+            <Link href="/#overview" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
               Overview
             </Link>
-            <Link href="/#jars" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
+            <Link href="/#jars" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
               Jars
             </Link>
-            <Link href="/#runway" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
+            <Link href="/#runway" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
               Runway
             </Link>
-            <Link href="/#resiliency" className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
+            <Link href="/#resiliency" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 rounded-xl">
               Resiliency
             </Link>
             <div className="pt-2 flex flex-col gap-2">
