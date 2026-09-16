@@ -31,7 +31,8 @@ function BahtIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
-type TimeframeView = "daily" | "monthly" | "yearly" | "cost";
+type MetricMode = "accuracy" | "cost";
+type TimeframeView = "daily" | "monthly" | "yearly";
 
 interface ChartBarItem {
   key: string;
@@ -39,7 +40,7 @@ interface ChartBarItem {
   total: number;
   true_alarm: number;
   false_alarm: number;
-  // Optional breakdown for cost
+  // Breakdown for cost
   gcp_cost?: number;
   ext_cost?: number;
 }
@@ -49,7 +50,8 @@ export default function AdminMetricsPage() {
   const currentYear = new Date().getFullYear().toString();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [activeTab, setActiveTab] = useState<TimeframeView>("daily");
+  const [metricMode, setMetricMode] = useState<MetricMode>("accuracy");
+  const [timeframe, setTimeframe] = useState<TimeframeView>("daily");
   const [hoveredItem, setHoveredItem] = useState<ChartBarItem | null>(null);
 
   const { data: metricsData, isLoading: metricsLoading } = useSWR(
@@ -72,72 +74,122 @@ export default function AdminMetricsPage() {
     fetcher
   );
 
-  // Prepare chart items based on selected timeframe
+  // Prepare chart items based on selected metricMode and timeframe
   let chartItems: ChartBarItem[] = [];
   let chartLoading = false;
 
   const monthNames = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
-  if (activeTab === "daily") {
-    chartLoading = metricsLoading;
-    const rawList = metricsData?.daily_breakdown || [];
-    chartItems = rawList.map((d: { date: string; total: number; true_alarm: number; false_alarm: number }) => ({
-      key: d.date,
-      label: d.date.slice(8), // day 'DD'
-      total: d.total,
-      true_alarm: d.true_alarm,
-      false_alarm: d.false_alarm,
-    }));
-  } else if (activeTab === "monthly") {
-    chartLoading = yearlyLoading;
-    const rawList = yearlyData?.monthly_breakdown || [];
-    chartItems = rawList.map((m: { month: string; total: number; true_alarm: number; false_alarm: number }, idx: number) => ({
-      key: m.month,
-      label: monthNames[idx] || m.month.slice(5),
-      total: m.total,
-      true_alarm: m.true_alarm,
-      false_alarm: m.false_alarm,
-    }));
-  } else if (activeTab === "yearly") {
-    // Yearly: 3-year trend overview
-    chartLoading = yearlyLoading;
-    const curY = Number(selectedYear);
-    chartItems = [
-      {
-        key: `${curY - 2}`,
-        label: `${curY - 2}`,
-        total: 0,
-        true_alarm: 0,
-        false_alarm: 0,
-      },
-      {
-        key: `${curY - 1}`,
-        label: `${curY - 1}`,
-        total: 0,
-        true_alarm: 0,
-        false_alarm: 0,
-      },
-      {
-        key: `${curY}`,
-        label: `${curY}`,
-        total: yearlyData?.total_alerts || 0,
-        true_alarm: yearlyData?.true_alarms || 0,
-        false_alarm: yearlyData?.false_alarms_total || 0,
-      },
-    ];
-  } else if (activeTab === "cost") {
-    // Cost breakdown across 12 months for selectedYear
-    chartLoading = yearlyCostLoading;
-    const rawCostList = yearlyCostData?.monthly_cost_breakdown || [];
-    chartItems = rawCostList.map((c: { month: string; total_cost_thb: number; gcp_cost_thb: number; external_cost_thb: number }, idx: number) => ({
-      key: c.month,
-      label: monthNames[idx] || c.month.slice(5),
-      total: c.total_cost_thb,
-      true_alarm: c.gcp_cost_thb, // reusing true_alarm as GCP segment
-      false_alarm: c.external_cost_thb, // reusing false_alarm as External segment
-      gcp_cost: c.gcp_cost_thb,
-      ext_cost: c.external_cost_thb,
-    }));
+  if (metricMode === "accuracy") {
+    if (timeframe === "daily") {
+      chartLoading = metricsLoading;
+      const rawList = metricsData?.daily_breakdown || [];
+      chartItems = rawList.map((d: { date: string; total: number; true_alarm: number; false_alarm: number }) => ({
+        key: d.date,
+        label: d.date.slice(8), // day 'DD'
+        total: d.total,
+        true_alarm: d.true_alarm,
+        false_alarm: d.false_alarm,
+      }));
+    } else if (timeframe === "monthly") {
+      chartLoading = yearlyLoading;
+      const rawList = yearlyData?.monthly_breakdown || [];
+      chartItems = rawList.map((m: { month: string; total: number; true_alarm: number; false_alarm: number }, idx: number) => ({
+        key: m.month,
+        label: monthNames[idx] || m.month.slice(5),
+        total: m.total,
+        true_alarm: m.true_alarm,
+        false_alarm: m.false_alarm,
+      }));
+    } else {
+      // Yearly: 3-year trend overview
+      chartLoading = yearlyLoading;
+      const curY = Number(selectedYear);
+      chartItems = [
+        {
+          key: `${curY - 2}`,
+          label: `${curY - 2}`,
+          total: 0,
+          true_alarm: 0,
+          false_alarm: 0,
+        },
+        {
+          key: `${curY - 1}`,
+          label: `${curY - 1}`,
+          total: 0,
+          true_alarm: 0,
+          false_alarm: 0,
+        },
+        {
+          key: `${curY}`,
+          label: `${curY}`,
+          total: yearlyData?.total_alerts || 0,
+          true_alarm: yearlyData?.true_alarms || 0,
+          false_alarm: yearlyData?.false_alarms_total || 0,
+        },
+      ];
+    }
+  } else {
+    // metricMode === "cost"
+    if (timeframe === "daily") {
+      chartLoading = costLoading;
+      const rawDailyCosts = costData?.daily_cost_breakdown || [];
+      chartItems = rawDailyCosts.map((c: { date: string; total_cost_thb: number; gcp_cost_thb: number; external_cost_thb: number }) => ({
+        key: c.date,
+        label: c.date.slice(8), // day 'DD'
+        total: c.total_cost_thb,
+        true_alarm: c.gcp_cost_thb,
+        false_alarm: c.external_cost_thb,
+        gcp_cost: c.gcp_cost_thb,
+        ext_cost: c.external_cost_thb,
+      }));
+    } else if (timeframe === "monthly") {
+      chartLoading = yearlyCostLoading;
+      const rawCostList = yearlyCostData?.monthly_cost_breakdown || [];
+      chartItems = rawCostList.map((c: { month: string; total_cost_thb: number; gcp_cost_thb: number; external_cost_thb: number }, idx: number) => ({
+        key: c.month,
+        label: monthNames[idx] || c.month.slice(5),
+        total: c.total_cost_thb,
+        true_alarm: c.gcp_cost_thb,
+        false_alarm: c.external_cost_thb,
+        gcp_cost: c.gcp_cost_thb,
+        ext_cost: c.external_cost_thb,
+      }));
+    } else {
+      // Yearly: 3-year cost trend overview
+      chartLoading = yearlyCostLoading;
+      const curY = Number(selectedYear);
+      const totalCurCost = Number(yearlyCostData?.total_cost_thb || 0);
+      chartItems = [
+        {
+          key: `${curY - 2}`,
+          label: `${curY - 2}`,
+          total: 0,
+          true_alarm: 0,
+          false_alarm: 0,
+          gcp_cost: 0,
+          ext_cost: 0,
+        },
+        {
+          key: `${curY - 1}`,
+          label: `${curY - 1}`,
+          total: 0,
+          true_alarm: 0,
+          false_alarm: 0,
+          gcp_cost: 0,
+          ext_cost: 0,
+        },
+        {
+          key: `${curY}`,
+          label: `${curY}`,
+          total: totalCurCost,
+          true_alarm: totalCurCost > 0 ? (costData?.gcp_cost_thb || 0) : 0,
+          false_alarm: totalCurCost > 0 ? (totalCurCost - (costData?.gcp_cost_thb || 0)) : 0,
+          gcp_cost: costData?.gcp_cost_thb || 0,
+          ext_cost: totalCurCost > 0 ? Math.max(0, totalCurCost - (costData?.gcp_cost_thb || 0)) : 0,
+        },
+      ];
+    }
   }
 
   const maxBarTotal = Math.max(...chartItems.map((c) => c.total), 1);
@@ -283,87 +335,105 @@ export default function AdminMetricsPage() {
           </div>
         </div>
 
-        {/* 📈 Graphical Alert Breakdown & Accuracy Trends (Daily / Monthly / Yearly / Cost) */}
+        {/* 📈 Graphical Breakdown & Trends (Accuracy / Cost with Daily / Monthly / Yearly) */}
         <div
-          data-testid={`chart-${activeTab}`}
+          data-testid={`chart-${timeframe}`}
           className="p-6 rounded-2xl bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl space-y-6"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                {activeTab === "cost" ? <Coins className="w-5 h-5" /> : <BarChart3 className="w-5 h-5" />}
+                {metricMode === "cost" ? <Coins className="w-5 h-5 text-amber-400" /> : <BarChart3 className="w-5 h-5" />}
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  {activeTab === "cost" ? "กราฟโครงสร้างต้นทุนและค่าใช้จ่าย" : "แนวโน้มการแจ้งเตือนและการเตือนลวง"}
+                  {metricMode === "cost" ? "กราฟโครงสร้างต้นทุนและค่าใช้จ่าย" : "แนวโน้มการแจ้งเตือนและการเตือนลวง"}
                   <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-normal border border-white/10">
-                    {activeTab === "daily" && `รายวัน (เดือน ${selectedMonth})`}
-                    {activeTab === "monthly" && `รายเดือน (ปี ${selectedYear})`}
-                    {activeTab === "yearly" && `ภาพรวมรายปี`}
-                    {activeTab === "cost" && `ต้นทุนรายเดือน (ปี ${selectedYear})`}
+                    {timeframe === "daily" && `รายวัน (เดือน ${selectedMonth})`}
+                    {timeframe === "monthly" && `รายเดือน (ปี ${selectedYear})`}
+                    {timeframe === "yearly" && `ภาพรวมรายปี`}
                   </span>
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {activeTab === "cost"
+                  {metricMode === "cost"
                     ? "เปรียบเทียบค่าบริการ GCP Infrastructure กับค่าบริการภายนอก (Radar APIs & Proxy Pool)"
                     : "เปรียบเทียบการเตือนจริง (True Alarm) กับการเตือนลวง (False Alarm)"}
                 </p>
               </div>
             </div>
 
-            {/* Timeframe View Toggles */}
-            <div className="flex flex-wrap items-center p-1 bg-slate-950/60 border border-white/10 rounded-xl gap-1">
-              <button
-                type="button"
-                onClick={() => setActiveTab("daily")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  activeTab === "daily"
-                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                รายวัน (Daily)
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("monthly")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  activeTab === "monthly"
-                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                รายเดือน (Monthly)
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("yearly")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  activeTab === "yearly"
-                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                รายปี (Yearly)
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("cost")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
-                  activeTab === "cost"
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <Coins className="w-3.5 h-3.5" />
-                ต้นทุนค่าใช้จ่าย (Cost)
-              </button>
+            {/* Combined Mode & Timeframe Controls */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Category Selector: Accuracy vs Cost */}
+              <div className="flex items-center p-1 bg-slate-950/60 border border-white/10 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setMetricMode("accuracy")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                    metricMode === "accuracy"
+                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  ความแม่นยำ (Accuracy)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMetricMode("cost")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                    metricMode === "cost"
+                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Coins className="w-3.5 h-3.5" />
+                  ต้นทุนค่าใช้จ่าย (Cost)
+                </button>
+              </div>
+
+              {/* Timeframe View Toggles: Daily, Monthly, Yearly */}
+              <div className="flex items-center p-1 bg-slate-950/60 border border-white/10 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setTimeframe("daily")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                    timeframe === "daily"
+                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  รายวัน (Daily)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimeframe("monthly")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                    timeframe === "monthly"
+                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  รายเดือน (Monthly)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimeframe("yearly")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                    timeframe === "yearly"
+                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  รายปี (Yearly)
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Chart Legend & Hover Indicator */}
           <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-white/5 text-xs">
-            {activeTab === "cost" ? (
+            {metricMode === "cost" ? (
               <div className="flex items-center gap-4 text-slate-300">
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-sm bg-cyan-400 shadow-sm shadow-cyan-400/30" />
@@ -390,7 +460,7 @@ export default function AdminMetricsPage() {
             {hoveredItem ? (
               <div className="text-slate-300 bg-slate-800/80 px-3 py-1 rounded-lg border border-white/10 flex items-center gap-3">
                 <span className="font-semibold text-white">{hoveredItem.key}</span>
-                {activeTab === "cost" ? (
+                {metricMode === "cost" ? (
                   <>
                     <span className="text-cyan-400">GCP: ฿{(hoveredItem.gcp_cost ?? 0).toFixed(2)}</span>
                     <span className="text-purple-400">External: ฿{(hoveredItem.ext_cost ?? 0).toFixed(2)}</span>
@@ -440,7 +510,7 @@ export default function AdminMetricsPage() {
                     >
                       {item.total === 0 ? (
                         <div className="w-full h-full bg-slate-800/30" />
-                      ) : activeTab === "cost" ? (
+                      ) : metricMode === "cost" ? (
                         <>
                           {/* GCP Cost segment (cyan) */}
                           <div

@@ -393,6 +393,25 @@ async def get_monthly_cost(month: Optional[str] = None):
         # Preserve legacy fields for backward compatibility if needed by older dashboards
         cost_per_alert = round(total_cost_thb / total_system_usage, 2) if total_system_usage > 0 else 0.0
 
+        # 4. Generate daily cost breakdown for the month
+        import calendar
+        y_int, m_int = int(target_month.split("-")[0]), int(target_month.split("-")[1])
+        num_days = calendar.monthrange(y_int, m_int)[1]
+
+        daily_gcp = round(gcp_cost_thb / num_days, 2) if num_days > 0 else 0.0
+        daily_ext = round(external_cost_thb / num_days, 2) if num_days > 0 else 0.0
+        daily_tot = round(daily_gcp + daily_ext, 2)
+
+        daily_cost_breakdown = [
+            {
+                "date": f"{target_month}-{d:02d}",
+                "gcp_cost_thb": daily_gcp,
+                "external_cost_thb": daily_ext,
+                "total_cost_thb": daily_tot
+            }
+            for d in range(1, num_days + 1)
+        ]
+
         return {
             "month": target_month,
             "gcp_cost_thb": gcp_cost_thb,
@@ -405,7 +424,8 @@ async def get_monthly_cost(month: Optional[str] = None):
             "blended_cost_per_active_user": blended_cost_per_active_user,
             "proactive_count": proactive_count,
             "ondemand_count": ondemand_count,
-            "mau_count": unique_users
+            "mau_count": unique_users,
+            "daily_cost_breakdown": daily_cost_breakdown
         }
 
 

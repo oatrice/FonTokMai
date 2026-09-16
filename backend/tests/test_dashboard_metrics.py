@@ -100,6 +100,12 @@ async def test_alert_log_metrics_and_cost():
     assert "cost_per_proactive_alert" in res_cost
     assert "cost_per_ondemand_query" in res_cost
     assert "blended_cost_per_active_user" in res_cost
+    assert "daily_cost_breakdown" in res_cost
+    assert len(res_cost["daily_cost_breakdown"]) > 0
+    assert "date" in res_cost["daily_cost_breakdown"][0]
+    assert "gcp_cost_thb" in res_cost["daily_cost_breakdown"][0]
+    assert "external_cost_thb" in res_cost["daily_cost_breakdown"][0]
+    assert "total_cost_thb" in res_cost["daily_cost_breakdown"][0]
 
     # 3. Test GET /yearly endpoint
     current_year = now.strftime("%Y")

@@ -107,10 +107,10 @@ describe("AdminMetricsPage Charts", () => {
     expect(screen.getByText("ต้นทุนค่าใช้จ่าย (Cost)")).toBeInTheDocument();
   });
 
-  it("switches between daily, monthly, and yearly chart tabs", () => {
+  it("switches between daily, monthly, and yearly chart tabs in accuracy mode", () => {
     render(<AdminMetricsPage />);
     
-    // Default is daily chart tab
+    // Default is accuracy mode, daily chart
     expect(screen.getByTestId("chart-daily")).toBeInTheDocument();
 
     // Switch to monthly tab
@@ -124,10 +124,23 @@ describe("AdminMetricsPage Charts", () => {
     expect(screen.getByTestId("chart-yearly")).toBeInTheDocument();
   });
 
-  it("switches to cost chart tab and displays monthly cost bars", () => {
+  it("switches to cost chart and supports daily, monthly, and yearly cost breakdowns", () => {
     render(<AdminMetricsPage />);
-    const costBtn = screen.getByText("ต้นทุนค่าใช้จ่าย (Cost)");
-    fireEvent.click(costBtn);
-    expect(screen.getByTestId("chart-cost")).toBeInTheDocument();
+    // Switch metric category to Cost
+    const costCategoryBtn = screen.getByRole("button", { name: /ต้นทุนค่าใช้จ่าย \(Cost\)/i });
+    fireEvent.click(costCategoryBtn);
+
+    // Default cost timeframe is daily
+    expect(screen.getByTestId("chart-daily")).toBeInTheDocument();
+
+    // Switch cost timeframe to monthly
+    const monthlyBtn = screen.getByText("รายเดือน (Monthly)");
+    fireEvent.click(monthlyBtn);
+    expect(screen.getByTestId("chart-monthly")).toBeInTheDocument();
+
+    // Switch cost timeframe to yearly
+    const yearlyBtn = screen.getByText("รายปี (Yearly)");
+    fireEvent.click(yearlyBtn);
+    expect(screen.getByTestId("chart-yearly")).toBeInTheDocument();
   });
 });
