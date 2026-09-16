@@ -1459,7 +1459,7 @@ class WeatherManager:
                     wind_dir = processor.get_wind_direction_text(flow, px, py)
                     percent_change = 0.0
 
-                def render_hq_png(target_frame, pin_x, pin_y, time_utc, proc):
+                def render_hq_png(target_frame, pin_x, pin_y, time_utc, proc, raw_bg=None):
                     from PIL import Image, ImageFont, ImageDraw
                     import io
                     import cv2
@@ -1473,7 +1473,17 @@ class WeatherManager:
                     full_w = getattr(cfg, "raw_width", 800) or 800
                     full_h = getattr(cfg, "raw_height", 800) or 800
 
-                    if th < full_h or tw < full_w:
+                    if raw_bg is not None and raw_bg.shape[:2] == (full_h, full_w):
+                        # Use actual raw TMD image containing the authentic bottom timestamp strip & legend
+                        canvas = raw_bg.copy()
+                        paste_h = min(th, full_h - scy)
+                        paste_w = min(tw, full_w - scx)
+                        canvas[scy:scy + paste_h, scx:scx + paste_w] = target_frame[:paste_h, :paste_w]
+                        full_frame = canvas
+                        full_pin_x = pin_x + scx
+                        full_pin_y = pin_y + scy
+                        logger.info(f"[{station_code}] [RADAR_LATEST_HQ] Embedded into authentic TMD raw canvas ({full_w}x{full_h})")
+                    elif th < full_h or tw < full_w:
                         canvas = np.zeros((full_h, full_w, 3), dtype=target_frame.dtype)
                         paste_h = min(th, full_h - scy)
                         paste_w = min(tw, full_w - scx)
@@ -1525,7 +1535,19 @@ class WeatherManager:
                 timeline_bytes = None
                 multiframe_bytes = None
                 try:
-                    static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor)
+                    # Fetch raw TMD static image to preserve full authentic background and bottom timestamp strip
+                    raw_bg_frame = None
+                    try:
+                        raw_static_bytes = await processor.fetch_latest_image_bytes(max_retries=1)
+                        if raw_static_bytes:
+                            _arr = np.frombuffer(raw_static_bytes, np.uint8)
+                            _dec = cv2.imdecode(_arr, cv2.IMREAD_COLOR)
+                            if _dec is not None:
+                                raw_bg_frame = cv2.cvtColor(_dec, cv2.COLOR_BGR2RGB)
+                    except Exception as _bg_err:
+                        logger.debug(f"Failed to fetch raw TMD static background: {_bg_err}")
+
+                    static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor, raw_bg_frame)
                 except Exception as e:
                     logger.error(f"Failed to generate static PNG: {e}")
 
