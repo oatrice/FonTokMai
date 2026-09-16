@@ -329,6 +329,7 @@ class WeatherManager:
         chat_id: Optional[Union[str, int]] = None,
         message_id_to_edit: Optional[Union[str, int]] = None,
         show_labels: bool = True,
+        location_name: Optional[str] = None,
     ) -> dict:
         """
         ดึงข้อมูลพยากรณ์ฝนโดยผ่านระบบ Fallback อัตโนมัติ:

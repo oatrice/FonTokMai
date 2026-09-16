@@ -108,10 +108,22 @@
 
 ---
 
+### Scenario 7: Verify Admin Metrics Interactive Breakdown Charts
+- **Goal**: Verify that Daily, Monthly, and Yearly breakdown charts render correctly on `/admin/metrics` with responsive toggles.
+- **Steps**:
+  1. Open `http://localhost:3000/admin/metrics`.
+  2. Inspect the chart section: confirm "รายวัน (Daily)" is displayed by default, showing daily alert bars with stacked True/False alarm segments.
+  3. Click "รายเดือน (Monthly)": verify chart switches to 12-month overview of the selected year (`/api/v1/metrics/yearly?year=YYYY`).
+  4. Click "รายปี (Yearly)": verify multi-year trend comparison is rendered.
+  5. Hover over bars to confirm tooltip displays exact counts (True vs False vs Total).
+- **Expected Outcome**:
+  - Toggling between Daily, Monthly, and Yearly views updates the chart seamlessly without layout shifts.
+  - Hovering over a bar reveals detailed alert accuracy counts.
+
+---
+
 ## 📸 Proof of Verification (Artifacts & Logs)
 - **Automated Verification Summary**:
-  - `pytest backend/tests/test_locations_endpoint.py -v`: Verified unauthenticated 401 rejection and authenticated 200 responses.
-  - `pytest backend/tests/test_clean_radar_command.py -v`: Verified clean mode and router bindings pass.
-  - `pytest backend/tests`: Full test suite passes.
-  - `npm run test` (Frontend Jest): `6 test suites passed, 40 tests passed`.
+  - `pytest backend/tests/test_dashboard_metrics.py`: Verified `GET /api/v1/metrics/yearly` endpoint with 12-month aggregation.
+  - `npm run test` (Frontend Jest): `7 test suites passed, 42 tests passed` including `src/__tests__/AdminMetricsPage.test.tsx`.
   - `npm run build` (Next.js Production Build): Compiled cleanly with 0 errors across all routes.

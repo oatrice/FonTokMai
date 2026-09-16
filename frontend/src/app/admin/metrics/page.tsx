@@ -3,7 +3,15 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { GlassNavbar } from "@/components/GlassNavbar";
-import { AlertTriangle, CheckCircle2, TrendingDown, DollarSign, Calendar } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  TrendingDown,
+  DollarSign,
+  Calendar,
+  BarChart3,
+  TrendingUp,
+} from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -11,12 +19,31 @@ function SkeletonPulse({ className = "h-8 w-20" }: { className?: string }) {
   return <span className={`inline-block bg-slate-700/60 animate-pulse rounded-lg align-middle ${className}`} />;
 }
 
+type TimeframeView = "daily" | "monthly" | "yearly";
+
+interface ChartBarItem {
+  key: string;
+  label: string;
+  total: number;
+  true_alarm: number;
+  false_alarm: number;
+}
+
 export default function AdminMetricsPage() {
   const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentYear = new Date().getFullYear().toString();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [activeTab, setActiveTab] = useState<TimeframeView>("daily");
+  const [hoveredItem, setHoveredItem] = useState<ChartBarItem | null>(null);
 
   const { data: metricsData, isLoading: metricsLoading } = useSWR(
     `/api/v1/metrics/monthly?month=${selectedMonth}`,
+    fetcher
+  );
+
+  const { data: yearlyData, isLoading: yearlyLoading } = useSWR(
+    `/api/v1/metrics/yearly?year=${selectedYear}`,
     fetcher
   );
 
@@ -24,6 +51,62 @@ export default function AdminMetricsPage() {
     `/api/v1/metrics/cost?month=${selectedMonth}`,
     fetcher
   );
+
+  // Prepare chart items based on selected timeframe
+  let chartItems: ChartBarItem[] = [];
+  let chartLoading = false;
+
+  if (activeTab === "daily") {
+    chartLoading = metricsLoading;
+    const rawList = metricsData?.daily_breakdown || [];
+    chartItems = rawList.map((d: { date: string; total: number; true_alarm: number; false_alarm: number }) => ({
+      key: d.date,
+      label: d.date.slice(8), // day 'DD'
+      total: d.total,
+      true_alarm: d.true_alarm,
+      false_alarm: d.false_alarm,
+    }));
+  } else if (activeTab === "monthly") {
+    chartLoading = yearlyLoading;
+    const rawList = yearlyData?.monthly_breakdown || [];
+    const monthNames = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+    chartItems = rawList.map((m: { month: string; total: number; true_alarm: number; false_alarm: number }, idx: number) => ({
+      key: m.month,
+      label: monthNames[idx] || m.month.slice(5),
+      total: m.total,
+      true_alarm: m.true_alarm,
+      false_alarm: m.false_alarm,
+    }));
+  } else {
+    // Yearly: 3-year trend overview
+    chartLoading = yearlyLoading;
+    const curY = Number(selectedYear);
+    chartItems = [
+      {
+        key: `${curY - 2}`,
+        label: `${curY - 2}`,
+        total: 0,
+        true_alarm: 0,
+        false_alarm: 0,
+      },
+      {
+        key: `${curY - 1}`,
+        label: `${curY - 1}`,
+        total: 0,
+        true_alarm: 0,
+        false_alarm: 0,
+      },
+      {
+        key: `${curY}`,
+        label: `${curY}`,
+        total: yearlyData?.total_alerts || 0,
+        true_alarm: yearlyData?.true_alarms || 0,
+        false_alarm: yearlyData?.false_alarms_total || 0,
+      },
+    ];
+  }
+
+  const maxBarTotal = Math.max(...chartItems.map((c) => c.total), 1);
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
@@ -46,7 +129,12 @@ export default function AdminMetricsPage() {
               type="month"
               aria-label="เลือกเดือนสำหรับดูสถิติ"
               value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
+              onChange={(e) => {
+                setSelectedMonth(e.target.value);
+                if (e.target.value) {
+                  setSelectedYear(e.target.value.slice(0, 4));
+                }
+              }}
               className="bg-slate-800/80 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
             />
           </div>
@@ -158,6 +246,152 @@ export default function AdminMetricsPage() {
                 ({metricsData?.false_alarms_total ?? 0} ครั้ง)
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* 📈 Graphical Alert Breakdown & Accuracy Trends (Daily / Monthly / Yearly) */}
+        <div
+          data-testid={`chart-${activeTab}`}
+          className="p-6 rounded-2xl bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl space-y-6"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                <BarChart3 className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  แนวโน้มการแจ้งเตือนและการเตือนลวง
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-normal border border-white/10">
+                    {activeTab === "daily" && `รายวัน (เดือน ${selectedMonth})`}
+                    {activeTab === "monthly" && `รายเดือน (ปี ${selectedYear})`}
+                    {activeTab === "yearly" && `ภาพรวมรายปี`}
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  เปรียบเทียบการเตือนจริง (True Alarm) กับการเตือนลวง (False Alarm)
+                </p>
+              </div>
+            </div>
+
+            {/* Timeframe View Toggles */}
+            <div className="flex items-center p-1 bg-slate-950/60 border border-white/10 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setActiveTab("daily")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === "daily"
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                รายวัน (Daily)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("monthly")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === "monthly"
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                รายเดือน (Monthly)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("yearly")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === "yearly"
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                รายปี (Yearly)
+              </button>
+            </div>
+          </div>
+
+          {/* Chart Legend & Hover Indicator */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-white/5 text-xs">
+            <div className="flex items-center gap-4 text-slate-300">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-sm bg-emerald-400 shadow-sm shadow-emerald-400/30" />
+                <span>เตือนจริง (True Alarm)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-sm bg-rose-400 shadow-sm shadow-rose-400/30" />
+                <span>เตือนลวง (False Alarm)</span>
+              </div>
+            </div>
+
+            {hoveredItem ? (
+              <div className="text-slate-300 bg-slate-800/80 px-3 py-1 rounded-lg border border-white/10 flex items-center gap-3">
+                <span className="font-semibold text-white">{hoveredItem.key}</span>
+                <span className="text-emerald-400">จริง: {hoveredItem.true_alarm}</span>
+                <span className="text-rose-400">ลวง: {hoveredItem.false_alarm}</span>
+                <span className="text-slate-400">รวม: {hoveredItem.total}</span>
+              </div>
+            ) : (
+              <span className="text-slate-500 italic">เอาเมาส์ชี้ที่แท่งกราฟเพื่อดูรายละเอียด</span>
+            )}
+          </div>
+
+          {/* Interactive Bar Chart */}
+          <div className="relative h-64 w-full pt-4 flex items-end gap-1.5 sm:gap-3 overflow-x-auto pb-4">
+            {chartLoading ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <SkeletonPulse className="h-32 w-full" />
+              </div>
+            ) : chartItems.length === 0 ? (
+              <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-2">
+                <BarChart3 className="w-8 h-8 opacity-40" />
+                <span>ไม่มีข้อมูลการแจ้งเตือนในช่วงเวลานี้</span>
+              </div>
+            ) : (
+              chartItems.map((item) => {
+                const heightPct = item.total > 0 ? Math.max((item.total / maxBarTotal) * 100, 6) : 2;
+                const truePct = item.total > 0 ? (item.true_alarm / item.total) * 100 : 0;
+                const falsePct = item.total > 0 ? (item.false_alarm / item.total) * 100 : 0;
+
+                return (
+                  <div
+                    key={item.key}
+                    onMouseEnter={() => setHoveredItem(item)}
+                    onMouseLeave={() => setHoveredItem(null)}
+                    className="flex-1 min-w-[20px] max-w-[48px] h-full flex flex-col justify-end items-center group cursor-pointer"
+                  >
+                    {/* Bar Stack */}
+                    <div
+                      style={{ height: `${heightPct}%` }}
+                      className="w-full rounded-t-md overflow-hidden flex flex-col-reverse bg-slate-800/60 border border-white/5 group-hover:border-cyan-400/50 transition-all shadow-lg"
+                    >
+                      {item.total === 0 ? (
+                        <div className="w-full h-full bg-slate-800/30" />
+                      ) : (
+                        <>
+                          {/* True Alarm segment (emerald) */}
+                          <div
+                            style={{ height: `${truePct}%` }}
+                            className="w-full bg-emerald-500/80 group-hover:bg-emerald-400 transition-colors"
+                          />
+                          {/* False Alarm segment (rose) */}
+                          <div
+                            style={{ height: `${falsePct}%` }}
+                            className="w-full bg-rose-500/80 group-hover:bg-rose-400 transition-colors"
+                          />
+                        </>
+                      )}
+                    </div>
+
+                    {/* X-axis Label */}
+                    <span className="text-[10px] text-slate-400 mt-2 truncate w-full text-center group-hover:text-cyan-300 font-medium transition-colors">
+                      {item.label}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 

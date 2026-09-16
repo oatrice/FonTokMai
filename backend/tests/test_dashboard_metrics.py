@@ -101,6 +101,21 @@ async def test_alert_log_metrics_and_cost():
     assert "cost_per_ondemand_query" in res_cost
     assert "blended_cost_per_active_user" in res_cost
 
+    # 3. Test GET /yearly endpoint
+    current_year = now.strftime("%Y")
+    from app.routers.metrics import get_yearly_metrics
+    res_yearly = await get_yearly_metrics(year=current_year)
+    assert res_yearly["year"] == current_year
+    assert res_yearly["total_alerts"] == 2
+    assert res_yearly["false_alarms_total"] == 1
+    assert res_yearly["false_alarm_rate_pct"] == 50.0
+    assert len(res_yearly["monthly_breakdown"]) == 12
+    # Check that current month has total = 2
+    matched_month = next(m for m in res_yearly["monthly_breakdown"] if m["month"] == current_month)
+    assert matched_month["total"] == 2
+    assert matched_month["false_alarm"] == 1
+    assert matched_month["true_alarm"] == 1
+
     # 3. Test auto_verify_false_alarms_routine
     with patch("app.services.weather_manager.WeatherManager.predict_rain", new_callable=AsyncMock) as mock_predict:
         mock_predict.return_value = {"max_rain": 0.0} # Rain stopped -> false alarm

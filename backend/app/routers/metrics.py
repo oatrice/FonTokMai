@@ -232,6 +232,107 @@ async def get_monthly_metrics(month: Optional[str] = None):
         }
 
 
+def _get_year_date_range(year: Optional[str] = None):
+    import datetime
+    now = datetime.datetime.now(datetime.timezone.utc)
+    target_year = year or now.strftime("%Y")
+    try:
+        y = int(target_year)
+        start_date = datetime.datetime(y, 1, 1)
+        end_date = datetime.datetime(y + 1, 1, 1)
+        return str(y), start_date, end_date
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid year format, expected YYYY")
+
+
+@router.get("/yearly")
+async def get_yearly_metrics(year: Optional[str] = None):
+    """
+    Yearly Alert Accuracy Metrics:
+    Returns aggregated stats and 12-month breakdown for the requested year ('YYYY').
+    Defaults to current UTC year.
+    """
+    from app.database import AsyncSessionLocal
+    from app.models import SystemUsageEvent
+    from sqlalchemy.future import select
+    from sqlalchemy import func, case
+
+    target_year, start_date, end_date = _get_year_date_range(year)
+
+    async with AsyncSessionLocal() as session:
+        # Aggregated totals query for the entire year
+        stmt_summary = select(
+            func.count(SystemUsageEvent.id).label("total_alerts"),
+            func.coalesce(func.sum(case((SystemUsageEvent.user_feedback_result == "false_alarm", 1), else_=0)), 0).label("false_alarms_user"),
+            func.coalesce(func.sum(case((SystemUsageEvent.auto_verify_result == "false_alarm", 1), else_=0)), 0).label("false_alarms_auto"),
+            func.coalesce(func.sum(case(((SystemUsageEvent.user_feedback_result == "false_alarm") | (SystemUsageEvent.auto_verify_result == "false_alarm"), 1), else_=0)), 0).label("false_alarms_total"),
+        ).where(
+            SystemUsageEvent.alerted_at >= start_date,
+            SystemUsageEvent.alerted_at < end_date,
+            SystemUsageEvent.is_mock == False,
+            SystemUsageEvent.event_category == "proactive_alert"
+        )
+        summary_res = await session.execute(stmt_summary)
+        row = summary_res.one()
+        total_alerts = int(row.total_alerts or 0)
+        false_alarms_user = int(row.false_alarms_user or 0)
+        false_alarms_auto = int(row.false_alarms_auto or 0)
+        false_alarms_total = int(row.false_alarms_total or 0)
+        true_alarms = total_alerts - false_alarms_total
+        false_alarm_rate_pct = round((false_alarms_total / total_alerts) * 100.0, 1) if total_alerts > 0 else 0.0
+
+        # Fetch all proactive alerts in the year to group by month cleanly (database-engine agnostic)
+        stmt_events = select(
+            SystemUsageEvent.alerted_at,
+            SystemUsageEvent.user_feedback_result,
+            SystemUsageEvent.auto_verify_result
+        ).where(
+            SystemUsageEvent.alerted_at >= start_date,
+            SystemUsageEvent.alerted_at < end_date,
+            SystemUsageEvent.is_mock == False,
+            SystemUsageEvent.event_category == "proactive_alert"
+        )
+        events_res = await session.execute(stmt_events)
+        
+        # Initialize 12 months dictionary: "YYYY-01" to "YYYY-12"
+        monthly_map = {
+            f"{target_year}-{m:02d}": {"total": 0, "false_alarm": 0, "true_alarm": 0}
+            for m in range(1, 13)
+        }
+
+        for ev in events_res.all():
+            if ev.alerted_at:
+                month_key = ev.alerted_at.strftime("%Y-%m")
+                if month_key in monthly_map:
+                    is_fa = (ev.user_feedback_result == "false_alarm") or (ev.auto_verify_result == "false_alarm")
+                    monthly_map[month_key]["total"] += 1
+                    if is_fa:
+                        monthly_map[month_key]["false_alarm"] += 1
+                    else:
+                        monthly_map[month_key]["true_alarm"] += 1
+
+        monthly_breakdown = [
+            {
+                "month": m_key,
+                "total": monthly_map[m_key]["total"],
+                "true_alarm": monthly_map[m_key]["true_alarm"],
+                "false_alarm": monthly_map[m_key]["false_alarm"],
+            }
+            for m_key in sorted(monthly_map.keys())
+        ]
+
+        return {
+            "year": target_year,
+            "total_alerts": total_alerts,
+            "true_alarms": true_alarms,
+            "false_alarms_total": false_alarms_total,
+            "false_alarms_user": false_alarms_user,
+            "false_alarms_auto": false_alarms_auto,
+            "false_alarm_rate_pct": false_alarm_rate_pct,
+            "monthly_breakdown": monthly_breakdown
+        }
+
+
 @router.get("/cost")
 async def get_monthly_cost(month: Optional[str] = None):
     """
