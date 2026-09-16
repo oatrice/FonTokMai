@@ -1,5 +1,5 @@
 import React from "react";
-import { Header } from "@/components/ui/Header";
+import { GlassNavbar } from "@/components/GlassNavbar";
 import { RunwayCounter } from "@/components/dashboard/RunwayCounter";
 import { BudgetJars } from "@/components/dashboard/BudgetJars";
 import { MilestonesSection } from "@/components/dashboard/MilestonesSection";
@@ -13,7 +13,7 @@ export const metadata = {
 export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
-      <Header />
+      <GlassNavbar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 space-y-8">
         {/* Top Hero Heading */}
