@@ -183,6 +183,20 @@ class SQLiteLocationRepository(LocationRepository):
         await self.session.commit()
         return result.rowcount
 
+    async def reset_presence_cache(self, chat_id: Union[str, int], location_name: str) -> bool:
+        from app.models import PresenceAnswerCache
+        from sqlalchemy import delete, func
+        chat_id_str = str(chat_id)
+        name_lower = location_name.lower()
+        result = await self.session.execute(
+            delete(PresenceAnswerCache).where(
+                PresenceAnswerCache.chat_id == chat_id_str,
+                func.lower(PresenceAnswerCache.location_name) == name_lower
+            )
+        )
+        await self.session.commit()
+        return (result.rowcount or 0) > 0
+
 
     async def get_mock_state(self, chat_id: Union[str, int]) -> Optional[str]:
         from app.models import DeveloperMock

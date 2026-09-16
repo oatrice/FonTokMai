@@ -69,7 +69,24 @@
 
 ---
 
+### Scenario 5: Verify Locations Admin Security & Filtering
+- **Goal**: Verify that `/api/locations` requires `x-cron-secret` auth header, Next.js server-side proxies it safely, and the admin UI search filter operates smoothly.
+- **Steps**:
+  1. Curl backend directly without header: `curl -i http://localhost:8000/api/locations` -> Expect `401 Unauthorized`.
+  2. Curl backend with header: `curl -i -H "x-cron-secret: <CRON_SECRET>" http://localhost:8000/api/locations` -> Expect `200 OK` with JSON array.
+  3. Open frontend `http://localhost:3000/admin/locations` in browser.
+  4. Type in the search input box (e.g. chat ID or location name).
+- **Expected Outcome**:
+  - Direct unauthenticated backend access is securely rejected.
+  - Frontend admin table displays data seamlessly via server-side Next.js route handler.
+  - Search filter dynamically filters rows in real time.
+
+---
+
 ## 📸 Proof of Verification (Artifacts & Logs)
 - **Automated Verification Summary**:
-  - `pytest backend/tests/test_dashboard_metrics.py -v` result: `1 passed`
-  - All automated Unit Economic logic verified correctly, accurately filtering mock rows and computing correct blended cost rates.
+  - `pytest backend/tests/test_locations_endpoint.py -v`: Verified unauthenticated 401 rejection and authenticated 200 responses.
+  - `pytest backend/tests` result: `537 passed, 4 skipped`
+  - `npm run test` (Frontend Jest): `6 test suites passed, 40 tests passed`
+  - `npm run build` (Next.js Production Build): Compiled with 0 errors across all 13 routes.
+

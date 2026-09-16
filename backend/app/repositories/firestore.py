@@ -254,6 +254,16 @@ class FirestoreLocationRepository(LocationRepository):
                 count += 1
         return count
 
+    async def reset_presence_cache(self, chat_id: Union[str, int], location_name: str) -> bool:
+        chat_id_str = str(chat_id)
+        name_lower = location_name.lower()
+        doc_ref = self.db.collection("presence_cache").document(f"{chat_id_str}_{name_lower}")
+        doc = await doc_ref.get()
+        if doc.exists:
+            await doc_ref.delete()
+            return True
+        return False
+
 
     def _dict_to_model(self, data: dict) -> UserLocation:
         from datetime import timezone

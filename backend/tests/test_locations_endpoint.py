@@ -5,7 +5,9 @@ from app.database import engine, Base, AsyncSessionLocal
 from app.models import UserLocation
 
 @pytest.mark.asyncio
-async def test_get_locations_endpoint():
+async def test_get_locations_endpoint_auth(monkeypatch):
+    monkeypatch.setenv("CRON_SECRET", "test_secret_key_123")
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -24,7 +26,17 @@ async def test_get_locations_endpoint():
         await session.commit()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        response = await ac.get("/api/locations")
+        # 1. Unauthenticated request should be rejected with 401
+        res_unauth = await ac.get("/api/locations")
+        assert res_unauth.status_code == 401
+        assert res_unauth.json()["detail"] == "Unauthorized"
+
+        # 2. Invalid secret should be rejected with 401
+        res_invalid = await ac.get("/api/locations", headers={"x-cron-secret": "wrong_key"})
+        assert res_invalid.status_code == 401
+
+        # 3. Authenticated request with correct header succeeds
+        response = await ac.get("/api/locations", headers={"x-cron-secret": "test_secret_key_123"})
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
@@ -38,3 +50,4 @@ async def test_get_locations_endpoint():
         assert item["presence_policy"] == "always_ask"
         assert item["presence_answer_ttl_minutes"] == 120
         assert item["is_snoozed"] is False
+

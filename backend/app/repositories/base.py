@@ -72,6 +72,11 @@ class LocationRepository(ABC):
         """ลบ Cache คำตอบ Presence ที่หมดอายุแล้ว"""
         pass
 
+    @abstractmethod
+    async def reset_presence_cache(self, chat_id: Union[str, int], location_name: str) -> bool:
+        """รีเซ็ตหรือลบ Cache คำตอบ Presence ของพิกัดที่กำหนด"""
+        pass
+
 
     @abstractmethod
     async def get_mock_state(self, chat_id: Union[str, int]) -> Optional[str]:
