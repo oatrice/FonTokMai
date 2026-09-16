@@ -408,3 +408,64 @@ async def get_monthly_cost(month: Optional[str] = None):
             "mau_count": unique_users
         }
 
+
+@router.get("/cost/yearly")
+async def get_yearly_cost(year: Optional[str] = None):
+    """
+    Yearly Cost Metrics:
+    Returns 12-month breakdown of external and estimated costs for the specified year ('YYYY').
+    """
+    from app.database import AsyncSessionLocal
+    from app.models import ExternalCostConfig
+
+    target_year, start_date, end_date = _get_year_date_range(year)
+
+    # 1. Fetch GCP cost for current month if in the same year
+    gcp_svc = GCPBillingService()
+    try:
+        gcp_breakdown = gcp_svc.get_current_month_costs(period="current_month")
+        current_gcp_cost_thb = float(gcp_breakdown.total_thb)
+    except Exception:
+        current_gcp_cost_thb = 0.0
+
+    import datetime
+    now_month = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m")
+
+    # Initialize 12 months map
+    monthly_costs = {
+        f"{target_year}-{m:02d}": {
+            "month": f"{target_year}-{m:02d}",
+            "external_cost_thb": 0.0,
+            "gcp_cost_thb": 0.0,
+            "total_cost_thb": 0.0
+        }
+        for m in range(1, 13)
+    }
+
+    async with AsyncSessionLocal() as session:
+        from sqlalchemy.future import select
+        # Select all external configs matching target_year-%
+        stmt = select(ExternalCostConfig).where(ExternalCostConfig.month.like(f"{target_year}-%"))
+        res = await session.execute(stmt)
+        configs = res.scalars().all()
+
+        for c in configs:
+            if c.month in monthly_costs:
+                monthly_costs[c.month]["external_cost_thb"] += float(c.amount_thb)
+
+    for m_key, data in monthly_costs.items():
+        if m_key == now_month:
+            data["gcp_cost_thb"] = current_gcp_cost_thb
+        data["external_cost_thb"] = round(data["external_cost_thb"], 2)
+        data["total_cost_thb"] = round(data["gcp_cost_thb"] + data["external_cost_thb"], 2)
+
+    breakdown_list = [monthly_costs[k] for k in sorted(monthly_costs.keys())]
+    total_year_cost = round(sum(item["total_cost_thb"] for item in breakdown_list), 2)
+
+    return {
+        "year": target_year,
+        "total_cost_thb": total_year_cost,
+        "monthly_cost_breakdown": breakdown_list
+    }
+
+

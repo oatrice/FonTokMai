@@ -52,6 +52,29 @@ jest.mock("swr", () => {
         isLoading: false,
       };
     }
+    if (typeof key === "string" && key.includes("/api/v1/metrics/cost/yearly")) {
+      return {
+        data: {
+          year: "2026",
+          total_cost_thb: 4200.0,
+          monthly_cost_breakdown: [
+            { month: "2026-01", external_cost_thb: 200.0, gcp_cost_thb: 0.0, total_cost_thb: 200.0 },
+            { month: "2026-02", external_cost_thb: 200.0, gcp_cost_thb: 0.0, total_cost_thb: 200.0 },
+            { month: "2026-03", external_cost_thb: 200.0, gcp_cost_thb: 0.0, total_cost_thb: 200.0 },
+            { month: "2026-04", external_cost_thb: 200.0, gcp_cost_thb: 0.0, total_cost_thb: 200.0 },
+            { month: "2026-05", external_cost_thb: 200.0, gcp_cost_thb: 0.0, total_cost_thb: 200.0 },
+            { month: "2026-06", external_cost_thb: 200.0, gcp_cost_thb: 0.0, total_cost_thb: 200.0 },
+            { month: "2026-07", external_cost_thb: 200.0, gcp_cost_thb: 0.0, total_cost_thb: 200.0 },
+            { month: "2026-08", external_cost_thb: 200.0, gcp_cost_thb: 0.0, total_cost_thb: 200.0 },
+            { month: "2026-09", external_cost_thb: 200.0, gcp_cost_thb: 150.0, total_cost_thb: 350.0 },
+            { month: "2026-10", external_cost_thb: 0.0, gcp_cost_thb: 0.0, total_cost_thb: 0.0 },
+            { month: "2026-11", external_cost_thb: 0.0, gcp_cost_thb: 0.0, total_cost_thb: 0.0 },
+            { month: "2026-12", external_cost_thb: 0.0, gcp_cost_thb: 0.0, total_cost_thb: 0.0 },
+          ],
+        },
+        isLoading: false,
+      };
+    }
     if (typeof key === "string" && key.includes("/api/v1/metrics/cost")) {
       return {
         data: {
@@ -74,12 +97,14 @@ jest.mock("swr", () => {
 });
 
 describe("AdminMetricsPage Charts", () => {
-  it("renders metrics overview and view toggle buttons", () => {
+  it("renders metrics overview and view toggle buttons with Baht icons", () => {
     render(<AdminMetricsPage />);
     expect(screen.getByText(/Alert Accuracy & Unit Economics/i)).toBeInTheDocument();
     expect(screen.getByText("รายวัน (Daily)")).toBeInTheDocument();
     expect(screen.getByText("รายเดือน (Monthly)")).toBeInTheDocument();
     expect(screen.getByText("รายปี (Yearly)")).toBeInTheDocument();
+    // Verify cost chart toggle exists
+    expect(screen.getByText("ต้นทุนค่าใช้จ่าย (Cost)")).toBeInTheDocument();
   });
 
   it("switches between daily, monthly, and yearly chart tabs", () => {
@@ -97,5 +122,12 @@ describe("AdminMetricsPage Charts", () => {
     const yearlyBtn = screen.getByText("รายปี (Yearly)");
     fireEvent.click(yearlyBtn);
     expect(screen.getByTestId("chart-yearly")).toBeInTheDocument();
+  });
+
+  it("switches to cost chart tab and displays monthly cost bars", () => {
+    render(<AdminMetricsPage />);
+    const costBtn = screen.getByText("ต้นทุนค่าใช้จ่าย (Cost)");
+    fireEvent.click(costBtn);
+    expect(screen.getByTestId("chart-cost")).toBeInTheDocument();
   });
 });

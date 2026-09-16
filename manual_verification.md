@@ -122,8 +122,22 @@
 
 ---
 
+### Scenario 8: Verify Baht Icon & 12-Month Infrastructure Cost Chart
+- **Goal**: Verify that all Dollar (`$`) signs have been replaced with Thai Baht (`฿`) icons, and that the Cost chart displays 12-month GCP vs External spending.
+- **Steps**:
+  1. Open `http://localhost:3000/admin/metrics`.
+  2. Verify metric cards: "Cost / Proactive Alert", "Cost / On-Demand Query", "Blended Cost / User", and "โครงสร้างต้นทุนเดือน ..." display `฿` currency icons instead of `$`.
+  3. Click the "ต้นทุนค่าใช้จ่าย (Cost)" tab on the chart.
+  4. Verify the stacked bar chart renders 12 months with cyan (GCP) and purple (External APIs) segments.
+  5. Hover over a cost bar: confirm tooltip details GCP cost, External cost, and Total cost in Thai Baht.
+- **Expected Outcome**:
+  - Currency icons render `฿` consistently with accessibility label `บาท (THB)`.
+  - Cost chart toggles smoothly with full 12-month historical breakdown.
+
+---
+
 ## 📸 Proof of Verification (Artifacts & Logs)
 - **Automated Verification Summary**:
-  - `pytest backend/tests/test_dashboard_metrics.py`: Verified `GET /api/v1/metrics/yearly` endpoint with 12-month aggregation.
-  - `npm run test` (Frontend Jest): `7 test suites passed, 42 tests passed` including `src/__tests__/AdminMetricsPage.test.tsx`.
+  - `pytest backend/tests/test_dashboard_metrics.py`: Verified `GET /api/v1/metrics/yearly` and `GET /api/v1/metrics/cost/yearly`.
+  - `npm run test` (Frontend Jest): `7 test suites passed, 43 tests passed` including `src/__tests__/AdminMetricsPage.test.tsx`.
   - `npm run build` (Next.js Production Build): Compiled cleanly with 0 errors across all routes.

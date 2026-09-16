@@ -103,7 +103,7 @@ async def test_alert_log_metrics_and_cost():
 
     # 3. Test GET /yearly endpoint
     current_year = now.strftime("%Y")
-    from app.routers.metrics import get_yearly_metrics
+    from app.routers.metrics import get_yearly_metrics, get_yearly_cost
     res_yearly = await get_yearly_metrics(year=current_year)
     assert res_yearly["year"] == current_year
     assert res_yearly["total_alerts"] == 2
@@ -115,6 +115,14 @@ async def test_alert_log_metrics_and_cost():
     assert matched_month["total"] == 2
     assert matched_month["false_alarm"] == 1
     assert matched_month["true_alarm"] == 1
+
+    # 4. Test GET /cost/yearly endpoint
+    res_yearly_cost = await get_yearly_cost(year=current_year)
+    assert res_yearly_cost["year"] == current_year
+    assert len(res_yearly_cost["monthly_cost_breakdown"]) == 12
+    matched_cost_month = next(m for m in res_yearly_cost["monthly_cost_breakdown"] if m["month"] == current_month)
+    assert matched_cost_month["external_cost_thb"] >= 200.0
+    assert matched_cost_month["total_cost_thb"] > 0
 
     # 3. Test auto_verify_false_alarms_routine
     with patch("app.services.weather_manager.WeatherManager.predict_rain", new_callable=AsyncMock) as mock_predict:

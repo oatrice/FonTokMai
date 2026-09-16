@@ -7,10 +7,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   TrendingDown,
-  DollarSign,
   Calendar,
   BarChart3,
   TrendingUp,
+  Coins,
 } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -19,7 +19,19 @@ function SkeletonPulse({ className = "h-8 w-20" }: { className?: string }) {
   return <span className={`inline-block bg-slate-700/60 animate-pulse rounded-lg align-middle ${className}`} />;
 }
 
-type TimeframeView = "daily" | "monthly" | "yearly";
+// Authentic Thai Baht (฿) Icon to replace DollarSign
+function BahtIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <span
+      className={`inline-flex items-center justify-center font-bold select-none leading-none ${className}`}
+      aria-label="บาท (THB)"
+    >
+      ฿
+    </span>
+  );
+}
+
+type TimeframeView = "daily" | "monthly" | "yearly" | "cost";
 
 interface ChartBarItem {
   key: string;
@@ -27,6 +39,9 @@ interface ChartBarItem {
   total: number;
   true_alarm: number;
   false_alarm: number;
+  // Optional breakdown for cost
+  gcp_cost?: number;
+  ext_cost?: number;
 }
 
 export default function AdminMetricsPage() {
@@ -52,9 +67,16 @@ export default function AdminMetricsPage() {
     fetcher
   );
 
+  const { data: yearlyCostData, isLoading: yearlyCostLoading } = useSWR(
+    `/api/v1/metrics/cost/yearly?year=${selectedYear}`,
+    fetcher
+  );
+
   // Prepare chart items based on selected timeframe
   let chartItems: ChartBarItem[] = [];
   let chartLoading = false;
+
+  const monthNames = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
   if (activeTab === "daily") {
     chartLoading = metricsLoading;
@@ -69,7 +91,6 @@ export default function AdminMetricsPage() {
   } else if (activeTab === "monthly") {
     chartLoading = yearlyLoading;
     const rawList = yearlyData?.monthly_breakdown || [];
-    const monthNames = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
     chartItems = rawList.map((m: { month: string; total: number; true_alarm: number; false_alarm: number }, idx: number) => ({
       key: m.month,
       label: monthNames[idx] || m.month.slice(5),
@@ -77,7 +98,7 @@ export default function AdminMetricsPage() {
       true_alarm: m.true_alarm,
       false_alarm: m.false_alarm,
     }));
-  } else {
+  } else if (activeTab === "yearly") {
     // Yearly: 3-year trend overview
     chartLoading = yearlyLoading;
     const curY = Number(selectedYear);
@@ -104,6 +125,19 @@ export default function AdminMetricsPage() {
         false_alarm: yearlyData?.false_alarms_total || 0,
       },
     ];
+  } else if (activeTab === "cost") {
+    // Cost breakdown across 12 months for selectedYear
+    chartLoading = yearlyCostLoading;
+    const rawCostList = yearlyCostData?.monthly_cost_breakdown || [];
+    chartItems = rawCostList.map((c: { month: string; total_cost_thb: number; gcp_cost_thb: number; external_cost_thb: number }, idx: number) => ({
+      key: c.month,
+      label: monthNames[idx] || c.month.slice(5),
+      total: c.total_cost_thb,
+      true_alarm: c.gcp_cost_thb, // reusing true_alarm as GCP segment
+      false_alarm: c.external_cost_thb, // reusing false_alarm as External segment
+      gcp_cost: c.gcp_cost_thb,
+      ext_cost: c.external_cost_thb,
+    }));
   }
 
   const maxBarTotal = Math.max(...chartItems.map((c) => c.total), 1);
@@ -176,7 +210,7 @@ export default function AdminMetricsPage() {
           <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-lg border border-white/10 flex flex-col justify-between">
             <div className="flex items-center justify-between text-amber-400">
               <span className="text-xs uppercase tracking-wider font-semibold">Cost / Proactive Alert</span>
-              <DollarSign className="w-4 h-4" />
+              <BahtIcon className="w-4 h-4 text-amber-400 text-sm" />
             </div>
             <div className="mt-4">
               <span className="text-3xl font-extrabold text-amber-400">
@@ -192,7 +226,7 @@ export default function AdminMetricsPage() {
           <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-lg border border-white/10 flex flex-col justify-between">
             <div className="flex items-center justify-between text-cyan-400">
               <span className="text-xs uppercase tracking-wider font-semibold">Cost / On-Demand Query</span>
-              <DollarSign className="w-4 h-4" />
+              <BahtIcon className="w-4 h-4 text-cyan-400 text-sm" />
             </div>
             <div className="mt-4">
               <span className="text-3xl font-extrabold text-cyan-400">
@@ -222,7 +256,7 @@ export default function AdminMetricsPage() {
           <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-lg border border-white/10 flex flex-col justify-between">
             <div className="flex items-center justify-between text-indigo-400">
               <span className="text-xs uppercase tracking-wider font-semibold">Blended Cost / User</span>
-              <DollarSign className="w-4 h-4" />
+              <BahtIcon className="w-4 h-4 text-indigo-400 text-sm" />
             </div>
             <div className="mt-4">
               <span className="text-3xl font-extrabold text-indigo-400">
@@ -249,7 +283,7 @@ export default function AdminMetricsPage() {
           </div>
         </div>
 
-        {/* 📈 Graphical Alert Breakdown & Accuracy Trends (Daily / Monthly / Yearly) */}
+        {/* 📈 Graphical Alert Breakdown & Accuracy Trends (Daily / Monthly / Yearly / Cost) */}
         <div
           data-testid={`chart-${activeTab}`}
           className="p-6 rounded-2xl bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl space-y-6"
@@ -257,25 +291,28 @@ export default function AdminMetricsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                <BarChart3 className="w-5 h-5" />
+                {activeTab === "cost" ? <Coins className="w-5 h-5" /> : <BarChart3 className="w-5 h-5" />}
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  แนวโน้มการแจ้งเตือนและการเตือนลวง
+                  {activeTab === "cost" ? "กราฟโครงสร้างต้นทุนและค่าใช้จ่าย" : "แนวโน้มการแจ้งเตือนและการเตือนลวง"}
                   <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-normal border border-white/10">
                     {activeTab === "daily" && `รายวัน (เดือน ${selectedMonth})`}
                     {activeTab === "monthly" && `รายเดือน (ปี ${selectedYear})`}
                     {activeTab === "yearly" && `ภาพรวมรายปี`}
+                    {activeTab === "cost" && `ต้นทุนรายเดือน (ปี ${selectedYear})`}
                   </span>
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  เปรียบเทียบการเตือนจริง (True Alarm) กับการเตือนลวง (False Alarm)
+                  {activeTab === "cost"
+                    ? "เปรียบเทียบค่าบริการ GCP Infrastructure กับค่าบริการภายนอก (Radar APIs & Proxy Pool)"
+                    : "เปรียบเทียบการเตือนจริง (True Alarm) กับการเตือนลวง (False Alarm)"}
                 </p>
               </div>
             </div>
 
             {/* Timeframe View Toggles */}
-            <div className="flex items-center p-1 bg-slate-950/60 border border-white/10 rounded-xl">
+            <div className="flex flex-wrap items-center p-1 bg-slate-950/60 border border-white/10 rounded-xl gap-1">
               <button
                 type="button"
                 onClick={() => setActiveTab("daily")}
@@ -309,28 +346,63 @@ export default function AdminMetricsPage() {
               >
                 รายปี (Yearly)
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("cost")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                  activeTab === "cost"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Coins className="w-3.5 h-3.5" />
+                ต้นทุนค่าใช้จ่าย (Cost)
+              </button>
             </div>
           </div>
 
           {/* Chart Legend & Hover Indicator */}
           <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-white/5 text-xs">
-            <div className="flex items-center gap-4 text-slate-300">
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-sm bg-emerald-400 shadow-sm shadow-emerald-400/30" />
-                <span>เตือนจริง (True Alarm)</span>
+            {activeTab === "cost" ? (
+              <div className="flex items-center gap-4 text-slate-300">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm bg-cyan-400 shadow-sm shadow-cyan-400/30" />
+                  <span>Google Cloud Platform (Run + DB)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm bg-purple-400 shadow-sm shadow-purple-400/30" />
+                  <span>External Services (Radar APIs + Proxy)</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-sm bg-rose-400 shadow-sm shadow-rose-400/30" />
-                <span>เตือนลวง (False Alarm)</span>
+            ) : (
+              <div className="flex items-center gap-4 text-slate-300">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm bg-emerald-400 shadow-sm shadow-emerald-400/30" />
+                  <span>เตือนจริง (True Alarm)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm bg-rose-400 shadow-sm shadow-rose-400/30" />
+                  <span>เตือนลวง (False Alarm)</span>
+                </div>
               </div>
-            </div>
+            )}
 
             {hoveredItem ? (
               <div className="text-slate-300 bg-slate-800/80 px-3 py-1 rounded-lg border border-white/10 flex items-center gap-3">
                 <span className="font-semibold text-white">{hoveredItem.key}</span>
-                <span className="text-emerald-400">จริง: {hoveredItem.true_alarm}</span>
-                <span className="text-rose-400">ลวง: {hoveredItem.false_alarm}</span>
-                <span className="text-slate-400">รวม: {hoveredItem.total}</span>
+                {activeTab === "cost" ? (
+                  <>
+                    <span className="text-cyan-400">GCP: ฿{(hoveredItem.gcp_cost ?? 0).toFixed(2)}</span>
+                    <span className="text-purple-400">External: ฿{(hoveredItem.ext_cost ?? 0).toFixed(2)}</span>
+                    <span className="text-amber-300 font-bold">รวม: ฿{hoveredItem.total.toFixed(2)}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-emerald-400">จริง: {hoveredItem.true_alarm}</span>
+                    <span className="text-rose-400">ลวง: {hoveredItem.false_alarm}</span>
+                    <span className="text-slate-400">รวม: {hoveredItem.total}</span>
+                  </>
+                )}
               </div>
             ) : (
               <span className="text-slate-500 italic">เอาเมาส์ชี้ที่แท่งกราฟเพื่อดูรายละเอียด</span>
@@ -346,13 +418,13 @@ export default function AdminMetricsPage() {
             ) : chartItems.length === 0 ? (
               <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-2">
                 <BarChart3 className="w-8 h-8 opacity-40" />
-                <span>ไม่มีข้อมูลการแจ้งเตือนในช่วงเวลานี้</span>
+                <span>ไม่มีข้อมูลในช่วงเวลานี้</span>
               </div>
             ) : (
               chartItems.map((item) => {
                 const heightPct = item.total > 0 ? Math.max((item.total / maxBarTotal) * 100, 6) : 2;
-                const truePct = item.total > 0 ? (item.true_alarm / item.total) * 100 : 0;
-                const falsePct = item.total > 0 ? (item.false_alarm / item.total) * 100 : 0;
+                const seg1Pct = item.total > 0 ? (item.true_alarm / item.total) * 100 : 0;
+                const seg2Pct = item.total > 0 ? (item.false_alarm / item.total) * 100 : 0;
 
                 return (
                   <div
@@ -368,16 +440,29 @@ export default function AdminMetricsPage() {
                     >
                       {item.total === 0 ? (
                         <div className="w-full h-full bg-slate-800/30" />
+                      ) : activeTab === "cost" ? (
+                        <>
+                          {/* GCP Cost segment (cyan) */}
+                          <div
+                            style={{ height: `${seg1Pct}%` }}
+                            className="w-full bg-cyan-500/80 group-hover:bg-cyan-400 transition-colors"
+                          />
+                          {/* External Cost segment (purple) */}
+                          <div
+                            style={{ height: `${seg2Pct}%` }}
+                            className="w-full bg-purple-500/80 group-hover:bg-purple-400 transition-colors"
+                          />
+                        </>
                       ) : (
                         <>
                           {/* True Alarm segment (emerald) */}
                           <div
-                            style={{ height: `${truePct}%` }}
+                            style={{ height: `${seg1Pct}%` }}
                             className="w-full bg-emerald-500/80 group-hover:bg-emerald-400 transition-colors"
                           />
                           {/* False Alarm segment (rose) */}
                           <div
-                            style={{ height: `${falsePct}%` }}
+                            style={{ height: `${seg2Pct}%` }}
                             className="w-full bg-rose-500/80 group-hover:bg-rose-400 transition-colors"
                           />
                         </>
@@ -418,7 +503,7 @@ export default function AdminMetricsPage() {
           {/* Monthly Cost Breakdown */}
           <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-xl border border-white/10 space-y-4">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-cyan-400" />
+              <BahtIcon className="w-5 h-5 text-cyan-400 text-base" />
               โครงสร้างต้นทุนเดือน {selectedMonth}
             </h2>
             <div className="space-y-3">
