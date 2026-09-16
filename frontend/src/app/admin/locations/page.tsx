@@ -2,12 +2,14 @@
 
 import useSWR from "swr";
 import { GlassNavbar } from "@/components/GlassNavbar";
-import { MapPin } from "lucide-react";
+import { MapPin, User, MessageCircle } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 interface LocationItem {
   id: number;
+  chat_id: string;
+  platform?: string;
   name: string;
   latitude: number;
   longitude: number;
@@ -40,6 +42,7 @@ export default function AdminLocationsPage() {
           <table className="w-full text-left text-sm text-slate-300">
             <thead className="text-xs uppercase bg-slate-800/60 text-slate-400">
               <tr>
+                <th className="px-4 py-3">Account / User</th>
                 <th className="px-4 py-3">Location Name</th>
                 <th className="px-4 py-3">Coordinates</th>
                 <th className="px-4 py-3">Presence Policy</th>
@@ -51,11 +54,27 @@ export default function AdminLocationsPage() {
               {locations && locations.length > 0 ? (
                 locations.map((loc) => (
                   <tr key={loc.id} className="hover:bg-slate-800/30 transition">
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-2">
+                        {loc.platform === "line" || loc.chat_id.startsWith("U") ? (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                            <MessageCircle className="w-3 h-3" /> LINE
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center gap-1">
+                            <User className="w-3 h-3" /> Telegram
+                          </span>
+                        )}
+                        <span className="font-mono text-xs text-slate-300">
+                          {loc.chat_id}
+                        </span>
+                      </div>
+                    </td>
                     <td className="px-4 py-4 font-semibold text-white flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-cyan-400" />
                       {loc.name}
                     </td>
-                    <td className="px-4 py-4 text-slate-400">
+                    <td className="px-4 py-4 text-slate-400 font-mono text-xs">
                       {loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}
                     </td>
                     <td className="px-4 py-4">
@@ -81,7 +100,7 @@ export default function AdminLocationsPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="text-center py-8 text-slate-500">
+                  <td colSpan={6} className="text-center py-8 text-slate-500">
                     ยังไม่มีพิกัดที่บันทึกไว้ในระบบ
                   </td>
                 </tr>

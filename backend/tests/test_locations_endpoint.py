@@ -30,6 +30,8 @@ async def test_get_locations_endpoint():
         assert isinstance(data, list)
         assert len(data) >= 1
         item = data[0]
+        assert item["chat_id"] == "test_chat_1"
+        assert item["platform"] == "telegram"
         assert item["name"] == "Office Test"
         assert item["latitude"] == 13.7563
         assert item["longitude"] == 100.5018

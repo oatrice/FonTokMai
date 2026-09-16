@@ -12,6 +12,8 @@ router = APIRouter(prefix="/api/locations", tags=["locations"])
 
 class LocationResponse(BaseModel):
     id: int
+    chat_id: str
+    platform: str = "telegram"
     name: str
     latitude: float
     longitude: float
@@ -31,6 +33,8 @@ async def get_locations():
         return [
             LocationResponse(
                 id=loc.id,
+                chat_id=loc.chat_id,
+                platform=getattr(loc, "platform", "telegram") or "telegram",
                 name=loc.name,
                 latitude=loc.latitude,
                 longitude=loc.longitude,
