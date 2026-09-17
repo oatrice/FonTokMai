@@ -326,9 +326,10 @@ class WeatherManager:
         lng: float,
         mock_state: Optional[str] = None,
         force_endpoint: Optional[str] = None,
-        location_name: Optional[str] = None,
         chat_id: Optional[Union[str, int]] = None,
         message_id_to_edit: Optional[Union[str, int]] = None,
+        show_labels: bool = True,
+        location_name: Optional[str] = None,
     ) -> dict:
         """
         ดึงข้อมูลพยากรณ์ฝนโดยผ่านระบบ Fallback อัตโนมัติ:
@@ -343,11 +344,12 @@ class WeatherManager:
             "rainbow-local": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="local", mock_state=mock_state),
             "rainbow-global": lambda: self.rainbow_svc.predict_rain_by_location(lat, lng, endpoint_type="global", mock_state=mock_state),
             "open-meteo": lambda: self.open_meteo_svc.predict_rain_by_location(lat, lng, mock_state=mock_state),
-            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit),
-            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit),
-            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit),
-            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit)
+            "tmd-radar": lambda: self._get_tmd_prediction(lat, lng, mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit, show_labels=show_labels),
+            "kkn120": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn120", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit, show_labels=show_labels),
+            "kkn240": lambda: self._get_tmd_prediction(lat, lng, force_station="kkn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit, show_labels=show_labels),
+            "skn240": lambda: self._get_tmd_prediction(lat, lng, force_station="skn240", mock_state=mock_state, location_name=location_name, chat_id=chat_id, message_id_to_edit=message_id_to_edit, show_labels=show_labels)
         }
+
 
         # --- โหมดบังคับ endpoint (ไม่ผ่าน fallback) ---
         if force_endpoint and force_endpoint in service_map:
@@ -690,8 +692,10 @@ class WeatherManager:
         self, lat: float, lng: float, force_station: Optional[str] = None,
         mock_state: Optional[str] = None, location_name: Optional[str] = None,
         chat_id: Optional[Union[str, int]] = None,
-        message_id_to_edit: Optional[Union[str, int]] = None
+        message_id_to_edit: Optional[Union[str, int]] = None,
+        show_labels: bool = True
     ) -> dict:
+
         """
         Wrapper for TMD Radar predictions using Optical Flow Nowcasting.
         Uses dot-product approach vector filter to find approaching cloud clusters,
@@ -1459,15 +1463,48 @@ class WeatherManager:
                     wind_dir = processor.get_wind_direction_text(flow, px, py)
                     percent_change = 0.0
 
-                def render_hq_png(target_frame, pin_x, pin_y, time_utc, proc):
+                def render_hq_png(target_frame, pin_x, pin_y, time_utc, proc, raw_bg=None):
                     from PIL import Image, ImageFont, ImageDraw
                     import io
                     import cv2
+                    import numpy as np
+
+                    # Uncrop to full canvas (e.g. 800×800) so the raw TMD timestamp strip at the bottom is preserved
+                    th, tw = target_frame.shape[:2]
+                    cfg = proc.config
+                    scx = getattr(cfg, "static_crop_x", 0)
+                    scy = getattr(cfg, "static_crop_y", 0)
+                    full_w = getattr(cfg, "raw_width", 800) or 800
+                    full_h = getattr(cfg, "raw_height", 800) or 800
+
+                    if raw_bg is not None and raw_bg.shape[:2] == (full_h, full_w):
+                        # Use actual raw TMD image containing the authentic bottom timestamp strip & legend
+                        canvas = raw_bg.copy()
+                        paste_h = min(th, full_h - scy)
+                        paste_w = min(tw, full_w - scx)
+                        canvas[scy:scy + paste_h, scx:scx + paste_w] = target_frame[:paste_h, :paste_w]
+                        full_frame = canvas
+                        full_pin_x = pin_x + scx
+                        full_pin_y = pin_y + scy
+                        logger.info(f"[{station_code}] [RADAR_LATEST_HQ] Embedded into authentic TMD raw canvas ({full_w}x{full_h})")
+                    elif th < full_h or tw < full_w:
+                        canvas = np.zeros((full_h, full_w, 3), dtype=target_frame.dtype)
+                        paste_h = min(th, full_h - scy)
+                        paste_w = min(tw, full_w - scx)
+                        canvas[scy:scy + paste_h, scx:scx + paste_w] = target_frame[:paste_h, :paste_w]
+                        full_frame = canvas
+                        full_pin_x = pin_x + scx
+                        full_pin_y = pin_y + scy
+                    else:
+                        full_frame = target_frame
+                        full_pin_x = pin_x
+                        full_pin_y = pin_y
+
                     # Scale to 3x first (LANCZOS4 or NEAREST)
                     scale = 3.0
-                    img_hq_cv = cv2.resize(target_frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
+                    img_hq_cv = cv2.resize(full_frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
                     # Draw location pin identical to radar_tracking
-                    proc.draw_pin_on_frame(img_hq_cv, int(pin_x * scale), int(pin_y * scale), scale=scale)
+                    proc.draw_pin_on_frame(img_hq_cv, int(full_pin_x * scale), int(full_pin_y * scale), scale=scale)
                     img_hq = Image.fromarray(img_hq_cv)
 
                     # Add IDC timestamp overlay
@@ -1502,7 +1539,19 @@ class WeatherManager:
                 timeline_bytes = None
                 multiframe_bytes = None
                 try:
-                    static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor)
+                    # Fetch raw TMD static image to preserve full authentic background and bottom timestamp strip
+                    raw_bg_frame = None
+                    try:
+                        raw_static_bytes = await processor.fetch_latest_image_bytes(max_retries=1)
+                        if raw_static_bytes:
+                            _arr = np.frombuffer(raw_static_bytes, np.uint8)
+                            _dec = cv2.imdecode(_arr, cv2.IMREAD_COLOR)
+                            if _dec is not None:
+                                raw_bg_frame = cv2.cvtColor(_dec, cv2.COLOR_BGR2RGB)
+                    except Exception as _bg_err:
+                        logger.debug(f"Failed to fetch raw TMD static background: {_bg_err}")
+
+                    static_bytes = await asyncio.to_thread(render_hq_png, curr_frame.copy(), user_px, user_py, now_utc, processor, raw_bg_frame)
                 except Exception as e:
                     logger.error(f"Failed to generate static PNG: {e}")
 
@@ -1533,7 +1582,7 @@ class WeatherManager:
                     tracking_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
-                        all_rain_clusters, predictions, True, _DEV_CONFIG.get("show_trajectory", True), time_offset_min,
+                        all_rain_clusters, predictions, True, _DEV_CONFIG.get("show_trajectory", True), show_labels, time_offset_min,
                         locked_target_id,
                         locked_target_cx,
                         locked_target_cy,

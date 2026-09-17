@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Header } from "@/components/ui/Header";
+import { GlassNavbar } from "@/components/GlassNavbar";
 import { RadarCoverageMap, DEFAULT_STATIONS, RadarStationCoverage } from "@/components/RadarCoverageMap";
 import { RadarCloudMap, CloudCluster, RadarStation } from "@/components/map/RadarCloudMap";
 import { 
@@ -789,7 +789,7 @@ export default function AdminRadarPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20">
-      <Header />
+      <GlassNavbar />
 
       {/* Global Loading Spinner */}
       {loading && (

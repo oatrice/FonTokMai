@@ -1,6 +1,6 @@
 # FonMaYang 🌧️
 
-**v0.73.3** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
+**v0.74.0** — Real-Time Rain Prediction System for Isan (Northeastern) Region, Thailand  
 Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical Flow Cloud Tracking.
 
 ---
@@ -28,9 +28,15 @@ Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical F
 | Command | Description |
 |---|---|
 | (Send Location) | Forecast rain at the sent location and save it for proactive notifications |
+| `/locations` | View all saved locations with status badges and quick mute/snooze inline controls |
+| `/presence [loc]` | Configure Presence Policy (always notify / ask / schedule / silent) and countdown TTL |
+| `/rename <old> <new>` | Rename a saved location |
 | `/rain` | View weather for the most recent location |
+| `/rain_minimal` | View clean tracking radar map without text label overlays |
+| `/rain_pro_d` | Fast development alias for `/rain_pro d` (default location) |
 | `/rain tmd-radar` | Force use of TMD Radar endpoint |
 | `/rain <location_name>` | View weather for a saved location |
+
 | `/radar` | View latest static radar image for the most recent location |
 | `/tracking` | View tracking radar image with storm vectors for the most recent location |
 | `/timeline` | View rain duration timeline graph for the most recent location |
@@ -41,7 +47,10 @@ Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical F
 ### Developer Commands (DEVELOPER_CHAT_IDS only)
 | Command | Description |
 |---|---|
+| `/stats [month]` | View monthly alert accuracy statistics (True Alarms, User False Alarms, Auto-verified) |
+| `/cost [month]` | View monthly infrastructure cost breakdown (GCP + External) and Cost/Alert metrics |
 | `/bypass <password>` | Verify password to activate Emergency Admin Bypass (1 hour) |
+
 | `/bypass_logout` | Log out from Emergency Admin Bypass |
 | `/metrics [days]` | Export Cron metrics history as a CSV file |
 | `/setbudget <amount>` | Dynamically adjust GCP budget limit |

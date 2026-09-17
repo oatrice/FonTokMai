@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime, Text
+from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime, Text, Boolean, Index
 from app.database import Base
 
 class UserLocation(Base):
@@ -18,6 +18,48 @@ class UserLocation(Base):
     locked_target_id = Column(String, nullable=True) # e.g. "A"
     locked_target_cx = Column(Integer, nullable=True)
     locked_target_cy = Column(Integer, nullable=True)
+    is_snoozed = Column(Boolean, default=False, nullable=False)
+    snooze_until = Column(DateTime, nullable=True)
+
+    # Presence Verification & Policy (Issue #289, #290, #291)
+    # presence_policy: 'always_notify' | 'always_ask' | 'schedule_based' | 'silent_card'
+    presence_policy = Column(String, default="always_ask", nullable=False)
+    schedule_active_days = Column(String, nullable=True) # e.g. "[1,2,3,4,5]"
+    schedule_active_start = Column(String, nullable=True) # e.g. "08:00"
+    schedule_active_end = Column(String, nullable=True) # e.g. "18:00"
+    presence_answer_ttl_minutes = Column(Integer, default=120, nullable=False) # Countdown TTL in minutes
+    default_fallback_policy = Column(String, default="notify", nullable=False) # 'notify' | 'skip'
+
+    @property
+    def is_snoozed_bool(self) -> bool:
+        if not self.is_snoozed:
+            return False
+        if self.snooze_until:
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            return self.snooze_until > now
+        return bool(self.is_snoozed)
+
+    # Allow accessing is_snoozed as boolean for ease of use
+    @property
+    def is_snoozed_state(self) -> bool:
+        return bool(self.is_snoozed)
+
+
+class PresenceAnswerCache(Base):
+    """
+    Caches user confirmation answers on whether to receive alerts at a given location.
+    Countdown TTL enables asking again only after the cache expires (Issue #289).
+    """
+    __tablename__ = "presence_answer_cache"
+
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(String, index=True, nullable=False)
+    location_name = Column(String, index=True, nullable=False)
+    answer = Column(String, nullable=False) # 'yes' | 'no'
+    expires_at = Column(DateTime, index=True, nullable=False)
+    created_at = Column(DateTime, nullable=False)
+
 
 class DeveloperMock(Base):
     __tablename__ = "developer_mocks"
@@ -35,6 +77,47 @@ class UserFeedback(Base):
     timestamp = Column(DateTime, nullable=False)
     feedback_type = Column(String, nullable=False) # e.g. 'false_alarm'
     prediction_context = Column(String, nullable=True) # e.g. "max_rain: 1.5 mm/hr"
+
+class SystemUsageEvent(Base):
+    """
+    Unified Event Log: Tracks proactive rain alerts, on-demand queries, and mock tests.
+    Used for accuracy verification and multi-tier unit economics (Issue #298).
+    """
+    __tablename__ = "system_usage_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(String, index=True, nullable=False)
+    location_name = Column(String, index=True, nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    alerted_at = Column(DateTime, index=True, nullable=False)
+    rain_intensity_mm = Column(Float, default=0.0, nullable=False)
+    alert_type = Column(String, default="rain", nullable=False)
+    user_feedback_result = Column(String, nullable=True) # 'false_alarm' | 'true_alarm' | None
+    auto_verify_result = Column(String, nullable=True)   # 'false_alarm' | 'true_alarm' | None
+    auto_verified_at = Column(DateTime, nullable=True)
+    
+    event_category = Column(String, default="proactive_alert", index=True, nullable=False)
+    command_name = Column(String, nullable=True)
+    is_mock = Column(Boolean, default=False, index=True, nullable=False)
+
+    __table_args__ = (
+        Index("ix_usage_events_date_mock_cat", "alerted_at", "is_mock", "event_category"),
+    )
+
+
+class ExternalCostConfig(Base):
+    """
+    Configures non-GCP monthly infrastructure costs (Proxy pools, external weather APIs).
+    Used to compute total Cost Per Alert accurately (Issue #292).
+    """
+    __tablename__ = "external_cost_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    service_name = Column(String, index=True, nullable=False) # 'tmd_proxy', 'tomorrow_api', etc.
+    month = Column(String, index=True, nullable=False)        # 'YYYY-MM'
+    amount_thb = Column(Float, default=0.0, nullable=False)
+
 
 class DisasterAlertHistory(Base):
     __tablename__ = "disaster_alert_history"

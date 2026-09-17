@@ -2,6 +2,7 @@ import os
 import logging
 import pytest
 
+
 def test_file_logging_handler_configuration(tmp_path, monkeypatch):
     """Verify that file logging handler is properly added and writes sensitive-filtered logs."""
     test_log_file = tmp_path / "test_backend.log"
@@ -37,6 +38,40 @@ def test_file_logging_handler_configuration(tmp_path, monkeypatch):
     # Clean up handler from root
     logging.root.removeHandler(handler)
     handler.close()
+
+
+def test_sensitive_filter_preserves_uvicorn_access_log_arguments():
+    from app.main import SensitiveDataFilter
+
+    record = logging.LogRecord(
+        name="uvicorn.access",
+        level=logging.INFO,
+        pathname="test.py",
+        lineno=1,
+        msg='%s - "%s" %s %s "%s"',
+        args=(
+            "127.0.0.1",
+            "GET /weather?apikey=12345secret HTTP/1.1",
+            200,
+            12,
+            "-",
+        ),
+        exc_info=None,
+    )
+
+    SensitiveDataFilter().filter(record)
+
+    assert record.args == (
+        "127.0.0.1",
+        "GET /weather?apikey=*** HTTP/1.1",
+        200,
+        12,
+        "-",
+    )
+    assert record.getMessage() == (
+        '127.0.0.1 - "GET /weather?apikey=*** HTTP/1.1" 200 12 "-"'
+    )
+
 
 def test_growth_decay_logging_in_weather_manager(caplog):
     """Verify that [GROWTH_DECAY] is logged when processing cloud clusters."""

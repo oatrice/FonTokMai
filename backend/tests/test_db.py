@@ -115,6 +115,100 @@ async def test_save_feedback(db_session):
     assert reliabilities_new["tomorrow"] == 0.0  # (2 queries, 2 false alarms) => 0.0
 
 @pytest.mark.asyncio
+async def test_schema_migrations_add_missing_columns_idempotently():
+    from sqlalchemy import inspect, text
+    from app.main import ensure_schema_migrations
+
+    migration_engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+
+    try:
+        async with migration_engine.begin() as conn:
+            await conn.execute(
+                text(
+                    """
+                    CREATE TABLE user_locations (
+                        id INTEGER PRIMARY KEY,
+                        chat_id VARCHAR NOT NULL,
+                        name VARCHAR NOT NULL DEFAULT 'default',
+                        latitude FLOAT NOT NULL,
+                        longitude FLOAT NOT NULL,
+                        retention_type VARCHAR NOT NULL
+                    )
+                    """
+                )
+            )
+            await conn.execute(
+                text(
+                    """
+                    CREATE TABLE radar_latest_cache (
+                        station_code VARCHAR PRIMARY KEY,
+                        frames_json TEXT,
+                        created_at TIMESTAMP NOT NULL,
+                        last_gif_fallback_time FLOAT NOT NULL DEFAULT 0.0
+                    )
+                    """
+                )
+            )
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO user_locations
+                        (chat_id, latitude, longitude, retention_type)
+                    VALUES
+                        ('schema_user', 13.0, 100.0, 'FOREVER')
+                    """
+                )
+            )
+
+            await conn.run_sync(ensure_schema_migrations)
+            await conn.run_sync(ensure_schema_migrations)
+
+            def get_cols(sync_conn, table_name):
+                return {column["name"] for column in inspect(sync_conn).get_columns(table_name)}
+
+            columns = await conn.run_sync(get_cols, "user_locations")
+            assert {
+                "last_alert_max_rain",
+                "tracking_mode",
+                "locked_target_id",
+                "locked_target_cx",
+                "locked_target_cy",
+                "is_snoozed",
+                "snooze_until",
+                "presence_policy",
+                "schedule_active_days",
+                "schedule_active_start",
+                "schedule_active_end",
+                "presence_answer_ttl_minutes",
+                "default_fallback_policy",
+            }.issubset(columns)
+
+            radar_columns = await conn.run_sync(get_cols, "radar_latest_cache")
+            assert "source" in radar_columns
+
+            row = (
+                await conn.execute(
+                    text(
+                        """
+                        SELECT
+                            is_snoozed,
+                            snooze_until,
+                            presence_policy,
+                            presence_answer_ttl_minutes,
+                            default_fallback_policy,
+                            tracking_mode
+                        FROM user_locations
+                        WHERE chat_id = 'schema_user'
+                        """
+                    )
+                )
+            ).first()
+            assert row == (0, None, "always_ask", 120, "notify", "auto")
+    finally:
+        await migration_engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_record_api_query_success(db_session):
     from app.repositories.sqlite import SQLiteLocationRepository
     repo = SQLiteLocationRepository(db_session)

@@ -74,10 +74,12 @@ class SQLiteLocationRepository(LocationRepository):
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         result = await self.session.execute(
             select(UserLocation).where(
-                (UserLocation.expires_at == None) | (UserLocation.expires_at > now)
+                ((UserLocation.expires_at == None) | (UserLocation.expires_at > now)),
+                ((UserLocation.is_snoozed == False) | (UserLocation.is_snoozed.is_(None)) | ((UserLocation.snooze_until != None) & (UserLocation.snooze_until <= now)))
             )
         )
         return list(result.scalars().all())
+
 
     async def update_last_alerted(
         self,
@@ -99,6 +101,102 @@ class SQLiteLocationRepository(LocationRepository):
             await self.session.commit()
             return True
         return False
+
+    async def rename_location(self, chat_id: Union[str, int], old_name: str, new_name: str) -> bool:
+        chat_id_str = str(chat_id)
+        loc = await self.get_location(chat_id_str, old_name)
+        if not loc:
+            return False
+        # Check if target name already exists
+        existing_target = await self.get_location(chat_id_str, new_name)
+        if existing_target and existing_target.id != loc.id:
+            return False
+        loc.name = new_name
+        await self.session.commit()
+        return True
+
+    async def snooze_location(self, chat_id: Union[str, int], name: str, hours: float = 4.0) -> Optional[UserLocation]:
+        chat_id_str = str(chat_id)
+        loc = await self.get_location(chat_id_str, name)
+        if not loc:
+            return None
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        loc.is_snoozed = True
+        loc.snooze_until = now + timedelta(hours=hours)
+        await self.session.commit()
+        await self.session.refresh(loc)
+        return loc
+
+    async def unsnooze_location(self, chat_id: Union[str, int], name: str) -> Optional[UserLocation]:
+        chat_id_str = str(chat_id)
+        loc = await self.get_location(chat_id_str, name)
+        if not loc:
+            return None
+        loc.is_snoozed = False
+        loc.snooze_until = None
+        await self.session.commit()
+        await self.session.refresh(loc)
+        return loc
+
+    async def get_presence_answer(self, chat_id: Union[str, int], location_name: str) -> Optional[str]:
+        from app.models import PresenceAnswerCache
+        from sqlalchemy import func
+        chat_id_str = str(chat_id)
+        name_lower = location_name.lower()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        result = await self.session.execute(
+            select(PresenceAnswerCache).where(
+                PresenceAnswerCache.chat_id == chat_id_str,
+                func.lower(PresenceAnswerCache.location_name) == name_lower,
+                PresenceAnswerCache.expires_at > now
+            ).order_by(PresenceAnswerCache.id.desc())
+        )
+        record = result.scalars().first()
+        return record.answer if record else None
+
+    async def set_presence_answer(self, chat_id: Union[str, int], location_name: str, answer: str, ttl_minutes: int = 120):
+        from app.models import PresenceAnswerCache
+        chat_id_str = str(chat_id)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        expires_at = now + timedelta(minutes=ttl_minutes)
+
+        cache_entry = PresenceAnswerCache(
+            chat_id=chat_id_str,
+            location_name=location_name,
+            answer=answer,
+            expires_at=expires_at,
+            created_at=now
+        )
+        self.session.add(cache_entry)
+        await self.session.commit()
+        await self.session.refresh(cache_entry)
+        return cache_entry
+
+    async def clear_expired_presence_cache(self) -> int:
+        from app.models import PresenceAnswerCache
+        from sqlalchemy import delete
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        result = await self.session.execute(
+            delete(PresenceAnswerCache).where(PresenceAnswerCache.expires_at <= now)
+        )
+        await self.session.commit()
+        return result.rowcount
+
+    async def reset_presence_cache(self, chat_id: Union[str, int], location_name: str) -> bool:
+        from app.models import PresenceAnswerCache
+        from sqlalchemy import delete, func
+        chat_id_str = str(chat_id)
+        name_lower = location_name.lower()
+        result = await self.session.execute(
+            delete(PresenceAnswerCache).where(
+                PresenceAnswerCache.chat_id == chat_id_str,
+                func.lower(PresenceAnswerCache.location_name) == name_lower
+            )
+        )
+        await self.session.commit()
+        return (result.rowcount or 0) > 0
+
 
     async def get_mock_state(self, chat_id: Union[str, int]) -> Optional[str]:
         from app.models import DeveloperMock

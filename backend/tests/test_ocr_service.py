@@ -125,14 +125,18 @@ async def test_get_frame_timestamp_ocr_space_fallback(ocr_service):
 
 @pytest.mark.asyncio
 async def test_get_frame_timestamp_fallback_ts(ocr_service):
-    with patch.object(ocr_service, '_call_ocr_space', new_callable=AsyncMock) as mock_ocr_space:
+    with patch.object(ocr_service, '_call_ocr_space', new_callable=AsyncMock) as mock_ocr_space, \
+         patch.object(ocr_service, '_call_pytesseract', new_callable=AsyncMock) as mock_pytesseract:
         
         mock_ocr_space.return_value = None
+        mock_pytesseract.return_value = None
         
         frame = np.zeros((10, 10, 3), dtype=np.uint8)
-        fallback = 1717671600
-        ts = await ocr_service.get_frame_timestamp(frame, fallback_ts=fallback)
-        assert ts == fallback
+        # 1789391616 is 20:13:36 -> should quantize down to 20:00:00 (1789390800)
+        unrounded_fallback = 1789391616
+        expected_quantized = 1789390800
+        ts = await ocr_service.get_frame_timestamp(frame, fallback_ts=unrounded_fallback)
+        assert ts == expected_quantized
         ocr_service.repo.set_radar_timestamp_cache.assert_not_called()
 
 @pytest.mark.skip(reason="Hotfix #85: Bypassed Vision quota check")

@@ -43,6 +43,42 @@ class LocationRepository(ABC):
         pass
 
     @abstractmethod
+    async def rename_location(self, chat_id: Union[str, int], old_name: str, new_name: str) -> bool:
+        """เปลี่ยนชื่อพิกัดของผู้ใช้"""
+        pass
+
+    @abstractmethod
+    async def snooze_location(self, chat_id: Union[str, int], name: str, hours: float = 4.0) -> Optional[UserLocation]:
+        """ปิดการแจ้งเตือนชั่วคราวตามจำนวนชั่วโมงที่กำหนด"""
+        pass
+
+    @abstractmethod
+    async def unsnooze_location(self, chat_id: Union[str, int], name: str) -> Optional[UserLocation]:
+        """เปิดการแจ้งเตือนพิกัดที่ถูก Snooze อีกครั้งทันที"""
+        pass
+
+    @abstractmethod
+    async def get_presence_answer(self, chat_id: Union[str, int], location_name: str) -> Optional[str]:
+        """ดึงคำตอบ Presence Check ที่ยังไม่หมดอายุ ('yes' | 'no' | None)"""
+        pass
+
+    @abstractmethod
+    async def set_presence_answer(self, chat_id: Union[str, int], location_name: str, answer: str, ttl_minutes: int = 120):
+        """บันทึกคำตอบ Presence Check พร้อมกำหนดเวลาหมดอายุ Countdown"""
+        pass
+
+    @abstractmethod
+    async def clear_expired_presence_cache(self) -> int:
+        """ลบ Cache คำตอบ Presence ที่หมดอายุแล้ว"""
+        pass
+
+    @abstractmethod
+    async def reset_presence_cache(self, chat_id: Union[str, int], location_name: str) -> bool:
+        """รีเซ็ตหรือลบ Cache คำตอบ Presence ของพิกัดที่กำหนด"""
+        pass
+
+
+    @abstractmethod
     async def get_mock_state(self, chat_id: Union[str, int]) -> Optional[str]:
         """Get the developer mock state for a chat_id. Returns 'rain', 'clear', or None."""
         pass

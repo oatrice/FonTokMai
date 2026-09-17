@@ -6,13 +6,148 @@ from datetime import datetime, timezone, timedelta
 from app.services import weather_manager
 from app.dependencies import get_repo_context
 from app.routers.webhook_location import process_telegram_location
-from app.routers.webhook_utils import check_admin_access, format_duration_text
+from app.routers.webhook_utils import check_admin_access, format_duration_text, format_local_time_for_location
 from app.services import telegram
 
 logger = logging.getLogger(__name__)
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "mock_token")
 TELEGRAM_EDIT_REPLY_MARKUP_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageReplyMarkup"
+
+
+def format_compare_api_payload(results: dict, lat: float, lng: float) -> tuple[str, dict]:
+    bkk_tz = timezone(timedelta(hours=7))
+    update_time_str = datetime.now(bkk_tz).strftime("%d/%m/%Y %H:%M:%S")
+    text = f"📊 ข้อมูลเปรียบเทียบ 4 API (พิกัด {lat}, {lng}):\n"
+    text += f"🔄 ข้อมูลอัปเดตล่าสุด: {update_time_str}\n\n"
+    
+    display_names = {
+        "xweather": "Xweather (Premium)",
+        "tomorrow": "Tomorrow.io",
+        "rainbow-local": "Rainbow Local",
+        "rainbow-global": "Rainbow Global"
+    }
+    for k, v in results.items():
+        disp_k = display_names.get(k, k)
+        accuracy = v.get("accuracy_score", 0.0)
+        acc_percent = accuracy * 100.0
+        
+        if "error" in v:
+            text += f"🔹 {disp_k} (ความแม่นยำ: {acc_percent:.1f}%):\n  ❌ ข้อผิดพลาด: {v['error']}\n\n"
+        else:
+            max_rain = v.get('max_rain', 0)
+            text += f"🔹 {disp_k} (ความแม่นยำ: {acc_percent:.1f}%):\n"
+            
+            rain_summary = v.get("rain_summary")
+            if rain_summary:
+                indented_summary = rain_summary.replace("\n", "\n  ")
+                text += f"  {indented_summary}\n"
+                
+                wind_kmh = v.get("wind_speed_kmh", 0)
+                wind_dir = v.get("wind_dir_text", "ไม่ทราบ")
+                if wind_kmh > 0:
+                    if "tmd-radar" in disp_k.lower() or "tmd-radar" in k.lower():
+                        if "ไม่พบฝน" not in rain_summary:
+                            text += f"  🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+                    else:
+                        text += f"  🌬️ ลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+                text += "\n"
+            else:
+                text += f"  💧 ปริมาณฝนสูงสุด: {max_rain:.2f} mm/hr\n"
+                text += f"  🌧️ ความรุนแรง: {v.get('intensity', 'ไม่ทราบ')}\n"
+                
+                wind_kmh = v.get("wind_speed_kmh", 0)
+                wind_dir = v.get("wind_dir_text", "ไม่ทราบ")
+                if wind_kmh > 0:
+                    if "tmd-radar" in disp_k.lower() or "tmd-radar" in k.lower():
+                        if "ไม่พบฝน" not in v.get("rain_summary", ""):
+                            text += f"  🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+                    else:
+                        text += f"  🌬️ ลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
+                    
+                storm_distance = v.get("storm_distance_km")
+                if storm_distance is not None:
+                    text += f"  🌪️ ระยะห่างพายุ: {storm_distance} กม.\n"
+                
+                if max_rain > 0:
+                    eta_minutes = None
+                    predictions = v.get("predictions", [])
+                    if predictions:
+                        try:
+                            base_time = datetime.fromisoformat(predictions[0].get("time", "").replace("Z", "+00:00"))
+                            for pred in predictions:
+                                if pred.get("rain", 0) > 0:
+                                    pred_time = datetime.fromisoformat(pred.get("time", "").replace("Z", "+00:00"))
+                                    eta_minutes = int((pred_time - base_time).total_seconds() / 60)
+                                    break
+                        except Exception:
+                            pass
+                            
+                    duration = v.get("duration_minutes", 0)
+                    
+                    if eta_minutes is not None:
+                        start_dt = datetime.now(bkk_tz) + timedelta(minutes=eta_minutes)
+                        end_dt = start_dt + timedelta(minutes=duration)
+                        start_str = start_dt.strftime("%H:%M")
+                        end_str = end_dt.strftime("%H:%M")
+                        
+                        if eta_minutes == 0:
+                            text += f"  ⏱️ เริ่มตก: ขณะนี้ ({start_str} น.)\n"
+                        else:
+                            text += f"  ⏱️ เริ่มตกในอีก: {format_duration_text(eta_minutes)} ({start_str} น.)\n"
+                            
+                        if duration > 0:
+                            text += f"  ⏳ ตกต่อเนื่อง: {format_duration_text(duration)} (จนถึง {end_str} น.)\n"
+                        
+                text += "\n"
+    
+    keyboard = []
+    row = []
+    for ep in results.keys():
+        row.append({"text": f"✅ {display_names.get(ep, ep)}", "callback_data": f"force_api_{ep}_{lat}_{lng}"})
+        if len(row) == 2:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+    reply_markup = {"inline_keyboard": keyboard}
+    return text, reply_markup
+
+
+async def _handle_compare_api(chat_id: int, message_id: int, query_id: str, lat: float, lng: float, already_answered: bool = False):
+    try:
+        async with get_repo_context() as repo:
+            mock_state = await repo.get_mock_state(chat_id)
+        
+        wm = weather_manager.WeatherManager()
+        results = await wm.compare_all_apis(lat, lng, mock_state=mock_state)
+        text, reply_markup = format_compare_api_payload(results, lat, lng)
+        
+        await telegram.edit_telegram_message(chat_id, message_id, text, reply_markup=reply_markup)
+        
+        from app.models import SystemUsageEvent
+        async with get_repo_context() as repo:
+            if hasattr(repo, "session") and repo.session:
+                event = SystemUsageEvent(
+                    chat_id=str(chat_id),
+                    location_name="default",
+                    latitude=lat,
+                    longitude=lng,
+                    alerted_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                    rain_intensity_mm=0.0,
+                    alert_type="rain",
+                    event_category="ondemand_query",
+                    command_name="compare_api",
+                    is_mock=False
+                )
+                repo.session.add(event)
+                await repo.session.commit()
+        
+        if not already_answered:
+            await telegram.answer_callback_query(query_id)
+    except Exception as e:
+        logger.error(f"Error handling compare_api: {e}")
+
 
 async def handle_callback_query(callback_query: dict, already_answered: bool = False):
     query_id = callback_query.get("id")
@@ -47,6 +182,108 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
                 name = parts[2].lower()
                 await repo.delete_location(chat_id, name)
                 answer_text = f"ลบข้อมูลพิกัด {name} เรียบร้อยแล้ว"
+        elif data.startswith("loc_snooze_"):
+            # Format: loc_snooze_<name>_<hours>
+            parts = data.split("_")
+            if len(parts) >= 4:
+                try:
+                    name = parts[2].lower()
+                    hours = float(parts[3])
+                    res = await repo.snooze_location(chat_id, name, hours=hours)
+                    if res and res.snooze_until:
+                        until_str = format_local_time_for_location(res.snooze_until, res.latitude, res.longitude)
+                        answer_text = f"🔕 ปิดการแจ้งเตือนพิกัด [{name}] ชั่วคราวถึง {until_str} น. ({int(hours)} ชม.) แล้วครับ"
+                    else:
+                        answer_text = f"🔕 ปิดการแจ้งเตือนพิกัด [{name}] ชั่วคราวเรียบร้อยแล้ว"
+                    if message_id:
+                        from app.routers.webhook_commands import handle_locations_command
+                        await handle_locations_command(chat_id, "/locations", message_id_to_edit=message_id)
+                except Exception as e:
+                    logger.error(f"Error in loc_snooze callback: {e}")
+                    answer_text = "เกิดข้อผิดพลาดในการปิดการแจ้งเตือน"
+        elif data.startswith("loc_unsnooze_"):
+            # Format: loc_unsnooze_<name>
+            parts = data.split("_")
+            if len(parts) >= 3:
+                name = parts[2].lower()
+                await repo.unsnooze_location(chat_id, name)
+                answer_text = f"✅ เปิดการแจ้งเตือนพิกัด [{name}] อีกครั้งแล้วครับ"
+                if message_id:
+                    from app.routers.webhook_commands import handle_locations_command
+                    await handle_locations_command(chat_id, "/locations", message_id_to_edit=message_id)
+        elif data.startswith("presence_menu_"):
+            # Format: presence_menu_<name>
+            parts = data.split("_")
+            if len(parts) >= 3:
+                name = parts[2]
+                from app.routers.webhook_commands import handle_presence_command
+                await handle_presence_command(chat_id, f"/presence {name}", message_id_to_edit=message_id)
+                answer_text = f"เปิดเมนูตั้งค่า [{name}] แล้วครับ"
+        elif data.startswith("set_policy_"):
+            # Format: set_policy_<name>_<policy>
+            parts = data.split("_")
+            if len(parts) >= 4:
+                name = parts[2].lower()
+                policy = "_".join(parts[3:])
+                loc = await repo.get_location(chat_id, name)
+                if loc:
+                    loc.presence_policy = policy
+                    if hasattr(repo, "session") and repo.session:
+                        await repo.session.commit()
+                    elif hasattr(repo, "collection") and repo.collection:
+                        await repo.collection.document(f"{chat_id}_{name}").update({"presence_policy": policy})
+                    policy_labels = {
+                        "always_notify": "🔔 เตือนทันที (ไม่ถาม)",
+                        "always_ask": "❓ ถามก่อนเสมอ",
+                        "schedule_based": "⏰ ตามตารางเวลา",
+                        "silent_card": "🔕 เตือนแบบเงียบ"
+                    }
+                    answer_text = f"✅ ตั้งค่าโหมด [{name}] เป็น: {policy_labels.get(policy, policy)} สำเร็จครับ"
+                    # Edit original message with live updated summary and keep buttons
+                    if message_id:
+                        from app.routers.webhook_commands import build_presence_menu_payload
+                        new_text, new_markup = build_presence_menu_payload(loc)
+                        await telegram.edit_telegram_message(chat_id, message_id, new_text, reply_markup=new_markup)
+                else:
+                    answer_text = "❌ ไม่พบพิกัดที่ระบุ"
+        elif data.startswith("set_ttl_"):
+            # Format: set_ttl_<name>_<minutes>
+            parts = data.split("_")
+            if len(parts) >= 4:
+                name = parts[2].lower()
+                try:
+                    ttl_m = int(parts[3])
+                    loc = await repo.get_location(chat_id, name)
+                    if loc:
+                        loc.presence_answer_ttl_minutes = ttl_m
+                        if hasattr(repo, "session") and repo.session:
+                            await repo.session.commit()
+                        elif hasattr(repo, "collection") and repo.collection:
+                            await repo.collection.document(f"{chat_id}_{name}").update({"presence_answer_ttl_minutes": ttl_m})
+                        answer_text = f"✅ ตั้งเวลาจำคำตอบ (TTL) [{name}] เป็น {ttl_m} นาที แล้วครับ"
+                        # Edit original message with live updated summary and keep buttons
+                        if message_id:
+                            from app.routers.webhook_commands import build_presence_menu_payload
+                            new_text, new_markup = build_presence_menu_payload(loc)
+                            await telegram.edit_telegram_message(chat_id, message_id, new_text, reply_markup=new_markup)
+                except ValueError:
+                    answer_text = "เกิดข้อผิดพลาดในการตั้งค่า TTL"
+        elif data.startswith("presence_ans_"):
+            # Format: presence_ans_<name>_<yes|no>
+            parts = data.split("_")
+            if len(parts) >= 4:
+                name = parts[2].lower()
+                ans = parts[3].lower()
+                loc = await repo.get_location(chat_id, name)
+                ttl = getattr(loc, "presence_answer_ttl_minutes", 120) if loc else 120
+                await repo.set_presence_answer(chat_id, name, ans, ttl_minutes=ttl)
+                if ans == "yes":
+                    answer_text = f"✅ รับทราบ! ระบบจะส่งข้อมูลฝนแบบเต็มรูปแบบสำหรับ [{name}] ให้ครับ"
+                    # Trigger full alert process
+                    if loc:
+                        await process_telegram_location(chat_id, loc.latitude, loc.longitude, location_name=loc.name, is_saved_location=True)
+                else:
+                    answer_text = f"👌 รับทราบ! จะไม่ส่งการแจ้งเตือนพิกัด [{name}] ในอีก {ttl} นาทีนี้ครับ"
         elif data == "loc_no":
             answer_text = "ระบบรับทราบ จะไม่จดจำตำแหน่งใหม่"
         elif data.startswith("fb_falsealarm_"):
@@ -220,115 +457,7 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
                 lat = float(parts[2])
                 lng = float(parts[3])
                 
-                answer_text = "กำลังดึงข้อมูลเปรียบเทียบ..."
-                
-                async with get_repo_context() as repo:
-                    mock_state = await repo.get_mock_state(chat_id)
-                
-                wm = weather_manager.WeatherManager()
-                results = await wm.compare_all_apis(lat, lng, mock_state=mock_state)
-                
-                bkk_tz = timezone(timedelta(hours=7))
-                update_time_str = datetime.now(bkk_tz).strftime("%d/%m/%Y %H:%M:%S")
-                text = f"📊 ข้อมูลเปรียบเทียบ 4 API (พิกัด {lat}, {lng}):\n"
-                text += f"🔄 ข้อมูลอัปเดตล่าสุด: {update_time_str}\n\n"
-                
-                display_names = {
-                    "xweather": "Xweather (Premium)",
-                    "tomorrow": "Tomorrow.io",
-                    "rainbow-local": "Rainbow Local",
-                    "rainbow-global": "Rainbow Global"
-                }
-                for k, v in results.items():
-                    disp_k = display_names.get(k, k)
-                    accuracy = v.get("accuracy_score", 0.0)
-                    acc_percent = accuracy * 100.0
-                    
-                    if "error" in v:
-                        text += f"🔹 {disp_k} (ความแม่นยำ: {acc_percent:.1f}%):\n  ❌ ข้อผิดพลาด: {v['error']}\n\n"
-                    else:
-                        max_rain = v.get('max_rain', 0)
-                        text += f"🔹 {disp_k} (ความแม่นยำ: {acc_percent:.1f}%):\n"
-                        
-                        rain_summary = v.get("rain_summary")
-                        if rain_summary:
-                            indented_summary = rain_summary.replace("\n", "\n  ")
-                            text += f"  {indented_summary}\n"
-                            
-                            wind_kmh = v.get("wind_speed_kmh", 0)
-                            wind_dir = v.get("wind_dir_text", "ไม่ทราบ")
-                            if wind_kmh > 0:
-                                if "tmd-radar" in disp_k.lower() or "tmd-radar" in k.lower():
-                                    if "ไม่พบฝน" not in rain_summary:
-                                        text += f"  🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
-                                else:
-                                    text += f"  🌬️ ลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
-                            text += "\n"
-                        else:
-                            text += f"  💧 ปริมาณฝนสูงสุด: {max_rain:.2f} mm/hr\n"
-                            text += f"  🌧️ ความรุนแรง: {v.get('intensity', 'ไม่ทราบ')}\n"
-                            
-                            wind_kmh = v.get("wind_speed_kmh", 0)
-                            wind_dir = v.get("wind_dir_text", "ไม่ทราบ")
-                            if wind_kmh > 0:
-                                if "tmd-radar" in disp_k.lower() or "tmd-radar" in k.lower():
-                                    if "ไม่พบฝน" not in v.get("rain_summary", ""):
-                                        text += f"  🌬️ ทิศที่พายุเคลื่อนที่ไป: {wind_kmh} km/h (ทิศ {wind_dir})\n"
-                                else:
-                                    text += f"  🌬️ ลม: {wind_kmh} km/h (ทิศ {wind_dir})\n"
-                                
-                            storm_distance = v.get("storm_distance_km")
-                            if storm_distance is not None:
-                                text += f"  🌪️ ระยะห่างพายุ: {storm_distance} กม.\n"
-                            
-                            if max_rain > 0:
-                                eta_minutes = None
-                                predictions = v.get("predictions", [])
-                                if predictions:
-                                    try:
-                                        base_time = datetime.fromisoformat(predictions[0].get("time", "").replace("Z", "+00:00"))
-                                        for pred in predictions:
-                                            if pred.get("rain", 0) > 0:
-                                                pred_time = datetime.fromisoformat(pred.get("time", "").replace("Z", "+00:00"))
-                                                eta_minutes = int((pred_time - base_time).total_seconds() / 60)
-                                                break
-                                    except Exception:
-                                        pass
-                                        
-                                duration = v.get("duration_minutes", 0)
-                                
-                                if eta_minutes is not None:
-                                    start_dt = datetime.now(bkk_tz) + timedelta(minutes=eta_minutes)
-                                    end_dt = start_dt + timedelta(minutes=duration)
-                                    start_str = start_dt.strftime("%H:%M")
-                                    end_str = end_dt.strftime("%H:%M")
-                                    
-                                    if eta_minutes == 0:
-                                        text += f"  ⏱️ เริ่มตก: ขณะนี้ ({start_str} น.)\n"
-                                    else:
-                                        text += f"  ⏱️ เริ่มตกในอีก: {format_duration_text(eta_minutes)} ({start_str} น.)\n"
-                                        
-                                    if duration > 0:
-                                        text += f"  ⏳ ตกต่อเนื่อง: {format_duration_text(duration)} (จนถึง {end_str} น.)\n"
-                                    
-                            text += "\n"
-                
-                keyboard = []
-                row = []
-                for ep in results.keys():
-                    row.append({"text": f"✅ {display_names.get(ep, ep)}", "callback_data": f"force_api_{ep}_{lat}_{lng}"})
-                    if len(row) == 2:
-                        keyboard.append(row)
-                        row = []
-                if row:
-                    keyboard.append(row)
-                reply_markup = {"inline_keyboard": keyboard}
-                
-                await telegram.edit_telegram_message(chat_id, message_id, text, reply_markup=reply_markup)
-                
-                if not already_answered:
-                    await telegram.answer_callback_query(query_id)
-                
+                await _handle_compare_api(chat_id, message_id, query_id, lat, lng, already_answered)
             except Exception as e:
                 logger.error(f"Error handling compare_api: {e}")
                 answer_text = "เกิดข้อผิดพลาดในการดึงข้อมูลเปรียบเทียบ"
@@ -338,8 +467,8 @@ async def handle_callback_query(callback_query: dict, already_answered: bool = F
     
     from app.dependencies import get_http_client
     client = get_http_client()
-    # ลบ Inline Keyboard
-    if message_id and not (data.startswith("raw_") or data.startswith("switch_")):
+    # ลบ Inline Keyboard ยกเว้นหน้าเมนูที่มีการโต้ตอบต่อเนื่อง
+    if message_id and not (data.startswith("raw_") or data.startswith("switch_") or data.startswith("set_policy_") or data.startswith("set_ttl_") or data.startswith("presence_menu_") or data.startswith("loc_snooze_") or data.startswith("loc_unsnooze_")):
         await client.post(TELEGRAM_EDIT_REPLY_MARKUP_URL, json={
             "chat_id": chat_id,
             "message_id": message_id,

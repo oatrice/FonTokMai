@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.74.0] - 2026-09-16
+
+### Added
+- **Location Name CRUD & Snooze Controls (Issues #287, #288)**: Added `is_snoozed` and `snooze_until` columns to `UserLocation` model with dynamic database schema migration. Added `rename_location()`, `snooze_location()`, and `unsnooze_location()` to repository layers, automatically filtering out snoozed locations from notification sweeps. Added `/locations` command with real-time status badges (`🟢 Active` or `🔕 Snoozed until HH:MM`) and interactive Inline Keyboard buttons for quick muting (`1hr`, `4hr`, `24hr`), live-updating messages, and `/rename <old> <new>`.
+- **Presence Verification System & Policy Decision Flow (Issues #289, #290, #291)**: Created `presence_answer_cache` database table with countdown TTL support and added presence policy columns (`presence_policy`, `schedule_active_days`, `schedule_active_start`, `schedule_active_end`, `presence_answer_ttl_minutes`, `default_fallback_policy`) to `UserLocation`. Added `/presence [location_name]` command with interactive Inline Keyboard settings menu (`always_notify`, `always_ask`, `schedule_based`, `silent_card`, TTL 1h/2h/4h). Rain analysis worker issues lightweight Presence Pings (`ตรวจพบกลุ่มฝนใกล้พิกัด [...] คุณอยู่ที่นี่ไหม?`) with response caching to avoid redundant prompts.
+- **Alert Accuracy Dashboard & Multi-Tier Unit Economics (Issues #292, #293, #294, #295, #296)**: Added `system_usage_events` database table tracking proactive alerts, on-demand queries, and mock tests. Added `auto_verify_false_alarms_routine` to Cloud Scheduler re-checking radar data 30–90 minutes post-alert. Added `GET /api/v1/metrics/monthly`, `GET /api/v1/metrics/yearly`, `GET /api/v1/metrics/cost`, and `GET /api/v1/metrics/cost/yearly` combining GCP BigQuery billing data with `external_cost_config` table (radar APIs, proxy pools) to calculate Cost per Alert and Cost per True Alert. Built Web Admin interfaces at `/admin/metrics` featuring dual-mode interactive charts with full Daily, Monthly, and Yearly breakdown support for both Alert Accuracy and Cost Structures with Thai Baht (`฿`) currency iconography and `/admin/locations`, and added Admin Telegram `/stats [month]` and `/cost [month]` commands.
+- **Locations Admin API & Search Filter**: Added `GET /api/locations` endpoint with server-side Next.js route proxy and real-time client-side search filtering by Chat ID, Location Name, and Platform badges (Telegram/LINE).
+- **Clean Radar Tracking & `/rain_minimal` Command**: Added `/rain_minimal` bot command and `show_labels=False` toggle to OpenCV radar tracking image rendering to generate clean radar maps without text label clutter.
+
+### Changed
+- **Currency Icon Localization**: Replaced all generic Dollar (`$`) signs on the `/admin/metrics` dashboard with localized Thai Baht (`฿`) currency iconography.
+- **Navigation Bar Consistency**: Replaced disappearing `<Header />` across Dashboard, Radar, Locations, and Metrics admin views with a persistent, accessible `<GlassNavbar />` with standardized icons and conditional active highlighting.
+- **Radar Background Canvas**: Preserved authentic TMD raw static canvas and bottom timestamp strip in `weather_manager.py` (`render_hq_png`) instead of creating a blank black canvas.
+
+### Security
+- **Access Control & IDOR Hardening**: Protected `GET /api/locations` using `verify_admin_secret` checking `x-cron-secret` / `CRON_SECRET` to prevent unauthenticated scraping of user location coordinates and chat IDs.
+
+
 ## [0.73.3] - 2026-09-07
 
 ### Added
