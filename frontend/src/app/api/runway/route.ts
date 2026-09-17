@@ -13,10 +13,17 @@ export async function GET() {
     console.error("❌ [API Proxy /api/runway] Failed to connect to Backend URL:", backendUrl, e);
   }
 
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const fallbackDays = 42;
+  const fallbackHours = 18;
+  const fallbackSecondsRemaining = fallbackDays * 86400 + fallbackHours * 3600;
+
   return NextResponse.json({
-    days_remaining: 42,
-    hours_remaining: 18,
-    seconds_remaining: 3693600,
+    days_remaining: fallbackDays,
+    hours_remaining: fallbackHours,
+    seconds_remaining: fallbackSecondsRemaining,
+    target_exhaustion_time: nowSeconds + fallbackSecondsRemaining,
+    server_time: nowSeconds,
     burn_rate_per_day: 120,
     total_balance_thb: 5140,
     circuit_breaker_active: false,

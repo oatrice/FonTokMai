@@ -46,6 +46,8 @@ interface RunwayData {
   circuit_breaker_active: boolean;
   emergency_overdrive: boolean;
   budget_jars?: BudgetJar[];
+  target_exhaustion_time?: number;
+  server_time?: number;
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
