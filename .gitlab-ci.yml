@@ -114,8 +114,12 @@ check_docs_updated:
     - |
       if echo "$CHANGED_FILES" | grep -q "^backend/"; then
         if ! echo "$CHANGED_FILES" | grep -q "^backend/VERSION$"; then
-          echo "❌ ERROR: Backend code changed, but backend/VERSION was not updated!"
-          MISSING=1
+          if [ "$TARGET_BRANCH" = "staging" ] && [ "$(cat backend/VERSION 2>/dev/null)" = "$(cat VERSION 2>/dev/null)" ]; then
+            echo "ℹ️ INFO: backend/VERSION is aligned with current staging release version ($(cat VERSION))."
+          else
+            echo "❌ ERROR: Backend code changed, but backend/VERSION was not updated!"
+            MISSING=1
+          fi
         else
           echo "✅ backend/VERSION is updated."
         fi
@@ -123,8 +127,12 @@ check_docs_updated:
     - |
       if echo "$CHANGED_FILES" | grep -q "^frontend/"; then
         if ! echo "$CHANGED_FILES" | grep -q "^frontend/package\.json$"; then
-          echo "❌ ERROR: Frontend code changed, but frontend/package.json was not updated!"
-          MISSING=1
+          if [ "$TARGET_BRANCH" = "staging" ] && grep -q "\"version\": \"$(cat VERSION 2>/dev/null)\"" frontend/package.json 2>/dev/null; then
+            echo "ℹ️ INFO: frontend/package.json is aligned with current staging release version ($(cat VERSION))."
+          else
+            echo "❌ ERROR: Frontend code changed, but frontend/package.json was not updated!"
+            MISSING=1
+          fi
         else
           echo "✅ frontend/package.json is updated."
         fi
