@@ -929,7 +929,7 @@ export default function AdminRadarPage() {
                 onClick={() => setMapDisplayTab("trajectory")}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all ${
                   mapDisplayTab === "trajectory"
-                    ? "bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30"
+                    ? "bg-cyan-600 text-white font-semibold shadow-md shadow-cyan-600/30"
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
@@ -1157,7 +1157,7 @@ export default function AdminRadarPage() {
                       {stationClusters.length > 0 ? (
                         <div className="absolute bottom-2 left-2 right-2 bg-slate-950/90 backdrop-blur border border-rose-500/50 rounded-xl p-2 text-xs flex items-center justify-between shadow-lg">
                           <div className="flex items-center gap-1.5 text-rose-300 font-medium">
-                            <CloudRain className="w-3.5 h-3.5 text-rose-400 animate-bounce" />
+                            <CloudRain className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
                             <span>Contour {stationClusters.length} จุด</span>
                           </div>
                           <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 px-1.5 py-0.5 rounded">

@@ -65,15 +65,15 @@ const jarIconMap: Record<string, typeof Server> = {
 };
 
 const jarGradients: Record<string, string> = {
-  "Cloud Run Infrastructure": "linear-gradient(to right, #3b82f6, #06b6d4)",
-  "TMD Radar & Weather APIs": "linear-gradient(to right, #a855f7, #6366f1)",
-  "Emergency Reserve Jar": "linear-gradient(to right, #10b981, #14b8a6)",
+  "Cloud Run Infrastructure": "linear-gradient(to right, #2563eb, #0284c7)",
+  "TMD Radar & Weather APIs": "linear-gradient(to right, #0284c7, #0d9488)",
+  "Emergency Reserve Jar": "linear-gradient(to right, #059669, #10b981)",
 };
 
 const jarGlows: Record<string, string> = {
-  "Cloud Run Infrastructure": "rgba(6,182,212,0.45)",
-  "TMD Radar & Weather APIs": "rgba(168,85,247,0.45)",
-  "Emergency Reserve Jar": "rgba(16,185,129,0.45)",
+  "Cloud Run Infrastructure": "rgba(37,99,235,0.4)",
+  "TMD Radar & Weather APIs": "rgba(2,132,199,0.4)",
+  "Emergency Reserve Jar": "rgba(16,185,129,0.4)",
 };
 
 const defaultJars: BudgetJar[] = [
@@ -81,21 +81,21 @@ const defaultJars: BudgetJar[] = [
     name: "Cloud Run Infrastructure",
     percentage: 50,
     allocated_thb: 2570,
-    color: "from-blue-500 to-cyan-500",
+    color: "from-blue-600 to-sky-600",
     description: "Backend API instances & async workers",
   },
   {
     name: "TMD Radar & Weather APIs",
     percentage: 30,
     allocated_thb: 1542,
-    color: "from-purple-500 to-indigo-500",
+    color: "from-sky-600 to-teal-600",
     description: "Radar image processing & storage",
   },
   {
     name: "Emergency Reserve Jar",
     percentage: 20,
     allocated_thb: 1028,
-    color: "from-emerald-500 to-teal-500",
+    color: "from-emerald-600 to-teal-500",
     description: "Locked buffer for unexpected spikes",
   },
 ];
@@ -129,10 +129,10 @@ export function FinancialDashboard({
     <div className="space-y-8 py-6">
       {/* Hero Runway Stats */}
       <section id="overview" className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <GlassCard variant="accent" glowColor="cyan" className="p-6">
+        <GlassCard variant="accent" glowColor="blue" className="p-6">
           <div className="flex items-center justify-between">
             <span className="text-xs uppercase tracking-wider font-semibold text-slate-400">Financial Runway</span>
-            <GlassBadge variant="cyan" dot>
+            <GlassBadge variant="blue" dot>
               {isLoading ? "Syncing..." : "Live Math"}
             </GlassBadge>
           </div>
@@ -142,7 +142,7 @@ export function FinancialDashboard({
             ) : (
               <>
                 <span className="text-5xl font-black tracking-tight text-white font-mono tabular-nums">{runwayDays}</span>
-                <span className="text-xl font-bold text-cyan-400">Days</span>
+                <span className="text-xl font-bold text-sky-400">Days</span>
               </>
             )}
           </div>
@@ -150,7 +150,7 @@ export function FinancialDashboard({
             {isLoading || dailyBurn === undefined ? (
               <span className="inline-block h-3 w-40 rounded bg-slate-800/80 animate-pulse mt-1" />
             ) : (
-              <>Active burn rate: <span className="text-slate-200 font-semibold font-mono tabular-nums">฿{formatThb(dailyBurn)}/day</span></>
+              <>Operating cost: <span className="text-slate-200 font-semibold font-mono tabular-nums">฿{formatThb(dailyBurn)}/day</span></>
             )}
           </p>
         </GlassCard>
@@ -158,7 +158,7 @@ export function FinancialDashboard({
         <GlassCard variant="default" glowColor="emerald" className="p-6">
           <div className="flex items-center justify-between">
             <span className="text-xs uppercase tracking-wider font-semibold text-slate-400">Total Reserve Vault</span>
-            <GlassBadge variant="emerald">Zero-PII Tracked</GlassBadge>
+            <GlassBadge variant="emerald">Anonymous Audit</GlassBadge>
           </div>
           <div className="mt-4 flex items-baseline gap-1">
             <span className="text-xl font-semibold text-emerald-400 font-mono">฿</span>
@@ -171,36 +171,56 @@ export function FinancialDashboard({
             )}
           </div>
           <p className="mt-2 text-xs text-slate-400">
-            Decentralized community operational runway
+            Community-funded operational runway for Isan Doppler radar
           </p>
         </GlassCard>
 
-        <GlassCard variant="default" glowColor="purple" className="p-6">
+        <GlassCard variant="default" glowColor={overdrive ? "amber" : "blue"} className="p-6">
           <div className="flex items-center justify-between">
             <span className="text-xs uppercase tracking-wider font-semibold text-slate-400">Resiliency Status</span>
-            <GlassBadge variant={overdrive ? "purple" : "emerald"} dot>
-              {overdrive ? "Extended Lifespan Mode / โหมดต่ออายุระบบฉุกเฉิน" : "NORMAL"}
+            <GlassBadge variant={overdrive ? "amber" : "emerald"} dot>
+              {overdrive ? "Extended Lifespan Active" : "Normal Operation"}
             </GlassBadge>
           </div>
           <div className="mt-4 flex items-center gap-3">
-            <div className={`p-3 rounded-2xl ${overdrive ? 'bg-purple-500/20 text-purple-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+            <div className={`p-3 rounded-2xl border ${overdrive ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'}`}>
               <ShieldCheck className="h-7 w-7" />
             </div>
             <div>
               <div className="text-base sm:text-lg font-bold text-white">
-                {circuitBreaker ? "Cached Weather Data Mode / ใช้ข้อมูลพยากรณ์สำรอง" : "All Systems Operational"}
+                {circuitBreaker ? "Fallback Weather Cache" : "All Systems Operational"}
               </div>
-              <div className="text-xs text-slate-400">All financial safety gates nominal</div>
+              <div className="text-xs text-slate-400">
+                {circuitBreaker ? "Using cached forecast to preserve quota" : "All radar pipelines and gates nominal"}
+              </div>
             </div>
           </div>
           <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-            <span className="text-xs text-slate-400">Extended Lifespan Mode</span>
+            <div className="flex flex-col">
+              <span className="text-xs font-medium text-slate-300">Extended Lifespan Mode</span>
+              <span className="text-[11px] text-slate-400">Throttles background sync to conserve reserves</span>
+            </div>
             <button
-              onClick={() => setInvincibleMode(!invincibleMode)}
+              type="button"
+              role="switch"
+              aria-checked={overdrive}
               aria-label="Toggle Extended Lifespan Mode"
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${overdrive ? 'bg-purple-600' : 'bg-slate-700'}`}
+              onClick={() => setInvincibleMode(!invincibleMode)}
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault();
+                  setInvincibleMode(!invincibleMode);
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-white/15 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-950 ${
+                overdrive ? 'bg-amber-500' : 'bg-slate-800'
+              }`}
             >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${overdrive ? 'translate-x-6' : 'translate-x-1'}`} />
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out ${
+                  overdrive ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
             </button>
           </div>
         </GlassCard>
@@ -211,10 +231,10 @@ export function FinancialDashboard({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <Flame className="h-5 w-5 text-amber-400" />
-              Budget Jars State Machine
+              <Flame className="h-5 w-5 text-sky-400" />
+              Budget Jars Allocation
             </h2>
-            <p className="text-xs text-slate-400">Real-time HP decay and split strategy allocation</p>
+            <p className="text-xs text-slate-400">Dynamic operational cost distribution across core infrastructure</p>
           </div>
           <GlassButton variant="outline" size="sm" onClick={() => mutate()}>
             <RefreshCw className="h-3.5 w-3.5" />
@@ -226,7 +246,7 @@ export function FinancialDashboard({
           {isLoading || !budgetJars ? (
             <>
               {[1, 2, 3].map((i) => (
-                <GlassCard key={i} variant="default" glowColor="cyan" className="p-6 space-y-4">
+                <GlassCard key={i} variant="default" glowColor="blue" className="p-6 space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-xl bg-slate-800/80 animate-pulse" />
@@ -247,12 +267,12 @@ export function FinancialDashboard({
           ) : (
             budgetJars.map((jar) => {
               const Icon = jarIconMap[jar.name] || Server;
-              const badgeVariant = jar.percentage >= 40 ? "cyan" : jar.percentage >= 25 ? "purple" : "emerald";
+              const badgeVariant = jar.percentage >= 40 ? "blue" : jar.percentage >= 25 ? "cyan" : "emerald";
               return (
-                <GlassCard key={jar.name} variant="default" glowColor="cyan" interactive className="p-6">
+                <GlassCard key={jar.name} variant="default" glowColor="blue" interactive className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2.5 rounded-xl bg-slate-800/80 border border-white/10 text-cyan-400">
+                      <div className="p-2.5 rounded-xl bg-slate-800/80 border border-white/10 text-sky-400">
                         <Icon className="h-5 w-5" />
                       </div>
                       <div>
@@ -281,14 +301,14 @@ export function FinancialDashboard({
 
       {/* Gamified Milestone & Recovery Callout */}
       <section id="resiliency" className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <GlassCard variant="glow" glowColor="cyan" className="p-6 space-y-4">
+        <GlassCard variant="glow" glowColor="blue" className="p-6 space-y-4">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-cyan-400" />
-            <h3 className="text-lg font-bold text-white">Gamified Milestone Lock</h3>
+            <Sparkles className="h-5 w-5 text-sky-400" />
+            <h3 className="text-lg font-bold text-white">Community Infrastructure Goal</h3>
           </div>
           <p className="text-sm text-slate-300">
-            Next Milestone: <span className="font-semibold text-cyan-300">Radar Satellite Refactor (฿105,000)</span>. 
-            Once target HP is unlocked, additional high-res processing workers are deployed automatically.
+            Next Milestone: <span className="font-semibold text-sky-300">Radar Satellite Refactor (฿105,000)</span>. 
+            Once target threshold is reached, additional high-res processing workers are deployed automatically.
           </p>
           <div className="pt-2">
             <GlassButton 
@@ -306,11 +326,11 @@ export function FinancialDashboard({
         <GlassCard variant="subtle" className="p-6 space-y-4">
           <div className="flex items-center gap-2">
             <Lock className="h-5 w-5 text-emerald-400" />
-            <h3 className="text-lg font-bold text-white">Zero-PII Donor Recovery</h3>
+            <h3 className="text-lg font-bold text-white">Anonymous Contributor Recovery</h3>
           </div>
           <p className="text-sm text-slate-300">
-            Lost your <code className="text-cyan-300 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/50">Fon-XXXX-XXXX</code> access token?
-            Use 3-point recovery (Transaction Hash, Timestamp, Amount) with 0 private data leakage.
+            Lost your <code className="text-sky-300 bg-sky-950/60 px-1.5 py-0.5 rounded border border-sky-800/50">Fon-XXXX-XXXX</code> access token?
+            Use 3-point verification (Transaction Hash, Timestamp, Amount) with zero private data storage.
           </p>
           <div className="pt-2">
             <GlassButton 

@@ -56,68 +56,74 @@ export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-1">
-            <Link 
-              href="/dashboard" 
-              className={`px-3 py-2 text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
-                isDashboardActive 
-                  ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20" 
-                  : "text-slate-300 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <Activity className="h-4 w-4" aria-hidden="true" />
-              <span>Dashboard</span>
-            </Link>
-            <Link 
-              href="/admin/radar" 
-              className={`px-3 py-2 text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
-                isRadarActive
-                  ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20"
-                  : "text-slate-300 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <Radio className={`h-4 w-4 ${isRadarActive ? "text-cyan-400 animate-pulse" : "text-slate-400"}`} aria-hidden="true" />
-              <span>Radar</span>
-            </Link>
-            <Link 
-              href="/admin/locations" 
-              className={`px-3 py-2 text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
-                isLocationsActive
-                  ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20"
-                  : "text-slate-300 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <MapPin className="h-4 w-4" aria-hidden="true" />
-              <span>Locations</span>
-            </Link>
-            <Link 
-              href="/admin/metrics" 
-              className={`px-3 py-2 text-sm font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
-                isMetricsActive
-                  ? "text-cyan-400 bg-cyan-500/10 border border-cyan-500/20"
-                  : "text-slate-300 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <BarChart3 className="h-4 w-4" aria-hidden="true" />
-              <span>Metrics</span>
-            </Link>
-            <div className="h-4 w-[1px] bg-white/10 mx-1" />
-            <Link href="/#overview" className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all flex items-center gap-1.5">
-              <Compass className="h-4 w-4" aria-hidden="true" />
-              <span>Overview</span>
-            </Link>
-            <Link href="/#jars" className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all flex items-center gap-1.5">
-              <Wallet className="h-4 w-4" aria-hidden="true" />
-              <span>Jars</span>
-            </Link>
-            <Link href="/#runway" className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all flex items-center gap-1.5">
-              <Flame className="h-4 w-4" aria-hidden="true" />
-              <span>Runway</span>
-            </Link>
-            <Link href="/#resiliency" className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-all flex items-center gap-1.5">
-              <ShieldAlert className="h-4 w-4" aria-hidden="true" />
-              <span>Resiliency</span>
-            </Link>
+          <nav className="hidden md:flex items-center gap-2" aria-label="Main Navigation">
+            {/* Primary Surfaces Group */}
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-900/50 border border-white/5">
+              <Link 
+                href="/dashboard" 
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                  isDashboardActive 
+                    ? "text-sky-300 bg-sky-500/20 border border-sky-500/30 shadow-sm" 
+                    : "text-slate-300 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <Activity className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Dashboard</span>
+              </Link>
+              <Link 
+                href="/admin/radar" 
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                  isRadarActive
+                    ? "text-sky-300 bg-sky-500/20 border border-sky-500/30 shadow-sm"
+                    : "text-slate-300 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <Radio className={`h-3.5 w-3.5 ${isRadarActive ? "text-sky-400 animate-pulse" : "text-slate-400"}`} aria-hidden="true" />
+                <span>Radar</span>
+              </Link>
+              <Link 
+                href="/admin/locations" 
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                  isLocationsActive
+                    ? "text-sky-300 bg-sky-500/20 border border-sky-500/30 shadow-sm"
+                    : "text-slate-300 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Locations</span>
+              </Link>
+              <Link 
+                href="/admin/metrics" 
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                  isMetricsActive
+                    ? "text-sky-300 bg-sky-500/20 border border-sky-500/30 shadow-sm"
+                    : "text-slate-300 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Metrics</span>
+              </Link>
+            </div>
+
+            {/* Quick Section Anchors Group */}
+            <div className="flex items-center gap-0.5 px-1 py-1 rounded-xl bg-slate-900/30 border border-white/5">
+              <Link href="/#overview" className="px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 rounded-lg hover:bg-white/5 transition-all flex items-center gap-1">
+                <Compass className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+                <span>Overview</span>
+              </Link>
+              <Link href="/#jars" className="px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 rounded-lg hover:bg-white/5 transition-all flex items-center gap-1">
+                <Wallet className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+                <span>Jars</span>
+              </Link>
+              <Link href="/#runway" className="px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 rounded-lg hover:bg-white/5 transition-all flex items-center gap-1">
+                <Flame className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+                <span>Runway</span>
+              </Link>
+              <Link href="/#resiliency" className="px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 rounded-lg hover:bg-white/5 transition-all flex items-center gap-1">
+                <ShieldAlert className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+                <span>Resiliency</span>
+              </Link>
+            </div>
           </nav>
 
           {/* Action Buttons */}

@@ -444,7 +444,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
               onClick={() => setSelectedRegion(r.id as "all" | "north" | "northeast" | "central" | "east" | "south")}
               className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
                 selectedRegion === r.id
-                  ? "bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20"
+                  ? "bg-cyan-600 text-white font-semibold shadow-md shadow-cyan-600/30"
                   : "bg-slate-900/60 text-slate-300 hover:bg-slate-800 border border-white/5"
               }`}
             >
@@ -469,7 +469,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
               onClick={() => setStatusFilter(st.id as "all" | "online" | "delayed" | "offline")}
               className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all border ${
                 statusFilter === st.id
-                  ? "bg-sky-500 text-slate-950 font-bold border-sky-400 shadow-md shadow-sky-500/20"
+                  ? "bg-sky-600 text-white font-semibold border-sky-500 shadow-md shadow-sky-600/30"
                   : "bg-slate-900/60 text-slate-300 hover:bg-slate-800 border-white/5"
               }`}
             >
