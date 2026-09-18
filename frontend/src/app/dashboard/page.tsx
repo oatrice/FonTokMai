@@ -40,7 +40,7 @@ export default function DashboardPage() {
       </main>
 
       <footer className="border-t border-white/10 py-6 text-center text-xs text-zinc-600">
-        FonMaYang Transparent Open Financial Engine © 2026. Built with Next.js 14 & Dark Glassmorphism.
+        FonMaYang Transparent Open Financial Engine © 2026.
       </footer>
     </div>
   );

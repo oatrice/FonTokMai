@@ -129,19 +129,19 @@ export function FinancialDashboard({
     <div className="space-y-8 py-6">
       {/* Hero Runway Stats */}
       <section id="overview" className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <GlassCard variant="accent" glowColor="blue" className="p-6">
+        <GlassCard variant="accent" glowColor="cyan" className="p-6">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Financial Runway</span>
+            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400">Financial Runway</span>
             <GlassBadge variant="cyan" dot>
               {isLoading ? "Syncing..." : "Live Math"}
             </GlassBadge>
           </div>
-          <div className="mt-4 flex items-baseline gap-3">
+          <div className="mt-4 flex items-baseline gap-2">
             {isLoading || runwayDays === undefined ? (
               <div className="h-12 w-28 rounded-lg bg-slate-800/80 animate-pulse my-1" />
             ) : (
               <>
-                <span className="text-5xl font-black tracking-tight text-white">{runwayDays}</span>
+                <span className="text-5xl font-black tracking-tight text-white font-mono tabular-nums">{runwayDays}</span>
                 <span className="text-xl font-bold text-cyan-400">Days</span>
               </>
             )}
@@ -150,31 +150,34 @@ export function FinancialDashboard({
             {isLoading || dailyBurn === undefined ? (
               <span className="inline-block h-3 w-40 rounded bg-slate-800/80 animate-pulse mt-1" />
             ) : (
-              <>Based on active GCP/AWS burn rate of <span className="text-slate-200 font-semibold">฿{formatThb(dailyBurn)}/day</span></>
+              <>Active burn rate: <span className="text-slate-200 font-semibold font-mono tabular-nums">฿{formatThb(dailyBurn)}/day</span></>
             )}
           </p>
         </GlassCard>
 
         <GlassCard variant="default" glowColor="emerald" className="p-6">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Total Reserve Vault</span>
+            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400">Total Reserve Vault</span>
             <GlassBadge variant="emerald">Zero-PII Tracked</GlassBadge>
           </div>
           <div className="mt-4 flex items-baseline gap-1">
-            <span className="text-xl font-semibold text-emerald-400">฿</span>
+            <span className="text-xl font-semibold text-emerald-400 font-mono">฿</span>
             {isLoading || currentBalance === undefined ? (
               <div className="h-12 w-44 rounded-lg bg-slate-800/80 animate-pulse my-1" />
             ) : (
-              <span className="text-5xl font-black tracking-tight text-white">
+              <span className="text-5xl font-black tracking-tight text-white font-mono tabular-nums">
                 {currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             )}
           </div>
+          <p className="mt-2 text-xs text-slate-400">
+            Decentralized community operational runway
+          </p>
         </GlassCard>
 
         <GlassCard variant="default" glowColor="purple" className="p-6">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-400">Resiliency Status</span>
+            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400">Resiliency Status</span>
             <GlassBadge variant={overdrive ? "purple" : "emerald"} dot>
               {overdrive ? "Extended Lifespan Mode / โหมดต่ออายุระบบฉุกเฉิน" : "NORMAL"}
             </GlassBadge>
@@ -184,7 +187,7 @@ export function FinancialDashboard({
               <ShieldCheck className="h-7 w-7" />
             </div>
             <div>
-              <div className="text-lg font-bold text-white">
+              <div className="text-base sm:text-lg font-bold text-white">
                 {circuitBreaker ? "Cached Weather Data Mode / ใช้ข้อมูลพยากรณ์สำรอง" : "All Systems Operational"}
               </div>
               <div className="text-xs text-slate-400">All financial safety gates nominal</div>
@@ -194,6 +197,7 @@ export function FinancialDashboard({
             <span className="text-xs text-slate-400">Extended Lifespan Mode</span>
             <button
               onClick={() => setInvincibleMode(!invincibleMode)}
+              aria-label="Toggle Extended Lifespan Mode"
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${overdrive ? 'bg-purple-600' : 'bg-slate-700'}`}
             >
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${overdrive ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -256,12 +260,12 @@ export function FinancialDashboard({
                         <span className="text-xs text-slate-400">{jar.description}</span>
                       </div>
                     </div>
-                    <GlassBadge variant={badgeVariant}>{jar.percentage}%</GlassBadge>
+                    <GlassBadge variant={badgeVariant} className="font-mono tabular-nums">{jar.percentage}%</GlassBadge>
                   </div>
 
                   <div className="mt-5 pt-3 border-t border-white/10 flex items-center justify-between text-sm">
-                    <span className="text-slate-400">Allocated Share</span>
-                    <span className="font-bold text-white text-base">฿{jar.allocated_thb.toLocaleString()}</span>
+                    <span className="text-slate-400 text-xs uppercase tracking-wider">Allocated Share</span>
+                    <span className="font-bold text-white text-base font-mono tabular-nums">฿{jar.allocated_thb.toLocaleString()}</span>
                   </div>
                 </GlassCard>
               );
