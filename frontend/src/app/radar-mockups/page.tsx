@@ -375,7 +375,7 @@ function RadarMockupsPrototype() {
         
         <div className={`h-20 bg-slate-900 border-t border-slate-800 flex items-center justify-around px-4 z-40 relative transition-all duration-500 ${isUIHidden && currentScreen === 'map' ? 'translate-y-24 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
           <button onClick={() => setCurrentScreen('map')} className={`flex flex-col items-center gap-1.5 p-2 transition-colors ${currentScreen === 'map' ? 'text-blue-400' : 'text-slate-500 hover:text-slate-400'}`}><Map className="w-6 h-6" /><span className="text-[10px] font-bold">Radar</span></button>
-          <button onClick={() => setCurrentScreen('places') || setCurrentScreen('add_place')} className={`flex flex-col items-center gap-1.5 p-2 transition-colors ${currentScreen === 'places' || currentScreen === 'add_place' ? 'text-blue-400' : 'text-slate-500 hover:text-slate-400'}`}><MapPin className="w-6 h-6" /><span className="text-[10px] font-bold">Places</span></button>
+          <button onClick={() => setCurrentScreen('places')} className={`flex flex-col items-center gap-1.5 p-2 transition-colors ${currentScreen === 'places' || currentScreen === 'add_place' ? 'text-blue-400' : 'text-slate-500 hover:text-slate-400'}`}><MapPin className="w-6 h-6" /><span className="text-[10px] font-bold">Places</span></button>
           <button onClick={() => setCurrentScreen('admin')} className={`flex flex-col items-center gap-1.5 p-2 transition-colors ${currentScreen === 'admin' ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-400'}`}><Database className="w-6 h-6" /><span className="text-[10px] font-bold">Admin</span></button>
         </div>
         
@@ -1816,8 +1816,8 @@ export default function RadarMockupsPage() {
                 
                 {/* IN-APP ADMIN TOGGLE */}
                 <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 bg-black/60 backdrop-blur-md p-1 rounded-full flex border border-slate-700/50 shadow-xl">
-                  <button onClick={() => setDebugMode('split')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${debugMode === 'split' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-300 hover:text-white'}`}>SPLIT</button>
-                  <button onClick={() => setDebugMode('pip')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${debugMode === 'pip' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-300 hover:text-white'}`}>PIP</button>
+                  <button onClick={() => setDebugMode('split')} className="px-4 py-1.5 rounded-full text-[10px] font-bold transition-all bg-rose-500 text-white shadow-md">SPLIT</button>
+                  <button onClick={() => setDebugMode('pip')} className="px-4 py-1.5 rounded-full text-[10px] font-bold transition-all text-slate-300 hover:text-white">PIP</button>
                 </div>
 
                 {/* NATIVE VECTOR HALF */}
@@ -1952,8 +1952,8 @@ export default function RadarMockupsPage() {
                 
                 {/* IN-APP ADMIN TOGGLE */}
                 <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 bg-black/60 backdrop-blur-md p-1 rounded-full flex border border-slate-700/50 shadow-xl">
-                  <button onClick={() => setDebugMode('split')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${debugMode === 'split' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-300 hover:text-white'}`}>SPLIT</button>
-                  <button onClick={() => setDebugMode('pip')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${debugMode === 'pip' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-300 hover:text-white'}`}>PIP</button>
+                  <button onClick={() => setDebugMode('split')} className="px-4 py-1.5 rounded-full text-[10px] font-bold transition-all text-slate-700 hover:text-black">SPLIT</button>
+                  <button onClick={() => setDebugMode('pip')} className="px-4 py-1.5 rounded-full text-[10px] font-bold transition-all bg-orange-500 text-white shadow-md">PIP</button>
                 </div>
 
                 <div className="flex-1 relative bg-slate-200 w-full overflow-hidden">
