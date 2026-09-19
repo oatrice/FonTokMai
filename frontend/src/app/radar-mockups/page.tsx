@@ -1,16 +1,16 @@
 import React from 'react';
-import { MapPin, CloudRain, Clock, Wind, AlertCircle, Droplets, Sun, Navigation, Play, ChevronRight, Activity, BarChart2, Search, Crosshair, Star, Map, Layers, Check, ThermometerSun } from 'lucide-react';
+import { MapPin, CloudRain, Clock, Wind, AlertCircle, Droplets, Sun, Navigation, Play, ChevronRight, Activity, BarChart2, Search, Crosshair, Star, Map, Layers, Check, Target, Bug, SplitSquareVertical } from 'lucide-react';
 
 export default function RadarMockupsPage() {
   return (
-    <div className="min-h-screen bg-slate-50 p-8 flex flex-col items-center font-sans">
+    <div className="min-h-screen bg-slate-50 p-8 flex flex-col items-center font-sans pb-32">
       <div className="max-w-7xl w-full text-center mb-12">
         <h1 className="text-3xl font-semibold mb-3 text-slate-900">Mobile UI Flow & Style Variants</h1>
         <p className="text-slate-500">เปรียบเทียบ 3 สไตล์: A (Glass), B (Minimal Light), C (Immersive Gradient)</p>
       </div>
 
       {/* ======================= FLOW 1: LOCATION SETUP ======================= */}
-      <div className="max-w-[1400px] w-full mb-20">
+      <div className="max-w-[1400px] w-full mb-24">
         <h2 className="text-2xl font-bold text-slate-800 mb-2 border-b-2 border-slate-200 pb-2">Step 1: Location Setup (ขอพิกัดปัจจุบัน / ค้นหาสถานที่)</h2>
         <div className="flex flex-wrap justify-center gap-10 mt-8">
           
@@ -100,20 +100,16 @@ export default function RadarMockupsPage() {
             </div>
           </div>
 
-          {/* 1 - Style C: Immersive Gradient (New) */}
+          {/* 1 - Style C: Immersive Gradient */}
           <div className="flex flex-col items-center">
             <h3 className="text-md font-semibold mb-3 text-purple-600">Style C: Immersive Gradient</h3>
             <div className="w-[375px] h-[812px] bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 rounded-[40px] border-[8px] border-slate-800 overflow-hidden relative shadow-xl flex flex-col pt-20 px-6">
-              
               <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-500/20 rounded-full blur-3xl mix-blend-screen"></div>
-              
               <h1 className="text-3xl font-bold mb-6 text-white tracking-tight relative z-10">ค้นหาพื้นที่</h1>
-              
               <div className="relative mb-6 z-10">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
                 <input type="text" placeholder="พิมพ์ชื่อสถานที่..." className="w-full bg-white/10 border border-white/20 rounded-full py-4 pl-12 pr-4 text-white placeholder-white/50 focus:outline-none focus:bg-white/20 backdrop-blur-lg transition-all" />
               </div>
-
               <button className="flex items-center gap-4 bg-white/10 border border-white/20 rounded-3xl p-5 w-full mb-3 hover:bg-white/20 backdrop-blur-md transition-all z-10 group">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center shrink-0 shadow-lg">
                   <Crosshair className="w-6 h-6 text-white" />
@@ -123,7 +119,6 @@ export default function RadarMockupsPage() {
                   <p className="text-xs text-purple-200 mt-0.5 opacity-80">เปิดใช้งาน GPS</p>
                 </div>
               </button>
-
               <button className="flex items-center gap-4 bg-black/20 border border-white/10 rounded-3xl p-5 w-full mb-8 hover:bg-black/30 backdrop-blur-md transition-all z-10">
                 <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center shrink-0">
                   <Map className="w-5 h-5 text-white/80" />
@@ -131,17 +126,6 @@ export default function RadarMockupsPage() {
                 <div className="text-left flex-1">
                   <h3 className="font-semibold text-white/90 text-sm">แผนที่แบบโต้ตอบ</h3>
                   <p className="text-xs text-white/50 mt-0.5">ปักหมุดด้วยตัวเอง</p>
-                </div>
-              </button>
-
-              <h3 className="text-xs font-medium text-white/40 uppercase tracking-widest mb-3 z-10 pl-2">สถานที่บันทึกไว้</h3>
-              <button className="flex items-center gap-4 bg-transparent border-b border-white/10 pb-4 w-full text-left z-10">
-                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 border border-amber-500/30">
-                  <Star className="w-5 h-5 text-amber-300" />
-                </div>
-                <div>
-                  <h4 className="font-medium text-white text-base">บ้าน</h4>
-                  <p className="text-xs text-white/50 mt-0.5">บางนา, กรุงเทพฯ</p>
                 </div>
               </button>
             </div>
@@ -152,7 +136,7 @@ export default function RadarMockupsPage() {
 
 
       {/* ======================= FLOW 1.5: INTERACTIVE MAP PICKER ======================= */}
-      <div className="max-w-[1400px] w-full mb-20">
+      <div className="max-w-[1400px] w-full mb-24">
         <h2 className="text-2xl font-bold text-slate-800 mb-2 border-b-2 border-slate-200 pb-2">Step 1.5: Map Picker (เลื่อนแผนที่ปักหมุด)</h2>
         <div className="flex flex-wrap justify-center gap-10 mt-8">
           
@@ -266,7 +250,7 @@ export default function RadarMockupsPage() {
 
 
       {/* ======================= FLOW 2: MAIN RADAR NOWCAST (HYBRID) ======================= */}
-      <div className="max-w-[1400px] w-full">
+      <div className="max-w-[1400px] w-full mb-24">
         <h2 className="text-2xl font-bold text-slate-800 mb-2 border-b-2 border-slate-200 pb-2">Step 2: Main Radar Nowcast (Hybrid Overlay + Dashboard)</h2>
         <p className="text-slate-500 mb-8">ซ้อนภาพ Vector ทับ Raw Static Image พร้อมแสดง 6 Frames, Radar Latest, และ Timeline BarChart</p>
         
@@ -356,7 +340,6 @@ export default function RadarMockupsPage() {
                     </div>
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
@@ -368,7 +351,6 @@ export default function RadarMockupsPage() {
               <div className="h-[55%] relative bg-slate-200 w-full overflow-hidden">
                 <div className="absolute inset-0 bg-cover bg-center opacity-70" style={{ backgroundImage: "url('https://api.maptiler.com/maps/dataviz-light/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
                 
-                {/* RADAR LATEST BADGE */}
                 <div className="absolute top-6 left-4 bg-white shadow-sm rounded-lg px-3 py-1.5 border border-slate-200 flex flex-col z-20">
                   <span className="text-[9px] text-slate-400 font-bold uppercase">Radar Latest</span>
                   <span className="text-sm font-semibold text-slate-700">14:20 น.</span>
@@ -378,14 +360,12 @@ export default function RadarMockupsPage() {
                   <Layers className="w-4 h-4" />
                 </button>
 
-                {/* RAW IMAGE */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-50 mix-blend-multiply z-0">
                    <div className="w-48 h-48 relative -mt-10 -ml-10">
                      <div className="absolute w-full h-full" style={{ backgroundImage: 'radial-gradient(circle, #f00 0%, #f90 30%, #0f0 60%, transparent 100%)', filter: 'url(#pixelate) blur(1px)', clipPath: 'circle(40% at 30% 30%)' }}></div>
                    </div>
                 </div>
 
-                {/* VECTOR */}
                 <div className="absolute top-1/3 left-1/3 w-32 h-32 z-10">
                   <div className="absolute inset-0 rounded-full border-2 border-orange-400 bg-transparent"></div>
                   <div className="absolute top-1/4 left-1/4 w-16 h-16 rounded-full border-2 border-red-500 bg-transparent"></div>
@@ -399,7 +379,6 @@ export default function RadarMockupsPage() {
                 </div>
               </div>
 
-              {/* BOTTOM SHEET DATA */}
               <div className="flex-1 bg-white p-6 rounded-t-3xl -mt-6 relative z-30 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] flex flex-col border-t border-slate-100">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-bold text-xl text-slate-900">ฝนหนักกำลังมา</h3>
@@ -407,7 +386,6 @@ export default function RadarMockupsPage() {
                 </div>
                 <p className="text-slate-500 text-sm mb-5">ระดับ 45+ dBZ, ต่อเนื่อง 1 ชั่วโมง</p>
 
-                {/* Timeline BarChart */}
                 <div className="w-full mb-6">
                   <div className="h-10 flex items-end gap-1.5 w-full border-b-2 border-slate-100 pb-1">
                     <div className="flex-1 bg-slate-100 rounded-t h-[20%]"></div>
@@ -426,7 +404,6 @@ export default function RadarMockupsPage() {
                   </div>
                 </div>
 
-                {/* 6 Frames Playback */}
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col gap-3 mt-auto">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold text-slate-700">ภาพย้อนหลัง 6 เฟรม</span>
@@ -454,7 +431,6 @@ export default function RadarMockupsPage() {
               <div className="h-[60%] relative bg-gradient-to-b from-indigo-900 to-purple-900 w-full overflow-hidden">
                 <div className="absolute inset-0 bg-cover bg-center mix-blend-overlay opacity-40" style={{ backgroundImage: "url('https://api.maptiler.com/maps/streets-v2-dark/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
                 
-                {/* RADAR LATEST BADGE */}
                 <div className="absolute top-12 left-0 w-full flex justify-center z-20 pointer-events-none">
                   <div className="bg-black/20 backdrop-blur-xl rounded-full px-4 py-2 border border-white/10 flex items-center gap-2 shadow-lg">
                     <Activity className="w-4 h-4 text-white/70" />
@@ -466,14 +442,12 @@ export default function RadarMockupsPage() {
                   <Layers className="w-4 h-4" />
                 </button>
 
-                {/* RAW IMAGE */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-70 mix-blend-plus-lighter z-0">
                    <div className="w-48 h-48 relative -mt-10 -ml-10">
                      <div className="absolute w-full h-full" style={{ backgroundImage: 'radial-gradient(circle, #f0f 0%, #0ff 40%, transparent 80%)', filter: 'url(#pixelate) blur(4px)', clipPath: 'circle(40% at 30% 30%)' }}></div>
                    </div>
                 </div>
 
-                {/* VECTOR */}
                 <div className="absolute top-1/3 left-1/3 w-32 h-32 z-10">
                   <div className="absolute inset-0 rounded-full border border-white/40 bg-white/5 shadow-[inset_0_0_20px_rgba(255,255,255,0.1)]"></div>
                   <svg className="absolute top-1/2 left-1/2 w-48 h-48 overflow-visible" style={{ transform: 'translate(-10px, -10px)' }}>
@@ -488,14 +462,12 @@ export default function RadarMockupsPage() {
                 </div>
               </div>
 
-              {/* BOTTOM SHEET DATA */}
               <div className="flex-1 bg-black/40 backdrop-blur-2xl p-6 rounded-t-[40px] -mt-10 relative z-30 border-t border-white/10 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] flex flex-col">
                 <div className="flex flex-col items-center mb-6">
                   <h3 className="font-bold text-3xl text-white tracking-tight mb-1">ฝนตกหนัก</h3>
                   <p className="text-white/60 text-base font-medium">จะถึงตำแหน่งคุณใน 20 นาที</p>
                 </div>
 
-                {/* Timeline BarChart */}
                 <div className="w-full mb-6">
                   <div className="h-12 flex items-end gap-1.5 w-full pb-1">
                     <div className="flex-1 bg-white/10 rounded-full h-[20%]"></div>
@@ -509,7 +481,6 @@ export default function RadarMockupsPage() {
                   </div>
                 </div>
 
-                {/* 6 Frames Playback */}
                 <div className="bg-white/5 backdrop-blur-lg rounded-3xl p-5 border border-white/10 flex flex-col gap-4 mt-auto shadow-inner">
                   <div className="flex items-center gap-4">
                     <button className="w-12 h-12 rounded-full bg-white text-indigo-900 flex items-center justify-center shrink-0 shadow-lg hover:scale-105 transition-transform">
@@ -526,7 +497,104 @@ export default function RadarMockupsPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
 
+        </div>
+      </div>
+
+      {/* ======================= FLOW 3: ADMIN DEBUG VIEWER (NEW) ======================= */}
+      <div className="max-w-[1400px] w-full mb-10">
+        <h2 className="text-2xl font-bold text-slate-800 mb-2 border-b-2 border-slate-200 pb-2">Step 3: Admin Debug Mode (เทียบชัดๆ ระหว่าง Native vs Static Bot Image)</h2>
+        <p className="text-slate-500 mb-8">เพิ่ม Image Viewer ในหน้าเดียวกัน เพื่อให้ Admin ดูเทียบกับ Native Vector ได้เลยโดยไม่ต้องสลับหน้าแอป</p>
+        
+        <div className="flex flex-wrap justify-center gap-10">
+          
+          {/* Debug 1: Split Screen */}
+          <div className="flex flex-col items-center">
+            <h3 className="text-md font-semibold mb-3 text-rose-500 flex items-center gap-2">
+              <SplitSquareVertical className="w-5 h-5" /> Split Screen Debug (Style A)
+            </h3>
+            
+            <div className="w-[375px] h-[812px] bg-slate-900 rounded-[40px] border-[8px] border-rose-900 overflow-hidden relative shadow-2xl flex flex-col">
+              <div className="h-[45%] relative bg-slate-800 w-full overflow-hidden">
+                <div className="absolute inset-0 bg-cover bg-center opacity-40" style={{ backgroundImage: "url('https://api.maptiler.com/maps/dataviz-dark/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
+                <div className="absolute top-2 left-2 bg-rose-500/20 text-rose-400 border border-rose-500/50 px-2 py-0.5 rounded text-[10px] font-bold">NATIVE VECTOR</div>
+                
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 z-10">
+                  <div className="absolute inset-0 rounded-full border-2 border-amber-400 bg-amber-500/10"></div>
+                  <svg className="absolute top-1/2 left-1/2 w-48 h-48 overflow-visible" style={{ transform: 'translate(-10px, -10px)' }}>
+                     <path d="M 0 0 L 80 -40" fill="none" stroke="#3b82f6" strokeWidth="2" strokeDasharray="4 2" />
+                  </svg>
+                </div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20">
+                  <MapPin className="w-6 h-6 text-white" fill="#3b82f6" />
+                </div>
+              </div>
+
+              <div className="h-6 bg-slate-950 flex items-center justify-center border-y border-slate-800 cursor-row-resize z-30 shadow-[0_0_10px_rgba(0,0,0,0.5)]">
+                 <div className="w-12 h-1 rounded-full bg-slate-700"></div>
+              </div>
+
+              <div className="flex-1 bg-black relative w-full overflow-hidden flex flex-col">
+                <div className="absolute top-2 left-2 bg-slate-700 text-white px-2 py-0.5 rounded text-[10px] font-bold z-10">BOT STATIC IMAGE (JPG)</div>
+                <div className="flex-1 flex items-center justify-center p-4">
+                  <div className="w-full aspect-[4/5] bg-slate-800 rounded-lg overflow-hidden border border-slate-700 shadow-lg relative flex items-center justify-center">
+                    <div className="absolute inset-0 bg-[url('https://api.maptiler.com/maps/streets-v2/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')] opacity-50 bg-cover"></div>
+                    <div className="absolute inset-0 flex items-center justify-center mix-blend-multiply opacity-80">
+                      <div className="w-48 h-48 bg-[radial-gradient(circle,#f00_0%,#ff0_30%,transparent_60%)] filter blur-[2px] opacity-80"></div>
+                    </div>
+                    <div className="absolute bottom-2 left-2 bg-black/60 text-[8px] text-white p-1 font-mono">Radar_Latest.jpg<br/>14:20:00</div>
+                  </div>
+                </div>
+                <div className="h-14 bg-slate-900 border-t border-slate-800 flex items-center justify-between px-4">
+                  <span className="text-xs text-slate-400">View:</span>
+                  <div className="flex gap-2">
+                    <button className="bg-blue-600 text-[10px] text-white px-3 py-1.5 rounded-md font-bold">Latest.jpg</button>
+                    <button className="bg-slate-800 border border-slate-700 text-[10px] text-slate-300 px-3 py-1.5 rounded-md hover:bg-slate-700">6_frames.gif</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Debug 2: PiP */}
+          <div className="flex flex-col items-center">
+            <h3 className="text-md font-semibold mb-3 text-orange-500 flex items-center gap-2">
+              <Bug className="w-5 h-5" /> PiP Overlay Debug (Style B/C)
+            </h3>
+            
+            <div className="w-[375px] h-[812px] bg-slate-900 rounded-[40px] border-[8px] border-orange-900/50 overflow-hidden relative shadow-2xl flex flex-col">
+              <div className="h-[70%] relative bg-gradient-to-b from-indigo-900 to-purple-900 w-full overflow-hidden">
+                <div className="absolute inset-0 bg-cover bg-center mix-blend-overlay opacity-40" style={{ backgroundImage: "url('https://api.maptiler.com/maps/streets-v2-dark/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
+                
+                <div className="absolute top-1/3 left-1/3 w-32 h-32 z-10">
+                  <div className="absolute inset-0 rounded-full border border-white/40 bg-white/5"></div>
+                </div>
+                
+                <div className="absolute bottom-6 right-4 w-32 h-44 bg-black rounded-xl shadow-2xl border-2 border-orange-500 overflow-hidden z-40 transform transition-transform hover:scale-110 origin-bottom-right">
+                   <div className="bg-orange-500 text-black text-[8px] font-bold flex justify-between px-2 py-1 items-center">
+                     <span>ADMIN: BOT.JPG</span>
+                     <span className="opacity-50">✕</span>
+                   </div>
+                   <div className="w-full h-full bg-[url('https://api.maptiler.com/maps/streets-v2/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')] bg-cover relative">
+                      <div className="absolute inset-0 bg-[radial-gradient(circle,#f00_0%,#ff0_30%,transparent_60%)] filter blur-[1px] opacity-70 mix-blend-multiply -translate-x-2 -translate-y-2"></div>
+                   </div>
+                </div>
+              </div>
+              <div className="flex-1 bg-black/80 backdrop-blur-xl p-5 relative z-30 border-t border-white/10 flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-lg text-white">ฝนหนักกำลังมา</h3>
+                </div>
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10 mt-auto">
+                   <div className="flex items-center gap-4">
+                    <button className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-black">
+                      <Bug className="w-5 h-5" />
+                    </button>
+                    <div className="text-sm text-white/80">Toggle Admin Image Viewer</div>
+                   </div>
+                </div>
               </div>
             </div>
           </div>
