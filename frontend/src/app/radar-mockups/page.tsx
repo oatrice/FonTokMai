@@ -1,40 +1,89 @@
-import React from 'react';
-import { MapPin, CloudRain, Clock, Wind, AlertCircle, Droplets, Sun, Navigation, Play, ChevronRight, Activity, BarChart2, Search, Crosshair, Star, Map, Layers, Check, Target, Bug, SplitSquareVertical } from 'lucide-react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { MapPin, CloudRain, Clock, Wind, AlertCircle, Droplets, Sun, Navigation, Play, Pause, ChevronRight, Activity, BarChart2, Search, Crosshair, Star, Map, Layers, Check, Target, Bug, SplitSquareVertical } from 'lucide-react';
 
 export default function RadarMockupsPage() {
+  // Animation State for 6 Frames Playback
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [frameIndex, setFrameIndex] = useState(4); // Default to -5m
+  const times = ['-25m', '-20m', '-15m', '-10m', '-5m', 'NOW'];
+  const progressPercent = (frameIndex / 5) * 100;
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isPlaying) {
+      interval = setInterval(() => {
+        setFrameIndex((prev) => (prev + 1) % 6);
+      }, 1000); // 1 frame per second
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+
+  // Bottom Sheet Snap Points State (Demonstrated on Style A & B)
+  const [snapState, setSnapState] = useState<'collapsed' | 'half' | 'expanded'>('expanded');
+
+  const toggleSnap = () => {
+    if (snapState === 'collapsed') setSnapState('half');
+    else if (snapState === 'half') setSnapState('expanded');
+    else setSnapState('collapsed');
+  };
+
+  const getBottomSheetHeight = () => {
+    if (snapState === 'collapsed') return '90px'; // Only Headline
+    if (snapState === 'half') return '220px'; // Headline + Timeline
+    return '360px'; // Headline + Timeline + Slider
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-8 flex flex-col items-center font-sans pb-32">
       <div className="max-w-7xl w-full text-center mb-12">
         <h1 className="text-3xl font-semibold mb-3 text-slate-900">Mobile UI Flow & Style Variants</h1>
-        <p className="text-slate-500">เปรียบเทียบ 3 สไตล์: A (Glass), B (Minimal Light), C (Immersive Gradient)</p>
+        <p className="text-slate-500">เปรียบเทียบ 3 สไตล์: A (Glass), B (Minimal Light), C (Material You / Pastel)</p>
+        <div className="mt-4 inline-flex items-center gap-4 bg-white px-6 py-3 rounded-full shadow-sm border border-slate-200">
+           <span className="text-sm font-medium text-slate-600">Global Controls:</span>
+           <button 
+             onClick={() => setIsPlaying(!isPlaying)}
+             className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${isPlaying ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}
+           >
+             {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+             {isPlaying ? 'Pause Animation' : 'Play Animation'}
+           </button>
+           <button 
+             onClick={toggleSnap}
+             className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors"
+           >
+             Toggle Bottom Sheet Snap: {snapState.toUpperCase()}
+           </button>
+        </div>
       </div>
 
       {/* ======================= FLOW 1: LOCATION SETUP ======================= */}
       <div className="max-w-[1400px] w-full mb-24">
-        <h2 className="text-2xl font-bold text-slate-800 mb-2 border-b-2 border-slate-200 pb-2">Step 1: Location Setup (ขอพิกัดปัจจุบัน / ค้นหาสถานที่)</h2>
+        <h2 className="text-2xl font-bold text-slate-800 mb-2 border-b-2 border-slate-200 pb-2">Step 1: Location Setup</h2>
         <div className="flex flex-wrap justify-center gap-10 mt-8">
           
           {/* 1 - Style A: Glassmorphism */}
           <div className="flex flex-col items-center">
-            <h3 className="text-md font-semibold mb-3 text-blue-600">Style A: Glassmorphism (Dark)</h3>
+            <h3 className="text-md font-semibold mb-3 text-blue-600">Style A: Glassmorphism</h3>
             <div className="w-[375px] h-[812px] bg-slate-900 rounded-[40px] border-[8px] border-slate-800 overflow-hidden relative shadow-xl flex flex-col">
               <div className="absolute inset-0 bg-cover bg-center opacity-30 blur-md grayscale" style={{ backgroundImage: "url('https://api.maptiler.com/maps/dataviz-dark/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
               <div className="absolute inset-0 bg-slate-950/60" />
               <div className="relative z-10 w-full h-full flex flex-col pt-20 px-6">
-                <h1 className="text-2xl font-semibold mb-6 text-white text-center">ค้นหาพิกัด</h1>
-                <div className="relative mb-6">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input type="text" placeholder="พิมพ์ชื่อเขต, จังหวัด..." className="w-full bg-slate-800/80 border border-slate-700 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-slate-400 focus:outline-none backdrop-blur-md" />
+                <h1 className="text-3xl font-semibold mb-8 text-white text-center">ค้นหาพิกัด</h1>
+                
+                {/* SEARCH INPUT (Increased Visual Weight) */}
+                <div className="relative mb-3 shadow-[0_0_20px_rgba(59,130,246,0.15)]">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                  <input type="text" placeholder="พิมพ์ชื่อเขต, จังหวัด..." className="w-full bg-slate-800/90 border-2 border-blue-500/40 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 backdrop-blur-md font-medium" />
                 </div>
-                <button className="flex items-center gap-4 bg-blue-600/20 border border-blue-500/30 rounded-2xl p-4 w-full mb-4 hover:bg-blue-600/30">
-                  <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                    <Crosshair className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div className="text-left flex-1">
-                    <h3 className="font-semibold text-blue-400 text-sm">ใช้ตำแหน่งปัจจุบัน</h3>
-                    <p className="text-xs text-blue-300/70 mt-0.5">ระบบจะขอสิทธิ์ GPS</p>
-                  </div>
+
+                {/* CURRENT LOCATION (Decreased Visual Weight to Text Button) */}
+                <button className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 transition-colors mb-6 mx-auto">
+                  <Crosshair className="w-4 h-4" />
+                  <span className="text-sm font-semibold">ใช้ตำแหน่งปัจจุบัน (GPS)</span>
                 </button>
+
                 <button className="flex items-center gap-4 bg-slate-800/40 border border-slate-600/40 rounded-2xl p-4 w-full mb-8 hover:bg-slate-700/50">
                   <div className="w-10 h-10 rounded-full bg-slate-700/50 flex items-center justify-center shrink-0">
                     <Map className="w-5 h-5 text-slate-300" />
@@ -45,6 +94,7 @@ export default function RadarMockupsPage() {
                   </div>
                   <ChevronRight className="w-5 h-5 text-slate-500" />
                 </button>
+
                 <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">บันทึกไว้</h3>
                 <button className="flex items-center gap-4 bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 w-full text-left backdrop-blur-sm">
                   <div className="w-10 h-10 rounded-full bg-slate-700/50 flex items-center justify-center shrink-0">
@@ -63,20 +113,20 @@ export default function RadarMockupsPage() {
           <div className="flex flex-col items-center">
             <h3 className="text-md font-semibold mb-3 text-emerald-600">Style B: Minimal (Light)</h3>
             <div className="w-[375px] h-[812px] bg-white rounded-[40px] border-[8px] border-slate-200 overflow-hidden relative shadow-xl flex flex-col pt-20 px-6">
-              <h1 className="text-2xl font-bold mb-6 text-slate-900">ค้นหาพิกัด</h1>
-              <div className="relative mb-6 shadow-sm">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input type="text" placeholder="ค้นหาเขต, จังหวัด..." className="w-full bg-slate-50 border border-slate-200 rounded-xl py-4 pl-12 pr-4 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <h1 className="text-3xl font-bold mb-8 text-slate-900 text-center">ค้นหาพิกัด</h1>
+              
+              {/* SEARCH INPUT */}
+              <div className="relative mb-3 shadow-md">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-600" />
+                <input type="text" placeholder="ค้นหาเขต, จังหวัด..." className="w-full bg-white border-2 border-slate-200 rounded-xl py-4 pl-12 pr-4 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm font-medium" />
               </div>
-              <button className="flex items-center gap-4 bg-blue-50 border border-blue-100 rounded-xl p-4 w-full mb-3 hover:bg-blue-100/50">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                  <Navigation className="w-5 h-5 text-blue-600" />
-                </div>
-                <div className="text-left flex-1">
-                  <h3 className="font-semibold text-blue-700 text-sm">ตำแหน่งปัจจุบัน</h3>
-                  <p className="text-xs text-blue-600/70 mt-0.5">แตะเพื่ออนุญาต GPS</p>
-                </div>
+
+              {/* CURRENT LOCATION (Text Button) */}
+              <button className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-blue-600 hover:bg-blue-50 transition-colors mb-6 mx-auto">
+                <Navigation className="w-4 h-4" />
+                <span className="text-sm font-bold">ใช้ตำแหน่งปัจจุบัน (GPS)</span>
               </button>
+
               <button className="flex items-center gap-4 bg-white border border-slate-200 rounded-xl p-4 w-full mb-8 shadow-sm hover:bg-slate-50">
                 <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
                   <Map className="w-5 h-5 text-slate-600" />
@@ -87,10 +137,11 @@ export default function RadarMockupsPage() {
                 </div>
                 <ChevronRight className="w-5 h-5 text-slate-300" />
               </button>
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">ที่บันทึกไว้</h3>
-              <button className="flex items-center gap-4 border-b border-slate-100 p-4 w-full text-left bg-white">
-                <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-                  <Star className="w-5 h-5 text-amber-500" />
+
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">ที่บันทึกไว้</h3>
+              <button className="flex items-center gap-4 p-4 w-full text-left bg-slate-50 rounded-xl border border-slate-100">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                  <Star className="w-5 h-5 text-amber-600" />
                 </div>
                 <div>
                   <h4 className="font-semibold text-slate-800 text-sm">บ้าน</h4>
@@ -100,32 +151,42 @@ export default function RadarMockupsPage() {
             </div>
           </div>
 
-          {/* 1 - Style C: Immersive Gradient */}
+          {/* 1 - Style C: Material You / Pastel */}
           <div className="flex flex-col items-center">
-            <h3 className="text-md font-semibold mb-3 text-purple-600">Style C: Immersive Gradient</h3>
-            <div className="w-[375px] h-[812px] bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 rounded-[40px] border-[8px] border-slate-800 overflow-hidden relative shadow-xl flex flex-col pt-20 px-6">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-500/20 rounded-full blur-3xl mix-blend-screen"></div>
-              <h1 className="text-3xl font-bold mb-6 text-white tracking-tight relative z-10">ค้นหาพื้นที่</h1>
-              <div className="relative mb-6 z-10">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
-                <input type="text" placeholder="พิมพ์ชื่อสถานที่..." className="w-full bg-white/10 border border-white/20 rounded-full py-4 pl-12 pr-4 text-white placeholder-white/50 focus:outline-none focus:bg-white/20 backdrop-blur-lg transition-all" />
+            <h3 className="text-md font-semibold mb-3 text-orange-600">Style C: Material 3 (Pastel)</h3>
+            <div className="w-[375px] h-[812px] bg-orange-50/50 rounded-[40px] border-[8px] border-slate-200 overflow-hidden relative shadow-xl flex flex-col pt-20 px-6">
+              <h1 className="text-4xl font-medium mb-8 text-stone-900 tracking-tight">คุณอยู่ที่ไหน?</h1>
+              
+              {/* SEARCH INPUT */}
+              <div className="relative mb-3">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-stone-700" />
+                <input type="text" placeholder="พิมพ์ชื่อสถานที่..." className="w-full bg-orange-100/70 border-none rounded-full py-5 pl-14 pr-6 text-stone-900 placeholder-stone-500 focus:outline-none focus:bg-orange-100 font-medium text-lg transition-colors" />
               </div>
-              <button className="flex items-center gap-4 bg-white/10 border border-white/20 rounded-3xl p-5 w-full mb-3 hover:bg-white/20 backdrop-blur-md transition-all z-10 group">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center shrink-0 shadow-lg">
-                  <Crosshair className="w-6 h-6 text-white" />
+
+              {/* CURRENT LOCATION */}
+              <button className="flex items-center justify-center gap-2 py-3 px-4 rounded-full text-orange-700 hover:bg-orange-100 transition-colors mb-6 mx-auto">
+                <Crosshair className="w-5 h-5" />
+                <span className="text-sm font-medium">ใช้ตำแหน่งปัจจุบัน</span>
+              </button>
+
+              <button className="flex items-center gap-5 bg-stone-100/80 rounded-[28px] p-5 w-full mb-8 hover:bg-stone-200/80 transition-colors">
+                <div className="w-12 h-12 rounded-full bg-orange-200 flex items-center justify-center shrink-0 text-orange-800">
+                  <Map className="w-6 h-6" />
                 </div>
                 <div className="text-left flex-1">
-                  <h3 className="font-bold text-white text-base">ตำแหน่งปัจจุบัน</h3>
-                  <p className="text-xs text-purple-200 mt-0.5 opacity-80">เปิดใช้งาน GPS</p>
+                  <h3 className="font-medium text-stone-900 text-base">ปักหมุดบนแผนที่</h3>
+                  <p className="text-sm text-stone-500 mt-0.5">ระบุจุดด้วยตัวเอง</p>
                 </div>
               </button>
-              <button className="flex items-center gap-4 bg-black/20 border border-white/10 rounded-3xl p-5 w-full mb-8 hover:bg-black/30 backdrop-blur-md transition-all z-10">
-                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                  <Map className="w-5 h-5 text-white/80" />
+
+              <h3 className="text-sm font-medium text-stone-500 mb-3 ml-2">บันทึกไว้</h3>
+              <button className="flex items-center gap-5 bg-stone-100/50 rounded-[28px] p-5 w-full text-left">
+                <div className="w-12 h-12 rounded-full bg-stone-200 flex items-center justify-center shrink-0">
+                  <Star className="w-6 h-6 text-stone-600" />
                 </div>
-                <div className="text-left flex-1">
-                  <h3 className="font-semibold text-white/90 text-sm">แผนที่แบบโต้ตอบ</h3>
-                  <p className="text-xs text-white/50 mt-0.5">ปักหมุดด้วยตัวเอง</p>
+                <div>
+                  <h4 className="font-medium text-stone-900 text-base">บ้าน</h4>
+                  <p className="text-sm text-stone-500 mt-0.5">บางนา, กรุงเทพฯ</p>
                 </div>
               </button>
             </div>
@@ -133,126 +194,11 @@ export default function RadarMockupsPage() {
 
         </div>
       </div>
-
-
-      {/* ======================= FLOW 1.5: INTERACTIVE MAP PICKER ======================= */}
-      <div className="max-w-[1400px] w-full mb-24">
-        <h2 className="text-2xl font-bold text-slate-800 mb-2 border-b-2 border-slate-200 pb-2">Step 1.5: Map Picker (เลื่อนแผนที่ปักหมุด)</h2>
-        <div className="flex flex-wrap justify-center gap-10 mt-8">
-          
-          {/* 1.5 - Style A */}
-          <div className="flex flex-col items-center">
-            <h3 className="text-md font-semibold mb-3 text-blue-600">Style A: Glassmorphism</h3>
-            <div className="w-[375px] h-[812px] bg-slate-900 rounded-[40px] border-[8px] border-slate-800 overflow-hidden relative shadow-xl flex flex-col">
-              <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('https://api.maptiler.com/maps/streets-v2-dark/static/100.523,13.73,14/400x800.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
-              
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center drop-shadow-2xl z-20 pointer-events-none">
-                <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg mb-2 shadow-lg animate-bounce whitespace-nowrap">เลื่อนแผนที่เพื่อปักหมุด</div>
-                <MapPin className="w-10 h-10 text-rose-500 drop-shadow-md" fill="white" />
-                <div className="w-2 h-1 bg-black/30 rounded-full mt-1 blur-[1px]"></div>
-              </div>
-
-              <div className="relative z-10 p-5 pt-14 flex items-center justify-between">
-                 <button className="w-10 h-10 rounded-full bg-slate-800/80 backdrop-blur flex items-center justify-center border border-slate-700 text-white">
-                   <ChevronRight className="w-5 h-5 rotate-180" />
-                 </button>
-                 <div className="flex bg-slate-800/80 backdrop-blur rounded-full px-4 py-2 border border-slate-700 shadow-sm">
-                   <Search className="w-4 h-4 text-slate-400 mr-2 mt-0.5" />
-                   <span className="text-sm text-slate-200">สยามสแควร์</span>
-                 </div>
-              </div>
-
-              <div className="mt-auto relative z-10 p-6 bg-slate-900/95 backdrop-blur-md rounded-t-3xl border-t border-slate-700 shadow-[0_-10px_20px_rgba(0,0,0,0.3)]">
-                <div className="mb-4">
-                  <h4 className="text-slate-400 text-xs uppercase tracking-wide mb-1">พิกัดที่เลือก</h4>
-                  <p className="text-white font-medium text-lg">ปทุมวัน, กรุงเทพมหานคร</p>
-                </div>
-                <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(37,99,235,0.4)]">
-                  <Check className="w-5 h-5" /> ยืนยันพิกัดนี้
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          {/* 1.5 - Style B */}
-          <div className="flex flex-col items-center">
-            <h3 className="text-md font-semibold mb-3 text-emerald-600">Style B: Minimal (Light)</h3>
-            <div className="w-[375px] h-[812px] bg-slate-200 rounded-[40px] border-[8px] border-slate-300 overflow-hidden relative shadow-xl flex flex-col">
-              <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('https://api.maptiler.com/maps/streets-v2-light/static/100.523,13.73,14/400x800.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
-              
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center drop-shadow-xl z-20 pointer-events-none">
-                <div className="bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-full mb-2 shadow-md animate-bounce whitespace-nowrap">เลื่อนเพื่อปักหมุด</div>
-                <MapPin className="w-10 h-10 text-blue-600 drop-shadow-sm" fill="white" />
-                <div className="w-2 h-1 bg-black/20 rounded-full mt-1 blur-[1px]"></div>
-              </div>
-
-              <div className="relative z-10 p-5 pt-14 flex items-center justify-between">
-                 <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-slate-100 text-slate-600">
-                   <ChevronRight className="w-5 h-5 rotate-180" />
-                 </button>
-                 <div className="flex bg-white rounded-full px-4 py-2 shadow-sm border border-slate-100">
-                   <Search className="w-4 h-4 text-slate-400 mr-2 mt-0.5" />
-                   <span className="text-sm text-slate-700 font-medium">สยามสแควร์</span>
-                 </div>
-              </div>
-
-              <div className="mt-auto relative z-10 p-6 bg-white rounded-t-3xl shadow-[0_-10px_20px_rgba(0,0,0,0.05)] border-t border-slate-100">
-                <div className="mb-4 text-center">
-                  <p className="text-slate-800 font-bold text-lg">ปทุมวัน, กรุงเทพมหานคร</p>
-                  <p className="text-slate-500 text-xs mt-1">13.746°N, 100.532°E</p>
-                </div>
-                <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2">
-                  ยืนยันพิกัดนี้
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* 1.5 - Style C: Immersive Gradient */}
-          <div className="flex flex-col items-center">
-            <h3 className="text-md font-semibold mb-3 text-purple-600">Style C: Immersive Gradient</h3>
-            <div className="w-[375px] h-[812px] bg-slate-900 rounded-[40px] border-[8px] border-slate-800 overflow-hidden relative shadow-xl flex flex-col">
-              {/* Map background but tinted */}
-              <div className="absolute inset-0 bg-cover bg-center mix-blend-overlay opacity-50" style={{ backgroundImage: "url('https://api.maptiler.com/maps/streets-v2-dark/static/100.523,13.73,14/400x800.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/80 via-purple-900/80 to-slate-900/90 pointer-events-none" />
-              
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center drop-shadow-2xl z-20 pointer-events-none">
-                <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border-2 border-white/40 shadow-[0_0_20px_rgba(255,255,255,0.2)]">
-                  <div className="w-4 h-4 bg-white rounded-full shadow-inner animate-pulse"></div>
-                </div>
-              </div>
-
-              <div className="relative z-10 p-5 pt-14 flex items-center justify-between">
-                 <button className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-lg flex items-center justify-center border border-white/20 text-white shadow-lg">
-                   <ChevronRight className="w-6 h-6 rotate-180" />
-                 </button>
-                 <div className="flex bg-white/10 backdrop-blur-lg rounded-full px-5 py-3 border border-white/20 shadow-lg flex-1 ml-4">
-                   <Search className="w-5 h-5 text-white/60 mr-3" />
-                   <span className="text-base text-white/90">ค้นหาพิกัด...</span>
-                 </div>
-              </div>
-
-              <div className="mt-auto relative z-10 p-6 bg-white/10 backdrop-blur-xl rounded-t-[40px] border-t border-white/20 shadow-[0_-20px_40px_rgba(0,0,0,0.4)]">
-                <div className="mb-6 text-center pt-2">
-                  <h4 className="text-white/60 text-sm font-medium mb-1">พื้นที่ที่เลือก</h4>
-                  <p className="text-white font-bold text-2xl tracking-tight">ปทุมวัน</p>
-                  <p className="text-white/40 text-sm mt-1">กรุงเทพมหานคร</p>
-                </div>
-                <button className="w-full bg-white text-indigo-900 hover:bg-slate-100 font-bold py-5 rounded-full flex items-center justify-center gap-2 text-lg shadow-[0_10px_20px_rgba(255,255,255,0.2)] transition-transform active:scale-95">
-                  <MapPin className="w-5 h-5" /> ตกลง
-                </button>
-              </div>
-            </div>
-          </div>
-          
-        </div>
-      </div>
-
 
       {/* ======================= FLOW 2: MAIN RADAR NOWCAST (HYBRID) ======================= */}
       <div className="max-w-[1400px] w-full mb-24">
         <h2 className="text-2xl font-bold text-slate-800 mb-2 border-b-2 border-slate-200 pb-2">Step 2: Main Radar Nowcast (Hybrid Overlay + Dashboard)</h2>
-        <p className="text-slate-500 mb-8">ซ้อนภาพ Vector ทับ Raw Static Image พร้อมแสดง 6 Frames, Radar Latest, และ Timeline BarChart</p>
+        <p className="text-slate-500 mb-8">ซ้อนภาพ Vector ทับ Raw Static Image พร้อมแสดง 6 Frames Animation และ Timeline BarChart แบบแบ่งสัดส่วนที่ชัดเจนขึ้น</p>
         
         <div className="flex flex-wrap justify-center gap-10">
           
@@ -260,7 +206,9 @@ export default function RadarMockupsPage() {
           <div className="flex flex-col items-center">
             <h3 className="text-md font-semibold mb-3 text-blue-600">Style A: Glassmorphism</h3>
             <div className="w-[375px] h-[812px] bg-slate-900 rounded-[40px] border-[8px] border-slate-800 overflow-hidden relative shadow-2xl flex flex-col">
-              <div className="h-[55%] relative bg-slate-800 w-full overflow-hidden">
+              
+              {/* MAP AREA */}
+              <div className="relative bg-slate-800 w-full overflow-hidden transition-all duration-300 ease-in-out" style={{ height: `calc(100% - ${getBottomSheetHeight()})` }}>
                 <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: "url('https://api.maptiler.com/maps/dataviz-dark/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
                 
                 {/* RADAR LATEST BADGE */}
@@ -268,7 +216,7 @@ export default function RadarMockupsPage() {
                   <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">TMD Radar Latest</span>
                   <span className="text-sm font-mono text-white flex items-center gap-1.5">
                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
-                     14:20 น. (Now)
+                     14:20 น.
                   </span>
                 </div>
 
@@ -279,12 +227,12 @@ export default function RadarMockupsPage() {
                 {/* RAW IMAGE */}
                 <div className="absolute inset-0 flex items-center justify-center mix-blend-screen opacity-60 z-0">
                    <div className="w-48 h-48 relative -mt-10 -ml-10">
-                     <div className="absolute w-full h-full" style={{ backgroundImage: 'radial-gradient(circle, #f00 0%, #ff0 30%, #0f0 60%, transparent 100%)', filter: 'url(#pixelate) blur(1px)', clipPath: 'circle(40% at 30% 30%)' }}></div>
+                     <div className="absolute w-full h-full transition-transform duration-500" style={{ backgroundImage: 'radial-gradient(circle, #f00 0%, #ff0 30%, #0f0 60%, transparent 100%)', filter: 'url(#pixelate) blur(1px)', clipPath: 'circle(40% at 30% 30%)', transform: `scale(${1 + frameIndex * 0.02})` }}></div>
                    </div>
                 </div>
 
                 {/* VECTOR */}
-                <div className="absolute top-1/3 left-1/3 w-32 h-32 z-10">
+                <div className="absolute top-1/3 left-1/3 w-32 h-32 z-10 transition-transform duration-500" style={{ transform: `scale(${1 + frameIndex * 0.05})` }}>
                   <div className="absolute inset-0 rounded-full border-2 border-amber-400 bg-amber-500/10"></div>
                   <div className="absolute top-1/4 left-1/4 w-16 h-16 rounded-full border-2 border-rose-400 bg-rose-500/10"></div>
                   <svg className="absolute top-1/2 left-1/2 w-48 h-48 overflow-visible" style={{ transform: 'translate(-10px, -10px)' }}>
@@ -297,48 +245,80 @@ export default function RadarMockupsPage() {
                 </div>
               </div>
 
-              {/* BOTTOM SHEET DATA */}
-              <div className="flex-1 bg-slate-900 p-5 rounded-t-3xl -mt-6 relative z-30 border-t border-slate-700/50 shadow-[0_-10px_20px_rgba(0,0,0,0.3)] flex flex-col">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_10px_#f43f5e]"></div>
-                    <h3 className="font-semibold text-lg text-white">ฝนหนักกำลังมา</h3>
-                  </div>
-                  <span className="text-rose-400 font-mono font-medium bg-rose-500/10 px-2 py-1 rounded border border-rose-500/20 text-xs">ETA: 20m</span>
+              {/* BOTTOM SHEET DATA (WITH SNAP POINTS) */}
+              <div 
+                className="bg-slate-900 rounded-t-3xl relative z-30 border-t border-slate-700/50 shadow-[0_-15px_30px_rgba(0,0,0,0.4)] flex flex-col transition-all duration-300 ease-in-out" 
+                style={{ height: getBottomSheetHeight() }}
+              >
+                {/* Drag Handle Indicator */}
+                <div className="w-full pt-3 pb-2 flex justify-center cursor-pointer" onClick={toggleSnap}>
+                  <div className="w-12 h-1.5 bg-slate-700 rounded-full"></div>
                 </div>
 
-                {/* Timeline BarChart */}
-                <div className="w-full mb-5">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Intensity (Next 2 hrs)</span>
+                <div className="px-6 flex flex-col h-full overflow-hidden">
+                  
+                  {/* SNAP 1: Collapsed (Headline) */}
+                  <div className="flex items-center justify-between mb-8 shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_12px_#f43f5e] animate-pulse"></div>
+                      <h3 className="font-semibold text-xl text-white">ฝนหนักกำลังมา</h3>
+                    </div>
+                    <span className="text-rose-400 font-mono font-medium bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20 text-sm">ETA: 20m</span>
                   </div>
-                  <div className="h-12 flex items-end gap-1.5 w-full border-b border-slate-800 pb-1">
-                    <div className="flex-1 bg-slate-800 rounded-t h-[10%]"></div>
-                    <div className="flex-1 bg-blue-500/40 rounded-t h-[30%]"></div>
-                    <div className="w-px h-full bg-rose-500/50 mx-1 relative"><span className="absolute -top-4 -left-3 text-[9px] font-mono text-rose-400">NOW</span></div>
-                    <div className="flex-1 bg-blue-500 rounded-t h-[50%]"></div>
-                    <div className="flex-1 bg-amber-400 rounded-t h-[80%]"></div>
-                    <div className="flex-1 bg-rose-500 rounded-t h-[95%] shadow-[0_0_8px_#e11d48]"></div>
-                    <div className="flex-1 bg-amber-400 rounded-t h-[60%]"></div>
-                    <div className="flex-1 bg-slate-800 rounded-t h-[15%]"></div>
-                  </div>
-                </div>
 
-                {/* 6 Frames Playback */}
-                <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl p-4 border border-slate-700/50 flex flex-col gap-3 mt-auto">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-semibold text-slate-300">ภาพย้อนหลัง (Past 6 Frames)</span>
-                    <span className="text-xs font-mono text-blue-400">-10 นาที</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <button className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shrink-0 hover:bg-blue-500 transition shadow-sm">
-                      <Play className="w-4 h-4 text-white ml-0.5" />
-                    </button>
-                    <div className="flex-1 h-1.5 bg-slate-700 rounded-full relative">
-                      <div className="absolute left-0 top-0 bottom-0 w-[80%] bg-blue-500 rounded-full"></div>
-                      <div className="absolute left-[80%] top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-white rounded-full shadow border-2 border-blue-500"></div>
+                  {/* SNAP 2: Half (Timeline BarChart) */}
+                  <div className="w-full mb-8 shrink-0 opacity-100 transition-opacity duration-300">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[11px] text-slate-400 font-medium uppercase tracking-widest">Intensity (Next 2 hrs)</span>
+                    </div>
+                    {/* Fixed Typography and Layout: Added gap-1, removed rounded-t slightly for a real chart look */}
+                    <div className="h-16 flex items-end gap-1 w-full border-b border-slate-800 pb-2 relative">
+                      <div className="flex-1 bg-slate-800 rounded-sm h-[10%]"></div>
+                      <div className="flex-1 bg-blue-500/40 rounded-sm h-[30%]"></div>
+                      
+                      {/* NOW Indicator Line */}
+                      <div className="absolute bottom-0 left-[25%] top-[-10px] w-px bg-rose-500/80 z-10">
+                         <span className="absolute -top-4 -translate-x-1/2 text-[10px] font-bold text-rose-400 bg-slate-900 px-1">NOW</span>
+                      </div>
+                      
+                      <div className="flex-1 bg-blue-500 rounded-sm h-[50%]"></div>
+                      <div className="flex-1 bg-amber-400 rounded-sm h-[80%]"></div>
+                      <div className="flex-1 bg-rose-500 rounded-sm h-[95%] shadow-[0_0_12px_#e11d48]"></div>
+                      <div className="flex-1 bg-amber-400 rounded-sm h-[60%]"></div>
+                      <div className="flex-1 bg-blue-500/40 rounded-sm h-[20%]"></div>
+                      <div className="flex-1 bg-slate-800 rounded-sm h-[15%]"></div>
                     </div>
                   </div>
+
+                  {/* SNAP 3: Expanded (6 Frames Playback) */}
+                  <div className="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/50 flex flex-col gap-4 mt-auto shrink-0 mb-6">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-semibold text-slate-300">ภาพย้อนหลัง (Past 6 Frames)</span>
+                      <span className="text-sm font-mono font-bold text-blue-400 w-12 text-right">{times[frameIndex]}</span>
+                    </div>
+                    
+                    {/* Fixed Layout: Smaller play button, thicker line */}
+                    <div className="flex items-center gap-5">
+                      <button 
+                        onClick={() => setIsPlaying(!isPlaying)}
+                        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition shadow-md border ${isPlaying ? 'bg-amber-500 border-amber-400' : 'bg-blue-600 border-blue-500 hover:bg-blue-500'}`}
+                      >
+                        {isPlaying ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white ml-0.5" />}
+                      </button>
+                      
+                      <div className="flex-1 h-2.5 bg-slate-900 rounded-full relative border border-slate-700/50 shadow-inner">
+                        <div 
+                          className="absolute left-0 top-0 bottom-0 bg-blue-500 rounded-full transition-all duration-300 ease-linear shadow-[0_0_8px_rgba(59,130,246,0.6)]"
+                          style={{ width: `${progressPercent}%` }}
+                        ></div>
+                        <div 
+                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-white rounded-full shadow-md border-2 border-blue-500 transition-all duration-300 ease-linear"
+                          style={{ left: `${progressPercent}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </div>
@@ -348,30 +328,24 @@ export default function RadarMockupsPage() {
           <div className="flex flex-col items-center">
             <h3 className="text-md font-semibold mb-3 text-emerald-600">Style B: Minimal (Light)</h3>
             <div className="w-[375px] h-[812px] bg-slate-100 rounded-[40px] border-[8px] border-slate-200 overflow-hidden relative shadow-2xl flex flex-col">
-              <div className="h-[55%] relative bg-slate-200 w-full overflow-hidden">
+              
+              <div className="relative bg-slate-200 w-full overflow-hidden transition-all duration-300 ease-in-out" style={{ height: `calc(100% - ${getBottomSheetHeight()})` }}>
                 <div className="absolute inset-0 bg-cover bg-center opacity-70" style={{ backgroundImage: "url('https://api.maptiler.com/maps/dataviz-light/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
                 
                 <div className="absolute top-6 left-4 bg-white shadow-sm rounded-lg px-3 py-1.5 border border-slate-200 flex flex-col z-20">
-                  <span className="text-[9px] text-slate-400 font-bold uppercase">Radar Latest</span>
+                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wide">Radar Latest</span>
                   <span className="text-sm font-semibold text-slate-700">14:20 น.</span>
                 </div>
 
-                <button className="absolute top-6 right-4 bg-emerald-50 rounded-full p-2.5 border border-emerald-200 shadow-sm text-emerald-600 z-20">
-                  <Layers className="w-4 h-4" />
-                </button>
-
                 <div className="absolute inset-0 flex items-center justify-center opacity-50 mix-blend-multiply z-0">
-                   <div className="w-48 h-48 relative -mt-10 -ml-10">
+                   <div className="w-48 h-48 relative -mt-10 -ml-10 transition-transform duration-500" style={{ transform: `scale(${1 + frameIndex * 0.02})` }}>
                      <div className="absolute w-full h-full" style={{ backgroundImage: 'radial-gradient(circle, #f00 0%, #f90 30%, #0f0 60%, transparent 100%)', filter: 'url(#pixelate) blur(1px)', clipPath: 'circle(40% at 30% 30%)' }}></div>
                    </div>
                 </div>
 
-                <div className="absolute top-1/3 left-1/3 w-32 h-32 z-10">
+                <div className="absolute top-1/3 left-1/3 w-32 h-32 z-10 transition-transform duration-500" style={{ transform: `scale(${1 + frameIndex * 0.05})` }}>
                   <div className="absolute inset-0 rounded-full border-2 border-orange-400 bg-transparent"></div>
                   <div className="absolute top-1/4 left-1/4 w-16 h-16 rounded-full border-2 border-red-500 bg-transparent"></div>
-                  <svg className="absolute top-1/2 left-1/2 w-48 h-48 overflow-visible" style={{ transform: 'translate(-10px, -10px)' }}>
-                     <path d="M 0 0 L 100 -50 L 150 -70" fill="none" stroke="#2563eb" strokeWidth="3" strokeDasharray="6 4" strokeLinecap="round" />
-                  </svg>
                 </div>
                 
                 <div className="absolute top-1/4 right-1/4 flex flex-col items-center z-20">
@@ -379,123 +353,155 @@ export default function RadarMockupsPage() {
                 </div>
               </div>
 
-              <div className="flex-1 bg-white p-6 rounded-t-3xl -mt-6 relative z-30 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] flex flex-col border-t border-slate-100">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-xl text-slate-900">ฝนหนักกำลังมา</h3>
-                  <span className="text-red-600 font-bold bg-red-50 px-2 py-1 rounded-lg text-sm">ใน 20 นาที</span>
-                </div>
-                <p className="text-slate-500 text-sm mb-5">ระดับ 45+ dBZ, ต่อเนื่อง 1 ชั่วโมง</p>
-
-                <div className="w-full mb-6">
-                  <div className="h-10 flex items-end gap-1.5 w-full border-b-2 border-slate-100 pb-1">
-                    <div className="flex-1 bg-slate-100 rounded-t h-[20%]"></div>
-                    <div className="flex-1 bg-blue-200 rounded-t h-[30%]"></div>
-                    <div className="w-0.5 h-full bg-slate-300 mx-1"></div>
-                    <div className="flex-1 bg-blue-500 rounded-t h-[50%]"></div>
-                    <div className="flex-1 bg-orange-400 rounded-t h-[80%]"></div>
-                    <div className="flex-1 bg-red-500 rounded-t h-[95%] shadow-sm"></div>
-                    <div className="flex-1 bg-orange-400 rounded-t h-[60%]"></div>
-                    <div className="flex-1 bg-slate-100 rounded-t h-[15%]"></div>
-                  </div>
-                  <div className="flex justify-between text-[10px] font-semibold text-slate-400 mt-1 uppercase">
-                    <span>Now</span>
-                    <span>1 Hr</span>
-                    <span>2 Hr</span>
-                  </div>
+              <div 
+                className="bg-white rounded-t-3xl relative z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.08)] flex flex-col border-t border-slate-100 transition-all duration-300 ease-in-out"
+                style={{ height: getBottomSheetHeight() }}
+              >
+                <div className="w-full pt-3 pb-2 flex justify-center cursor-pointer" onClick={toggleSnap}>
+                  <div className="w-12 h-1.5 bg-slate-200 rounded-full"></div>
                 </div>
 
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col gap-3 mt-auto">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-700">ภาพย้อนหลัง 6 เฟรม</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <button className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center shrink-0 hover:bg-slate-800 transition shadow-sm">
-                      <Play className="w-4 h-4 text-white ml-0.5" />
-                    </button>
-                    <div className="flex-1 h-1.5 bg-slate-200 rounded-full relative">
-                      <div className="absolute left-0 top-0 bottom-0 w-[80%] bg-blue-600 rounded-full"></div>
-                      <div className="absolute left-[80%] top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-white rounded-full shadow border border-slate-200"></div>
+                <div className="px-6 flex flex-col h-full overflow-hidden">
+                  
+                  <div className="flex items-center justify-between mb-6 shrink-0">
+                    <div>
+                      <h3 className="font-bold text-2xl text-slate-900 tracking-tight">ฝนหนักกำลังมา</h3>
+                      <p className="text-slate-500 text-sm mt-1">ระดับ 45+ dBZ, ต่อเนื่อง 1 ชั่วโมง</p>
                     </div>
-                    <span className="text-xs font-bold text-slate-500 w-12 text-right">-10m</span>
+                    <span className="text-red-600 font-bold bg-red-50 px-3 py-2 rounded-xl text-sm border border-red-100 shadow-sm">ใน 20 นาที</span>
+                  </div>
+
+                  <div className="w-full mb-8 shrink-0">
+                    {/* Impeccable Layout: gap-1 between bars */}
+                    <div className="h-16 flex items-end gap-1 w-full border-b-2 border-slate-100 pb-2 relative">
+                      <div className="flex-1 bg-slate-100 rounded-sm h-[20%]"></div>
+                      <div className="flex-1 bg-blue-100 rounded-sm h-[30%]"></div>
+                      
+                      <div className="absolute bottom-0 left-[25%] top-[-10px] w-0.5 bg-slate-300 z-10"></div>
+                      
+                      <div className="flex-1 bg-blue-500 rounded-sm h-[50%]"></div>
+                      <div className="flex-1 bg-orange-400 rounded-sm h-[80%]"></div>
+                      <div className="flex-1 bg-red-500 rounded-sm h-[95%] shadow-sm"></div>
+                      <div className="flex-1 bg-orange-400 rounded-sm h-[60%]"></div>
+                      <div className="flex-1 bg-slate-100 rounded-sm h-[15%]"></div>
+                    </div>
+                    <div className="flex justify-between text-[11px] font-bold text-slate-400 mt-2 uppercase tracking-wide">
+                      <span>Now</span>
+                      <span>1 Hr</span>
+                      <span>2 Hr</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 flex flex-col gap-4 mt-auto shrink-0 mb-6">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-bold text-slate-700">ภาพย้อนหลัง 6 เฟรม</span>
+                      <span className="text-sm font-bold text-slate-500 w-12 text-right">{times[frameIndex]}</span>
+                    </div>
+                    <div className="flex items-center gap-5">
+                      <button 
+                        onClick={() => setIsPlaying(!isPlaying)}
+                        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition shadow-sm ${isPlaying ? 'bg-orange-100 text-orange-600 border border-orange-200' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+                      >
+                        {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                      </button>
+                      <div className="flex-1 h-2.5 bg-slate-200 rounded-full relative shadow-inner">
+                        <div 
+                          className="absolute left-0 top-0 bottom-0 bg-blue-600 rounded-full transition-all duration-300 ease-linear"
+                          style={{ width: `${progressPercent}%` }}
+                        ></div>
+                        <div 
+                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-white rounded-full shadow border border-slate-300 transition-all duration-300 ease-linear"
+                          style={{ left: `${progressPercent}%` }}
+                        ></div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 2 - Style C: HYBRID (Immersive Gradient) */}
+          {/* 2 - Style C: Material 3 (Pastel) */}
           <div className="flex flex-col items-center">
-            <h3 className="text-md font-semibold mb-3 text-purple-600">Style C: Immersive Gradient</h3>
-            <div className="w-[375px] h-[812px] bg-slate-900 rounded-[40px] border-[8px] border-slate-800 overflow-hidden relative shadow-2xl flex flex-col">
+            <h3 className="text-md font-semibold mb-3 text-orange-600">Style C: Material 3 (Pastel)</h3>
+            <div className="w-[375px] h-[812px] bg-orange-50/50 rounded-[40px] border-[8px] border-slate-200 overflow-hidden relative shadow-2xl flex flex-col">
               
-              <div className="h-[60%] relative bg-gradient-to-b from-indigo-900 to-purple-900 w-full overflow-hidden">
-                <div className="absolute inset-0 bg-cover bg-center mix-blend-overlay opacity-40" style={{ backgroundImage: "url('https://api.maptiler.com/maps/streets-v2-dark/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
+              <div className="relative bg-orange-100/50 w-full overflow-hidden transition-all duration-300 ease-in-out" style={{ height: `calc(100% - ${getBottomSheetHeight()})` }}>
+                {/* Simulated map background for material style */}
+                <div className="absolute inset-0 bg-cover bg-center opacity-60" style={{ backgroundImage: "url('https://api.maptiler.com/maps/streets-v2-light/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')", filter: "sepia(20%) hue-rotate(-10deg) saturate(150%)" }} />
                 
-                <div className="absolute top-12 left-0 w-full flex justify-center z-20 pointer-events-none">
-                  <div className="bg-black/20 backdrop-blur-xl rounded-full px-4 py-2 border border-white/10 flex items-center gap-2 shadow-lg">
-                    <Activity className="w-4 h-4 text-white/70" />
-                    <span className="text-xs font-medium text-white/90">Radar Update: 14:20 น.</span>
-                  </div>
+                <div className="absolute top-6 left-4 bg-orange-100/90 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-2 z-20 shadow-sm border border-orange-200/50">
+                  <Activity className="w-4 h-4 text-orange-600" />
+                  <span className="text-xs font-semibold text-orange-900">14:20 น.</span>
                 </div>
 
-                <button className="absolute top-12 right-4 bg-white/10 backdrop-blur-md rounded-full p-2.5 border border-white/20 shadow-lg text-white z-20">
-                  <Layers className="w-4 h-4" />
-                </button>
-
-                <div className="absolute inset-0 flex items-center justify-center opacity-70 mix-blend-plus-lighter z-0">
-                   <div className="w-48 h-48 relative -mt-10 -ml-10">
-                     <div className="absolute w-full h-full" style={{ backgroundImage: 'radial-gradient(circle, #f0f 0%, #0ff 40%, transparent 80%)', filter: 'url(#pixelate) blur(4px)', clipPath: 'circle(40% at 30% 30%)' }}></div>
+                <div className="absolute inset-0 flex items-center justify-center opacity-60 mix-blend-multiply z-0">
+                   <div className="w-48 h-48 relative -mt-10 -ml-10 transition-transform duration-500" style={{ transform: `scale(${1 + frameIndex * 0.02})` }}>
+                     <div className="absolute w-full h-full" style={{ backgroundImage: 'radial-gradient(circle, #ea580c 0%, #f59e0b 40%, transparent 80%)', filter: 'url(#pixelate) blur(4px)', clipPath: 'circle(40% at 30% 30%)' }}></div>
                    </div>
                 </div>
 
-                <div className="absolute top-1/3 left-1/3 w-32 h-32 z-10">
-                  <div className="absolute inset-0 rounded-full border border-white/40 bg-white/5 shadow-[inset_0_0_20px_rgba(255,255,255,0.1)]"></div>
-                  <svg className="absolute top-1/2 left-1/2 w-48 h-48 overflow-visible" style={{ transform: 'translate(-10px, -10px)' }}>
-                     <path d="M 0 0 L 100 -50 L 150 -70" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="3" strokeDasharray="10 5" strokeLinecap="round" />
-                  </svg>
+                <div className="absolute top-1/3 left-1/3 w-32 h-32 z-10 transition-transform duration-500" style={{ transform: `scale(${1 + frameIndex * 0.05})` }}>
+                  <div className="absolute inset-0 rounded-full border-2 border-orange-500/50 bg-orange-500/10"></div>
                 </div>
                 
                 <div className="absolute top-1/4 right-1/4 flex flex-col items-center z-20">
-                  <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/40 shadow-lg">
-                    <div className="w-3 h-3 bg-white rounded-full shadow-inner"></div>
+                  <div className="w-10 h-10 rounded-[14px] bg-white flex items-center justify-center shadow-lg border border-orange-100 rotate-12">
+                     <Droplets className="w-5 h-5 text-orange-500" />
                   </div>
                 </div>
               </div>
 
-              <div className="flex-1 bg-black/40 backdrop-blur-2xl p-6 rounded-t-[40px] -mt-10 relative z-30 border-t border-white/10 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] flex flex-col">
-                <div className="flex flex-col items-center mb-6">
-                  <h3 className="font-bold text-3xl text-white tracking-tight mb-1">ฝนตกหนัก</h3>
-                  <p className="text-white/60 text-base font-medium">จะถึงตำแหน่งคุณใน 20 นาที</p>
+              <div 
+                className="bg-stone-50 rounded-t-[32px] relative z-30 shadow-[0_-20px_40px_rgba(0,0,0,0.1)] flex flex-col transition-all duration-300 ease-in-out"
+                style={{ height: getBottomSheetHeight() }}
+              >
+                <div className="w-full pt-4 pb-2 flex justify-center cursor-pointer" onClick={toggleSnap}>
+                  <div className="w-10 h-1.5 bg-stone-300 rounded-full"></div>
                 </div>
 
-                <div className="w-full mb-6">
-                  <div className="h-12 flex items-end gap-1.5 w-full pb-1">
-                    <div className="flex-1 bg-white/10 rounded-full h-[20%]"></div>
-                    <div className="flex-1 bg-white/30 rounded-full h-[30%]"></div>
-                    <div className="w-0.5 h-full bg-white/50 mx-1 rounded-full relative"></div>
-                    <div className="flex-1 bg-blue-400 rounded-full h-[50%]"></div>
-                    <div className="flex-1 bg-fuchsia-400 rounded-full h-[80%] shadow-[0_0_15px_rgba(232,121,249,0.5)]"></div>
-                    <div className="flex-1 bg-fuchsia-500 rounded-full h-[95%] shadow-[0_0_20px_rgba(217,70,239,0.8)]"></div>
-                    <div className="flex-1 bg-blue-400 rounded-full h-[60%]"></div>
-                    <div className="flex-1 bg-white/10 rounded-full h-[15%]"></div>
+                <div className="px-6 flex flex-col h-full overflow-hidden">
+                  
+                  <div className="flex flex-col items-center mb-8 shrink-0 text-center">
+                    <h3 className="font-medium text-3xl text-stone-900 tracking-tight mb-2">ฝนตกหนัก</h3>
+                    <div className="bg-orange-200 text-orange-900 px-4 py-1.5 rounded-full text-sm font-medium">จะถึงตำแหน่งคุณใน 20 นาที</div>
                   </div>
-                </div>
 
-                <div className="bg-white/5 backdrop-blur-lg rounded-3xl p-5 border border-white/10 flex flex-col gap-4 mt-auto shadow-inner">
-                  <div className="flex items-center gap-4">
-                    <button className="w-12 h-12 rounded-full bg-white text-indigo-900 flex items-center justify-center shrink-0 shadow-lg hover:scale-105 transition-transform">
-                      <Play className="w-5 h-5 ml-1" />
-                    </button>
-                    <div className="flex-1 flex flex-col gap-2">
-                      <div className="flex justify-between items-center px-1">
-                        <span className="text-xs font-medium text-white/70">6 Frames History</span>
-                        <span className="text-xs font-bold text-white">-10m</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-white/10 rounded-full relative">
-                        <div className="absolute left-0 top-0 bottom-0 w-[80%] bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
+                  <div className="w-full mb-8 shrink-0 bg-white rounded-3xl p-5 shadow-sm border border-stone-100">
+                    <div className="h-12 flex items-end gap-1 w-full pb-1 relative">
+                      <div className="flex-1 bg-stone-200 rounded-md h-[20%]"></div>
+                      <div className="flex-1 bg-stone-300 rounded-md h-[30%]"></div>
+                      <div className="flex-1 bg-orange-300 rounded-md h-[50%]"></div>
+                      <div className="flex-1 bg-orange-500 rounded-md h-[80%]"></div>
+                      <div className="flex-1 bg-red-500 rounded-md h-[95%] shadow-sm"></div>
+                      <div className="flex-1 bg-orange-400 rounded-md h-[60%]"></div>
+                      <div className="flex-1 bg-stone-200 rounded-md h-[15%]"></div>
+                    </div>
+                  </div>
+
+                  <div className="bg-orange-100/50 rounded-3xl p-5 flex flex-col gap-4 mt-auto shrink-0 mb-6">
+                    <div className="flex items-center gap-5">
+                      <button 
+                        onClick={() => setIsPlaying(!isPlaying)}
+                        className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition shadow-sm ${isPlaying ? 'bg-white text-orange-800' : 'bg-orange-800 text-white'}`}
+                      >
+                        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+                      </button>
+                      <div className="flex-1 flex flex-col gap-2">
+                        <div className="flex justify-between items-center px-1">
+                          <span className="text-sm font-medium text-stone-600">ภาพย้อนหลัง</span>
+                          <span className="text-sm font-bold text-stone-900">{times[frameIndex]}</span>
+                        </div>
+                        <div className="w-full h-3 bg-white/60 rounded-full relative shadow-inner">
+                          <div 
+                            className="absolute left-0 top-0 bottom-0 bg-orange-500 rounded-full transition-all duration-300 ease-linear"
+                            style={{ width: `${progressPercent}%` }}
+                          ></div>
+                        </div>
                       </div>
                     </div>
                   </div>
+
                 </div>
               </div>
             </div>
@@ -504,17 +510,17 @@ export default function RadarMockupsPage() {
         </div>
       </div>
 
-      {/* ======================= FLOW 3: ADMIN DEBUG VIEWER (NEW) ======================= */}
+      {/* ======================= FLOW 3: ADMIN DEBUG VIEWER ======================= */}
       <div className="max-w-[1400px] w-full mb-10">
-        <h2 className="text-2xl font-bold text-slate-800 mb-2 border-b-2 border-slate-200 pb-2">Step 3: Admin Debug Mode (เทียบชัดๆ ระหว่าง Native vs Static Bot Image)</h2>
-        <p className="text-slate-500 mb-8">เพิ่ม Image Viewer ในหน้าเดียวกัน เพื่อให้ Admin ดูเทียบกับ Native Vector ได้เลยโดยไม่ต้องสลับหน้าแอป</p>
+        <h2 className="text-2xl font-bold text-slate-800 mb-2 border-b-2 border-slate-200 pb-2">Step 3: Admin Debug Mode (Tester เลือกได้ 2 แบบ)</h2>
+        <p className="text-slate-500 mb-8">Split Screen (สำหรับคนที่ชอบเทียบชัดๆ บน-ล่าง) และ PiP (สำหรับคนที่อยากดู Native เต็มตาแล้วชำเลืองมองบอท)</p>
         
         <div className="flex flex-wrap justify-center gap-10">
           
           {/* Debug 1: Split Screen */}
           <div className="flex flex-col items-center">
             <h3 className="text-md font-semibold mb-3 text-rose-500 flex items-center gap-2">
-              <SplitSquareVertical className="w-5 h-5" /> Split Screen Debug (Style A)
+              <SplitSquareVertical className="w-5 h-5" /> Split Screen Debug
             </h3>
             
             <div className="w-[375px] h-[812px] bg-slate-900 rounded-[40px] border-[8px] border-rose-900 overflow-hidden relative shadow-2xl flex flex-col">
@@ -562,20 +568,21 @@ export default function RadarMockupsPage() {
           {/* Debug 2: PiP */}
           <div className="flex flex-col items-center">
             <h3 className="text-md font-semibold mb-3 text-orange-500 flex items-center gap-2">
-              <Bug className="w-5 h-5" /> PiP Overlay Debug (Style B/C)
+              <Bug className="w-5 h-5" /> PiP Overlay Debug
             </h3>
             
-            <div className="w-[375px] h-[812px] bg-slate-900 rounded-[40px] border-[8px] border-orange-900/50 overflow-hidden relative shadow-2xl flex flex-col">
-              <div className="h-[70%] relative bg-gradient-to-b from-indigo-900 to-purple-900 w-full overflow-hidden">
-                <div className="absolute inset-0 bg-cover bg-center mix-blend-overlay opacity-40" style={{ backgroundImage: "url('https://api.maptiler.com/maps/streets-v2-dark/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
+            <div className="w-[375px] h-[812px] bg-slate-100 rounded-[40px] border-[8px] border-orange-500/50 overflow-hidden relative shadow-2xl flex flex-col">
+              <div className="h-[70%] relative bg-slate-200 w-full overflow-hidden">
+                <div className="absolute inset-0 bg-cover bg-center opacity-70" style={{ backgroundImage: "url('https://api.maptiler.com/maps/dataviz-light/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
                 
                 <div className="absolute top-1/3 left-1/3 w-32 h-32 z-10">
-                  <div className="absolute inset-0 rounded-full border border-white/40 bg-white/5"></div>
+                  <div className="absolute inset-0 rounded-full border-2 border-orange-400 bg-transparent"></div>
                 </div>
                 
+                {/* PIP WINDOW */}
                 <div className="absolute bottom-6 right-4 w-32 h-44 bg-black rounded-xl shadow-2xl border-2 border-orange-500 overflow-hidden z-40 transform transition-transform hover:scale-110 origin-bottom-right">
                    <div className="bg-orange-500 text-black text-[8px] font-bold flex justify-between px-2 py-1 items-center">
-                     <span>ADMIN: BOT.JPG</span>
+                     <span>BOT.JPG</span>
                      <span className="opacity-50">✕</span>
                    </div>
                    <div className="w-full h-full bg-[url('https://api.maptiler.com/maps/streets-v2/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')] bg-cover relative">
@@ -583,16 +590,16 @@ export default function RadarMockupsPage() {
                    </div>
                 </div>
               </div>
-              <div className="flex-1 bg-black/80 backdrop-blur-xl p-5 relative z-30 border-t border-white/10 flex flex-col">
+              <div className="flex-1 bg-white p-5 relative z-30 border-t border-slate-200 flex flex-col">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-lg text-white">ฝนหนักกำลังมา</h3>
+                  <h3 className="font-bold text-lg text-slate-900">ฝนหนักกำลังมา</h3>
                 </div>
-                <div className="bg-white/5 rounded-2xl p-4 border border-white/10 mt-auto">
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 mt-auto">
                    <div className="flex items-center gap-4">
-                    <button className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-black">
+                    <button className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center border border-orange-200">
                       <Bug className="w-5 h-5" />
                     </button>
-                    <div className="text-sm text-white/80">Toggle Admin Image Viewer</div>
+                    <div className="text-sm font-semibold text-slate-700">Toggle Admin Image Viewer</div>
                    </div>
                 </div>
               </div>
