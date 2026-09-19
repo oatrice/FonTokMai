@@ -32,3 +32,5 @@
 - `manual_integration_testing.md`: สคริปต์และการทดสอบ Manual Integration
 - `cloud_tasks_dashboard_analysis.md`: การวิเคราะห์ Cloud Tasks
 - `fonmayang_cloudrun_metrics_report.md`: รายงานประสิทธิภาพ Cloud Run
+
+- [UX/UI Flow Architectural Evaluation (5 Paradigms)](./ux_flow_architectural_eval.md)
