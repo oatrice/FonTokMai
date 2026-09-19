@@ -272,11 +272,11 @@ export function FinancialDashboard({
                 <GlassCard key={jar.name} variant="default" glowColor="blue" interactive className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2.5 rounded-xl bg-slate-800/80 border border-white/10 text-sky-400">
+                      <div className="p-2.5 text-sky-400">
                         <Icon className="h-5 w-5" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-white text-base">{jar.name}</h3>
+                        <h3 className="font-semibold text-white text-lg">{jar.name}</h3>
                         <span className="text-xs text-slate-400">{jar.description}</span>
                       </div>
                     </div>

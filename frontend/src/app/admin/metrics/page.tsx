@@ -306,12 +306,12 @@ export default function AdminMetricsPage() {
 
           {/* Blended Cost per User */}
           <div className="p-6 rounded-2xl bg-slate-900/40 backdrop-blur-lg border border-white/10 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-indigo-400">
+            <div className="flex items-center justify-between text-sky-400">
               <span className="text-xs uppercase tracking-wider font-semibold">Blended Cost / User</span>
-              <BahtIcon className="w-4 h-4 text-indigo-400 text-sm" />
+              <BahtIcon className="w-4 h-4 text-sky-400 text-sm" />
             </div>
             <div className="mt-4">
-              <span className="text-3xl font-extrabold text-indigo-400">
+              <span className="text-3xl font-extrabold text-sky-400">
                 {costLoading ? <SkeletonPulse /> : `฿${costData?.blended_cost_per_active_user?.toFixed(2) ?? "0.00"}`}
               </span>
               <span className="text-xs text-slate-400 ml-2">ต่อคน</span>

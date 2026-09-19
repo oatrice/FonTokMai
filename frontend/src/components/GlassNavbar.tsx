@@ -44,7 +44,7 @@ export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
               </div>
             </div>
             <div>
-              <span className="text-lg font-extrabold tracking-tight text-white drop-shadow-[0_0_12px_rgba(34,211,238,0.4)]">
+              <span className="text-lg font-extrabold tracking-tight text-white ">
                 FonMaYang
               </span>
               <div className="flex items-center gap-1.5">
@@ -55,7 +55,7 @@ export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
+
           <nav className="hidden md:flex items-center gap-2" aria-label="Main Navigation">
             {/* Primary Surfaces Group */}
             <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-900/50 border border-white/5">
@@ -78,7 +78,7 @@ export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
                     : "text-slate-300 hover:text-white hover:bg-white/5"
                 }`}
               >
-                <Radio className={`h-3.5 w-3.5 ${isRadarActive ? "text-sky-400 animate-pulse" : "text-slate-400"}`} aria-hidden="true" />
+                <Radio className={`h-3.5 w-3.5 ${isRadarActive ? "text-sky-400" : "text-slate-400"}`} aria-hidden="true" />
                 <span>Radar</span>
               </Link>
               <Link 
@@ -125,6 +125,7 @@ export function GlassNavbar({ onOpenDonation }: GlassNavbarProps = {}) {
               </Link>
             </div>
           </nav>
+
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center gap-3">

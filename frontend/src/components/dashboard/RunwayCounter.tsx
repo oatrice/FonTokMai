@@ -135,13 +135,13 @@ export function RunwayCounter() {
           key="overdrive"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-6 text-center my-6 backdrop-blur-md"
+          className="bg-amber-950/25 border border-amber-500/40 rounded-xl p-6 text-center my-6 backdrop-blur-md "
         >
-          <span className="text-3xl md:text-5xl font-black text-purple-300 font-mono tracking-wider">
+          <span className="text-3xl md:text-5xl font-black text-amber-300 font-mono tracking-wider">
             &infin; INFINITY
           </span>
-          <p className="text-xs text-purple-200 mt-2">
-            Emergency Overdrive Active — Countdown decay is bypassed
+          <p className="text-xs text-amber-200/90 mt-2">
+            Dynamic circuit breaker engaged — Countdown decay is throttled
           </p>
         </motion.div>
       );

@@ -385,7 +385,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
         <div>
           <div className="flex items-center gap-2">
             <span className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <Activity className="h-5 w-5 animate-pulse" />
+              <Activity className="h-5 w-5" />
             </span>
             <div>
               <h2 className="text-xl font-bold text-white tracking-tight">
@@ -518,7 +518,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
             </div>
             <span className={`px-2 py-0.5 rounded-md border text-[10px] font-mono font-bold transition-all ${
               zoomLevel > 1
-                ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 animate-pulse"
+                ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
                 : "bg-slate-900/80 text-slate-400 border-white/10"
             }`}>
               🔍 {zoomLevel.toFixed(1)}x
@@ -567,7 +567,7 @@ export function RadarCoverageMap({ stations = DEFAULT_STATIONS, onSelectStation 
             onMouseLeave={handleMouseUp}
             onDoubleClick={handleDoubleClick}
             onWheel={handleWheel}
-            className={`w-full h-auto max-h-[620px] drop-shadow-[0_0_20px_rgba(6,182,212,0.15)] select-none transition-all duration-200 ease-out ${
+            className={`w-full h-auto max-h-[620px]  select-none transition-all duration-200 ease-out ${
               isDragging ? "cursor-grabbing" : zoomLevel > 1 ? "cursor-grab" : "cursor-default"
             }`}
           >

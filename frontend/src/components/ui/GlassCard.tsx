@@ -34,12 +34,12 @@ export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
     };
 
     const glowStyles = {
-      blue: "hover:shadow-[0_0_25px_rgba(59,130,246,0.25)] hover:border-blue-500/40",
-      cyan: "hover:shadow-[0_0_25px_rgba(6,182,212,0.25)] hover:border-cyan-500/40",
-      emerald: "hover:shadow-[0_0_25px_rgba(16,185,129,0.25)] hover:border-emerald-500/40",
-      amber: "hover:shadow-[0_0_25px_rgba(245,158,11,0.25)] hover:border-amber-500/40",
-      rose: "hover:shadow-[0_0_25px_rgba(244,63,94,0.25)] hover:border-rose-500/40",
-      purple: "hover:shadow-[0_0_25px_rgba(168,85,247,0.25)] hover:border-purple-500/40",
+      blue: "hover:border-blue-500/40",
+      cyan: "hover:border-cyan-500/40",
+      emerald: "hover:border-emerald-500/40",
+      amber: "hover:border-amber-500/40",
+      rose: "hover:border-rose-500/40",
+      purple: "hover:border-purple-500/40",
     };
 
     return (

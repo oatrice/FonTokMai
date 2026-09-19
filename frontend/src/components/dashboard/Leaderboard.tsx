@@ -20,7 +20,7 @@ export function Leaderboard() {
 
       <div className="flex items-center justify-between mb-6 relative z-10">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.4)]">
+          <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 ">
             <Trophy className="h-6 w-6" />
           </div>
           <div>
@@ -45,7 +45,7 @@ export function Leaderboard() {
 
       <div className="space-y-3 relative z-10">
         {leaderboardData.length === 0 && connectionState === "connected" && (
-          <div className="text-center py-8 text-slate-400 text-sm animate-pulse">Awaiting challengers...</div>
+          <div className="text-center py-8 text-slate-400 text-sm">Awaiting challengers...</div>
         )}
         <AnimatePresence>
           {leaderboardData.map((player, index) => (
@@ -58,7 +58,7 @@ export function Leaderboard() {
               transition={{ duration: 0.3, type: "spring", bounce: 0.4 }}
               className={`flex items-center justify-between p-3 rounded-xl border backdrop-blur-md transition-all hover:bg-white/10 group ${
                 index === 0 
-                  ? "bg-gradient-to-r from-amber-500/10 to-transparent border-amber-500/30 shadow-[inset_0_0_20px_rgba(245,158,11,0.1)]" 
+                  ? "bg-gradient-to-r from-amber-500/10 to-transparent border-amber-500/30 " 
                   : index === 1
                   ? "bg-gradient-to-r from-slate-300/10 to-transparent border-slate-300/20"
                   : index === 2
@@ -68,7 +68,7 @@ export function Leaderboard() {
             >
               <div className="flex items-center gap-4">
                 <div className={`w-8 text-center font-black text-xl italic ${
-                  index === 0 ? "text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.8)]" :
+                  index === 0 ? "text-amber-400 " :
                   index === 1 ? "text-slate-300" :
                   index === 2 ? "text-orange-500" : "text-slate-500"
                 }`}>
@@ -86,7 +86,7 @@ export function Leaderboard() {
                       className="w-10 h-10 rounded-lg bg-slate-900 border border-white/10 group-hover:border-purple-400/50 transition-colors"
                     />
                     {player.badge === "Ecosystem Guardian" && (
-                      <div className="absolute -top-2 -right-2 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(243,24,64,0.8)] animate-pulse flex items-center">
+                      <div className="absolute -top-2 -right-2 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded  flex items-center">
                         <Flame className="w-2.5 h-2.5 mr-0.5" />
                         Guardian
                       </div>

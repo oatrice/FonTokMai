@@ -804,7 +804,7 @@ export default function AdminRadarPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-              <Radio className="w-8 h-8 text-sky-400 animate-pulse" />
+              <Radio className="w-8 h-8 text-sky-400" />
               TMD Radar Administration & Live Operations
             </h1>
             <p className="mt-1 text-sm text-slate-400">
@@ -851,7 +851,7 @@ export default function AdminRadarPage() {
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Stations</span>
             <div className="text-3xl font-extrabold text-white mt-1">
               {tableLoading ? (
-                <div className="h-8 w-12 bg-slate-800 rounded animate-pulse my-0.5" />
+                <div className="h-8 w-12 bg-slate-800 rounded my-0.5" />
               ) : (
                 stations.length || 13
               )}
@@ -863,7 +863,7 @@ export default function AdminRadarPage() {
             </span>
             <div className="text-3xl font-extrabold text-emerald-300 mt-1">
               {tableLoading ? (
-                <div className="h-8 w-12 bg-emerald-900/40 rounded animate-pulse my-0.5" />
+                <div className="h-8 w-12 bg-emerald-900/40 rounded my-0.5" />
               ) : (
                 onlineCount
               )}
@@ -875,7 +875,7 @@ export default function AdminRadarPage() {
             </span>
             <div className="text-3xl font-extrabold text-amber-300 mt-1">
               {tableLoading ? (
-                <div className="h-8 w-12 bg-amber-900/40 rounded animate-pulse my-0.5" />
+                <div className="h-8 w-12 bg-amber-900/40 rounded my-0.5" />
               ) : (
                 delayedCount
               )}
@@ -887,7 +887,7 @@ export default function AdminRadarPage() {
             </span>
             <div className="text-3xl font-extrabold text-rose-300 mt-1">
               {tableLoading ? (
-                <div className="h-8 w-12 bg-rose-900/40 rounded animate-pulse my-0.5" />
+                <div className="h-8 w-12 bg-rose-900/40 rounded my-0.5" />
               ) : (
                 offlineCount
               )}
@@ -1020,7 +1020,7 @@ export default function AdminRadarPage() {
               </p>
             </div>
             <div className="text-xs text-slate-400 bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
               <span>คลิกที่การ์ดเพื่อเลือกสถานีไปปรับจูนได้ทันที</span>
             </div>
           </div>
@@ -1055,7 +1055,7 @@ export default function AdminRadarPage() {
                         <span
                           className={`w-2 h-2 rounded-full flex-shrink-0 ${
                             stStatus?.status === "online"
-                              ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                              ? "bg-emerald-400 "
                               : stStatus?.status === "delayed"
                               ? "bg-amber-400"
                               : "bg-rose-400"
@@ -1157,7 +1157,7 @@ export default function AdminRadarPage() {
                       {stationClusters.length > 0 ? (
                         <div className="absolute bottom-2 left-2 right-2 bg-slate-950/90 backdrop-blur border border-rose-500/50 rounded-xl p-2 text-xs flex items-center justify-between shadow-lg">
                           <div className="flex items-center gap-1.5 text-rose-300 font-medium">
-                            <CloudRain className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+                            <CloudRain className="w-3.5 h-3.5 text-rose-400" />
                             <span>Contour {stationClusters.length} จุด</span>
                           </div>
                           <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 px-1.5 py-0.5 rounded">
