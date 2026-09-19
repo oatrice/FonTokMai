@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Menu, ChevronLeft, Activity, AlertCircle, AlertTriangle, BarChart2, Bell, BellOff, Bug, Check, CheckCircle2, ChevronRight, Clock, CloudLightning, CloudRain, Crosshair, Database, Droplets, Gauge, Layers, Map, MapPin, Navigation, Pause, Play, Power, Search, Settings, Shield, ShieldAlert, Sliders, SplitSquareVertical, Star, Sun, Target, Wind, Zap } from 'lucide-react';
+import { ChevronUp, ChevronDown, Menu, ChevronLeft, Activity, AlertCircle, AlertTriangle, BarChart2, Bell, BellOff, Bug, Check, CheckCircle2, ChevronRight, Clock, CloudLightning, CloudRain, Crosshair, Database, Droplets, Gauge, Layers, Map, MapPin, Navigation, Pause, Play, Power, Search, Settings, Shield, ShieldAlert, Sliders, SplitSquareVertical, Star, Sun, Target, Wind, Zap } from 'lucide-react';
 
 type AppScreen = 'map' | 'places' | 'admin';
 type NotificationPolicy = 'always' | 'ask' | 'schedule' | 'silent';
@@ -12,6 +12,8 @@ type AdminToolMode = 'none' | 'calibrate' | 'lock';
 function RadarMockupsPrototype() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('map');
   const [isAdmin, setIsAdmin] = useState(true);
+  const [isUIHidden, setIsUIHidden] = useState(false);
+  const [isCardMinimized, setIsCardMinimized] = useState(false);
 
   // --- 1.2 Timeline Scrubbing State ---
   const [isPlaying, setIsPlaying] = useState(false);
@@ -73,7 +75,7 @@ function RadarMockupsPrototype() {
   const renderMainMap = () => (
     <div className="relative h-full w-full bg-slate-900 overflow-hidden flex flex-col">
       <div 
-        className="absolute inset-0 bg-cover transition-all duration-1000 ease-in-out origin-center" 
+        className="absolute inset-0 bg-cover transition-all duration-1000 ease-in-out origin-center cursor-pointer" onClick={() => setIsUIHidden(!isUIHidden)} 
         style={{ 
           backgroundImage: "url('https://api.maptiler.com/maps/dataviz-dark/static/100.50,13.75,11/600x800.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')",
           backgroundPosition: isOverview ? 'center' : activePlace.bgPos,
@@ -103,7 +105,7 @@ function RadarMockupsPrototype() {
         </div>
       )}
 
-      <div className="absolute top-12 left-4 right-4 flex justify-between items-start z-30">
+      <div className={`absolute top-12 left-4 right-4 flex justify-between items-start z-30 transition-all duration-500 ${isUIHidden ? '-translate-y-24 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
         
         <div className="relative">
           <button 
@@ -162,8 +164,21 @@ function RadarMockupsPrototype() {
         </div>
       )}
 
-      <div className="absolute bottom-24 left-4 right-4 z-30">
-        <div className="bg-slate-900/85 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
+      <div className={`absolute bottom-24 left-4 right-4 z-30 transition-all duration-500 ${isUIHidden ? 'translate-y-32 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
+        <div className={`bg-slate-900/85 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl relative overflow-hidden transition-all duration-500 ${isCardMinimized ? 'h-10' : 'h-[148px]'}`}>
+          <div 
+            className="w-full flex justify-center py-3 cursor-pointer relative hover:bg-slate-800/50 transition-colors"
+            onClick={() => setIsCardMinimized(!isCardMinimized)}
+          >
+             <div className="w-12 h-1.5 bg-slate-600 rounded-full pointer-events-none" />
+             <button 
+               className="absolute right-4 top-2 text-slate-400 hover:text-white transition-colors"
+               onClick={(e) => { e.stopPropagation(); setIsCardMinimized(!isCardMinimized); }}
+             >
+                {isCardMinimized ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+             </button>
+          </div>
+          <div className={`px-5 pb-5 transition-opacity duration-300 ${isCardMinimized ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'}`}>
           
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2 text-white font-semibold">
@@ -217,6 +232,7 @@ function RadarMockupsPrototype() {
               />
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -367,7 +383,7 @@ function RadarMockupsPrototype() {
           {currentScreen === 'admin' && renderAdmin()}
         </div>
 
-        <div className="h-20 bg-slate-900 border-t border-slate-800 flex items-center justify-around px-4 z-40 relative">
+        <div className={`h-20 bg-slate-900 border-t border-slate-800 flex items-center justify-around px-4 z-40 relative transition-all duration-500 ${isUIHidden && currentScreen === 'map' ? 'translate-y-24 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
           <button 
             onClick={() => { setCurrentScreen('map'); setAdminMode('none'); }}
             className={`flex flex-col items-center gap-1.5 p-2 transition-colors ${currentScreen === 'map' ? 'text-blue-400' : 'text-slate-500 hover:text-slate-400'}`}
@@ -405,6 +421,8 @@ function RadarMockupsPrototype() {
 function RadarMockupsOverlayPrototype() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('map');
   const [isAdmin, setIsAdmin] = useState(true);
+  const [isUIHidden, setIsUIHidden] = useState(false);
+  const [isCardMinimized, setIsCardMinimized] = useState(false);
 
   // --- 1.2 Timeline Scrubbing State ---
   const [isPlaying, setIsPlaying] = useState(false);
@@ -466,7 +484,7 @@ function RadarMockupsOverlayPrototype() {
   const renderMainMap = () => (
     <div className="relative h-full w-full bg-slate-900 overflow-hidden flex flex-col">
       <div 
-        className="absolute inset-0 bg-cover transition-all duration-1000 ease-in-out origin-center" 
+        className="absolute inset-0 bg-cover transition-all duration-1000 ease-in-out origin-center cursor-pointer" onClick={() => setIsUIHidden(!isUIHidden)} 
         style={{ 
           backgroundImage: "url('https://api.maptiler.com/maps/dataviz-dark/static/100.50,13.75,11/600x800.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')",
           backgroundPosition: isOverview ? 'center' : activePlace.bgPos,
@@ -495,7 +513,7 @@ function RadarMockupsOverlayPrototype() {
            <div className={`w-64 h-64 rounded-full blur-3xl ${mockWeather === 'storm' ? 'bg-red-500' : 'bg-blue-500'} mix-blend-screen opacity-50 animate-pulse`} />
         </div>
       )}
-      <div className="absolute top-12 left-4 right-4 flex justify-between items-start z-30">
+      <div className={`absolute top-12 left-4 right-4 flex justify-between items-start z-30 transition-all duration-500 ${isUIHidden ? '-translate-y-24 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
         
         <div className="flex items-center gap-2">
           <button 
@@ -567,7 +585,20 @@ function RadarMockupsOverlayPrototype() {
       )}
 
       <div className="absolute bottom-10 left-4 right-4 z-30">
-        <div className="bg-slate-900/85 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
+        <div className={`bg-slate-900/85 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl relative overflow-hidden transition-all duration-500 ${isCardMinimized ? 'h-10' : 'h-[148px]'}`}>
+          <div 
+            className="w-full flex justify-center py-3 cursor-pointer relative hover:bg-slate-800/50 transition-colors"
+            onClick={() => setIsCardMinimized(!isCardMinimized)}
+          >
+             <div className="w-12 h-1.5 bg-slate-600 rounded-full pointer-events-none" />
+             <button 
+               className="absolute right-4 top-2 text-slate-400 hover:text-white transition-colors"
+               onClick={(e) => { e.stopPropagation(); setIsCardMinimized(!isCardMinimized); }}
+             >
+                {isCardMinimized ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+             </button>
+          </div>
+          <div className={`px-5 pb-5 transition-opacity duration-300 ${isCardMinimized ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'}`}>
           
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2 text-white font-semibold">
@@ -621,6 +652,7 @@ function RadarMockupsOverlayPrototype() {
               />
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
