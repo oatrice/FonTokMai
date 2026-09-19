@@ -23,6 +23,12 @@ export default function RadarMockupsPage() {
   // Bottom Sheet Snap Points State (Demonstrated on Style A & B)
   const [snapState, setSnapState] = useState<'collapsed' | 'half' | 'expanded'>('expanded');
 
+  // Admin Debug Viewer State
+  const [debugMode, setDebugMode] = useState<'split' | 'pip'>('split');
+  const [adminViewMode, setAdminViewMode] = useState<'latest' | '6frames'>('latest');
+  const [selectedFrame, setSelectedFrame] = useState<number | null>(null);
+  const [expandStyle, setExpandStyle] = useState<'half' | 'full'>('full');
+
   const toggleSnap = () => {
     if (snapState === 'collapsed') setSnapState('half');
     else if (snapState === 'half') setSnapState('expanded');
@@ -978,100 +984,257 @@ export default function RadarMockupsPage() {
       </div>
 
       {/* ======================= FLOW 3: ADMIN DEBUG VIEWER ======================= */}
-      <div className="max-w-[1400px] w-full mb-10">
-        <h2 className="text-2xl font-bold text-slate-800 mb-2 border-b-2 border-slate-200 pb-2">Step 3: Admin Debug Mode (Tester เลือกได้ 2 แบบ)</h2>
-        <p className="text-slate-500 mb-8">Split Screen (สำหรับคนที่ชอบเทียบชัดๆ บน-ล่าง) และ PiP (สำหรับคนที่อยากดู Native เต็มตาแล้วชำเลืองมองบอท)</p>
+      <div className="max-w-[1400px] w-full mb-10 flex flex-col items-center">
+        <h2 className="text-2xl font-bold text-slate-800 mb-2 border-b-2 border-slate-200 pb-2">Step 3: Admin Debug Mode (Interactive)</h2>
+        <p className="text-slate-500 mb-6">คลิกปุ่มด้านล่างเพื่อสลับโหมดการทำงานและดูภาพ 6 Frames ย้อนหลัง</p>
         
-        <div className="flex flex-wrap justify-center gap-10">
+        <div className="flex flex-wrap justify-center gap-6 mb-10 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-2">Layout Mode</span>
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              <button 
+                onClick={() => setDebugMode('split')}
+                className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${debugMode === 'split' ? 'bg-white text-rose-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+              >
+                <SplitSquareVertical className="w-4 h-4" /> Split Screen
+              </button>
+              <button 
+                onClick={() => setDebugMode('pip')}
+                className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${debugMode === 'pip' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+              >
+                <Bug className="w-4 h-4" /> PiP Overlay
+              </button>
+            </div>
+          </div>
           
-          {/* Debug 1: Split Screen */}
-          <div className="flex flex-col items-center">
-            <h3 className="text-md font-semibold mb-3 text-rose-500 flex items-center gap-2">
-              <SplitSquareVertical className="w-5 h-5" /> Split Screen Debug
-            </h3>
-            
-            <div className="w-[375px] h-[812px] bg-slate-900 rounded-[40px] border-[8px] border-rose-900 overflow-hidden relative shadow-2xl flex flex-col">
-              <div className="h-[45%] relative bg-slate-800 w-full overflow-hidden">
-                <div className="absolute inset-0 bg-cover bg-center opacity-40" style={{ backgroundImage: "url('https://api.maptiler.com/maps/dataviz-dark/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
-                <div className="absolute top-2 left-2 bg-rose-500/20 text-rose-400 border border-rose-500/50 px-2 py-0.5 rounded text-[10px] font-bold">NATIVE VECTOR</div>
+          <div className="w-px bg-slate-200 mx-2 hidden sm:block"></div>
+
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-2">Data View</span>
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              <button 
+                onClick={() => setAdminViewMode('latest')}
+                className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${adminViewMode === 'latest' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+              >
+                Radar Latest
+              </button>
+              <button 
+                onClick={() => setAdminViewMode('6frames')}
+                className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${adminViewMode === '6frames' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+              >
+                6 Frames Analysis
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex justify-center transition-all duration-500 min-h-[850px]">
+          
+          {debugMode === 'split' && (
+            <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
+              <h3 className="text-md font-semibold mb-3 text-rose-500 flex items-center gap-2">
+                <SplitSquareVertical className="w-5 h-5" /> Split Screen Debug
+              </h3>
+              
+              <div className="w-[375px] h-[812px] bg-slate-900 rounded-[40px] border-[8px] border-rose-900 overflow-hidden relative shadow-2xl flex flex-col">
                 
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 z-10">
-                  <div className="absolute inset-0 rounded-full border-2 border-amber-400 bg-amber-500/10"></div>
-                  <svg className="absolute top-1/2 left-1/2 w-48 h-48 overflow-visible" style={{ transform: 'translate(-10px, -10px)' }}>
-                     <path d="M 0 0 L 80 -40" fill="none" stroke="#3b82f6" strokeWidth="2" strokeDasharray="4 2" />
-                  </svg>
+                {/* IN-APP ADMIN TOGGLE */}
+                <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 bg-black/60 backdrop-blur-md p-1 rounded-full flex border border-slate-700/50 shadow-xl">
+                  <button onClick={() => setDebugMode('split')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${debugMode === 'split' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-300 hover:text-white'}`}>SPLIT</button>
+                  <button onClick={() => setDebugMode('pip')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${debugMode === 'pip' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-300 hover:text-white'}`}>PIP</button>
                 </div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20">
-                  <MapPin className="w-6 h-6 text-white" fill="#3b82f6" />
-                </div>
-              </div>
 
-              <div className="h-6 bg-slate-950 flex items-center justify-center border-y border-slate-800 cursor-row-resize z-30 shadow-[0_0_10px_rgba(0,0,0,0.5)]">
-                 <div className="w-12 h-1 rounded-full bg-slate-700"></div>
-              </div>
-
-              <div className="flex-1 bg-black relative w-full overflow-hidden flex flex-col">
-                <div className="absolute top-2 left-2 bg-slate-700 text-white px-2 py-0.5 rounded text-[10px] font-bold z-10">BOT STATIC IMAGE (JPG)</div>
-                <div className="flex-1 flex items-center justify-center p-4">
-                  <div className="w-full aspect-[4/5] bg-slate-800 rounded-lg overflow-hidden border border-slate-700 shadow-lg relative flex items-center justify-center">
-                    <div className="absolute inset-0 bg-[url('https://api.maptiler.com/maps/streets-v2/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')] opacity-50 bg-cover"></div>
-                    <div className="absolute inset-0 flex items-center justify-center mix-blend-multiply opacity-80">
-                      <div className="w-48 h-48 bg-[radial-gradient(circle,#f00_0%,#ff0_30%,transparent_60%)] filter blur-[2px] opacity-80"></div>
+                {/* NATIVE VECTOR HALF */}
+                <div className="h-[45%] relative bg-slate-800 w-full overflow-hidden">
+                  <div className="absolute inset-0 bg-cover bg-center opacity-40" style={{ backgroundImage: "url('https://api.maptiler.com/maps/dataviz-dark/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
+                  <div className="absolute top-2 left-2 bg-blue-500/20 text-blue-400 border border-blue-500/50 px-2 py-0.5 rounded text-[10px] font-bold z-10">NATIVE VECTOR RENDER</div>
+                  
+                  {/* Dynamic render based on adminViewMode */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 z-10">
+                    <div className="absolute inset-0 rounded-full border-2 border-amber-400 bg-amber-500/10 transition-transform duration-500" style={{ transform: adminViewMode === '6frames' ? `scale(${1 + frameIndex * 0.05})` : 'scale(1)' }}></div>
+                    {adminViewMode === '6frames' && (
+                      <>
+                        <div className="absolute top-1/4 left-1/4 w-16 h-16 rounded-full border border-blue-400/40 bg-blue-500/10"></div>
+                        <div className="absolute bottom-1/4 right-1/4 w-20 h-20 rounded-full border border-rose-400/40 bg-rose-500/10"></div>
+                      </>
+                    )}
+                    <svg className="absolute top-1/2 left-1/2 w-48 h-48 overflow-visible" style={{ transform: 'translate(-10px, -10px)' }}>
+                       <path d="M 0 0 L 80 -40" fill="none" stroke="#3b82f6" strokeWidth="2" strokeDasharray="4 2" />
+                       {adminViewMode === '6frames' && <path d="M 0 0 L -60 30" fill="none" stroke="#f43f5e" strokeWidth="2" strokeDasharray="4 2" />}
+                    </svg>
+                  </div>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20">
+                    <MapPin className="w-6 h-6 text-white drop-shadow-md" fill="#3b82f6" />
+                  </div>
+                  
+                  {adminViewMode === '6frames' && (
+                    <div className="absolute bottom-3 left-3 bg-slate-900/80 px-3 py-2 rounded-xl border border-slate-700 flex items-center gap-3 backdrop-blur-sm z-20">
+                       <span className="text-[10px] font-bold text-slate-300">NATIVE SYNC:</span>
+                       <div className="h-2 w-24 bg-slate-800 rounded-full overflow-hidden border border-slate-600">
+                          <div className="h-full bg-blue-500 transition-all duration-300 ease-linear" style={{ width: `${progressPercent}%` }}></div>
+                       </div>
+                       <span className="text-xs font-mono text-blue-400">{times[frameIndex]}</span>
                     </div>
-                    <div className="absolute bottom-2 left-2 bg-black/60 text-[8px] text-white p-1 font-mono">Radar_Latest.jpg<br/>14:20:00</div>
-                  </div>
+                  )}
                 </div>
-                <div className="h-14 bg-slate-900 border-t border-slate-800 flex items-center justify-between px-4">
-                  <span className="text-xs text-slate-400">View:</span>
-                  <div className="flex gap-2">
-                    <button className="bg-blue-600 text-[10px] text-white px-3 py-1.5 rounded-md font-bold">Latest.jpg</button>
-                    <button className="bg-slate-800 border border-slate-700 text-[10px] text-slate-300 px-3 py-1.5 rounded-md hover:bg-slate-700">6_frames.gif</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Debug 2: PiP */}
-          <div className="flex flex-col items-center">
-            <h3 className="text-md font-semibold mb-3 text-orange-500 flex items-center gap-2">
-              <Bug className="w-5 h-5" /> PiP Overlay Debug
-            </h3>
-            
-            <div className="w-[375px] h-[812px] bg-slate-100 rounded-[40px] border-[8px] border-orange-500/50 overflow-hidden relative shadow-2xl flex flex-col">
-              <div className="h-[70%] relative bg-slate-200 w-full overflow-hidden">
-                <div className="absolute inset-0 bg-cover bg-center opacity-70" style={{ backgroundImage: "url('https://api.maptiler.com/maps/dataviz-light/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
-                
-                <div className="absolute top-1/3 left-1/3 w-32 h-32 z-10">
-                  <div className="absolute inset-0 rounded-full border-2 border-orange-400 bg-transparent"></div>
+                {/* DRAG HANDLE */}
+                <div className="h-6 bg-slate-950 flex items-center justify-center border-y border-slate-800 cursor-row-resize z-30 shadow-[0_0_10px_rgba(0,0,0,0.5)] relative">
+                   <div className="w-12 h-1 rounded-full bg-slate-700"></div>
+                   <div className="absolute right-2 text-[8px] font-bold text-slate-600">DRAG</div>
                 </div>
-                
-                {/* PIP WINDOW */}
-                <div className="absolute bottom-6 right-4 w-32 h-44 bg-black rounded-xl shadow-2xl border-2 border-orange-500 overflow-hidden z-40 transform transition-transform hover:scale-110 origin-bottom-right">
-                   <div className="bg-orange-500 text-black text-[8px] font-bold flex justify-between px-2 py-1 items-center">
-                     <span>BOT.JPG</span>
-                     <span className="opacity-50">✕</span>
-                   </div>
-                   <div className="w-full h-full bg-[url('https://api.maptiler.com/maps/streets-v2/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')] bg-cover relative">
-                      <div className="absolute inset-0 bg-[radial-gradient(circle,#f00_0%,#ff0_30%,transparent_60%)] filter blur-[1px] opacity-70 mix-blend-multiply -translate-x-2 -translate-y-2"></div>
-                   </div>
+
+                {/* BOT STATIC HALF */}
+                <div className="flex-1 bg-black relative w-full overflow-hidden flex flex-col">
+                  <div className="absolute top-2 left-2 bg-slate-700 text-white px-2 py-0.5 rounded text-[10px] font-bold z-10 shadow-md">
+                    {adminViewMode === 'latest' ? 'BOT STATIC IMAGE (JPG)' : 'BOT 6-FRAMES GRID (TAP TO EXPAND)'}
+                  </div>
+                  <div className="flex-1 flex items-center justify-center p-4 pt-10">
+                    {adminViewMode === 'latest' ? (
+                      // Latest Image View
+                      <div className="w-full aspect-[4/5] bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-xl relative flex items-center justify-center group">
+                        <div className="absolute inset-0 bg-[url('https://api.maptiler.com/maps/streets-v2/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')] opacity-50 bg-cover"></div>
+                        <div className="absolute inset-0 flex items-center justify-center mix-blend-screen opacity-80">
+                          <div className="w-48 h-48 bg-[radial-gradient(circle,#f00_0%,#ff0_30%,transparent_60%)] filter blur-[2px] opacity-80"></div>
+                        </div>
+                        <div className="absolute bottom-3 left-3 bg-black/80 text-[10px] text-white px-2 py-1.5 rounded-lg font-mono border border-slate-700 backdrop-blur-sm">
+                          radar_latest.jpg<br/><span className="text-slate-400">14:20:00</span>
+                        </div>
+                        <div className="absolute inset-0 border-2 border-indigo-500/0 group-hover:border-indigo-500/50 rounded-xl transition-colors pointer-events-none"></div>
+                      </div>
+                    ) : (
+                      // 6 Frames View (Grid layout representing analysis)
+                      <div className="w-full h-full grid grid-cols-2 grid-rows-3 gap-3 p-1">
+                         {[1, 2, 3, 4, 5, 6].map((num) => (
+                           <div 
+                             key={num} 
+                             onClick={() => setSelectedFrame(num)}
+                             className={`cursor-pointer hover:scale-[1.02] bg-slate-800 rounded-lg overflow-hidden relative border flex items-center justify-center transition-all ${frameIndex === num - 1 ? 'border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'border-slate-700 hover:border-slate-500'}`}
+                           >
+                             <div className="absolute inset-0 bg-[url('https://api.maptiler.com/maps/streets-v2/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')] opacity-40 bg-cover"></div>
+                             <div className="absolute inset-0 flex items-center justify-center mix-blend-screen opacity-80 pointer-events-none">
+                               <div className="w-24 h-24 bg-[radial-gradient(circle,#f00_0%,#ff0_30%,transparent_60%)] filter blur-[2px]" style={{ transform: `scale(${0.4 + num * 0.1})` }}></div>
+                             </div>
+                             <div className={`absolute top-2 left-2 text-[10px] px-1.5 py-0.5 font-mono rounded pointer-events-none ${frameIndex === num - 1 ? 'bg-indigo-600 text-white' : 'bg-black/70 text-slate-300'}`}>
+                               {times[num - 1]}
+                             </div>
+                           </div>
+                         ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="h-16 bg-slate-900 border-t border-slate-800 flex items-center justify-between px-6 z-20">
+                    <span className="text-xs font-semibold text-slate-400">Render Source:</span>
+                    <span className="text-sm font-mono text-emerald-400 font-bold bg-emerald-950/50 px-3 py-1 rounded border border-emerald-900/50">
+                      {adminViewMode === 'latest' ? 'S3: radar_latest.jpg' : 'S3: radar_analysis_6frames'}
+                    </span>
+                  </div>
                 </div>
+
+                {/* EXPANDED FRAME VIEW OVERLAY */}
+                {selectedFrame !== null && adminViewMode === '6frames' && (
+                  <div className={`absolute left-0 right-0 top-0 z-50 bg-slate-950 flex flex-col transition-all duration-300 ${expandStyle === 'full' ? 'bottom-0 h-full' : 'h-[45%] border-b-2 border-indigo-500 shadow-xl'}`}>
+                     <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent z-10 absolute top-0 left-0 right-0 pt-12">
+                       <div className="bg-indigo-600 text-white text-[10px] px-2 py-1 rounded font-mono shadow-md border border-indigo-500/50">FRAME: {times[selectedFrame - 1]}</div>
+                       <div className="flex gap-2">
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); setExpandStyle(expandStyle === 'full' ? 'half' : 'full'); }} 
+                           className="bg-black/60 backdrop-blur border border-slate-600 text-white text-[10px] px-3 py-1.5 rounded-full hover:bg-slate-800 transition-colors"
+                         >
+                           {expandStyle === 'full' ? 'ย่อครึ่งจอ (Half)' : 'เต็มจอ (Full)'}
+                         </button>
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); setSelectedFrame(null); }} 
+                           className="bg-rose-500 text-white w-7 h-7 rounded-full flex items-center justify-center hover:bg-rose-600 transition-colors shadow-md"
+                         >✕</button>
+                       </div>
+                     </div>
+                     <div className="flex-1 w-full bg-[url('https://api.maptiler.com/maps/streets-v2/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')] bg-cover bg-center relative flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/20"></div>
+                        <div className="absolute inset-0 flex items-center justify-center mix-blend-screen opacity-90">
+                          <div className="w-64 h-64 bg-[radial-gradient(circle,#f00_0%,#ff0_30%,transparent_60%)] filter blur-[2px]" style={{ transform: `scale(${0.4 + selectedFrame * 0.1})` }}></div>
+                        </div>
+                     </div>
+                     {expandStyle === 'full' && (
+                       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/80 px-4 py-2 rounded-full text-xs text-white backdrop-blur border border-slate-700/50 pointer-events-none">
+                         Bot Static Image Review
+                       </div>
+                     )}
+                  </div>
+                )}
               </div>
-              <div className="flex-1 bg-white p-5 relative z-30 border-t border-slate-200 flex flex-col">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-lg text-slate-900">ฝนหนักกำลังมา</h3>
+            </div>
+          )}
+
+          {debugMode === 'pip' && (
+            <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
+              <h3 className="text-md font-semibold mb-3 text-orange-500 flex items-center gap-2">
+                <Bug className="w-5 h-5" /> PiP Overlay Debug
+              </h3>
+              
+              <div className="w-[375px] h-[812px] bg-slate-100 rounded-[40px] border-[8px] border-orange-500/50 overflow-hidden relative shadow-2xl flex flex-col">
+                
+                {/* IN-APP ADMIN TOGGLE */}
+                <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 bg-black/60 backdrop-blur-md p-1 rounded-full flex border border-slate-700/50 shadow-xl">
+                  <button onClick={() => setDebugMode('split')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${debugMode === 'split' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-300 hover:text-white'}`}>SPLIT</button>
+                  <button onClick={() => setDebugMode('pip')} className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${debugMode === 'pip' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-300 hover:text-white'}`}>PIP</button>
                 </div>
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 mt-auto">
-                   <div className="flex items-center gap-4">
-                    <button className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center border border-orange-200">
-                      <Bug className="w-5 h-5" />
-                    </button>
-                    <div className="text-sm font-semibold text-slate-700">Toggle Admin Image Viewer</div>
-                   </div>
+
+                <div className="flex-1 relative bg-slate-200 w-full overflow-hidden">
+                  <div className="absolute inset-0 bg-cover bg-center opacity-70" style={{ backgroundImage: "url('https://api.maptiler.com/maps/dataviz-light/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')" }} />
+                  
+                  <div className="absolute top-1/3 left-1/3 w-32 h-32 z-10">
+                    <div className="absolute inset-0 rounded-full border-2 border-orange-400 bg-transparent transition-transform duration-500" style={{ transform: adminViewMode === '6frames' ? `scale(${1 + frameIndex * 0.05})` : 'scale(1)' }}></div>
+                    <svg className="absolute top-1/2 left-1/2 w-48 h-48 overflow-visible" style={{ transform: 'translate(-10px, -10px)' }}>
+                       <path d="M 0 0 L 80 -40" fill="none" stroke="#f97316" strokeWidth="2" strokeDasharray="4 2" />
+                    </svg>
+                  </div>
+                  <div className="absolute top-1/3 left-1/3 flex flex-col items-center z-20" style={{ transform: 'translate(-12px, -12px)' }}>
+                    <MapPin className="w-6 h-6 text-orange-500 drop-shadow-md" fill="#ffffff" />
+                  </div>
+                  
+                  {/* PIP WINDOW (STATIC BOT IMAGE OVERLAY) */}
+                  <div className="absolute bottom-32 right-4 w-[160px] shadow-2xl rounded-xl border-2 border-orange-500 overflow-hidden z-40 transform transition-transform hover:scale-105 origin-bottom-right bg-black flex flex-col">
+                     <div className="bg-orange-500 text-black text-[10px] font-bold flex justify-between px-3 py-2 items-center">
+                       <span>{adminViewMode === 'latest' ? 'BOT STATIC' : '6-FRAMES'}</span>
+                       <button className="opacity-60 hover:opacity-100 transition-opacity">✕</button>
+                     </div>
+                     <div className="w-full aspect-[4/5] bg-[url('https://api.maptiler.com/maps/streets-v2/static/100.50,13.75,11/400x500.png?key=get_your_own_OpIi9ZULNHzrESv6T2vL')] bg-cover relative flex items-center justify-center p-1.5 bg-slate-900">
+                        {adminViewMode === 'latest' ? (
+                          <div className="absolute inset-0 flex items-center justify-center mix-blend-screen opacity-90">
+                            <div className="w-24 h-24 bg-[radial-gradient(circle,#f00_0%,#ff0_30%,transparent_60%)] filter blur-[1px]"></div>
+                          </div>
+                        ) : (
+                          <div className="w-full h-full grid grid-cols-2 grid-rows-3 gap-1">
+                            {[1, 2, 3, 4, 5, 6].map((num) => (
+                              <div key={num} className={`bg-slate-800 rounded overflow-hidden relative flex items-center justify-center transition-colors ${frameIndex === num - 1 ? 'border border-indigo-400' : ''}`}>
+                                <div className="absolute inset-0 bg-[radial-gradient(circle,#f00_0%,#ff0_30%,transparent_60%)] filter blur-[0.5px] mix-blend-screen opacity-90" style={{ transform: `scale(${0.4 + num * 0.1})` }}></div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                     </div>
+                  </div>
+                </div>
+                
+                {/* BOTTOM SHEET */}
+                <div className="bg-white rounded-t-3xl border-t border-slate-200 relative z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.08)] flex flex-col pb-6">
+                  <div className="w-full pt-3 pb-2 flex justify-center cursor-pointer">
+                    <div className="w-12 h-1.5 rounded-full bg-slate-200"></div>
+                  </div>
+                  <div className="px-6 flex items-center justify-between mt-2">
+                     <div>
+                       <h3 className="font-bold text-xl text-slate-900">Admin Mode</h3>
+                       <p className="text-xs text-slate-500 mt-1 font-mono">{adminViewMode === 'latest' ? 'Sync: radar_latest.jpg' : 'Sync: 6 frames animation'}</p>
+                     </div>
+                     <button onClick={() => setDebugMode('split')} className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center border border-orange-200 hover:bg-orange-200 transition-colors shadow-sm">
+                        <Bug className="w-6 h-6" />
+                     </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
         </div>
       </div>
