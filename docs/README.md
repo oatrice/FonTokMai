@@ -34,3 +34,4 @@
 - `fonmayang_cloudrun_metrics_report.md`: รายงานประสิทธิภาพ Cloud Run
 
 - [UX/UI Flow Architectural Evaluation (5 Paradigms)](./ux_flow_architectural_eval.md)
+- [Public User Static Radar Image Reference Architecture](./public_static_radar_reference.md)
