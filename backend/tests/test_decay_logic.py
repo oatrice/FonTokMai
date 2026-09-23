@@ -103,7 +103,7 @@ async def test_predict_rain_respects_decay_enabled_and_steps(mock_repo_context):
     import time
     fake_cache = (fake_frames, None, time.time(), fake_flow, "mock_source", 15.0, [time.time() - 900, time.time()])
     
-    with patch("app.services.weather_manager._GLOBAL_TMD_CACHE", {"kkn120": fake_cache}), \
+    with patch("app.services.tmd_radar.cache_manager.RadarFrameCache.get", lambda self, st: type("FakeEntry", (), {"frames": fake_cache[0], "last_modified_dt": fake_cache[1], "cache_timestamp": fake_cache[2], "flow": fake_cache[3], "frame_source": "static", "data_gap_minutes": 15.0, "frame_timestamps": [], "frame_urls": []})() if st == "kkn120" else None), \
          patch("app.services.weather_manager.TMDRadarProcessor", return_value=mock_processor), \
          patch("app.services.weather_manager.get_repo_context", mock_repo_context):
         

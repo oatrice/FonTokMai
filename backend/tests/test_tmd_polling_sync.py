@@ -51,6 +51,10 @@ async def test_weather_manager_triggers_update_when_cache_stale(monkeypatch):
     _install_stubs(monkeypatch)
     from app.services.weather_manager import WeatherManager
     from app.services import weather_manager as wm
+    from app.services.tmd_radar.cache_manager import radar_cache
+
+    from app.services.tmd_radar.cache_manager import radar_cache
+
     from app.services.tmd_radar_processor import TMDRadarProcessor
 
     manager = WeatherManager()
@@ -59,17 +63,9 @@ async def test_weather_manager_triggers_update_when_cache_stale(monkeypatch):
     stale_time = time.time() - 1300 # 21.6 minutes ago
     dummy_image = np.zeros((800, 800, 3), dtype=np.uint8)
     dummy_flow = np.zeros((800, 800, 2), dtype=np.float32)
-    stale_entry = (
-        [dummy_image, dummy_image],
-        datetime.now(timezone.utc),
-        stale_time,
-        dummy_flow,
-        "static_cache",
-        15.0,
-        [int(stale_time) - 900, int(stale_time)]
-    )
-    
-    wm._GLOBAL_TMD_CACHE["kkn240"] = stale_entry
+    radar_cache.set("kkn240", [dummy_image, dummy_image], datetime.now(timezone.utc), dummy_flow, "static_cache", 15.0, [int(stale_time) - 900, int(stale_time)], [])
+    radar_cache.get("kkn240").cache_timestamp = stale_time
+
     
     mock_update_cache = AsyncMock()
     # Mock update_radar_cache to return a status dict
@@ -82,7 +78,7 @@ async def test_weather_manager_triggers_update_when_cache_stale(monkeypatch):
     
     with patch("app.services.weather_manager.get_repo_context") as mock_repo_context:
         # Mock load_persistent_cache_to_memory to return stale entry
-        mock_load = AsyncMock(return_value=stale_entry)
+        mock_load = AsyncMock(return_value=radar_cache.get("kkn240"))
         monkeypatch.setattr(manager, "load_persistent_cache_to_memory", mock_load)
         
         await manager._get_tmd_prediction(lat, lng, force_station="kkn240")

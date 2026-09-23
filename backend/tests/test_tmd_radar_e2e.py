@@ -47,23 +47,15 @@ async def test_tmd_radar_e2e_prediction_success(monkeypatch):
     dummy_flow = processor.calculate_optical_flow([dummy_image, dummy_image])
     
     from app.services import weather_manager as wm
+    from app.services.tmd_radar.cache_manager import radar_cache
+
     
     # Mock cache ตรงเข้าใน module-level แทน
-    wm._GLOBAL_TMD_CACHE["skn240"] = (
-        [dummy_image, dummy_image], 
-        datetime.now(timezone.utc), 
-        time.time(), 
-        dummy_flow
-    )
+    radar_cache.set("skn240", [dummy_image, dummy_image], datetime.now(timezone.utc), dummy_flow, "static", 15.0, [], [])
     # ตัด kkn120/kkn240 ออกเพื่อให้มัน fall through ไป skn240 ที่เรา mock ไว้
     # หรือ mock ทั้งหมดเลยก็ได้
     for st in ["kkn120", "kkn240", "skn240"]:
-        wm._GLOBAL_TMD_CACHE[st] = (
-            [dummy_image, dummy_image], 
-            datetime.now(timezone.utc), 
-            time.time(), 
-            dummy_flow
-        )
+        radar_cache.set(st, [dummy_image, dummy_image], datetime.now(timezone.utc), dummy_flow, "static", 15.0, [], [])
         
     result = await manager._get_tmd_prediction(lat, lng)
     
@@ -99,6 +91,8 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping(monkeypatch):
 
     from app.services.weather_manager import WeatherManager
     from app.services import weather_manager as wm
+    from app.services.tmd_radar.cache_manager import radar_cache
+
     from app.services.tmd_radar_processor import TMDRadarProcessor
 
     lat, lng = 17.8785, 102.7420  # Nong Khai: covered by kkn240.
@@ -107,12 +101,12 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping(monkeypatch):
 
     processor = TMDRadarProcessor("kkn240")
     dummy_flow = processor.calculate_optical_flow([dummy_image, dummy_image])
-    cached_entry = ([dummy_image, dummy_image], datetime.now(timezone.utc), time.time(), dummy_flow)
+    cached_entry = ([dummy_image, dummy_image], datetime.now(timezone.utc), dummy_flow, "static", 15.0, [], [])
 
-    original_cache = wm._GLOBAL_TMD_CACHE.copy()
-    wm._GLOBAL_TMD_CACHE.clear()
+    original_cache = {st: radar_cache.get(st) for st in radar_cache.get_all_stations()}
+    radar_cache.clear()
     for station_code in ["kkn120", "kkn240", "skn240"]:
-        wm._GLOBAL_TMD_CACHE[station_code] = cached_entry
+        radar_cache.set(station_code, *cached_entry)
 
     calls = []
     original_latlng_to_pixel = TMDRadarProcessor.latlng_to_pixel
@@ -126,8 +120,8 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping(monkeypatch):
     try:
         result = asyncio.run(WeatherManager()._get_tmd_prediction(lat, lng))
     finally:
-        wm._GLOBAL_TMD_CACHE.clear()
-        wm._GLOBAL_TMD_CACHE.update(original_cache)
+        radar_cache.clear()
+        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.cache_timestamp, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
 
     assert result["endpoint"] == "tmd-radar (kkn240)"
     assert ("kkn240", False) in calls
@@ -147,6 +141,8 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping_skn(monkeypatch
 
     from app.services.weather_manager import WeatherManager
     from app.services import weather_manager as wm
+    from app.services.tmd_radar.cache_manager import radar_cache
+
     from app.services.tmd_radar_processor import TMDRadarProcessor
 
     lat, lng = 17.8785, 102.7420  # Nong Khai still reaches kkn240 first, but skn can be forced by cache setup.
@@ -155,11 +151,11 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping_skn(monkeypatch
 
     processor = TMDRadarProcessor("skn240")
     dummy_flow = processor.calculate_optical_flow([dummy_image, dummy_image])
-    cached_entry = ([dummy_image, dummy_image], datetime.now(timezone.utc), time.time(), dummy_flow)
+    cached_entry = ([dummy_image, dummy_image], datetime.now(timezone.utc), dummy_flow, "static", 15.0, [], [])
 
-    original_cache = wm._GLOBAL_TMD_CACHE.copy()
-    wm._GLOBAL_TMD_CACHE.clear()
-    wm._GLOBAL_TMD_CACHE["skn240"] = cached_entry
+    original_cache = {st: radar_cache.get(st) for st in radar_cache.get_all_stations()}
+    radar_cache.clear()
+    radar_cache.set("skn240", *cached_entry)
 
     calls = []
     original_latlng_to_pixel = TMDRadarProcessor.latlng_to_pixel
@@ -173,8 +169,8 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping_skn(monkeypatch
     try:
         result = asyncio.run(WeatherManager()._get_tmd_prediction(lat, lng, force_station="skn240"))
     finally:
-        wm._GLOBAL_TMD_CACHE.clear()
-        wm._GLOBAL_TMD_CACHE.update(original_cache)
+        radar_cache.clear()
+        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.cache_timestamp, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
 
     assert result["endpoint"] == "tmd-radar (skn240)"
     assert ("skn240", False) in calls
@@ -192,6 +188,8 @@ async def test_tmd_radar_fresh_loop_fallback_works(monkeypatch):
 
     from app.services.weather_manager import WeatherManager
     from app.services import weather_manager as wm
+    from app.services.tmd_radar.cache_manager import radar_cache
+
     from app.services.tmd_radar_processor import TMDRadarProcessor
     from unittest.mock import MagicMock, AsyncMock
 
@@ -208,8 +206,8 @@ async def test_tmd_radar_fresh_loop_fallback_works(monkeypatch):
     async def mock_repo_context():
         yield repo
 
-    original_cache = wm._GLOBAL_TMD_CACHE.copy()
-    wm._GLOBAL_TMD_CACHE.clear()
+    original_cache = {st: radar_cache.get(st) for st in radar_cache.get_all_stations()}
+    radar_cache.clear()
 
     calls = []
     original_latlng_to_pixel = TMDRadarProcessor.latlng_to_pixel
@@ -235,8 +233,8 @@ async def test_tmd_radar_fresh_loop_fallback_works(monkeypatch):
     try:
         result = await WeatherManager()._get_tmd_prediction(lat, lng, mock_state="storm")
     finally:
-        wm._GLOBAL_TMD_CACHE.clear()
-        wm._GLOBAL_TMD_CACHE.update(original_cache)
+        radar_cache.clear()
+        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.cache_timestamp, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
 
     assert result["endpoint"] == "tmd-radar (kkn240)"
     assert result["radar_static_bytes"] is not None
@@ -260,6 +258,8 @@ def test_tmd_prediction_timestamps_based_on_now_utc(monkeypatch):
 
     from app.services.weather_manager import WeatherManager
     from app.services import weather_manager as wm
+    from app.services.tmd_radar.cache_manager import radar_cache
+
     from app.services.tmd_radar_processor import TMDRadarProcessor
 
     lat, lng = 17.8785, 102.7420
@@ -270,18 +270,18 @@ def test_tmd_prediction_timestamps_based_on_now_utc(monkeypatch):
     
     processor = TMDRadarProcessor("kkn240")
     dummy_flow = processor.calculate_optical_flow([dummy_image, dummy_image])
-    cached_entry = ([dummy_image, dummy_image], past_now_utc, time.time(), dummy_flow)
+    cached_entry = ([dummy_image, dummy_image], past_now_utc, dummy_flow, "static", 15.0, [], [])
 
-    original_cache = wm._GLOBAL_TMD_CACHE.copy()
-    wm._GLOBAL_TMD_CACHE.clear()
+    original_cache = {st: radar_cache.get(st) for st in radar_cache.get_all_stations()}
+    radar_cache.clear()
     for station_code in ["kkn120", "kkn240", "skn240"]:
-        wm._GLOBAL_TMD_CACHE[station_code] = cached_entry
+        radar_cache.set(station_code, *cached_entry)
 
     try:
         result = asyncio.run(WeatherManager()._get_tmd_prediction(lat, lng))
     finally:
-        wm._GLOBAL_TMD_CACHE.clear()
-        wm._GLOBAL_TMD_CACHE.update(original_cache)
+        radar_cache.clear()
+        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.cache_timestamp, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
 
     assert result is not None
     predictions = result.get("predictions", [])
@@ -306,6 +306,8 @@ async def test_tmd_radar_no_false_failover_notice_for_outer_boundary(monkeypatch
 
     from app.services.weather_manager import WeatherManager
     from app.services import weather_manager as wm
+    from app.services.tmd_radar.cache_manager import radar_cache
+
     from datetime import datetime, timezone
     import time
     import numpy as np
@@ -318,22 +320,17 @@ async def test_tmd_radar_no_false_failover_notice_for_outer_boundary(monkeypatch
     processor = TMDRadarProcessor("kkn240")
     dummy_flow = processor.calculate_optical_flow([dummy_image, dummy_image])
 
-    original_cache = wm._GLOBAL_TMD_CACHE.copy()
-    wm._GLOBAL_TMD_CACHE.clear()
+    original_cache = {st: radar_cache.get(st) for st in radar_cache.get_all_stations()}
+    radar_cache.clear()
     
     # Mock fresh cache for kkn240
-    wm._GLOBAL_TMD_CACHE["kkn240"] = (
-        [dummy_image, dummy_image],
-        datetime.now(timezone.utc),
-        time.time(),
-        dummy_flow
-    )
+    radar_cache.set("kkn240", [dummy_image, dummy_image], datetime.now(timezone.utc), dummy_flow, "static", 15.0, [], [])
 
     try:
         result = await WeatherManager()._get_tmd_prediction(lat, lng)
     finally:
-        wm._GLOBAL_TMD_CACHE.clear()
-        wm._GLOBAL_TMD_CACHE.update(original_cache)
+        radar_cache.clear()
+        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.cache_timestamp, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
 
     assert result is not None
     assert result["endpoint"] == "tmd-radar (kkn240)"
