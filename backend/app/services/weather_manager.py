@@ -3,6 +3,7 @@ from app.core.dev_settings import get_dev_settings
 import logging
 import time
 import os
+from app.services.tmd_radar.cache_manager import radar_cache
 import asyncio
 import json
 import math
@@ -285,8 +286,8 @@ def invalidate_station_memory_cache(station_code: str) -> None:
     """Evict a station from the in-process TMD frame cache.
     Call this whenever crop calibration values are updated in DB so that
     the next bot request forces a fresh Firestore / live download."""
-    if station_code in _GLOBAL_TMD_CACHE:
-        del _GLOBAL_TMD_CACHE[station_code]
+    if radar_cache.get(station_code) is not None:
+        radar_cache.invalidate(station_code)
         logger.info(f"[CACHE INVALIDATE] In-memory cache cleared for station={station_code}")
 
 class WeatherManager:
@@ -531,12 +532,9 @@ class WeatherManager:
                 is_loop = frames[-1].shape[0] < 600 or frames[-1].shape[1] < 600
                 frame_source = "loop_gif" if is_loop else "static_cache"
                 
-                _GLOBAL_TMD_CACHE[station_code] = (
-                    frames, last_modified_dt, time.time(), flow,
-                    frame_source, data_gap_minutes, frame_timestamps, frame_urls,
-                )
+                radar_cache.set(station_code, frames, last_modified_dt, flow, frame_source, data_gap_minutes, frame_timestamps, frame_urls)
                 logger.info(f"🛠️ [LOCAL FIXTURE MODE] Successfully loaded {len(frames)} frames from local fixture.")
-                return _GLOBAL_TMD_CACHE[station_code]
+                return radar_cache.get(station_code)
 
         # Check if we should override with backup files for testing
         is_backup_mode = (
@@ -660,11 +658,8 @@ class WeatherManager:
         import time
         # Collect frame URLs from the Firestore cache (for reproducibility)
         frame_urls = [f["url"] for f in cache_frames[-6:]] if cache_frames else []
-        _GLOBAL_TMD_CACHE[station_code] = (
-            frames, last_modified_dt, time.time(), flow,
-            frame_source, data_gap_minutes, frame_timestamps, frame_urls,
-        )
-        return _GLOBAL_TMD_CACHE[station_code]
+        radar_cache.set(station_code, frames, last_modified_dt, flow, frame_source, data_gap_minutes, frame_timestamps, frame_urls)
+        return radar_cache.get(station_code)
 
     async def _get_tmd_prediction(
         self, lat: float, lng: float, force_station: Optional[str] = None,
@@ -735,16 +730,16 @@ class WeatherManager:
                             logger.warning(f"Failed to update retry status on Telegram: {_t_err}")
 
                 # Use module-level cache and lock to prevent cache stampede
-                if station_code not in _GLOBAL_TMD_LOCKS:
-                    _GLOBAL_TMD_LOCKS[station_code] = asyncio.Lock()
+                
+                    
                 lock = _GLOBAL_TMD_LOCKS[station_code]
                 
                 async with lock:
-                    cached_data = _GLOBAL_TMD_CACHE.get(station_code)
+                    cached_data = radar_cache.get(station_code)
                     
                     is_fresh = False
-                    if cached_data and (time.time() - cached_data[2]) < 600:
-                        frame_timestamps = list(cached_data[6]) if len(cached_data) > 6 else []
+                    if cached_data and (time.time() - cached_data.cache_timestamp) < 600:
+                        frame_timestamps = cached_data.frame_timestamps.copy()
                         if frame_timestamps:
                             age = int(time.time() - frame_timestamps[-1])
                             if age < 1200:
@@ -753,12 +748,12 @@ class WeatherManager:
                             is_fresh = True
 
                     if is_fresh:
-                        frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
-                        frame_source = cached_data[4] if len(cached_data) > 4 else "static_cache"
-                        data_gap_minutes = cached_data[5] if len(cached_data) > 5 else 15.0
-                        frame_timestamps = list(cached_data[6]) if len(cached_data) > 6 else []
-                        frame_urls = list(cached_data[7]) if len(cached_data) > 7 else []
-                        age_s = int(time.time() - cached_data[2])
+                        frames, last_modified_dt, flow = cached_data.frames, cached_data.last_modified_dt, cached_data.flow
+                        frame_source = cached_data.frame_source
+                        data_gap_minutes = cached_data.data_gap_minutes
+                        frame_timestamps = cached_data.frame_timestamps.copy()
+                        frame_urls = cached_data.frame_urls.copy()
+                        age_s = int(time.time() - cached_data.cache_timestamp)
                         logger.info(
                             f"[{station_code}] 📦 IN-MEMORY cache HIT — "
                             f"{len(frames)} frames, source={frame_source}, age={age_s}s"
@@ -768,7 +763,7 @@ class WeatherManager:
                         
                         persistent_stale = True
                         if cached_data:
-                            frame_timestamps = list(cached_data[6]) if len(cached_data) > 6 else []
+                            frame_timestamps = cached_data.frame_timestamps.copy()
                             if frame_timestamps:
                                 age = int(time.time() - frame_timestamps[-1])
                                 if age < 1200:
@@ -783,11 +778,11 @@ class WeatherManager:
                             cached_data = await self.load_persistent_cache_to_memory(station_code, processor)
                             
                         if cached_data:
-                            frames, last_modified_dt, flow = cached_data[0], cached_data[1], cached_data[3]
-                            frame_source = cached_data[4]
-                            data_gap_minutes = cached_data[5]
-                            frame_timestamps = list(cached_data[6])
-                            frame_urls = list(cached_data[7]) if len(cached_data) > 7 else []
+                            frames, last_modified_dt, flow = cached_data.frames, cached_data.last_modified_dt, cached_data.flow
+                            frame_source = cached_data.frame_source
+                            data_gap_minutes = cached_data.data_gap_minutes
+                            frame_timestamps = cached_data.frame_timestamps.copy()
+                            frame_urls = cached_data.frame_urls.copy()
                         else:
                             frames = []
                             last_modified_dt = None
@@ -865,10 +860,7 @@ class WeatherManager:
                                     logger.warning(f"[{station_code}] 🌀 GIF fallback: Firestore persist failed: {_e}")
                                 # Collect frame URLs from saved frames for reproducibility
                                 frame_urls = [sf["url"] for sf in saved_frames] if saved_frames else []
-                                _GLOBAL_TMD_CACHE[station_code] = (
-                                    frames, last_modified_dt, time.time(), flow,
-                                    frame_source, data_gap_minutes, frame_timestamps, frame_urls,
-                                )
+                                radar_cache.set(station_code, frames, last_modified_dt, flow, frame_source, data_gap_minutes, frame_timestamps, frame_urls)
                             else:
                                 continue
 

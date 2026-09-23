@@ -226,9 +226,9 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
             await check_rain_and_alert()
 
         elif command == "/devmock flush_cache":
-            from app.services.weather_manager import _GLOBAL_TMD_CACHE, _GLOBAL_TMD_LOCKS
-            stations_cleared = list(_GLOBAL_TMD_CACHE.keys())
-            _GLOBAL_TMD_CACHE.clear()
+            from app.services.tmd_radar.cache_manager import radar_cache
+            stations_cleared = list(radar_cache.get_all_stations())
+            radar_cache.clear()
             stations_str = ", ".join(f"<code>{s}</code>" for s in stations_cleared) if stations_cleared else "<i>(ว่างอยู่แล้ว)</i>"
             msg = (
                 "🗑️ <b>In-memory TMD cache cleared</b>\n\n"
@@ -239,12 +239,12 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
             await telegram.send_telegram_message(chat_id, msg, parse_mode="HTML")
 
         elif command == "/devmock flush_all_cache":
-            from app.services.weather_manager import _GLOBAL_TMD_CACHE
+            from app.services.tmd_radar.cache_manager import radar_cache
             _STATIONS = ["kkn240", "skn240", "kkn120"]
 
             # 1) Clear in-memory
-            mem_before = list(_GLOBAL_TMD_CACHE.keys())
-            _GLOBAL_TMD_CACHE.clear()
+            mem_before = list(radar_cache.get_all_stations())
+            radar_cache.clear()
 
             # 2) Clear Firestore radar_latest_cache
             fs_cleared, fs_failed = [], []
@@ -271,7 +271,7 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
 
 
         elif command == "/devmock cache_status":
-            from app.services.weather_manager import _GLOBAL_TMD_CACHE
+            from app.services.tmd_radar.cache_manager import radar_cache
             import time as _time
             from zoneinfo import ZoneInfo as _ZI
             _bkk = _ZI("Asia/Bangkok")
@@ -281,14 +281,14 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
 
             # ── Layer 1: In-memory ─────────────────────────────
             lines.append("<b>📦 In-Memory (_GLOBAL_TMD_CACHE)</b>")
-            if not _GLOBAL_TMD_CACHE:
+            if not radar_cache.get_all_stations():
                 lines.append("  <i>(ว่าง)</i>")
             else:
-                for st, entry in _GLOBAL_TMD_CACHE.items():
-                    n_frames  = len(entry[0]) if entry[0] else 0
-                    cached_at = entry[2]
-                    src       = entry[4] if len(entry) > 4 else "?"
-                    ts_list   = list(entry[6]) if len(entry) > 6 else []
+                for st, entry in [(st, radar_cache.get(st)) for st in radar_cache.get_all_stations()]:
+                    n_frames  = len(entry.frames) if entry.frames else 0
+                    cached_at = entry.cache_timestamp
+                    src       = entry.frame_source
+                    ts_list   = list(entry.frame_timestamps) if len(entry) > 6 else []
                     age_s     = int(_time.time() - cached_at)
                     ttl_left  = max(0, 600 - age_s)
                     latest_bkk = (
@@ -410,12 +410,12 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
 
         # ── /devmock config [key:val ...] ──────────────────────────────────────
         elif command.startswith("/devmock config"):
-            from app.services.weather_manager import _DEV_CONFIG
+            from app.core.dev_settings import get_dev_settings, update_dev_settings
             args = command.removeprefix("/devmock config").strip()
             if not args:
                 # Show current config
                 lines_cfg = ["🛠️ <b>Dev Config (ค่าปัจจุบัน)</b>\n"]
-                for k, v in _DEV_CONFIG.items():
+                for k, v in get_dev_settings().model_dump().items():
                     lines_cfg.append(f"  <code>{k}</code> = <b>{v}</b>")
                 lines_cfg.append(
                     "\n<b>ปรับได้:</b>\n"
@@ -432,26 +432,26 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                 return
 
             if args.strip() == "reset":
-                _DEV_CONFIG["cluster_min"]   = 3
-                _DEV_CONFIG["search_radius"] = 80
-                _DEV_CONFIG["min_dbz"]       = 10.0
-                _DEV_CONFIG["dot_threshold"] = 0.5
-                _DEV_CONFIG["flow_mode"]     = "average"
-                _DEV_CONFIG["hit_radius"]    = 8
-                _DEV_CONFIG["verbose"]       = False
-                _DEV_CONFIG["draw_debug_grid"] = False
-                _DEV_CONFIG["decay_enabled"] = True
-                _DEV_CONFIG["prediction_steps"] = 7
-                _DEV_CONFIG["enable_raster_smooth"] = True
-                _DEV_CONFIG["gaussian_kernel_size"] = 15
-                _DEV_CONFIG["raster_smooth_threshold"] = 80
-                _DEV_CONFIG["draw_all_ambient_polygons"] = False
-                _DEV_CONFIG["enable_hsv_mask"] = False
-                _DEV_CONFIG["min_ambient_dbz"] = 20.0
-                _DEV_CONFIG["min_ambient_size"] = 15
-                _DEV_CONFIG["show_trajectory"] = True
-                _DEV_CONFIG["show_backward_trajectory"] = True
-                await repo.set_global_dev_config(_DEV_CONFIG)
+                update_dev_settings({"cluster_min": 3})
+                update_dev_settings({"search_radius": 80})
+                update_dev_settings({"min_dbz": 10.0})
+                update_dev_settings({"dot_threshold": 0.5})
+                update_dev_settings({"flow_mode": "average"})
+                update_dev_settings({"hit_radius": 8})
+                update_dev_settings({"verbose": False})
+                update_dev_settings({"draw_debug_grid": False})
+                update_dev_settings({"decay_enabled": True})
+                update_dev_settings({"prediction_steps": 7})
+                update_dev_settings({"enable_raster_smooth": True})
+                update_dev_settings({"gaussian_kernel_size": 15})
+                update_dev_settings({"raster_smooth_threshold": 80})
+                update_dev_settings({"draw_all_ambient_polygons": False})
+                update_dev_settings({"enable_hsv_mask": False})
+                update_dev_settings({"min_ambient_dbz": 20.0})
+                update_dev_settings({"min_ambient_size": 15})
+                update_dev_settings({"show_trajectory": True})
+                update_dev_settings({"show_backward_trajectory": True})
+                await repo.set_global_dev_config(get_dev_settings().model_dump())
                 await telegram.send_telegram_message(chat_id, "🛠️ Dev Config รีเซ็ตเป็นค่า default แล้วครับ ✅")
                 return
 
@@ -474,26 +474,26 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
             
             for pair in _re.findall(r'(\w+)\s*:\s*([a-zA-Z0-9_.-]+)', args):
                 key, raw_val = pair
-                if key not in _DEV_CONFIG:
+                if key not in get_dev_settings():
                     if key in dynamic_defaults:
                         # Dynamically register key with fallback type structure
-                        _DEV_CONFIG[key] = dynamic_defaults[key]
+                        get_dev_settings()[key] = dynamic_defaults[key]
                     else:
                         continue
                 try:
-                    cur = _DEV_CONFIG[key]
+                    cur = get_dev_settings()[key]
                     if isinstance(cur, bool):
                         new_val = raw_val.lower() in ("true", "1", "yes")
                     elif isinstance(cur, (int, float)):
                         new_val = type(cur)(raw_val)
                     else:
                         new_val = raw_val
-                    _DEV_CONFIG[key] = new_val
+                    get_dev_settings()[key] = new_val
                     changed.append(f"  <code>{key}</code>: {cur} → <b>{new_val}</b>")
                 except Exception:
                     pass
             if changed:
-                await repo.set_global_dev_config(_DEV_CONFIG)
+                await repo.set_global_dev_config(get_dev_settings().model_dump())
                 await telegram.send_telegram_message(
                     chat_id,
                     "🛠️ <b>Dev Config อัพเดต</b>\n" + "\n".join(changed),
@@ -502,7 +502,7 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
             else:
                 await telegram.send_telegram_message(
                     chat_id,
-                    "⚠️ ไม่พบ key ที่รู้จัก\nKey ที่รองรับ: <code>" + ", ".join(_DEV_CONFIG.keys()) + "</code>",
+                    "⚠️ ไม่พบ key ที่รู้จัก\nKey ที่รองรับ: <code>" + ", ".join(get_dev_settings().model_dump().keys()) + "</code>",
                     parse_mode="HTML",
                 )
 
@@ -511,8 +511,8 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
             args = command.removeprefix("/devmock cleancache").strip()
             station = args if args else "skn240"
             
-            from app.services.weather_manager import _GLOBAL_TMD_CACHE
-            _GLOBAL_TMD_CACHE.pop(station, None)
+            from app.services.tmd_radar.cache_manager import radar_cache
+            radar_cache.invalidate(station)
             await repo.set_latest_radar_cache(station, [])
             
             await telegram.send_telegram_message(chat_id, f"🔄 ล้าง Cache ของสถานี {station} สำเร็จ!\nการเช็คฝนรอบถัดไปจะดึงภาพใหม่ล่าสุดจาก TMD ครับ")
@@ -524,26 +524,26 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
             
             await telegram.send_telegram_message(chat_id, f"🔄 กำลังเช็คภาพล่าสุดแบบเดี่ยวของสถานี {station}...")
             
-            from app.services.weather_manager import _GLOBAL_TMD_CACHE, _DEV_CONFIG
+            from app.services.tmd_radar.cache_manager import radar_cache
             from app.services.tmd_radar_processor import TMDRadarProcessor
             from app.services.ocr_service import OCRService
             import time
             from datetime import datetime, timezone
             import cv2
             
-            cached_data = _GLOBAL_TMD_CACHE.get(station)
-            if not cached_data or not cached_data[0]:
+            cached_data = radar_cache.get(station)
+            if not cached_data or not cached_data.frames:
                 from app.services import weather_manager
                 wm = weather_manager.WeatherManager()
                 processor = TMDRadarProcessor(station)
                 cached_data = await wm.load_persistent_cache_to_memory(station, processor)
                 
-            if not cached_data or not cached_data[0]:
+            if not cached_data or not cached_data.frames:
                 await telegram.send_telegram_message(chat_id, f"❌ ไม่มี Cache เก่าสำหรับ {station} (ในฐานข้อมูลก็ไม่มีเช่นกัน ต้องใช้ /rain ก่อนครับ)")
                 return
                 
-            frames = list(cached_data[0])
-            frame_timestamps = list(cached_data[6]) if len(cached_data) > 6 else []
+            frames = list(cached_data.frames)
+            frame_timestamps = cached_data.frame_timestamps.copy() if len(cached_data) > 6 else []
             
             if not frame_timestamps:
                 await telegram.send_telegram_message(chat_id, f"❌ ไม่มีข้อมูล Timestamp ใน Cache ของ {station}")
@@ -574,7 +574,7 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                     chat_id, 
                     f"⚠️ ตรวจพบภาพนิ่ง (Static) ล้าหลังเกิน 2 ชั่วโมง ({static_age_minutes:.0f} นาที) ทำการล้าง Cache เพื่อบังคับดึง Loop GIF ใหม่ครับ"
                 )
-                _GLOBAL_TMD_CACHE.pop(station, None)
+                radar_cache.invalidate(station)
                 async with get_repo_context() as repo:
                     await repo.set_latest_radar_cache(station, [])
                 return
@@ -586,7 +586,7 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
             gap_minutes = (new_ts - frame_timestamps[-1]) / 60.0
             if gap_minutes > 30.0:
                 await telegram.send_telegram_message(chat_id, f"⚠️ ภาพใหม่ห่างจากภาพเดิมเกิน 30 นาที ({gap_minutes:.0f} นาที) ทำการล้าง Cache เพื่อบังคับดึง Loop GIF ใหม่ครับ")
-                _GLOBAL_TMD_CACHE.pop(station, None)
+                radar_cache.invalidate(station)
                 async with get_repo_context() as repo:
                     await repo.set_latest_radar_cache(station, [])
                 return
@@ -599,7 +599,7 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                 frames = frames[-6:]
                 frame_timestamps = frame_timestamps[-6:]
                 
-            if _DEV_CONFIG.get("flow_mode", "latest") == "average":
+            if get_dev_settings().flow_mode == "average":
                 flow = processor.calculate_average_optical_flow(frames)
             else:
                 flow = processor.calculate_optical_flow(frames)
@@ -657,11 +657,11 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                 # Resize all frames to 800x800 for the debug image generator
                 resized_frames = [cv2.resize(f, (800, 800), interpolation=cv2.INTER_NEAREST) for f in frames_data]
                 
-                from app.services.weather_manager import _DEV_CONFIG
+                from app.core.dev_settings import get_dev_settings, update_dev_settings
                 
                 images = await asyncio.to_thread(
                     processor.generate_multiframe_flow_debug_images,
-                    resized_frames, 400, 400, _DEV_CONFIG.get("min_dbz", 10.0), _DEV_CONFIG.get("flow_mode", "latest")
+                    resized_frames, 400, 400, get_dev_settings().min_dbz, get_dev_settings().flow_mode
                 )
                 
                 await telegram.send_telegram_photo(chat_id, images["rain_mask"], "debug_1_rain_mask.png")
