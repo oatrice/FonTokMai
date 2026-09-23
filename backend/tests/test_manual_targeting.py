@@ -111,7 +111,7 @@ async def test_weather_manager_manual_targeting_override(db_session):
     from unittest.mock import ANY
     with patch("app.services.weather_manager.get_repo_context", return_value=mock_repo_context), \
          patch("app.services.weather_manager.TMDRadarProcessor") as MockProcessorClass, \
-         patch("app.services.weather_manager._DEV_CONFIG", {"decay_enabled": True, "hit_radius": 8}):
+         patch("app.core.dev_settings.update_dev_settings", {"decay_enabled": True, "hit_radius": 8}):
          
         mock_processor = MockProcessorClass.return_value
         mock_processor.latlng_to_pixel.return_value = (150, 150)
@@ -638,7 +638,9 @@ async def test_weather_manager_manual_restrict_other_clouds(db_session):
     
     with patch("app.services.weather_manager.get_repo_context") as mock_get_repo_ctx, \
          patch("app.services.weather_manager.TMDRadarProcessor", return_value=mock_processor), \
-         patch("app.services.weather_manager._DEV_CONFIG", {"verbose": True, "decay_enabled": True, "prediction_steps": 2, "hit_radius": 8}):
+         patch("app.services.weather_manager.get_dev_settings") as mock_get_dev_settings:
+        from app.core.dev_settings import DevSettings
+        mock_get_dev_settings.return_value = DevSettings(verbose=True, decay_enabled=True, prediction_steps=2, hit_radius=8)
         
         mock_repo_context = MagicMock()
         mock_repo_context.__aenter__.return_value = repo

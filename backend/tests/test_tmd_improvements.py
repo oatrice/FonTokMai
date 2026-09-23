@@ -75,12 +75,12 @@ def test_solidity_gating_concave_contour():
     assert isinstance(img_bytes, bytes)
 
 def test_verbose_vs_draw_debug_grid(monkeypatch):
-    from app.services.weather_manager import _DEV_CONFIG
+    from app.core.dev_settings import get_dev_settings, update_dev_settings
     
     # Reset config states
-    monkeypatch.setitem(_DEV_CONFIG, "verbose", False)
-    if "draw_debug_grid" in _DEV_CONFIG:
-        monkeypatch.setitem(_DEV_CONFIG, "draw_debug_grid", False)
+    update_dev_settings({"verbose": False})
+    
+    update_dev_settings({"draw_debug_grid": False})
     
     processor = TMDRadarProcessor("kkn240")
     frame = np.zeros((800, 800, 3), dtype=np.uint8)
@@ -97,7 +97,7 @@ def test_verbose_vs_draw_debug_grid(monkeypatch):
     ]
     
     # 1. With verbose = True but draw_debug_grid = False (or absent), the output should be a single panel (720x720)
-    monkeypatch.setitem(_DEV_CONFIG, "verbose", True)
+    update_dev_settings({"verbose": True})
     img_bytes = processor.generate_radar_tracking_image(
         frame, user_x=400, user_y=400,
         clouds=dummy_clouds, all_rain_clusters=[]
@@ -109,7 +109,7 @@ def test_verbose_vs_draw_debug_grid(monkeypatch):
     assert img.shape[1] == img.shape[0], f"Expected square single panel, got shape {img.shape}"
 
     # 2. With draw_debug_grid = True (Issue #263: 2 sub-images: Raw with grid + Final overlay), width should be double height
-    monkeypatch.setitem(_DEV_CONFIG, "draw_debug_grid", True)
+    update_dev_settings({"draw_debug_grid": True})
     img_bytes_grid = processor.generate_radar_tracking_image(
         frame, user_x=400, user_y=400,
         clouds=dummy_clouds, all_rain_clusters=[]
