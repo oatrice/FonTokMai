@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import cv2
 from app.services.tmd_radar.processor import TMDRadarProcessor
-from app.services.weather_manager import _DEV_CONFIG
+from app.core.dev_settings import get_dev_settings, update_dev_settings
 
 def _load_fixture() -> tuple:
     tests_dir = os.path.dirname(__file__)

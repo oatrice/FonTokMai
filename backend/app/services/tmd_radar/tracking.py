@@ -273,12 +273,12 @@ class TMDTrackingMixin:
             )
         ] if all_rain_clusters else []
 
-        from app.services.weather_manager import _DEV_CONFIG
+        from app.core.dev_settings import get_dev_settings, update_dev_settings
         logger.info(
             f"[TRACKING_IMG] drawn_incoming={[c.get('label') for c in _drawn_clouds]}, "
             f"ambient={[c.get('label') for c in ambient_clouds]}"
         )
-        if _DEV_CONFIG.get("verbose"):
+        if get_dev_settings().verbose:
             logger.info(f"[TRACKING_IMG] display_clouds={len(display_clouds)}, ambient_clouds={len(ambient_clouds)}")
         
         if frame is None or (not display_clouds and not ambient_clouds and not locked_target_id and not predictions):
@@ -505,13 +505,13 @@ class TMDTrackingMixin:
                     dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dilate_kw, dilate_kh))
                     mask = cv2.dilate(mask, dilate_kernel)
                     
-                    from app.services.weather_manager import _DEV_CONFIG
-                    enable_smooth = _DEV_CONFIG.get("enable_raster_smooth", True)
+                    from app.core.dev_settings import get_dev_settings, update_dev_settings
+                    enable_smooth = get_dev_settings().enable_raster_smooth
                     
                     if enable_smooth:
                         # Pre-Contour Raster Smoothing (Metaball effect)
-                        ksize_val = _DEV_CONFIG.get("gaussian_kernel_size", 25)
-                        thresh_val = _DEV_CONFIG.get("raster_smooth_threshold", 127)
+                        ksize_val = get_dev_settings().gaussian_kernel_size
+                        thresh_val = get_dev_settings().raster_smooth_threshold
                         # Restrict kernel size further for thin rain bands to prevent melting
                         ksize_val = min(ksize_val, max(3, int(min(mask_w, mask_h) * 0.15)))
                         # Cap the max kernel at 9 to preserve thin rain details
@@ -556,8 +556,8 @@ class TMDTrackingMixin:
                             if num_comp > 2:
                                 is_convex = False
                                 
-                            from app.services.weather_manager import _DEV_CONFIG
-                            if _DEV_CONFIG.get("verbose"):
+                            from app.core.dev_settings import get_dev_settings, update_dev_settings
+                            if get_dev_settings().verbose:
                                 print(
                                     f"[DEBUG_SOLIDITY] Approaching cloud: area={area}, hull_area={hull_area}, "
                                     f"solidity={solidity:.4f}, ratio={hull_area/max(1.0, area):.4f}, "
@@ -572,8 +572,8 @@ class TMDTrackingMixin:
                             epsilon = 0.006 * cv2.arcLength(final_contour, True)
                             approx = cv2.approxPolyDP(final_contour, epsilon, True)
                             
-                            from app.services.weather_manager import _DEV_CONFIG
-                            chaikin_iters = _DEV_CONFIG.get("chaikin_iterations", 3)
+                            from app.core.dev_settings import get_dev_settings, update_dev_settings
+                            chaikin_iters = get_dev_settings().chaikin_iterations
                             smoothed = _chaikin_smooth(approx, chaikin_iters)
                             
                             global_ctr = smoothed + np.array([[[x - margin, y - margin]]], dtype=np.int32)
@@ -710,8 +710,8 @@ class TMDTrackingMixin:
 
             # Filter ambient clouds to only those visible on the cropped map and not tiny/weak noise
             visible_ambient_clouds = []
-            min_amb_dbz = _DEV_CONFIG.get("min_ambient_dbz", 20.0)
-            min_amb_size = _DEV_CONFIG.get("min_ambient_size", 15)
+            min_amb_dbz = get_dev_settings().min_ambient_dbz
+            min_amb_size = get_dev_settings().min_ambient_size
             
             for c in ambient_clouds:
                 cx_orig, cy_orig = c["cx"], c["cy"]
@@ -733,12 +733,12 @@ class TMDTrackingMixin:
             # Sort and build list of ambient clouds to render, prioritizing higher dBZ first, then closer distance
             visible_ambient_clouds.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), -c.get("size", len(c.get("pixels", []))), c.get("dist", 9999)))
             rendered_ambient = []
-            if _DEV_CONFIG.get("draw_all_ambient_polygons", False):
+            if get_dev_settings().draw_all_ambient_polygons:
                 rendered_ambient = visible_ambient_clouds.copy()
             else:
                 if locked_cluster is not None and locked_cluster in visible_ambient_clouds:
                     rendered_ambient.append(locked_cluster)
-                max_ambient = 12 if _DEV_CONFIG.get("verbose") else 10
+                max_ambient = 12 if get_dev_settings().verbose else 10
                 for c in visible_ambient_clouds:
                     if len(rendered_ambient) >= max_ambient:
                         break
@@ -867,13 +867,13 @@ class TMDTrackingMixin:
                             is_sea = np.all(diff_sea <= 18, axis=2)
                             mask[is_sea] = 0
                     
-                    from app.services.weather_manager import _DEV_CONFIG
-                    enable_smooth = _DEV_CONFIG.get("enable_raster_smooth", True)
+                    from app.core.dev_settings import get_dev_settings, update_dev_settings
+                    enable_smooth = get_dev_settings().enable_raster_smooth
                     
                     if enable_smooth:
                         # Pre-Contour Raster Smoothing (Metaball effect)
-                        ksize_val = _DEV_CONFIG.get("gaussian_kernel_size", 25)
-                        thresh_val = _DEV_CONFIG.get("raster_smooth_threshold", 127)
+                        ksize_val = get_dev_settings().gaussian_kernel_size
+                        thresh_val = get_dev_settings().raster_smooth_threshold
                         # Restrict kernel size further for thin rain bands to prevent melting
                         ksize_val = min(ksize_val, max(3, int(min(mask_w, mask_h) * 0.15)))
                         # Cap the max kernel at 9 to preserve thin rain details
@@ -914,8 +914,8 @@ class TMDTrackingMixin:
                             if num_comp > 2:
                                 is_convex = False
                                 
-                            from app.services.weather_manager import _DEV_CONFIG
-                            if _DEV_CONFIG.get("verbose"):
+                            from app.core.dev_settings import get_dev_settings, update_dev_settings
+                            if get_dev_settings().verbose:
                                 print(
                                     f"[DEBUG_SOLIDITY] Ambient cloud: area={area}, hull_area={hull_area}, "
                                     f"solidity={solidity:.4f}, ratio={hull_area/max(1.0, area):.4f}, "
@@ -930,8 +930,8 @@ class TMDTrackingMixin:
                             epsilon = 0.006 * cv2.arcLength(final_contour, True)
                             approx = cv2.approxPolyDP(final_contour, epsilon, True)
                             
-                            from app.services.weather_manager import _DEV_CONFIG
-                            chaikin_iters = _DEV_CONFIG.get("chaikin_iterations", 3)
+                            from app.core.dev_settings import get_dev_settings, update_dev_settings
+                            chaikin_iters = get_dev_settings().chaikin_iterations
                             smoothed = _chaikin_smooth(approx, chaikin_iters)
                             
                             global_ctr = smoothed + np.array([[[bx - margin, by - margin]]], dtype=np.int32)
@@ -960,7 +960,7 @@ class TMDTrackingMixin:
                 obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
 
                 # ── Visual debug overlay (verbose=True) ──────────────────────────
-                if _DEV_CONFIG.get("verbose"):
+                if get_dev_settings().verbose:
                     _lbl_d = c_orig.get('label', '?')
                     # Yellow dot = weighted centroid
                     cv2.circle(img, (cx, cy), int(4 * scale), (0, 255, 255), -1)
@@ -1113,7 +1113,7 @@ class TMDTrackingMixin:
                     'bg': (255, 255, 255)
                 })
 
-        hit_r = int(_DEV_CONFIG.get("hit_radius", 8) * scale)
+        hit_r = int(get_dev_settings().hit_radius * scale)
         for angle_deg in range(0, 360, 15):
             a1 = math.radians(angle_deg)
             a2 = math.radians(angle_deg + 8)
@@ -1123,8 +1123,8 @@ class TMDTrackingMixin:
             
         # Trajectory rendering (rendered on top of cloud contours so it stays visible)
         if show_trajectory and predictions and has_predicted_rain and has_active_cloud_source:
-            from app.services.weather_manager import _DEV_CONFIG
-            show_backward = _DEV_CONFIG.get("show_backward_trajectory", True)
+            from app.core.dev_settings import get_dev_settings, update_dev_settings
+            show_backward = get_dev_settings().show_backward_trajectory
             pts = []
             for p in predictions:
                 if not show_backward and p.get("time_offset", 0) > time_offset_min:
@@ -1266,8 +1266,8 @@ class TMDTrackingMixin:
             except Exception as e:
                 print("PIL ERROR:", e)
 
-        from app.services.weather_manager import _DEV_CONFIG
-        if _DEV_CONFIG.get("draw_debug_grid"):
+        from app.core.dev_settings import get_dev_settings, update_dev_settings
+        if get_dev_settings().draw_debug_grid:
             # Issue #263: 2 sub-images layout:
             # Sub-image 1: Raw image with grid overlay (no user pin)
             # Sub-image 2: Final prediction overlay (Cropped radar with grid, user pin, motion vectors, clouds)
@@ -1670,9 +1670,9 @@ class TMDTrackingMixin:
             return
 
         import math
-        from app.services.weather_manager import _DEV_CONFIG
+        from app.core.dev_settings import get_dev_settings, update_dev_settings
 
-        hit_r = int(_DEV_CONFIG.get("hit_radius", 8) * scale)
+        hit_r = int(get_dev_settings().hit_radius * scale)
         
         # 1. Semi-transparent orange fill inside the hit-radius
         overlay = img.copy()

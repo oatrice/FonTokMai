@@ -235,7 +235,7 @@ async def lifespan(app: FastAPI):
         
     from app.services.disaster_manager import process_disaster_event
     from app.dependencies import get_repo_context
-    from app.services.weather_manager import _DEV_CONFIG
+    from app.core.dev_settings import get_dev_settings, update_dev_settings
 
     # Load global dev config from repository
     async with get_repo_context() as repo:
@@ -243,8 +243,8 @@ async def lifespan(app: FastAPI):
             config = await repo.get_global_dev_config()
             if config:
                 for k, v in config.items():
-                    if k in _DEV_CONFIG:
-                        _DEV_CONFIG[k] = v
+                    if hasattr(get_dev_settings(), k):
+                        update_dev_settings({k: v})
         except Exception as e:
             logging.error(f"Failed to load global dev config: {e}")
     

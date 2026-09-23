@@ -1,38 +1,32 @@
-# Manual Verification: Architecture Refactor Phase 1
+# Manual Verification: Architecture Refactor Phase 2
 
-This MR focuses on extracting `DevSettings` (a global Pydantic model for untyped development config) and `AlertFormatter` (a decoupled formatter for Telegram alerts). It is foundational for subsequent MRs.
+This MR encapsulates the global TMD radar cache from a raw dictionary and tuple representation into the `RadarFrameCache` deep module, exposing `get`, `set`, and `invalidate`.
 
 ## Verification Steps
 
-### 1. Verify Application Startup
-Run the application to ensure it boots without dictionary-access errors from old `_DEV_CONFIG`.
+### 1. Check application boot
+Start the server to ensure cache initialization succeeds.
 ```bash
 cd backend
 python -m uvicorn app.main:app --reload --port 8000
 ```
-**Expected:** The app starts successfully with no startup errors.
+**Expected:** The app boots up cleanly without any global state definition errors.
 
-### 2. Verify Dev Mock Endpoints (DevSettings Mutation)
-The `/api/webhook/devmock` endpoint mutates the new `DevSettings` object instead of the old dictionary.
+### 2. Verify cache inspection via DevMock
+Use the telegram devmock admin command to check the cache state.
 ```bash
-curl -X POST "http://localhost:8000/api/webhook/devmock" -H "Content-Type: application/json" -d '{"command": "/devmock set search_radius 90", "chat_id": 123}'
+curl -X POST "http://localhost:8000/api/webhook/devmock" -H "Content-Type: application/json" -d '{"command": "/devmock status", "chat_id": 123}'
 ```
-**Expected:** Response should indicate that `search_radius` was set to `90`. The internal `DevSettings` object correctly applies this configuration.
+**Expected:** The response should list `📦 In-Memory (RadarFrameCache)` along with the current cached stations.
 
-### 3. Verify Weather Manager (DevSettings Reading)
-Trigger a weather prediction to ensure `weather_manager.py` successfully reads from `DevSettings`.
+### 3. Verify weather prediction via cache
+Trigger a `/rain` command multiple times. The first time, it should fetch from the external TMD source or firestore. The second time, it should hit the `RadarFrameCache`.
 ```bash
 curl -X POST "http://localhost:8000/api/webhook/telegram" -H "Content-Type: application/json" -d '{"message": {"text": "/rain", "chat": {"id": 123}}}'
 ```
-**Expected:** The system processes the request normally, generating predictions without throwing `AttributeError` or `KeyError` related to `_DEV_CONFIG`.
-
-### 4. Verify Alert Formatter
-Wait for the background scheduled task to trigger `check_rain_and_alert`, which now uses `AlertFormatter`. Alternatively, check the unit tests for format parity.
-```bash
-pytest backend/tests/test_alert_formatter.py
-```
-**Expected:** The tests pass, proving that the generated Thai text matches the original legacy strings exactly.
+**Expected:** Both calls should return successfully, and server logs should explicitly show `[LOCAL FIXTURE MODE] Successfully loaded ... frames from local fixture` or `Firestore cache LOADED`.
 
 ## Scope Checked
-- Foundational decoupling only.
-- Test suites run green, meaning no regressions were introduced to the legacy God Module paths.
+- Replaced `_GLOBAL_TMD_CACHE` dict with `RadarFrameCache`.
+- Replaced tuple access with object property access on `RadarCacheEntry`.
+- Verified that async locking uses `RadarFrameCache.get_lock(station_code)`.
