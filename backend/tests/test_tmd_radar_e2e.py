@@ -121,7 +121,7 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping(monkeypatch):
         result = asyncio.run(WeatherManager()._get_tmd_prediction(lat, lng))
     finally:
         radar_cache.clear()
-        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.cache_timestamp, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
+        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
 
     assert result["endpoint"] == "tmd-radar (kkn240)"
     assert ("kkn240", False) in calls
@@ -170,7 +170,7 @@ def test_tmd_radar_cached_static_frames_use_static_pixel_mapping_skn(monkeypatch
         result = asyncio.run(WeatherManager()._get_tmd_prediction(lat, lng, force_station="skn240"))
     finally:
         radar_cache.clear()
-        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.cache_timestamp, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
+        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
 
     assert result["endpoint"] == "tmd-radar (skn240)"
     assert ("skn240", False) in calls
@@ -234,7 +234,7 @@ async def test_tmd_radar_fresh_loop_fallback_works(monkeypatch):
         result = await WeatherManager()._get_tmd_prediction(lat, lng, mock_state="storm")
     finally:
         radar_cache.clear()
-        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.cache_timestamp, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
+        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
 
     assert result["endpoint"] == "tmd-radar (kkn240)"
     assert result["radar_static_bytes"] is not None
@@ -281,7 +281,7 @@ def test_tmd_prediction_timestamps_based_on_now_utc(monkeypatch):
         result = asyncio.run(WeatherManager()._get_tmd_prediction(lat, lng))
     finally:
         radar_cache.clear()
-        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.cache_timestamp, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
+        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
 
     assert result is not None
     predictions = result.get("predictions", [])
@@ -330,7 +330,7 @@ async def test_tmd_radar_no_false_failover_notice_for_outer_boundary(monkeypatch
         result = await WeatherManager()._get_tmd_prediction(lat, lng)
     finally:
         radar_cache.clear()
-        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.cache_timestamp, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
+        for st, v in original_cache.items(): radar_cache.set(st, v.frames, v.last_modified_dt, v.flow, v.frame_source, v.data_gap_minutes, v.frame_timestamps, v.frame_urls)
 
     assert result is not None
     assert result["endpoint"] == "tmd-radar (kkn240)"
