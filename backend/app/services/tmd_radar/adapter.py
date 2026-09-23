@@ -11,8 +11,10 @@ import numpy as np
 import cv2
 
 from app.services.tmd_radar.nowcast_port import NowcastPort
+from app.services.tmd_radar.entities import RadarPredictionEntity, RainPrediction
 from app.services.tmd_radar.cache_manager import radar_cache
-from app.services.tmd_radar_processor import TMDRadarProcessor
+from app.services.tmd_radar.processor import TMDRadarProcessor
+from app.services.tmd_radar.renderer_impl import DefaultRadarRenderer
 from app.services.weather_manager import _resolve_radar_overlay_utc, log_growth_decay_telemetry
 from app.core.dev_settings import get_dev_settings
 
@@ -78,6 +80,7 @@ class TMDNowcastAdapter(NowcastPort):
             try:
                 st_conf = stations_map.get(station_code)
                 processor = TMDRadarProcessor(station_code, config=st_conf)
+                renderer = DefaultRadarRenderer(processor)
                 px, py = processor.latlng_to_pixel(lat, lng, is_loop=False)
                 if px is None or py is None:
                     continue
@@ -756,7 +759,7 @@ class TMDNowcastAdapter(NowcastPort):
                     v_avg_kmh = processor.get_wind_speed_kmh_from_vector(fallback_vx, fallback_vy)
                     v_actual_kmh = processor.get_wind_speed_kmh_from_vector(peak_vx, peak_vy)
     
-                summary_line = processor.render_rain_summary(
+                summary_line = renderer.render_rain_summary(
                     predictions=predictions,
                     time_offset_min=time_offset_min,
                     confidence_score=confidence_score,
@@ -835,7 +838,7 @@ class TMDNowcastAdapter(NowcastPort):
                     scale = 3.0
                     img_hq_cv = cv2.resize(full_frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
                     # Draw location pin identical to radar_tracking
-                    proc.draw_pin_on_frame(img_hq_cv, int(full_pin_x * scale), int(full_pin_y * scale), scale=scale)
+                    renderer.draw_pin_on_frame(img_hq_cv, int(full_pin_x * scale), int(full_pin_y * scale), scale=scale)
                     img_hq = Image.fromarray(img_hq_cv)
     
                     # Add IDC timestamp overlay
@@ -911,7 +914,7 @@ class TMDNowcastAdapter(NowcastPort):
     
                 try:
                     tracking_bytes = await asyncio.to_thread(
-                        processor.generate_radar_tracking_image,
+                        renderer.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
                         all_rain_clusters, predictions, True, get_dev_settings().show_trajectory, show_labels, time_offset_min,
                         locked_target_id,
@@ -932,14 +935,14 @@ class TMDNowcastAdapter(NowcastPort):
                         adj_p["time_offset"] = p["time_offset"] - time_offset_min
                         adjusted_predictions.append(adj_p)
                         
-                    timeline_bytes = await asyncio.to_thread(processor.generate_timeline_image, adjusted_predictions, location_name)
+                    timeline_bytes = await asyncio.to_thread(renderer.generate_timeline_image, adjusted_predictions, location_name)
                 except Exception as e:
                     logger.error(f"Failed to generate timeline PNG: {e}")
                     
                 if len(frames) >= 2:
                     try:
                         multiframe_bytes = await asyncio.to_thread(
-                            processor.generate_multiframe_analysis_image,
+                            renderer.generate_multiframe_analysis_image,
                             frames, flow, user_px, user_py, clouds, processor, now_utc,
                             gap_min, frame_timestamps,
                         )
@@ -955,32 +958,33 @@ class TMDNowcastAdapter(NowcastPort):
                     failover_notice = f"⚠️ *หมายเหตุ:* เรดาร์{primary_name} ({primary_station}) ขัดข้อง/หมดเวลาเชื่อมต่อ ระบบจึงสลับไปใช้เรดาร์{used_name} ({station_code}) แทนชั่วคราว"
     
                 logger.info(f"[TMD_RADAR] ✅ Using station={station_code} | frames={len(frames)} | source={frame_source}")
-                return {
-                    "predictions":       predictions,
-                    "intensity":         intensity,
-                    "max_rain":          max(p["rain"] for p in predictions) if predictions else 0.0,
-                    "max_dbz":           float(max_dbz),
-                    "duration_minutes":  sum(15 for p in predictions if p["dbz"] > 0),
-                    "wind_speed_kmh":    round(wind_speed, 1),
-                    "wind_dir_text":     wind_dir,
-                    "endpoint":          f"tmd-radar ({station_code})",
-                    "growth_rate_pct":   percent_change,
-                    "approaching_clouds": clouds,
-                    "all_rain_clusters":  all_rain_clusters,
-                    "rain_summary":      summary_line,
-                    "is_outdated":       time_offset_min > 45,
-                    "failover_notice":   failover_notice,
-                    "tracking_mode":     tracking_mode,
-                    "locked_target_id":   locked_target_id,
-                    "radar_gif_bytes":   None,
-                    "radar_hq_gif_bytes": None,
-                    "radar_static_bytes": static_bytes,
-                    "radar_tracking_bytes": tracking_bytes,
-                    "rain_timeline_bytes": timeline_bytes,
-                    "radar_multiframe_bytes": multiframe_bytes,
-                    "tmd_timestamp_utc": now_utc.isoformat(),
-                    "tmd_timestamp_bkk": now_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M'),
-                }
+                return RadarPredictionEntity(
+                    station_code=station_code,
+                    predictions=       predictions,
+                    intensity=intensity,
+                    max_rain=max(p["rain"] for p in predictions) if predictions else 0.0,
+                    max_dbz=float(max_dbz),
+                    duration_minutes=sum(15 for p in predictions if p["dbz"] > 0),
+                    wind_speed_kmh=round(wind_speed, 1),
+                    wind_dir_text=wind_dir,
+                    endpoint=f"tmd-radar ({station_code})",
+                    growth_rate_pct=percent_change,
+                    approaching_clouds=clouds,
+                    all_rain_clusters=all_rain_clusters,
+                    rain_summary=summary_line,
+                    is_outdated=time_offset_min > 45,
+                    failover_notice=failover_notice,
+                    tracking_mode=tracking_mode,
+                    locked_target_id=locked_target_id,
+                    radar_gif_bytes=None,
+                    radar_hq_gif_bytes=None,
+                    radar_static_bytes=static_bytes,
+                    radar_tracking_bytes=tracking_bytes,
+                    rain_timeline_bytes=timeline_bytes,
+                    radar_multiframe_bytes=multiframe_bytes,
+                    tmd_timestamp_utc=now_utc.isoformat(),
+                    tmd_timestamp_bkk=now_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M'),
+                )
             except Exception as e:
                 logger.warning(f"Failed to process TMD radar {station_code}: {e}")
                 pass

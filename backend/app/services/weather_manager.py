@@ -664,4 +664,5 @@ class WeatherManager:
     async def _get_tmd_prediction(self, lat: float, lng: float, force_station: Optional[str] = None, **kwargs) -> Optional[Dict[str, Any]]:
         from app.services.tmd_radar.adapter import TMDNowcastAdapter
         adapter = TMDNowcastAdapter(self)
-        return await adapter.predict(lat, lng, force_station, **kwargs)
+        result = await adapter.predict(lat, lng, force_station, **kwargs)
+        return result.model_dump() if result else None

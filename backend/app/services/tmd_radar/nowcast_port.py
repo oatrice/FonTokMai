@@ -1,3 +1,4 @@
+from app.services.tmd_radar.entities import RadarPredictionEntity
 from typing import Protocol, Dict, Any, Optional
 
 class NowcastPort(Protocol):
