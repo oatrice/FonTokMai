@@ -1,5 +1,6 @@
 import logging
 from app.services import weather_manager
+from app.services.alert_formatter import AlertDecision, TelegramFormatter
 from app.dependencies import get_repo_context
 from app.routers.webhook_utils import (
     LAST_ACTIVE_LOCATION,

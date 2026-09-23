@@ -1,3 +1,5 @@
+from app.core.dev_settings import get_dev_settings
+
 import logging
 import time
 import os
@@ -34,30 +36,6 @@ from app.dependencies import get_repo_context
 
 # ─── Developer Config (runtime-adjustable via /devmock config) ────────────────
 # These override the hard-coded defaults in find_approaching_clouds / get_all_rain_clusters.
-_DEV_CONFIG: dict = {
-    "cluster_min":    3,      # min pixels to form a valid cloud cluster
-    "search_radius":  80,     # px radius to scan for approaching clouds
-    "min_dbz":        10.0,   # minimum dBZ to count as rain
-    "dot_threshold":  0.6,    # dot product threshold (how directly it must approach)
-    "flow_mode":      "average", # 'latest' or 'average'
-    "hit_radius":     7,      # radius around user to check for rain hits
-    "verbose":        False,  # Enable verbose debugging logs (DEBUG MODE — disable when done)
-    "draw_debug_grid": False, # Enable verbose 2x2 grid images layout
-    "decay_enabled":  True,   # Whether to apply growth/decay rate to cloud extrapolation
-    "prediction_steps": 13,   # Number of steps to predict forward (each 15 mins)
-    "chaikin_iterations": 3,  # Chaikin corner-cutting iterations for smoothing radar contours
-    "enable_raster_smooth": True,      # Enable organic metaball-style smoothing on masks
-    "gaussian_kernel_size": 15,        # Gaussian blur size before thresholding
-    "raster_smooth_threshold": 80,     # Default threshold after blur to prevent thin clouds melting
-    "enable_hsv_mask":      False,     # Use HSV range thresholding for robust cloud detection (default False for cluster split compliance)
-    "use_skn240_backup":    False,     # Force using skn240 backup files for testing (adjustable via /devmock config)
-    "use_local_fixtures":   False,     # Force using local fixture files for testing (adjustable via /devmock config)
-    "min_ambient_dbz":      20.0,      # minimum dBZ for ambient clusters to be labeled/drawn
-    "min_ambient_size":     15,        # minimum size (pixels) for ambient clusters to be labeled/drawn
-    "show_trajectory":      True,      # Draw trajectory points and lines
-    "show_backward_trajectory": True,  # Draw historical backward trajectory line
-}
-
 def log_growth_decay_telemetry(
     target_label: Optional[str],
     dbz_now: float,
@@ -522,7 +500,7 @@ class WeatherManager:
         is_testing = "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
         is_local_fixtures_mode = (
             os.getenv("USE_LOCAL_FIXTURES", "false").lower() == "true" or
-            _DEV_CONFIG.get("use_local_fixtures", False)
+            get_dev_settings().use_local_fixtures
         )
         if is_local_fixtures_mode and not is_testing:
             fixture_name = f"test_{station_code}_frames.npz"
@@ -563,7 +541,7 @@ class WeatherManager:
         # Check if we should override with backup files for testing
         is_backup_mode = (
             os.getenv("USE_SKN240_BACKUP", "false").lower() == "true" or
-            _DEV_CONFIG.get("use_skn240_backup", False)
+            get_dev_settings().use_skn240_backup
         )
         if station_code == "skn240" and is_backup_mode:
             bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET", "fonmayang.firebasestorage.app")
@@ -661,7 +639,7 @@ class WeatherManager:
         frame_timestamps = [ts for _, ts in valid_frames_data[-6:]]
         last_modified_dt = datetime.fromtimestamp(frame_timestamps[-1], timezone.utc)
         
-        if _DEV_CONFIG.get("flow_mode", "latest") == "average":
+        if get_dev_settings().flow_mode == "average":
             flow = processor.calculate_average_optical_flow(frames)
         else:
             flow = processor.calculate_optical_flow(frames)
@@ -835,7 +813,7 @@ class WeatherManager:
                                     ]
                                 else:
                                     frame_timestamps = []
-                                if _DEV_CONFIG.get("flow_mode", "latest") == "average":
+                                if get_dev_settings().flow_mode == "average":
                                     flow = processor.calculate_average_optical_flow(frames)
                                 else:
                                     flow = processor.calculate_optical_flow(frames)
@@ -976,29 +954,29 @@ class WeatherManager:
                 )
 
                 # Find all cloud clusters approaching the user (using dev-configurable thresholds)
-                _cfg = _DEV_CONFIG
+                _cfg = get_dev_settings()
                 clouds = processor.find_approaching_clouds(
                     curr_frame, prev_frame, flow, user_px, user_py,
-                    search_radius=_cfg.get("search_radius", 80),
-                    min_dbz=_cfg.get("min_dbz", 10.0),
+                    search_radius=_cfg.search_radius,
+                    min_dbz=_cfg.min_dbz,
                     cluster_dist=10,
-                    hit_radius=_cfg.get("hit_radius", 20),
-                    cluster_min=_cfg.get("cluster_min", 3),
-                    dot_threshold=_cfg.get("dot_threshold", 0.5),
+                    hit_radius=_cfg.hit_radius,
+                    cluster_min=_cfg.cluster_min,
+                    dot_threshold=_cfg.dot_threshold,
                 )
                 # Also collect ALL rain clusters (any direction) for the always-visible overlay
                 all_rain_clusters = await asyncio.to_thread(
                     processor.get_all_rain_clusters,
                     curr_frame, flow, user_px, user_py,
                     scan_radius=None,
-                    min_dbz=_cfg.get("min_dbz", 10.0),
+                    min_dbz=_cfg.min_dbz,
                     cluster_dist=6,
                     min_size=5,
                 )
                 
                 if all_rain_clusters:
-                    min_amb_dbz = _cfg.get("min_ambient_dbz", 20.0)
-                    min_amb_size = _cfg.get("min_ambient_size", 15)
+                    min_amb_dbz = _cfg.min_ambient_dbz
+                    min_amb_size = _cfg.min_ambient_size
                     filtered_clusters = []
                     for c in all_rain_clusters:
                         if len(c.get("pixels", [])) < 5:
@@ -1278,11 +1256,11 @@ class WeatherManager:
                     fallback_vx = closest_c.get("vx", 0.0)
                     fallback_vy = closest_c.get("vy", 0.0)
                 
-                for steps in range(_cfg.get("prediction_steps", 7)):
+                for steps in range(_cfg.prediction_steps):
                     offset_min = steps * 15
                     
                     rate = 0.0
-                    if _cfg.get("decay_enabled", True):
+                    if _cfg.decay_enabled:
                         if tracking_mode == "manual" and matched_target:
                             rate = manual_rate if manual_rate is not None else 0.0
                         elif clouds:
@@ -1290,7 +1268,7 @@ class WeatherManager:
                             rate = closest_c.get("growth_rate", 0.0)
                         
                     dbz, src_x, src_y = processor.extrapolate_rain_at_pixel(
-                        curr_frame, flow, px, py, steps=steps, rate=rate, radius=_cfg.get("hit_radius", 8),
+                        curr_frame, flow, px, py, steps=steps, rate=rate, radius=_cfg.hit_radius,
                         fallback_vx=fallback_vx, fallback_vy=fallback_vy
                     )
                     
@@ -1381,7 +1359,7 @@ class WeatherManager:
                         "src_y":       int(src_y)
                     })
                     
-                    if _DEV_CONFIG.get("verbose"):
+                    if get_dev_settings().verbose:
                         logger.info(f"[VERBOSE] Step {steps} (+{offset_min}m): dbz={dbz:.1f} src=({src_x},{src_y}) cluster={cluster_label}")
 
                 current_dbz = predictions[0]["dbz"]
@@ -1582,7 +1560,7 @@ class WeatherManager:
                     tracking_bytes = await asyncio.to_thread(
                         processor.generate_radar_tracking_image,
                         curr_frame.copy(), user_px, user_py, clouds, now_utc,
-                        all_rain_clusters, predictions, True, _DEV_CONFIG.get("show_trajectory", True), show_labels, time_offset_min,
+                        all_rain_clusters, predictions, True, get_dev_settings().show_trajectory, show_labels, time_offset_min,
                         locked_target_id,
                         locked_target_cx,
                         locked_target_cy,

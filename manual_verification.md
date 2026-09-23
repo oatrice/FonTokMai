@@ -1,146 +1,38 @@
-# Manual Verification Plan - Unified Event Log Economics & /rain_minimal Clean Radar
+# Manual Verification: Architecture Refactor Phase 1
 
-- **Branch**: `feat/292-296-dashboard-metrics`
-- **MR / Issue ID**: `#292, #293, #294, #295, #296`
-- **Date**: `2026-09-16`
+This MR focuses on extracting `DevSettings` (a global Pydantic model for untyped development config) and `AlertFormatter` (a decoupled formatter for Telegram alerts). It is foundational for subsequent MRs.
 
----
+## Verification Steps
 
-## 📌 Prerequisites & Environment Setup
-1. Ensure the PostgreSQL database is running.
-2. Shell commands to launch server locally:
-   ```bash
-   cd backend
-   poetry run uvicorn app.main:app --reload
-   ```
-3. Run the Next.js frontend:
-   ```bash
-   cd frontend
-   npm run dev
-   ```
+### 1. Verify Application Startup
+Run the application to ensure it boots without dictionary-access errors from old `_DEV_CONFIG`.
+```bash
+cd backend
+python -m uvicorn app.main:app --reload --port 8000
+```
+**Expected:** The app starts successfully with no startup errors.
 
----
+### 2. Verify Dev Mock Endpoints (DevSettings Mutation)
+The `/api/webhook/devmock` endpoint mutates the new `DevSettings` object instead of the old dictionary.
+```bash
+curl -X POST "http://localhost:8000/api/webhook/devmock" -H "Content-Type: application/json" -d '{"command": "/devmock set search_radius 90", "chat_id": 123}'
+```
+**Expected:** Response should indicate that `search_radius` was set to `90`. The internal `DevSettings` object correctly applies this configuration.
 
-## 🧪 Verification Scenarios
+### 3. Verify Weather Manager (DevSettings Reading)
+Trigger a weather prediction to ensure `weather_manager.py` successfully reads from `DevSettings`.
+```bash
+curl -X POST "http://localhost:8000/api/webhook/telegram" -H "Content-Type: application/json" -d '{"message": {"text": "/rain", "chat": {"id": 123}}}'
+```
+**Expected:** The system processes the request normally, generating predictions without throwing `AttributeError` or `KeyError` related to `_DEV_CONFIG`.
 
-### Scenario 1: Verify SystemUsageEvent schema migration
-- **Goal**: Verify that the table `alert_notification_log` has been successfully renamed to `system_usage_events` and the new columns have been added.
-- **Steps**:
-  1. Access the PostgreSQL shell: `psql -U postgres -d <your_db_name>`
-  2. Run `\d system_usage_events`
-- **Expected Outcome**:
-  - Table exists.
-  - Columns `event_category` (VARCHAR), `command_name` (VARCHAR), and `is_mock` (BOOLEAN) are present.
+### 4. Verify Alert Formatter
+Wait for the background scheduled task to trigger `check_rain_and_alert`, which now uses `AlertFormatter`. Alternatively, check the unit tests for format parity.
+```bash
+pytest backend/tests/test_alert_formatter.py
+```
+**Expected:** The tests pass, proving that the generated Thai text matches the original legacy strings exactly.
 
----
-
-### Scenario 2: Verify On-Demand Query Logging (Telegram)
-- **Goal**: Verify that `/compare_api` or `/check` logs into the system usage table.
-- **Steps**:
-  1. Send `/check` to the Telegram bot or trigger the Compare API inline button.
-  2. Query the database: `SELECT * FROM system_usage_events ORDER BY id DESC LIMIT 1;`
-- **Expected Outcome**:
-  - A new row is inserted.
-  - `event_category` is `ondemand_query`.
-  - `command_name` is populated (e.g., `/check` or `compare_api`).
-  - `is_mock` is `false`.
-
----
-
-### Scenario 3: Verify Mock Rain Test is Excluded from Unit Economics
-- **Goal**: Verify that mock triggers do not pollute accuracy and cost metrics.
-- **Steps**:
-  1. Send `/mock_rain` in Telegram.
-  2. Check DB: `SELECT * FROM system_usage_events ORDER BY id DESC LIMIT 1;` -> `is_mock` should be `true`.
-  3. Query `GET /api/v1/metrics/cost`
-- **Expected Outcome**:
-  - The mock alert is ignored in the `proactive_count`, `ondemand_count`, and cost per alert calculations.
-
----
-
-### Scenario 4: Verify Admin Metrics Dashboard Frontend
-- **Goal**: Verify the new UI fields reflect the multi-tier unit economics correctly.
-- **Steps**:
-  1. Open the frontend dashboard `http://localhost:3000/admin/metrics`.
-  2. Select the current month.
-- **Expected Outcome**:
-  - Page renders without errors.
-  - Cards show "Proactive Alerts", "On-Demand Queries", "Cost / Proactive Alert", "Cost / On-Demand Query", and "Blended Cost / User".
-
----
-
-### Scenario 5: Verify Locations Admin Security & Filtering
-- **Goal**: Verify that `/api/locations` requires `x-cron-secret` auth header, Next.js server-side proxies it safely, and the admin UI search filter operates smoothly.
-- **Steps**:
-  1. Curl backend directly without header: `curl -i http://localhost:8000/api/locations` -> Expect `401 Unauthorized`.
-  2. Curl backend with header: `curl -i -H "x-cron-secret: <CRON_SECRET>" http://localhost:8000/api/locations` -> Expect `200 OK` with JSON array.
-  3. Open frontend `http://localhost:3000/admin/locations` in browser.
-  4. Type in the search input box (e.g. chat ID or location name).
-- **Expected Outcome**:
-  - Direct unauthenticated backend access is securely rejected.
-  - Frontend admin table displays data seamlessly via server-side Next.js route handler.
-  - Search filter dynamically filters rows in real time.
-
----
-
-### Scenario 6: Clean Radar Tracking Image & /rain_minimal Command
-- **Goal**: Verify `/rain_minimal` command and clean tracking image rendering without text labels.
-- **Steps**:
-  1. Run unit tests: `pytest backend/tests/test_clean_radar_command.py`
-  2. Execute sample generation script:
-     ```python
-     import cv2
-     import numpy as np
-     from app.services.tmd_radar_processor import TMDRadarProcessor
-
-     frame = np.zeros((600, 600, 3), dtype=np.uint8)
-     cv2.circle(frame, (300, 300), 20, (0, 0, 255), -1)
-
-     processor = TMDRadarProcessor("skn240")
-     img_bytes = processor.generate_radar_tracking_image(
-         frame=frame, user_x=300, user_y=300, clouds=[],
-         show_clouds=True, show_trajectory=True, show_labels=False
-     )
-     ```
-- **Expected Outcome**:
-  - `test_clean_radar_command.py` tests pass.
-  - Tracking image renders with grid and markers but completely omits text overlay labels.
-
----
-
-### Scenario 7: Verify Admin Metrics Interactive Breakdown Charts
-- **Goal**: Verify that Daily, Monthly, and Yearly breakdown charts render correctly on `/admin/metrics` with responsive toggles.
-- **Steps**:
-  1. Open `http://localhost:3000/admin/metrics`.
-  2. Inspect the chart section: confirm "รายวัน (Daily)" is displayed by default, showing daily alert bars with stacked True/False alarm segments.
-  3. Click "รายเดือน (Monthly)": verify chart switches to 12-month overview of the selected year (`/api/v1/metrics/yearly?year=YYYY`).
-  4. Click "รายปี (Yearly)": verify multi-year trend comparison is rendered.
-  5. Hover over bars to confirm tooltip displays exact counts (True vs False vs Total).
-- **Expected Outcome**:
-  - Toggling between Daily, Monthly, and Yearly views updates the chart seamlessly without layout shifts.
-  - Hovering over a bar reveals detailed alert accuracy counts.
-
----
-
-### Scenario 8: Verify Baht Icon & Daily/Monthly/Yearly Infrastructure Cost Chart
-- **Goal**: Verify that all Dollar (`$`) signs have been replaced with Thai Baht (`฿`) icons, and that the Cost chart displays Daily, Monthly, and Yearly GCP vs External spending.
-- **Steps**:
-  1. Open `http://localhost:3000/admin/metrics`.
-  2. Verify metric cards: "Cost / Proactive Alert", "Cost / On-Demand Query", "Blended Cost / User", and "โครงสร้างต้นทุนเดือน ..." display `฿` currency icons instead of `$`.
-  3. Click the "ต้นทุนค่าใช้จ่าย (Cost)" mode button on the chart.
-  4. Test Timeframe Toggles:
-     - Click **รายวัน (Daily)**: Verify daily cost bars for the selected month with GCP (cyan) and External (purple) breakdown.
-     - Click **รายเดือน (Monthly)**: Verify 12-month cost breakdown for the selected year.
-     - Click **รายปี (Yearly)**: Verify multi-year cost comparison.
-  5. Hover over a cost bar: confirm tooltip details GCP cost, External cost, and Total cost in Thai Baht.
-- **Expected Outcome**:
-  - Currency icons render `฿` consistently with accessibility label `บาท (THB)`.
-  - Cost chart toggles smoothly across Daily, Monthly, and Yearly breakdowns.
-
----
-
-## 📸 Proof of Verification (Artifacts & Logs)
-- **Automated Verification Summary**:
-  - `pytest backend/tests/test_dashboard_metrics.py`: Verified `GET /api/v1/metrics/yearly` and `GET /api/v1/metrics/cost/yearly`.
-  - `npm run test` (Frontend Jest): `7 test suites passed, 43 tests passed` including `src/__tests__/AdminMetricsPage.test.tsx`.
-  - `npm run build` (Next.js Production Build): Compiled cleanly with 0 errors across all routes.
+## Scope Checked
+- Foundational decoupling only.
+- Test suites run green, meaning no regressions were introduced to the legacy God Module paths.
