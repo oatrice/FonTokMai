@@ -17,6 +17,7 @@ from app.services.tmd_radar.processor import TMDRadarProcessor
 from app.services.tmd_radar.renderer_impl import DefaultRadarRenderer
 from app.services.weather_manager import _resolve_radar_overlay_utc, log_growth_decay_telemetry
 from app.core.dev_settings import get_dev_settings
+from app.dependencies import get_repo_context
 
 logger = logging.getLogger(__name__)
 
