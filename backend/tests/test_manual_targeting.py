@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.models import Base, UserLocation
 from app.repositories.sqlite import SQLiteLocationRepository
 from app.services.weather_manager import WeatherManager
+from app.services.tmd_radar.cache_manager import RadarCacheEntry
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 engine = create_async_engine(TEST_DATABASE_URL, echo=False)
@@ -90,10 +91,7 @@ async def test_weather_manager_manual_targeting_override(db_session):
     import numpy as np
     mock_frames = [np.zeros((800, 800, 3), dtype=np.uint8), np.zeros((800, 800, 3), dtype=np.uint8)]
     mock_flow = np.zeros((800, 800, 2), dtype=np.float32)
-    wm.load_persistent_cache_to_memory = AsyncMock(return_value=(
-        mock_frames, datetime.now(timezone.utc), time.time(), mock_flow,
-        "static_cache", 15.0, [int(time.time()) - 900, int(time.time())]
-    ))
+    wm.load_persistent_cache_to_memory = AsyncMock(return_value=RadarCacheEntry(frames=mock_frames, last_modified_dt=datetime.now(timezone.utc), cache_timestamp=time.time(), flow=mock_flow, frame_source="static_cache", data_gap_minutes=15.0, frame_timestamps=[int(time.time()) - 900, int(time.time())], frame_urls=[]))
     
     # Mock return values of find_approaching_clouds and get_all_rain_clusters
     mock_all_clusters = [
@@ -109,12 +107,23 @@ async def test_weather_manager_manual_targeting_override(db_session):
     mock_repo_context.__aenter__.return_value = repo
     
     from unittest.mock import ANY
+    mock_renderer = MagicMock()
+    mock_renderer.render_rain_summary.return_value = "Summary"
+    mock_renderer.generate_radar_tracking_image.return_value = b"bytes"
+    mock_renderer.generate_timeline_image.return_value = b"bytes"
+    mock_renderer.generate_multiframe_analysis_image.return_value = b"bytes"
+    mock_processor = MagicMock()
     with patch("app.services.weather_manager.get_repo_context", return_value=mock_repo_context), \
-         patch("app.services.weather_manager.TMDRadarProcessor") as MockProcessorClass, \
+         patch("app.services.tmd_radar.adapter.get_repo_context", return_value=mock_repo_context), \
+         patch("app.services.tmd_radar.adapter.TMDRadarProcessor", return_value=mock_processor), \
+         patch("app.services.tmd_radar.adapter.DefaultRadarRenderer", return_value=mock_renderer), \
          patch("app.core.dev_settings.update_dev_settings", {"decay_enabled": True, "hit_radius": 8}):
-         
-        mock_processor = MockProcessorClass.return_value
         mock_processor.latlng_to_pixel.return_value = (150, 150)
+        mock_processor.calculate_average_wind_vector.return_value = (1.0, 1.0)
+        mock_processor.get_wind_speed_kmh_from_vector.return_value = 15.0
+        mock_processor.get_wind_direction_text.return_value = 'N'
+        mock_processor.get_wind_direction_text_from_vector.return_value = 'N'
+        mock_processor.get_wind_speed_kmh.return_value = 10.0
         mock_processor.get_dbz_at_pixel.return_value = 0.0
         
         # mock find_approaching_clouds
@@ -125,8 +134,8 @@ async def test_weather_manager_manual_targeting_override(db_session):
         
         mock_processor.get_all_rain_clusters.return_value = mock_all_clusters
         mock_processor.extrapolate_rain_at_pixel.return_value = (15.0, 105, 105)
-        mock_processor.render_rain_summary.return_value = "Summary"
-        mock_processor.generate_radar_tracking_image.return_value = b"bytes"
+        mock_renderer.render_rain_summary.return_value = "Summary"
+        mock_renderer.generate_radar_tracking_image.return_value = b"bytes"
         
         # Run tmd prediction
         result = await wm._get_tmd_prediction(13.75, 100.5, force_station="kkn120", chat_id=chat_id)
@@ -148,8 +157,8 @@ async def test_weather_manager_manual_targeting_override(db_session):
 
         # Verify the renderer received the stored lock position so it can draw
         # the crosshair at the right cloud independently of cluster label changes.
-        mock_processor.generate_radar_tracking_image.assert_called_once()
-        renderer_args, _ = mock_processor.generate_radar_tracking_image.call_args
+        mock_renderer.generate_radar_tracking_image.assert_called_once()
+        renderer_args, _ = mock_renderer.generate_radar_tracking_image.call_args
         assert renderer_args[-3] == "B"
         assert renderer_args[-2] == 105
         assert renderer_args[-1] == 105
@@ -257,7 +266,7 @@ async def test_webhook_grid_lock_scans_rendered_tracking_crop_cell(db_session):
     rain_y = int(crop_y1 + 4 * cell_h + 8)
     frame[rain_y, rain_x] = (255, 0, 0)
     flow[rain_y, rain_x] = (1.0, 0.0)
-    cache_data = ([frame], datetime.now(timezone.utc), 0, flow, "static_cache", 15.0, [0])
+    cache_data = RadarCacheEntry(frames=[frame], last_modified_dt=datetime.now(timezone.utc), cache_timestamp=0, flow=flow, frame_source="static_cache", data_gap_minutes=15.0, frame_timestamps=[0], frame_urls=[])
 
     from app.routers import webhook_commands
 
@@ -375,7 +384,7 @@ async def test_webhook_lock_uses_last_pinned_location(db_session):
         rain_y = int(crop_y1 + 4 * cell_h + 8)
         frame[rain_y, rain_x] = (255, 0, 0)
         flow[rain_y, rain_x] = (1.0, 0.0)
-        cache_data = ([frame], datetime.now(timezone.utc), 0, flow, "static_cache", 15.0, [0])
+        cache_data = RadarCacheEntry(frames=[frame], last_modified_dt=datetime.now(timezone.utc), cache_timestamp=0, flow=flow, frame_source="static_cache", data_gap_minutes=15.0, frame_timestamps=[0], frame_urls=[])
         mock_wm.load_persistent_cache_to_memory = AsyncMock(return_value=cache_data)
         
         # Execute lock command without location prefix (e.g. "/lock G5")
@@ -523,10 +532,7 @@ async def test_empty_grid_lock_does_not_snap_to_adjacent_cluster(db_session):
     import time
     mock_frames = [np.zeros((800, 800, 3), dtype=np.uint8), np.zeros((800, 800, 3), dtype=np.uint8)]
     mock_flow = np.zeros((800, 800, 2), dtype=np.float32)
-    wm.load_persistent_cache_to_memory = AsyncMock(return_value=(
-        mock_frames, datetime.now(timezone.utc), time.time(), mock_flow,
-        "static_cache", 15.0, [int(time.time()) - 900, int(time.time())]
-    ))
+    wm.load_persistent_cache_to_memory = AsyncMock(return_value=RadarCacheEntry(frames=mock_frames, last_modified_dt=datetime.now(timezone.utc), cache_timestamp=time.time(), flow=mock_flow, frame_source="static_cache", data_gap_minutes=15.0, frame_timestamps=[int(time.time()) - 900, int(time.time())], frame_urls=[]))
     
     # A cluster exists in D4 (col_idx=3, row_idx=3)
     d4_cx = int(crop_x1 + 3.5 * cell_w)
@@ -540,16 +546,28 @@ async def test_empty_grid_lock_does_not_snap_to_adjacent_cluster(db_session):
     mock_repo_context.__aenter__.return_value = repo
     
     with patch("app.services.weather_manager.get_repo_context", return_value=mock_repo_context), \
-         patch("app.services.weather_manager.TMDRadarProcessor") as MockProcessorClass:
+         patch("app.services.tmd_radar.adapter.get_repo_context", return_value=mock_repo_context), \
+         patch("app.services.tmd_radar.adapter.DefaultRadarRenderer") as MockRendererClass, \
+         patch("app.services.tmd_radar.adapter.TMDRadarProcessor") as MockProcessorClass:
+        mock_renderer = MockRendererClass.return_value
+        mock_renderer.render_rain_summary.return_value = "Summary"
+        mock_renderer.generate_radar_tracking_image.return_value = b"bytes"
+        mock_renderer.generate_timeline_image.return_value = b"bytes"
+        mock_renderer.generate_multiframe_analysis_image.return_value = b"bytes"
          
         mock_processor = MockProcessorClass.return_value
         mock_processor.latlng_to_pixel.return_value = (user_px, user_py)
+        mock_processor.calculate_average_wind_vector.return_value = (1.0, 1.0)
+        mock_processor.get_wind_speed_kmh_from_vector.return_value = 15.0
+        mock_processor.get_wind_direction_text.return_value = 'N'
+        mock_processor.get_wind_direction_text_from_vector.return_value = 'N'
+        mock_processor.get_wind_speed_kmh.return_value = 10.0
         mock_processor.get_dbz_at_pixel.return_value = 0.0
         mock_processor.find_approaching_clouds.return_value = []
         mock_processor.get_all_rain_clusters.return_value = mock_all_clusters
         mock_processor.extrapolate_rain_at_pixel.return_value = (0.0, user_px, user_py)
-        mock_processor.render_rain_summary.return_value = "Summary"
-        mock_processor.generate_radar_tracking_image.return_value = b"bytes"
+        mock_renderer.render_rain_summary.return_value = "Summary"
+        mock_renderer.generate_radar_tracking_image.return_value = b"bytes"
         
         await wm._get_tmd_prediction(16.4, 102.8, force_station="kkn120", chat_id=chat_id)
         
@@ -581,7 +599,7 @@ async def test_webhook_lock_command_with_cloud_label(db_session):
         frame = np.zeros((800, 800, 3), dtype=np.uint8)
         flow = np.zeros((800, 800, 2), dtype=np.float32)
         flow[300, 350] = (2.5, -1.0)
-        cache_data = ([frame], datetime.now(timezone.utc), 0, flow, "static_cache", 15.0, [0])
+        cache_data = RadarCacheEntry(frames=[frame], last_modified_dt=datetime.now(timezone.utc), cache_timestamp=0, flow=flow, frame_source="static_cache", data_gap_minutes=15.0, frame_timestamps=[0], frame_urls=[])
         mock_wm.load_persistent_cache_to_memory = AsyncMock(return_value=cache_data)
         
         mock_wm.predict_rain = AsyncMock(return_value={
@@ -624,21 +642,28 @@ async def test_weather_manager_manual_restrict_other_clouds(db_session):
     # Mocking extrapolate_rain_at_pixel returning (dbz, src_x, src_y)
     # Step 0: returns 0.0 dbz
     # Step 1: returns 35.0 dbz, but source pixel is (300, 300) which is far from locked target projected center (103, 104)
-    mock_processor.extrapolate_rain_at_pixel.side_effect = [
-        (0.0, 150, 150),
-        (35.0, 300, 300),  # This is far away from the locked target A
-    ]
+    mock_processor.extrapolate_rain_at_pixel.return_value = (35.0, 300, 300)
     mock_processor.get_dbz_at_pixel.return_value = 0.0
     mock_processor.render_rain_summary.return_value = "☀️ ยังไม่มีแนวโน้มฝนตก"
     mock_processor.get_wind_speed_kmh_from_vector.return_value = 15.0
     mock_processor.get_wind_direction_text_from_vector.return_value = "ENE"
-    mock_processor.generate_radar_tracking_image.return_value = b"mock_tracking_bytes"
-    mock_processor.generate_timeline_image.return_value = b"mock_timeline_bytes"
-    mock_processor.generate_multiframe_analysis_image.return_value = b"mock_multiframe_bytes"
+    mock_processor.get_wind_speed_kmh.return_value = 10.0
+    mock_processor.get_wind_direction_text.return_value = "N"
     
+    mock_renderer = MagicMock()
+    mock_renderer.render_rain_summary.return_value = "Summary"
+    mock_renderer.generate_radar_tracking_image.return_value = b"bytes"
+    mock_renderer.generate_timeline_image.return_value = b"bytes"
+    mock_renderer.generate_multiframe_analysis_image.return_value = b"bytes"
     with patch("app.services.weather_manager.get_repo_context") as mock_get_repo_ctx, \
-         patch("app.services.weather_manager.TMDRadarProcessor", return_value=mock_processor), \
-         patch("app.services.weather_manager.get_dev_settings") as mock_get_dev_settings:
+         patch("app.services.tmd_radar.adapter.get_repo_context", mock_get_repo_ctx), \
+         patch("app.services.tmd_radar.adapter.TMDRadarProcessor", return_value=mock_processor), \
+         patch("app.services.tmd_radar.adapter.DefaultRadarRenderer", return_value=mock_renderer), \
+         patch("app.services.weather_manager.get_dev_settings") as mock_get_dev_settings, \
+             patch("app.services.tmd_radar.adapter.get_dev_settings", mock_get_dev_settings):
+        mock_renderer.generate_radar_tracking_image.return_value = b"mock_tracking_bytes"
+        mock_renderer.generate_timeline_image.return_value = b"mock_timeline_bytes"
+        mock_renderer.generate_multiframe_analysis_image.return_value = b"mock_multiframe_bytes"
         from app.core.dev_settings import DevSettings
         mock_get_dev_settings.return_value = DevSettings(verbose=True, decay_enabled=True, prediction_steps=2, hit_radius=8)
         
@@ -665,12 +690,19 @@ async def test_weather_manager_manual_restrict_other_clouds(db_session):
         # mock load_persistent_cache_to_memory
         import time
         mock_frames = [np.zeros((800, 800, 3), dtype=np.uint8), np.zeros((800, 800, 3), dtype=np.uint8)]
-        wm.load_persistent_cache_to_memory = AsyncMock(return_value=(
-            mock_frames, datetime.now(timezone.utc), time.time(), flow,
-            "static_cache", 15.0, [int(time.time()) - 900, int(time.time())]
-        ))
+        wm.load_persistent_cache_to_memory = AsyncMock(return_value=RadarCacheEntry(frames=mock_frames, last_modified_dt=datetime.now(timezone.utc), cache_timestamp=time.time(), flow=flow, frame_source="static_cache", data_gap_minutes=15.0, frame_timestamps=[int(time.time()) - 900, int(time.time())], frame_urls=[]))
         
         mock_processor.latlng_to_pixel.return_value = (150, 150)
+        
+        mock_processor.calculate_average_wind_vector.return_value = (1.0, 1.0)
+        
+        mock_processor.get_wind_speed_kmh_from_vector.return_value = 15.0
+        
+        mock_processor.get_wind_direction_text.return_value = 'N'
+        
+        mock_processor.get_wind_direction_text_from_vector.return_value = 'N'
+        
+        mock_processor.get_wind_speed_kmh.return_value = 10.0
         mock_processor.find_approaching_clouds.return_value = clouds
         mock_processor.get_all_rain_clusters.return_value = clouds
         
@@ -890,7 +922,7 @@ async def test_webhook_lock_exact_pixel_coordinates(db_session):
         # Put peak rain at (334, 189) and lower rain at requested (350, 175)
         frame[189, 334] = (0, 0, 246)
         frame[175, 350] = (0, 198, 0)
-        cache_data = ([frame], datetime.now(timezone.utc), 0, flow, "static_cache", 15.0, [0])
+        cache_data = RadarCacheEntry(frames=[frame], last_modified_dt=datetime.now(timezone.utc), cache_timestamp=0, flow=flow, frame_source="static_cache", data_gap_minutes=15.0, frame_timestamps=[0], frame_urls=[])
         mock_wm.load_persistent_cache_to_memory = AsyncMock(return_value=cache_data)
 
         await webhook_commands.handle_lock_command(chat_id, "/lock 350, 175")
