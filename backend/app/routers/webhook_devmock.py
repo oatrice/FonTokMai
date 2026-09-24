@@ -288,7 +288,7 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                     n_frames  = len(entry.frames) if entry.frames else 0
                     cached_at = entry.cache_timestamp
                     src       = entry.frame_source
-                    ts_list   = list(entry.frame_timestamps) if len(entry) > 6 else []
+                    ts_list   = list(entry.frame_timestamps) if hasattr(entry, "frame_timestamps") and entry.frame_timestamps else []
                     age_s     = int(_time.time() - cached_at)
                     ttl_left  = max(0, 600 - age_s)
                     latest_bkk = (
@@ -543,7 +543,7 @@ async def handle_devmock_command(chat_id: int, command: str, username: str = "",
                 return
                 
             frames = list(cached_data.frames)
-            frame_timestamps = cached_data.frame_timestamps.copy() if len(cached_data) > 6 else []
+            frame_timestamps = cached_data.frame_timestamps.copy() if hasattr(cached_data, "frame_timestamps") and cached_data.frame_timestamps else []
             
             if not frame_timestamps:
                 await telegram.send_telegram_message(chat_id, f"❌ ไม่มีข้อมูล Timestamp ใน Cache ของ {station}")

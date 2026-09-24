@@ -85,8 +85,8 @@ async def test_predict_rain_respects_decay_enabled_and_steps(mock_repo_context):
     mock_processor.latlng_to_pixel.return_value = (50, 50)
     mock_processor.get_dbz_at_pixel.side_effect = lambda img, x, y: 20.0 if img[y, x, 1] == 255 else (15.0 if img[y, x, 2] == 255 else 0.0)
     mock_processor.render_rain_summary.return_value = "Mock Summary"
-    mock_processor.get_wind_speed_kmh.return_value = 10.0
-    mock_processor.get_wind_direction_text.return_value = "N"
+    mock_processor.get_wind_speed_kmh_from_vector.return_value = 10.0
+    mock_processor.get_wind_direction_text_from_vector.return_value = "N"
     
     # Mock extrapolate_rain_at_pixel
     # If rate is 0.0, dbz is constant 20.0
@@ -104,7 +104,7 @@ async def test_predict_rain_respects_decay_enabled_and_steps(mock_repo_context):
     fake_cache = (fake_frames, None, time.time(), fake_flow, "mock_source", 15.0, [time.time() - 900, time.time()])
     
     with patch("app.services.tmd_radar.cache_manager.RadarFrameCache.get", lambda self, st: type("FakeEntry", (), {"frames": fake_cache[0], "last_modified_dt": fake_cache[1], "cache_timestamp": fake_cache[2], "flow": fake_cache[3], "frame_source": "static", "data_gap_minutes": 15.0, "frame_timestamps": [], "frame_urls": []})() if st == "kkn120" else None), \
-         patch("app.services.weather_manager.TMDRadarProcessor", return_value=mock_processor), \
+         patch("app.services.tmd_radar.adapter.TMDRadarProcessor", return_value=mock_processor), \
          patch("app.services.weather_manager.get_repo_context", mock_repo_context):
         
         # Test Default/Enabled: decay_enabled = True, steps = 7
@@ -145,3 +145,9 @@ def test_config_regex_parsing_with_spaces():
     assert len(pairs) == 2
     assert pairs[0] == ("prediction_steps", "13")
     assert pairs[1] == ("decay_enabled", "false")
+
+@pytest.fixture(autouse=True)
+def reset_dev_settings():
+    from app.core.dev_settings import update_dev_settings
+    yield
+    update_dev_settings({"decay_enabled": True, "prediction_steps": 13})

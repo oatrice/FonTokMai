@@ -223,3 +223,29 @@ class TMDRadarProcessor(TMDCacheMixin, TMDTrackingMixin, TMDMultiframeMixin, TMD
                 )
 
         return px, py
+
+    # =========================================================================
+    # Backward Compatibility Proxies for Unit Tests (Delegating to RadarRenderer)
+    # =========================================================================
+    def generate_radar_tracking_image(self, *args, **kwargs):
+        from app.services.tmd_radar.renderer_impl import DefaultRadarRenderer
+        return DefaultRadarRenderer(self).generate_radar_tracking_image(*args, **kwargs)
+
+    def draw_pin_on_frame(self, *args, **kwargs):
+        from app.services.tmd_radar.renderer_impl import DefaultRadarRenderer
+        return DefaultRadarRenderer(self).draw_pin_on_frame(*args, **kwargs)
+
+    @staticmethod
+    def render_rain_summary(*args, **kwargs):
+        from app.services.tmd_radar.renderer_impl import DefaultRadarRenderer
+        return DefaultRadarRenderer(None).render_rain_summary(*args, **kwargs)
+
+    @staticmethod
+    def generate_timeline_image(*args, **kwargs):
+        from app.services.tmd_radar.renderer_impl import DefaultRadarRenderer
+        return DefaultRadarRenderer(None).generate_timeline_image(*args, **kwargs)
+
+    @staticmethod
+    def generate_multiframe_analysis_image(*args, **kwargs):
+        from app.services.tmd_radar.renderer_impl import DefaultRadarRenderer
+        return DefaultRadarRenderer(None).generate_multiframe_analysis_image(*args, **kwargs)
