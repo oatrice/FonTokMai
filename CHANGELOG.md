@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.76.0] - 2026-09-24
+
+### Added
+- **Interactive Radar UI Mockups & SaaS Landing Page**: Added interactive radar mockups with timeline scrubbing, animation playback controls, location labels, and coordinate displays (`/radar-mockups`). Introduced new UI style variants (Styles D, E, and F) and a mobile UI flow version. Added a new landing page for the SaaS product. Added python and JS scripts for UI merge and code generation.
+- **Runway & Financial Dashboard Refinements**: Added dynamic runway calculation (`RunwayCounter` component) that accurately handles continuous polling via SSE and persists browser refresh countdown state to avoid state resetting (Fixes #275). Updated color themes, gradients, typography, layout, and footer text across the financial dashboard.
+- **Documentation Migration**: Migrated product documentation, design system configuration, architecture decisions, specs, and roadmap to a central `FonTokMai-Docs` repository.
+
+### Changed
+- **Styling**: Removed pulse animations and glow effects across various UI components for a cleaner aesthetic.
+
 ## [0.75.0] - 2026-09-24
 
 ### Changed

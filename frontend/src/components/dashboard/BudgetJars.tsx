@@ -7,9 +7,9 @@ import { GlassBadge } from "@/components/ui/GlassBadge";
 import { Server, CloudRain, ShieldCheck } from "lucide-react";
 
 const jarGradients: Record<string, string> = {
-  "Cloud Run Infrastructure": "linear-gradient(to right, #3b82f6, #06b6d4)",
-  "TMD Radar & Weather APIs": "linear-gradient(to right, #a855f7, #6366f1)",
-  "Emergency Reserve Jar": "linear-gradient(to right, #10b981, #14b8a6)",
+  "Cloud Run Infrastructure": "linear-gradient(to right, #2563eb, #0284c7)",
+  "TMD Radar & Weather APIs": "linear-gradient(to right, #0284c7, #0d9488)",
+  "Emergency Reserve Jar": "linear-gradient(to right, #059669, #10b981)",
 };
 
 interface BudgetJar {
@@ -37,29 +37,29 @@ const defaultJars: BudgetJar[] = [
     name: "Cloud Run Infrastructure",
     percentage: 50,
     allocated_thb: 2570,
-    color: "from-blue-500 to-cyan-500",
+    color: "from-blue-600 to-sky-600",
     description: "Backend API instances & async workers",
   },
   {
     name: "TMD Radar & Weather APIs",
     percentage: 30,
     allocated_thb: 1542,
-    color: "from-purple-500 to-indigo-500",
+    color: "from-sky-600 to-teal-600",
     description: "Radar image processing & storage",
   },
   {
     name: "Emergency Reserve Jar",
     percentage: 20,
     allocated_thb: 1028,
-    color: "from-emerald-500 to-teal-500",
+    color: "from-emerald-600 to-teal-500",
     description: "Locked buffer for unexpected spikes",
   },
 ];
 
 const jarColorMap: Record<string, string> = {
-  "Cloud Run Infrastructure": "from-blue-500 to-cyan-500",
-  "TMD Radar & Weather APIs": "from-purple-500 to-indigo-500",
-  "Emergency Reserve Jar": "from-emerald-500 to-teal-500",
+  "Cloud Run Infrastructure": "from-blue-600 to-sky-600",
+  "TMD Radar & Weather APIs": "from-sky-600 to-teal-600",
+  "Emergency Reserve Jar": "from-emerald-600 to-teal-500",
 };
 
 export function BudgetJars() {

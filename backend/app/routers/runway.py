@@ -1,3 +1,4 @@
+import time
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,6 +53,7 @@ async def get_runway(
     circuit_breaker_active = False
     is_overdrive = emergency_overdrive
     budget_percentages = {"infra": 50, "api": 30, "reserve": 20}
+    balance_updated_at = None
 
     try:
         # 1. Total balance THB
@@ -59,6 +61,12 @@ async def get_runway(
         row = res.scalar_one_or_none()
         if row is not None:
             current_budget = float(json.loads(row))
+
+        # 1.1 Balance updated_at timestamp (if tracked)
+        res = await db.execute(select(SystemConfig.value_json).where(SystemConfig.key == "total_balance_updated_at"))
+        row = res.scalar_one_or_none()
+        if row is not None:
+            balance_updated_at = float(json.loads(row))
 
         # 2. Circuit breaker active
         res = await db.execute(select(SystemConfig.value_json).where(SystemConfig.key == "circuit_breaker_active"))
@@ -93,8 +101,17 @@ async def get_runway(
     except Exception:
         pass
 
+    now_ts = time.time()
+    elapsed_days = 0.0
+    if balance_updated_at is not None and now_ts > balance_updated_at:
+        elapsed_days = (now_ts - balance_updated_at) / 86400.0
+
     remaining_days = engine.calculate_remaining_days(
-        current_budget, fixed_daily_cost, variable_daily_cost, emergency_overdrive=is_overdrive
+        current_budget,
+        fixed_daily_cost,
+        variable_daily_cost,
+        emergency_overdrive=is_overdrive,
+        elapsed_days=elapsed_days,
     )
     is_overdrive_active = is_overdrive or remaining_days == float('inf')
     
@@ -102,16 +119,27 @@ async def get_runway(
     pct_api = budget_percentages.get("api", 30)
     pct_reserve = budget_percentages.get("reserve", 20)
 
-    jar_infra = int(current_budget * (pct_infra / 100.0))
-    jar_api = int(current_budget * (pct_api / 100.0))
-    jar_reserve = int(current_budget * (pct_reserve / 100.0))
+    # Dynamic remaining budget after elapsed burn
+    total_burn = fixed_daily_cost + variable_daily_cost
+    effective_balance = max(0.0, current_budget - (total_burn * elapsed_days)) if not is_overdrive_active else current_budget
+
+    jar_infra = int(effective_balance * (pct_infra / 100.0))
+    jar_api = int(effective_balance * (pct_api / 100.0))
+    jar_reserve = int(effective_balance * (pct_reserve / 100.0))
+
+    target_exhaustion_time = engine.calculate_target_exhaustion_time(
+        remaining_days=remaining_days,
+        base_timestamp=now_ts,
+    )
 
     return {
         "days_remaining": -1 if is_overdrive_active else int(remaining_days),
         "hours_remaining": -1 if is_overdrive_active else int((remaining_days % 1) * 24),
         "seconds_remaining": -1 if is_overdrive_active else int(remaining_days * 86400),
-        "burn_rate_per_day": round(fixed_daily_cost + variable_daily_cost, 2),
-        "total_balance_thb": current_budget,
+        "target_exhaustion_time": target_exhaustion_time,
+        "server_time": now_ts,
+        "burn_rate_per_day": round(total_burn, 2),
+        "total_balance_thb": round(effective_balance, 2),
         "circuit_breaker_active": circuit_breaker_active,
         "emergency_overdrive": is_overdrive_active,
         "budget_jars": [
