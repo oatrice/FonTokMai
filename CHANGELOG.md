@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.75.0] - 2026-09-24
+
+### Changed
+- **Radar Architecture Refactoring**: Refactored the core TMD Radar system to break down the `TMDRadarProcessor` god object and implement proper domain isolation. Extracted all PIL/OpenCV image generation logic into a new `RadarRenderer` interface and `DefaultRadarRenderer` class. Introduced `NowcastPort` and strictly-typed `RadarPredictionEntity` and `RainPrediction` Pydantic models to formalize the data boundary between the radar adapter and the core weather manager.
+
 ## [0.74.0] - 2026-09-16
 
 ### Added
