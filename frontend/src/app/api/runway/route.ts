@@ -13,10 +13,17 @@ export async function GET() {
     console.error("❌ [API Proxy /api/runway] Failed to connect to Backend URL:", backendUrl, e);
   }
 
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const fallbackDays = 42;
+  const fallbackHours = 18;
+  const fallbackSecondsRemaining = fallbackDays * 86400 + fallbackHours * 3600;
+
   return NextResponse.json({
-    days_remaining: 42,
-    hours_remaining: 18,
-    seconds_remaining: 3693600,
+    days_remaining: fallbackDays,
+    hours_remaining: fallbackHours,
+    seconds_remaining: fallbackSecondsRemaining,
+    target_exhaustion_time: nowSeconds + fallbackSecondsRemaining,
+    server_time: nowSeconds,
     burn_rate_per_day: 120,
     total_balance_thb: 5140,
     circuit_breaker_active: false,
@@ -27,21 +34,21 @@ export async function GET() {
         percentage: 50,
         allocated_thb: 2570,
         description: "Backend API instances & async workers",
-        color: "from-blue-500 to-cyan-500",
+        color: "from-blue-600 to-sky-600",
       },
       {
         name: "TMD Radar & Weather APIs",
         percentage: 30,
         allocated_thb: 1542,
         description: "Radar image processing & storage",
-        color: "from-purple-500 to-indigo-500",
+        color: "from-sky-600 to-teal-600",
       },
       {
         name: "Emergency Reserve Jar",
         percentage: 20,
         allocated_thb: 1028,
         description: "Locked buffer for unexpected spikes",
-        color: "from-emerald-500 to-teal-500",
+        color: "from-emerald-600 to-teal-500",
       },
     ],
   });

@@ -53,7 +53,7 @@ export function DonationModal({ isOpen, onClose }: DonationModalProps) {
       } else {
         throw new Error("No URL returned from server");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Donation error:", err);
       setError("Failed to connect to payment gateway. Please try again.");
       setIsSubmitting(false);
@@ -89,7 +89,7 @@ export function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     onClick={() => setAmount(preset)}
                     className={`py-2 px-3 rounded-lg border font-medium transition-all ${
                       amount === preset
-                        ? "bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+                        ? "bg-cyan-500/20 border-cyan-400 text-cyan-300 "
                         : "bg-slate-800/50 border-white/10 text-slate-300 hover:border-white/30 hover:bg-slate-800"
                     }`}
                   >

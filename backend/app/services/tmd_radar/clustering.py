@@ -137,8 +137,8 @@ class TMDClusteringMixin:
         ``extract_rain_mask`` applies medianBlur which eliminates sparse/isolated
         pixels and is intended only for optical-flow computation.
         """
-        from app.services.weather_manager import _DEV_CONFIG
-        enable_hsv = _DEV_CONFIG.get("enable_hsv_mask", True)
+        from app.core.dev_settings import get_dev_settings, update_dev_settings
+        enable_hsv = get_dev_settings().enable_hsv_mask
 
         img_float = img.astype(np.float32)
         best_intensity = np.zeros(img.shape[:2], dtype=np.uint8)
@@ -184,8 +184,8 @@ class TMDClusteringMixin:
         Applies medianBlur to remove single-pixel noise — use this for optical flow.
         For per-pixel candidate detection, use _extract_raw_dbz_map() instead.
         """
-        from app.services.weather_manager import _DEV_CONFIG
-        enable_hsv = _DEV_CONFIG.get("enable_hsv_mask", True)
+        from app.core.dev_settings import get_dev_settings, update_dev_settings
+        enable_hsv = get_dev_settings().enable_hsv_mask
 
         img_float = img.astype(np.float32)
         best_intensity = np.zeros(img.shape[:2], dtype=np.uint8)
@@ -453,8 +453,8 @@ class TMDClusteringMixin:
             # Predict future intensity only if incoming, otherwise use current
             eta_steps = max(0.0, eta_min / 15.0)
             
-            from app.services.weather_manager import _DEV_CONFIG
-            if _DEV_CONFIG.get("decay_enabled", True):
+            from app.core.dev_settings import get_dev_settings, update_dev_settings
+            if get_dev_settings().decay_enabled:
                 predicted_dbz = max(0.0, min(75.0, dbz_now * ((1 + growth_rate) ** eta_steps)))
             else:
                 predicted_dbz = dbz_now
@@ -542,8 +542,8 @@ class TMDClusteringMixin:
         closed_mask = cv2.morphologyEx(bin_mask, cv2.MORPH_CLOSE, kernel)
         
         # Check connected components before and after MORPH_CLOSE
-        from app.services.weather_manager import _DEV_CONFIG
-        if _DEV_CONFIG.get("verbose"):
+        from app.core.dev_settings import get_dev_settings, update_dev_settings
+        if get_dev_settings().verbose:
             num_labels_before, _ = cv2.connectedComponents(bin_mask)
             num_labels_after, _ = cv2.connectedComponents(closed_mask)
             print(

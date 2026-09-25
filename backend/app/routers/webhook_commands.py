@@ -5,7 +5,8 @@ import subprocess
 from app.services.command_router import router as cmd_router
 from .webhook_utils import (
     _reply, LAST_ACTIVE_LOCATION, LAST_PINNED_LOCATION,
-    get_repo_context, logger, log_audit_event, check_admin_access
+    get_repo_context, logger, log_audit_event, check_admin_access,
+    format_local_time_for_location
 )
 from app.services import telegram
 from .webhook_location import process_telegram_location
@@ -195,8 +196,10 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
         frame_h = processor.config.static_crop_height
         
         if cache_data:
-            # Flexible unpacking to support both 7 and 8 return values (fixes unit test mock compatibility)
-            if len(cache_data) >= 8:
+            if hasattr(cache_data, "frames"):
+                frames = cache_data.frames
+                flow = cache_data.flow
+            elif len(cache_data) >= 8:
                 frames, _, _, flow, _, _, _, _ = cache_data[:8]
             else:
                 frames, _, _, flow, _, _, _ = cache_data[:7]
@@ -499,10 +502,12 @@ async def handle_radar_command(chat_id: int):
 @cmd_router.bind("/tracking", task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
 @cmd_router.bind("/nowcast", task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
 @cmd_router.bind("/rain_pro_d", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", show_advanced=True, command_override="/rain_pro d")
+@cmd_router.bind("/rain_minimal", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", show_labels=False)
 @cmd_router.bind("/rain_pro", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", show_advanced=True)
 @cmd_router.bind("/rain", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
 @cmd_router.bind("/check", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", command_override="/rain tmd-radar")
-async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False, message_id_to_edit: int = None):
+async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False, show_labels: bool = True, message_id_to_edit: int = None):
+
     import re
     coords_match = re.search(r'([+-]?\d+\.\d+)[,\s]+([+-]?\d+\.\d+)', command)
     custom_lat = None
@@ -565,8 +570,8 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
                 await process_telegram_location(
                     chat_id, lat=l.latitude, lng=l.longitude,
                     force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
-                    show_advanced=show_advanced, location_name=loc_display,
-                    is_saved_location=True
+                    show_advanced=show_advanced, show_labels=show_labels, location_name=loc_display,
+                    is_saved_location=True, command_name=parts[0]
                 )
             return
 
@@ -596,8 +601,8 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
     await process_telegram_location(
         chat_id, lat=loc.latitude, lng=loc.longitude,
         force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
-        show_advanced=show_advanced, location_name=loc_display,
-        is_saved_location=True
+        show_advanced=show_advanced, show_labels=show_labels, location_name=loc_display,
+        is_saved_location=True, command_name=parts[0]
     )
 
 @cmd_router.bind("/multiframe", task_route="worker/handle-multiframe", loading_text="⏳ กำลังสร้างภาพวิเคราะห์เรดาร์ 6 เฟรม...")
@@ -658,6 +663,25 @@ async def handle_multiframe_command(chat_id: int, command: str, message_id_to_ed
     else:
         await telegram.send_telegram_message(chat_id, "⚠️ ไม่สามารถสร้างภาพวิเคราะห์ 6 เฟรมได้ในขณะนี้")
 
+    from datetime import datetime, timezone
+    from app.models import SystemUsageEvent
+    async with get_repo_context() as repo:
+        if hasattr(repo, "session") and repo.session:
+            event = SystemUsageEvent(
+                chat_id=str(chat_id),
+                location_name=loc.name or "default",
+                latitude=loc.latitude,
+                longitude=loc.longitude,
+                alerted_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                rain_intensity_mm=result.get("max_rain", 0.0),
+                alert_type="rain",
+                event_category="ondemand_query",
+                command_name="/multiframe",
+                is_mock=False
+            )
+            repo.session.add(event)
+            await repo.session.commit()
+
 
 @cmd_router.bind("/calibrate ", requires_admin=True, loading_text="⏳ กำลังวิเคราะห์และ Calibrate เรดาร์...")
 async def handle_calibrate_command(chat_id: int, command: str, message_id_to_edit: int = None):
@@ -714,4 +738,315 @@ async def handle_calibrate_command(chat_id: int, command: str, message_id_to_edi
         await telegram.send_telegram_photo(chat_id, photo_bytes=img_bytes, caption=caption)
     except Exception as e:
         await _reply(chat_id, f"❌ เกิดข้อผิดพลาดในการ Calibrate: {str(e)}", message_id_to_edit)
+
+
+@cmd_router.bind("/locations", loading_text="⏳ กำลังโหลดรายการพิกัด...")
+async def handle_locations_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    แสดงรายการพิกัดทั้งหมดของผู้ใช้ พร้อมปุ่ม Mute/Snooze และสถานะ
+    """
+    async with get_repo_context() as repo:
+        locs = await repo.get_user_locations(chat_id)
+        if not locs:
+            await _reply(chat_id, "📍 คุณยังไม่มีพิกัดที่บันทึกไว้ในระบบ สามารถส่ง Location ใน Telegram เพื่อบันทึกพิกัดได้ครับ", message_id_to_edit)
+            return
+
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        msg_lines = ["📍 <b>รายการพิกัดของคุณ</b>\n"]
+        inline_keyboard = []
+
+        for loc in locs:
+            is_snoozed_active = loc.is_snoozed and (loc.snooze_until is None or loc.snooze_until > now)
+            policy = getattr(loc, "presence_policy", "always_ask")
+            policy_labels = {
+                "always_notify": "เตือนทันที",
+                "always_ask": "ถามก่อนเสมอ",
+                "schedule_based": "ตามตารางเวลา",
+                "silent_card": "เตือนแบบเงียบ"
+            }
+            policy_text = policy_labels.get(policy, policy)
+
+            if is_snoozed_active:
+                until_str = format_local_time_for_location(loc.snooze_until, loc.latitude, loc.longitude) if loc.snooze_until else "ถาวร"
+                status_badge = f"🔕 Snoozed (ถึง {until_str} น.)"
+            else:
+                status_badge = f"🟢 Active ({policy_text})"
+
+            msg_lines.append(f"• <b>{loc.name}</b> ({loc.latitude:.4f}, {loc.longitude:.4f}) — {status_badge}")
+            
+            # Action buttons per location
+            loc_buttons = []
+            if is_snoozed_active:
+                loc_buttons.append({"text": f"✅ เปิดเตือน [{loc.name}]", "callback_data": f"loc_unsnooze_{loc.name}"})
+            else:
+                loc_buttons.append({"text": f"🔕 ปิด 1ชม. [{loc.name}]", "callback_data": f"loc_snooze_{loc.name}_1"})
+                loc_buttons.append({"text": f"🔕 4ชม.", "callback_data": f"loc_snooze_{loc.name}_4"})
+                loc_buttons.append({"text": f"🔕 24ชม.", "callback_data": f"loc_snooze_{loc.name}_24"})
+            
+            # Add presence config button per location
+            loc_buttons.append({"text": f"⚙️ ตั้งค่าเตือน [{loc.name}]", "callback_data": f"presence_menu_{loc.name}"})
+            inline_keyboard.append(loc_buttons)
+
+        guide_text = (
+            "\n💡 <b>วิธีจัดการพิกัด:</b>\n"
+            "- ตั้งค่าโหมดการเตือน/ตารางเวลา: <code>/presence [ชื่อพิกัด]</code> หรือกดปุ่ม ⚙️\n"
+            "- เปลี่ยนชื่อพิกัด: <code>/rename [ชื่อเดิม] [ชื่อใหม่]</code>"
+        )
+        msg_lines.append(guide_text)
+        reply_markup = {"inline_keyboard": inline_keyboard} if inline_keyboard else None
+
+        if message_id_to_edit:
+            await telegram.edit_telegram_message(chat_id, message_id_to_edit, "\n".join(msg_lines), reply_markup=reply_markup)
+        else:
+            await telegram.send_telegram_message(chat_id, "\n".join(msg_lines), reply_markup=reply_markup)
+
+
+@cmd_router.bind("/rename", loading_text="⏳ กำลังเปลี่ยนชื่อพิกัด...")
+async def handle_rename_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    เปลี่ยนชื่อพิกัด: /rename <old_name> <new_name>
+    """
+    parts = command.removeprefix("/rename").strip().split()
+    if len(parts) < 2:
+        usage_msg = (
+            "⚠️ รูปแบบคำสั่งไม่ถูกต้อง\n\n"
+            "<b>การใช้งาน:</b> <code>/rename [ชื่อเดิม] [ชื่อใหม่]</code>\n"
+            "<b>ตัวอย่าง:</b> <code>/rename home condo</code>"
+        )
+        await _reply(chat_id, usage_msg, message_id_to_edit)
+        return
+
+    old_name = parts[0].strip()
+    new_name = parts[1].strip()
+
+    async with get_repo_context() as repo:
+        success = await repo.rename_location(chat_id, old_name, new_name)
+        if success:
+            await _reply(chat_id, f"✅ เปลี่ยนชื่อพิกัดจาก <b>{old_name}</b> เป็น <b>{new_name}</b> สำเร็จแล้วครับ", message_id_to_edit)
+        else:
+            await _reply(chat_id, f"❌ ไม่สามารถเปลี่ยนชื่อพิกัดได้ (ไม่พบพิกัด '{old_name}' หรือชื่อ '{new_name}' ซ้ำกับพิกัดอื่น)", message_id_to_edit)
+
+
+def build_presence_menu_payload(loc):
+    """สร้าง text และ inline keyboard สำหรับเมนูตั้งค่า presence ของพิกัด"""
+    loc_name = loc.name
+    curr_policy = getattr(loc, "presence_policy", "always_ask")
+    ttl = getattr(loc, "presence_answer_ttl_minutes", 120)
+    fallback = getattr(loc, "default_fallback_policy", "notify")
+
+    policy_labels = {
+        "always_notify": "🔔 เตือนทันที (Always Notify)",
+        "always_ask": "❓ ถามก่อนเสมอ (Always Ask)",
+        "schedule_based": "⏰ ตามตารางเวลา (Schedule Based)",
+        "silent_card": "🔕 เตือนแบบเงียบ (Silent Card)",
+    }
+    fallback_labels = {
+        "notify": "ส่งเตือน (Notify)",
+        "silent": "ไม่ส่งเตือน (Silent)"
+    }
+    policy_display = policy_labels.get(curr_policy, curr_policy)
+    fallback_display = fallback_labels.get(fallback, fallback)
+
+    text = (
+        f"⚙️ <b>การตั้งค่าโหมดแจ้งเตือนสำหรับ [{loc_name}]</b>\n\n"
+        f"• <b>นโยบาย:</b> {policy_display}\n"
+        f"• <b>จดจำคำตอบ:</b> {ttl} นาที\n"
+        f"• <b>Timeout Fallback:</b> {fallback_display}\n\n"
+        f"<i>เลือกแตะปุ่มด้านล่างเพื่อเปลี่ยนโหมดหรือเวลาจำคำตอบ:</i>"
+    )
+
+    btn_notify_label = "✅ เตือนทันที" if curr_policy == "always_notify" else "🔔 เตือนทันที (ไม่ถาม)"
+    btn_ask_label = "✅ ถามก่อนเสมอ" if curr_policy == "always_ask" else "❓ ถามก่อนเสมอ"
+    btn_sched_label = "✅ ตามตารางเวลา" if curr_policy == "schedule_based" else "⏰ ตามตารางเวลา"
+    btn_silent_label = "✅ เตือนแบบเงียบ" if curr_policy == "silent_card" else "🔕 เตือนแบบเงียบ"
+
+    btn_ttl_60 = "✅ จำ 1 ชม." if ttl == 60 else "⏰ จำ 1 ชม."
+    btn_ttl_120 = "✅ จำ 2 ชม." if ttl == 120 else "⏰ จำ 2 ชม."
+    btn_ttl_240 = "✅ จำ 4 ชม." if ttl == 240 else "⏰ จำ 4 ชม."
+
+    keyboard = [
+        [
+            {"text": btn_notify_label, "callback_data": f"set_policy_{loc_name}_always_notify"},
+            {"text": btn_ask_label, "callback_data": f"set_policy_{loc_name}_always_ask"}
+        ],
+        [
+            {"text": btn_sched_label, "callback_data": f"set_policy_{loc_name}_schedule_based"},
+            {"text": btn_silent_label, "callback_data": f"set_policy_{loc_name}_silent_card"}
+        ],
+        [
+            {"text": btn_ttl_60, "callback_data": f"set_ttl_{loc_name}_60"},
+            {"text": btn_ttl_120, "callback_data": f"set_ttl_{loc_name}_120"},
+            {"text": btn_ttl_240, "callback_data": f"set_ttl_{loc_name}_240"}
+        ]
+    ]
+    return text, {"inline_keyboard": keyboard}
+
+
+@cmd_router.bind("/presence", loading_text="⏳ กำลังโหลดการตั้งค่าการแจ้งเตือน...")
+async def handle_presence_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    ตั้งค่า Presence Policy และตารางเวลา: /presence [ชื่อพิกัด]
+    """
+    target_name = command.removeprefix("/presence").strip()
+    async with get_repo_context() as repo:
+        locs = await repo.get_user_locations(chat_id)
+        if not locs:
+            await _reply(chat_id, "⚠️ ยังไม่มีพิกัดในระบบ กรุณาส่งพิกัดก่อนครับ", message_id_to_edit)
+            return
+
+        matched_loc = None
+        if target_name:
+            for l in locs:
+                if l.name.lower() == target_name.lower():
+                    matched_loc = l
+                    break
+        else:
+            matched_loc = locs[0]
+
+        if not matched_loc:
+            await _reply(chat_id, f"⚠️ ไม่พบพิกัด '{target_name}'", message_id_to_edit)
+            return
+
+        text, reply_markup = build_presence_menu_payload(matched_loc)
+
+        if message_id_to_edit:
+            await telegram.edit_telegram_message(chat_id, message_id_to_edit, text, reply_markup=reply_markup)
+        else:
+            await telegram.send_telegram_message(chat_id, text, reply_markup=reply_markup)
+
+
+@cmd_router.bind("/stats", requires_admin=True, loading_text="⏳ กำลังคำนวณสถิติความแม่นยำ...")
+async def handle_stats_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    Admin Command: /stats [YYYY-MM]
+    """
+    arg_month = command.removeprefix("/stats").strip() or None
+    from app.routers.metrics import get_monthly_metrics
+    try:
+        data = await get_monthly_metrics(month=arg_month)
+        month_str = data["month"]
+        total = data["total_alerts"]
+        true_alarms = data["true_alarms"]
+        false_alarms = data["false_alarms_total"]
+        rate = data["false_alarm_rate_pct"]
+        user_fa = data["false_alarms_user"]
+        auto_fa = data["false_alarms_auto"]
+
+        true_pct = round(100.0 - rate, 1) if total > 0 else 0.0
+
+        msg = (
+            f"📊 <b>สรุปความแม่นยำเรดาร์ประจำเดือน {month_str}</b>\n\n"
+            f"• จำนวนการแจ้งเตือนทั้งหมด: <b>{total}</b> ครั้ง\n"
+            f"• ฝนตกจริง (True Alarms): <b>{true_alarms}</b> ครั้ง (<code>{true_pct}%</code>)\n"
+            f"• แจ้งเตือนพลาด (False Alarms): <b>{false_alarms}</b> ครั้ง (<code>{rate}%</code>)\n"
+            f"  - ผู้ใช้รายงาน: {user_fa} ครั้ง\n"
+            f"  - ตรวจสอบอัตโนมัติ (เรดาร์ 30น.): {auto_fa} ครั้ง\n"
+        )
+        await _reply(chat_id, msg, message_id_to_edit)
+    except Exception as e:
+        await _reply(chat_id, f"❌ ไม่สามารถดึงสถิติได้: {e}", message_id_to_edit)
+
+
+@cmd_router.bind("/cost", requires_admin=True, loading_text="⏳ กำลังคำนวณต้นทุนระบบ...")
+async def handle_cost_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    Admin Command: /cost [YYYY-MM]
+    """
+    arg_month = command.removeprefix("/cost").strip() or None
+    from app.routers.metrics import get_monthly_cost
+    try:
+        data = await get_monthly_cost(month=arg_month)
+        month_str = data["month"]
+        gcp_cost = data["gcp_cost_thb"]
+        ext_cost = data["external_cost_thb"]
+        total_cost = data["total_cost_thb"]
+        cost_per_proactive = data.get("cost_per_proactive_alert", 0)
+        cost_per_ondemand = data.get("cost_per_ondemand_query", 0)
+        blended_cost_per_user = data.get("blended_cost_per_active_user", 0)
+
+        msg = (
+            f"💰 <b>สรุปต้นทุนระบบประจำเดือน {month_str}</b>\n\n"
+            f"☁️ Google Cloud: <code>฿{gcp_cost:.2f}</code>\n"
+            f"🌐 External (Radar + Proxy): <code>฿{ext_cost:.2f}</code>\n"
+            f"💵 รวมต้นทุนทั้งสิ้น: <b>฿{total_cost:.2f}</b>\n"
+            f"─────────────────────\n"
+            f"🔔 Cost / Proactive Alert: <code>฿{cost_per_proactive:.2f}</code>\n"
+            f"🔍 Cost / On-Demand Query: <code>฿{cost_per_ondemand:.2f}</code>\n"
+            f"👤 Blended Cost / Active User: <code>฿{blended_cost_per_user:.2f}</code>\n"
+        )
+        await _reply(chat_id, msg, message_id_to_edit)
+    except Exception as e:
+        await _reply(chat_id, f"❌ ไม่สามารถดึงข้อมูลต้นทุนได้: {e}", message_id_to_edit)
+
+
+@cmd_router.bind("/mock_rain", requires_admin=True, loading_text="⏳ กำลังจำลองส่งสัญญาณเตือนฝน...")
+async def handle_mock_rain_command(chat_id: int, command: str, message_id_to_edit: int = None):
+    """
+    Admin Command: /mock_rain [loc_name] [rain_mm] [--reset]
+    จำลองการส่งแจ้งเตือนฝนหรือ Presence Ping เข้าแชท
+    """
+    args = command.removeprefix("/mock_rain").strip().split()
+    do_reset = False
+    if "--reset" in args:
+        do_reset = True
+        args.remove("--reset")
+    if "-r" in args:
+        do_reset = True
+        args.remove("-r")
+
+    loc_name = "home"
+    rain_mm = 3.5
+
+    if len(args) >= 1:
+        loc_name = args[0]
+    if len(args) >= 2:
+        try:
+            rain_mm = float(args[1])
+        except ValueError:
+            rain_mm = 3.5
+
+    from app.dependencies import get_repo_context
+    from app.scheduler_tasks import _send_combined_alerts
+    from app.models import PresenceAnswerCache
+    from sqlalchemy import delete
+    from datetime import datetime, timezone
+
+    async with get_repo_context() as repo:
+        if do_reset and hasattr(repo, "session") and repo.session:
+            await repo.session.execute(
+                delete(PresenceAnswerCache).where(
+                    PresenceAnswerCache.chat_id == str(chat_id),
+                    PresenceAnswerCache.location_name == loc_name.lower()
+                )
+            )
+            await repo.session.commit()
+
+        loc = await repo.get_location(chat_id, loc_name)
+        if not loc:
+            locs = await repo.get_user_locations(chat_id)
+            loc_names = ", ".join(f"<code>{l.name}</code>" for l in locs) if locs else "ไม่มี"
+            await _reply(chat_id, f"❌ ไม่พบพิกัด <code>{loc_name}</code>\n📍 พิกัดที่คุณมี: {loc_names}", message_id_to_edit)
+            return
+
+        simulated_eval_result = [{
+            "loc": loc,
+            "type": "rain",
+            "text": f"🌧️ ตรวจพบกลุ่มฝนใกล้พิกัด [{loc.name}] ความแรง {rain_mm:.1f} mm/hr",
+            "max_rain": rain_mm,
+            "result": {
+                "endpoint": "tomorrow",
+                "eta_minutes": 15,
+                "duration_minutes": 45
+            }
+        }]
+
+        sent, errors = await _send_combined_alerts(chat_id, simulated_eval_result, datetime.now(timezone.utc), is_mock=True)
+        reset_notice = " (🔄 รีเซ็ต Cache แล้ว)" if do_reset else ""
+        await _reply(chat_id, f"🎯 จำลองแจ้งเตือนฝนพิกัด <b>{loc.name}</b> เรียบร้อยแล้ว{reset_notice} (sent={sent}, errors={errors})", message_id_to_edit)
+
+
+async def handle_rain_minimal_command(chat_id: int, command: str = "/rain_minimal", message_id_to_edit: int = None):
+    """Handle /rain_minimal command: renders clean tracking radar map without text labels."""
+    await handle_rain_command(chat_id, command, show_advanced=False, show_labels=False, message_id_to_edit=message_id_to_edit)
+
 

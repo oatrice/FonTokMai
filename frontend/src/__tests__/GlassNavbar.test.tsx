@@ -16,6 +16,9 @@ describe('GlassNavbar', () => {
   it('renders navigation links', () => {
     render(<GlassNavbar />);
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Radar')).toBeInTheDocument();
+    expect(screen.getByText('Locations')).toBeInTheDocument();
+    expect(screen.getByText('Metrics')).toBeInTheDocument();
     expect(screen.getByText('Overview')).toBeInTheDocument();
     expect(screen.getByText('Jars')).toBeInTheDocument();
   });

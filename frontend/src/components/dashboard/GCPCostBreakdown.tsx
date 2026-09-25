@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
+import useSWR from "swr";
 import {
   Cloud,
   HardDrive,
@@ -23,80 +24,76 @@ interface GCPCostData {
   other_thb?: number;
   total_thb?: number;
   // Fallbacks for backwards compatibility
-  cloud_run_usd?: number;
-  cloud_storage_usd?: number;
-  egress_usd?: number;
-  other_usd?: number;
+  cloud_run?: number;
+  cloud_storage?: number;
+  egress?: number;
+  other?: number;
   total_usd?: number;
-  period_start: string;
-  period_end: string;
-  currency: string;
-  is_mock: boolean;
-  service_details?: Record<string, ServiceCostDetail[]>;
+  currency?: string;
+  is_mock?: boolean;
+  period_start?: string;
+  period_end?: string;
+  service_details?: Record<string, { service: string; cost_thb: number; sku?: string; project_id?: string }[]>;
 }
 
-interface ServiceCostDetail {
-  project_id?: string;
-  service: string;
-  sku?: string;
-  cost_thb: number;
-}
+// ─── Service Metadata ─────────────────────────────────────────────────────────
 
-// ─── Config ───────────────────────────────────────────────────────────────────
-
-const SERVICE_ITEMS = [
+const SERVICE_ITEMS: {
+  key: keyof GCPCostData;
+  fallbackKey: keyof GCPCostData;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  colorClass: string;
+  bgClass: string;
+}[] = [
   {
-    key: "cloud_run_thb" as keyof GCPCostData,
-    fallbackKey: "cloud_run_usd" as keyof GCPCostData,
+    key: "cloud_run_thb",
+    fallbackKey: "cloud_run",
     label: "Cloud Run",
     icon: Cloud,
     colorClass: "text-cyan-400",
     bgClass: "bg-cyan-500/10",
-    barClass: "from-cyan-500 to-blue-500",
   },
   {
-    key: "cloud_storage_thb" as keyof GCPCostData,
-    fallbackKey: "cloud_storage_usd" as keyof GCPCostData,
+    key: "cloud_storage_thb",
+    fallbackKey: "cloud_storage",
     label: "Cloud Storage",
     icon: HardDrive,
     colorClass: "text-emerald-400",
     bgClass: "bg-emerald-500/10",
-    barClass: "from-emerald-500 to-teal-500",
   },
   {
-    key: "egress_thb" as keyof GCPCostData,
-    fallbackKey: "egress_usd" as keyof GCPCostData,
+    key: "egress_thb",
+    fallbackKey: "egress",
     label: "Network Egress",
     icon: Wifi,
     colorClass: "text-amber-400",
     bgClass: "bg-amber-500/10",
-    barClass: "from-amber-500 to-orange-500",
   },
   {
-    key: "other_thb" as keyof GCPCostData,
-    fallbackKey: "other_usd" as keyof GCPCostData,
+    key: "other_thb",
+    fallbackKey: "other",
     label: "Other Services",
     icon: MoreHorizontal,
     colorClass: "text-slate-400",
     bgClass: "bg-slate-500/10",
-    barClass: "from-slate-500 to-slate-600",
   },
-] as const;
+];
 
 const serviceGradients: Record<string, string> = {
-  cloud_run_thb: "linear-gradient(to right, #06b6d4, #3b82f6)",
-  cloud_storage_thb: "linear-gradient(to right, #10b981, #14b8a6)",
-  egress_thb: "linear-gradient(to right, #f59e0b, #f97316)",
+  cloud_run_thb: "linear-gradient(to right, #06b6d4, #0ea5e9)",
+  cloud_storage_thb: "linear-gradient(to right, #10b981, #059669)",
+  egress_thb: "linear-gradient(to right, #f59e0b, #d97706)",
   other_thb: "linear-gradient(to right, #64748b, #475569)",
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
 
-function SkeletonRow() {
+function GCPCostSkeleton() {
   return (
-    <div className="flex items-center gap-3">
-      <div className="h-8 w-8 rounded-lg bg-slate-800/60 animate-pulse flex-shrink-0" />
-      <div className="flex-1 space-y-1.5">
+    <div className="flex items-center gap-3 py-1">
+      <div className="h-7 w-7 rounded-lg bg-slate-800/60 animate-pulse flex-shrink-0" />
+      <div className="flex-1 space-y-2">
         <div className="h-3 w-24 rounded bg-slate-800/60 animate-pulse" />
         <div className="h-1.5 w-full rounded-full bg-slate-800/60 animate-pulse" />
       </div>
@@ -115,29 +112,18 @@ function SkeletonRow() {
  * (e.g., GCP credentials not configured).
  */
 export function GCPCostBreakdown() {
-  const [data, setData] = useState<GCPCostData | null>(null);
   const [period, setPeriod] = useState<string>("current_month");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchCosts = useCallback(async (selectedPeriod: string = period) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/metrics/gcp-costs?period=${selectedPeriod}`, { cache: "no-store" });
+  const { data, error: swrError, isLoading: loading, mutate } = useSWR<GCPCostData>(
+    `/api/metrics/gcp-costs?period=${period}`,
+    async (url: string) => {
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: GCPCostData = await res.json();
-      setData(json);
-    } catch {
-      setError("ไม่สามารถโหลดข้อมูลค่าใช้จ่าย GCP ได้");
-    } finally {
-      setLoading(false);
+      return res.json();
     }
-  }, [period]);
+  );
 
-  useEffect(() => {
-    fetchCosts(period);
-  }, [period]);
+  const error = swrError ? "ไม่สามารถโหลดข้อมูลค่าใช้จ่าย GCP ได้" : null;
 
   const totalThb = data
     ? data.total_thb !== undefined
@@ -181,7 +167,7 @@ export function GCPCostBreakdown() {
           )}
           <button
             id="gcp-cost-refresh-btn"
-            onClick={() => fetchCosts(period)}
+            onClick={() => mutate()}
             disabled={loading}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
             aria-label="Refresh GCP costs"
@@ -210,10 +196,10 @@ export function GCPCostBreakdown() {
         {loading ? (
           // Skeleton loader
           <>
-            <SkeletonRow />
-            <SkeletonRow />
-            <SkeletonRow />
-            <SkeletonRow />
+            <GCPCostSkeleton />
+            <GCPCostSkeleton />
+            <GCPCostSkeleton />
+            <GCPCostSkeleton />
           </>
         ) : error ? (
           // Error state
@@ -223,7 +209,7 @@ export function GCPCostBreakdown() {
           </div>
         ) : data ? (
           // Data rows
-          SERVICE_ITEMS.map(({ key, fallbackKey, label, icon: Icon, colorClass, bgClass, barClass }) => {
+          SERVICE_ITEMS.map(({ key, fallbackKey, label, icon: Icon, colorClass, bgClass }) => {
             const rawCost = data[key] !== undefined ? (data[key] as number) : (data[fallbackKey] as number) || 0;
             const costThb = data.currency === "THB" || data[key] !== undefined ? rawCost : rawCost * 35;
             const pct = totalThb > 0 ? (costThb / totalThb) * 100 : 0;

@@ -223,7 +223,7 @@ async def test_json_mock_state_rain_in_20(mock_repo_context):
                 mock_time.time.return_value = 9999999  # Will make cache stale enough to trigger re-fetch
 
                 # Need fresh cache to feed into the processor
-                with patch("app.services.weather_manager._GLOBAL_TMD_CACHE", {}):
+                with patch("app.services.tmd_radar.cache_manager.RadarFrameCache.get", return_value=None):
                     from app.services.weather_manager import WeatherManager
 
                     with patch.object(

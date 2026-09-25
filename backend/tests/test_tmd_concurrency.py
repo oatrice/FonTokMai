@@ -16,7 +16,7 @@ def test_tmd_cache_stampede():
         import app.services.weather_manager as wm_module
         
         # Clear cache and locks
-        wm_module._GLOBAL_TMD_CACHE.clear()
+        wm_module.radar_cache.clear()
         wm_module._GLOBAL_TMD_LOCKS.clear()
         
         manager = WeatherManager()

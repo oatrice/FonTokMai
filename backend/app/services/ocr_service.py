@@ -422,15 +422,20 @@ class OCRService:
                         f"({datetime.fromtimestamp(ts, BKK).strftime('%H:%M:%S')} BKK)"
                     )
 
-        # Fallback
+        # Fallback: quantize fallback_ts to the nearest standard TMD 15-minute boundary (e.g. 00, 15, 30, 45 mins)
         if ts is None and fallback_ts is not None:
-            fallback_dt = datetime.fromtimestamp(fallback_ts, BKK).strftime("%H:%M:%S")
-            logger.warning(f"[OCR] hash={short_hash}  ALL ENGINES FAILED  — using fallback_ts={fallback_ts} ({fallback_dt} BKK)")
-            ts = fallback_ts
+            # Round down to the previous 15-minute slot (900 seconds)
+            quantized_fallback_ts = (fallback_ts // 900) * 900
+            fallback_dt = datetime.fromtimestamp(quantized_fallback_ts, BKK).strftime("%H:%M:%S")
+            logger.warning(
+                f"[OCR] hash={short_hash}  ALL ENGINES FAILED  — "
+                f"using quantized fallback_ts={quantized_fallback_ts} ({fallback_dt} BKK, raw={fallback_ts})"
+            )
+            ts = quantized_fallback_ts
 
         if ts is not None:
             # Only cache successful OCR parses — never persist poll-time fallback values.
-            if fallback_ts is None or ts != fallback_ts:
+            if fallback_ts is None or (ts != fallback_ts and ts != (fallback_ts // 900) * 900):
                 async with self._get_repo() as repo:
                     await repo.set_radar_timestamp_cache(frame_hash, ts)
 

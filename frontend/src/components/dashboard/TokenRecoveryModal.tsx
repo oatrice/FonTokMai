@@ -45,8 +45,9 @@ export function TokenRecoveryModal({ isOpen, onClose }: TokenRecoveryModalProps)
       }
 
       setRecoveredToken(data.token);
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "An unexpected error occurred.";
+      setError(msg);
     } finally {
       setLoading(false);
     }

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from app.dependencies import get_repo_context
 from app.services.weather_manager import WeatherManager
+from app.services.alert_formatter import AlertDecision, TelegramFormatter
 from app.services.metrics_service import MetricsService
 from app.services.telegram import send_telegram_message, send_telegram_document, send_telegram_photo, send_telegram_raw_document, get_radar_inline_keyboard, DEVELOPER_CHAT_IDS
 from app.services.notification import get_notification_service
@@ -114,67 +115,16 @@ async def _evaluate_location(loc, mock_states, weather_manager, now, sem):
                 
                 loc_name_str = f" '{loc.name.capitalize()}' " if loc.name and loc.name.lower() != "default" else ""
                 
-                if not rain_start_dt:
-                    rain_start_dt = datetime.now(timezone.utc) + timedelta(minutes=eta_minutes)
-                    
-                rain_end_dt = rain_start_dt + timedelta(minutes=duration_min)
-                start_time_str = rain_start_dt.astimezone(BKK_TZ).strftime("%H:%M น.")
-                end_time_str = rain_end_dt.astimezone(BKK_TZ).strftime("%H:%M น.")
-                distance_km = (eta_minutes / 60.0) * wind_speed_kmh
-                
-                text = ""
-                if severity_escalated:
-                    last_rain_val = loc.last_alert_max_rain or 0.0
-                    text += f"⚠️ *อัปเดต: ฝนทวีความรุนแรงขึ้น!*\n({last_rain_val:.1f} mm/hr → {max_rain:.1f} mm/hr)\n\n"
-
-                rain_summary = result.get("rain_summary")
-                if rain_summary:
-                    text += f"🌧️ ข้อมูลพยากรณ์ฝนสำหรับพิกัด{loc_name_str}ของคุณ\n"
-                    text += f"{rain_summary}\n\n"
-                    wind_dir_text = result.get("wind_dir_text", "ไม่ทราบ")
-                    if wind_speed_kmh > 0: text += f"🌬️ สภาพลม: {wind_speed_kmh:.1f} km/h (พัดไปทางทิศ {wind_dir_text})\n"
-                    if eta_minutes is not None and eta_minutes > 0 and wind_speed_kmh > 0: text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\n"
-                else:
-                    if eta_minutes == 0: text += f"🌧️ ฝนกำลังตกอยู่ที่พิกัด{loc_name_str}ของคุณ ณ ขณะนี้\n"
-                    else:
-                        text += f"🌧️ ฝนกำลังเคลื่อนมาทางพิกัด{loc_name_str}ของคุณ\n"
-                        text += f"⏰ จะเริ่มตกเวลา: {start_time_str} (ในอีก {eta_minutes} นาที)\n"
-                    
-                    duration_text = f"ตกต่อเนื่อง {duration_min} นาที"
-                    if duration_min >= 60:
-                        hrs = duration_min // 60
-                        mins = duration_min % 60
-                        duration_text = f"ตกต่อเนื่อง {hrs} ชม. {mins} นาที" if mins > 0 else f"ตกต่อเนื่อง {hrs} ชม."
-                        
-                    if duration_min > 0: text += f"🛑 คาดว่าจะหยุดเวลา: {end_time_str} ({duration_text})\n\n"
-                    else: text += "\n"
-                        
-                    if intensity_str == "ไม่มีฝน" and eta_minutes > 0:
-                        if max_rain > 10.0: max_int = "ฝนตกหนักมาก"
-                        elif max_rain > 2.5: max_int = "ฝนตกหนัก"
-                        elif max_rain > 0.5: max_int = "ฝนตกปานกลาง"
-                        else: max_int = "ฝนตกเล็กน้อย"
-                        text += f"💧 ความรุนแรง (สูงสุด): {max_int} ({max_rain:.1f} mm/hr)\n"
-                    else:
-                        text += f"💧 ความรุนแรง: {intensity_str} ({max_rain:.1f} mm/hr)\n"
-                    
-                    wind_dir_text = result.get("wind_dir_text", "ไม่ทราบ")
-                    if wind_speed_kmh > 0: text += f"🌬️ สภาพลม: {wind_speed_kmh:.1f} km/h (พัดไปทางทิศ {wind_dir_text})\n"
-                    if eta_minutes is not None and eta_minutes > 0 and wind_speed_kmh > 0: text += f"📏 ระยะห่างจากกลุ่มฝน: ประมาณ {distance_km:.1f} กม.\n"
-
-                growth_rate = result.get("growth_rate_pct")
-                if growth_rate is not None and "ไม่พบฝน" not in (rain_summary or ""):
-                    if growth_rate > 5.0:
-                        text += f"📈 พัฒนาการเมฆฝน (15 นาทีที่ผ่านมา): กำลังก่อตัวแรงขึ้น (+{growth_rate:.1f}%/15min)\n"
-                    elif growth_rate < -5.0:
-                        text += f"📉 พัฒนาการเมฆฝน (15 นาทีที่ผ่านมา): อ่อนกำลังลง ({growth_rate:.1f}%/15min)\n"
-                    else:
-                        text += f"➖ พัฒนาการเมฆฝน (15 นาทีที่ผ่านมา): คงที่\n"
-                        
-                text += f"📡 แหล่งข้อมูล: {source_name}\n"
-                bkk_tz_now = timezone(timedelta(hours=7))
-                update_time_str = datetime.now(bkk_tz_now).strftime("%d/%m/%Y %H:%M:%S")
-                text += f"🔄 ข้อมูลอัปเดตล่าสุด: {update_time_str}\n"
+                decision = AlertDecision(
+                    location_name=loc.name,
+                    type="rain",
+                    max_rain=max_rain,
+                    result=result,
+                    severity_escalated=severity_escalated,
+                    last_max_rain=loc.last_alert_max_rain or 0.0
+                )
+                text = TelegramFormatter.format(decision)
+    
 
                 advanced_data = None
                 try:
@@ -198,7 +148,7 @@ async def _evaluate_location(loc, mock_states, weather_manager, now, sem):
             return {"loc": loc, "type": "error", "error": str(e)}
 
 
-async def _send_combined_alerts(chat_id, eval_results, now):
+async def _send_combined_alerts(chat_id, eval_results, now, is_mock: bool = False):
     alerts_sent = 0
     errors = 0
 
@@ -244,11 +194,112 @@ async def _send_combined_alerts(chat_id, eval_results, now):
     combined_text = combined_text.join(combined_text_parts)
 
     try:
-        if platform == "telegram":
-            await send_telegram_message(int(chat_id), combined_text, reply_markup=reply_markup)
+        # Check presence policy and cached answers for rain alerts (Issue #291)
+        rain_alerts = [r for r in valid_results if r["type"] == "rain"]
+        send_full_alert = True
+
+        if rain_alerts and platform == "telegram":
+            for r in rain_alerts:
+                loc = r["loc"]
+                policy = getattr(loc, "presence_policy", "always_ask")
+                loc_name = loc.name or "default"
+
+                if policy == "always_notify":
+                    continue
+
+                if policy == "silent_card":
+                    # Send silent notification without sound
+                    await send_telegram_message(int(chat_id), combined_text, reply_markup=reply_markup, disable_notification=True)
+                    send_full_alert = False
+                    break
+
+                if policy == "schedule_based":
+                    # Check schedule window
+                    import json
+                    bkk_now = datetime.now(BKK_TZ)
+                    current_weekday = bkk_now.isoweekday() # 1=Mon .. 7=Sun
+                    current_time_str = bkk_now.strftime("%H:%M")
+                    
+                    in_schedule = True
+                    if loc.schedule_active_days:
+                        try:
+                            active_days = json.loads(loc.schedule_active_days)
+                            if current_weekday not in active_days:
+                                in_schedule = False
+                        except Exception:
+                            pass
+                    if in_schedule and loc.schedule_active_start and loc.schedule_active_end:
+                        if not (loc.schedule_active_start <= current_time_str <= loc.schedule_active_end):
+                            in_schedule = False
+
+                    if in_schedule:
+                        continue # Inside window -> send full alert directly
+
+                # For 'always_ask' or outside 'schedule_based' window: check cache
+                async with get_repo_context() as repo:
+                    cached_answer = await repo.get_presence_answer(chat_id, loc_name)
+                    if cached_answer == "yes":
+                        continue # User confirmed presence previously
+                    elif cached_answer == "no":
+                        logger.info(f"Skipping alert for {chat_id} at {loc_name} due to cached 'no' presence answer.")
+                        return 0, errors
+                    else:
+                        # Cache MISS -> Send Presence Ping with Countdown and inline actions
+                        eta_min = r.get("result", {}).get("eta_minutes", 20)
+                        max_r = r.get("max_rain", 1.0)
+                        ping_text = (
+                            f"🌧️ **ตรวจพบกลุ่มฝนใกล้พิกัด [{loc_name}]**\n\n"
+                            f"• ความรุนแรง: `{max_r:.1f} mm/hr`\n"
+                            f"• คาดว่าจะเริ่มตกในอีก: `{eta_min}` นาที\n\n"
+                            f"ตอนนี้คุณอยู่ที่นี่และต้องการรับการแจ้งเตือนแบบเต็มรูปแบบไหมครับ?"
+                        )
+                        ping_keyboard = [
+                            [
+                                {"text": "✅ ใช่ ส่งข้อมูลเต็ม", "callback_data": f"presence_ans_{loc_name}_yes"},
+                                {"text": "❌ ไม่ต้องส่ง", "callback_data": f"presence_ans_{loc_name}_no"}
+                            ],
+                            [
+                                {"text": "🔕 ปิด 4 ชม.", "callback_data": f"loc_snooze_{loc_name}_4"},
+                                {"text": "⚙️ ตั้งค่า", "callback_data": f"presence_menu_{loc_name}"}
+                            ]
+                        ]
+                        await send_telegram_message(int(chat_id), ping_text, reply_markup={"inline_keyboard": ping_keyboard})
+                        send_full_alert = False
+                        break
+
+        if send_full_alert:
+            if platform == "telegram":
+                await send_telegram_message(int(chat_id), combined_text, reply_markup=reply_markup)
+            else:
+                await notifier.send_text_message(str(chat_id), combined_text, reply_markup=reply_markup)
+            alerts_sent += 1
+
+            # Log to SystemUsageEvent for Accuracy & False Alarm Verification (Issue #292 & #298)
+            try:
+                from app.models import SystemUsageEvent
+                async with get_repo_context() as repo:
+                    if hasattr(repo, "session") and repo.session:
+                        for r in valid_results:
+                            loc = r["loc"]
+                            log_entry = SystemUsageEvent(
+                                chat_id=str(chat_id),
+                                location_name=loc.name or "default",
+                                latitude=loc.latitude,
+                                longitude=loc.longitude,
+                                alerted_at=now.replace(tzinfo=None),
+                                rain_intensity_mm=r.get("max_rain", 0.0),
+                                alert_type=r.get("type", "rain"),
+                                event_category="mock_test" if is_mock else "proactive_alert",
+                                command_name="/mock_rain" if is_mock else "proactive_scheduler",
+                                is_mock=is_mock
+                            )
+                            repo.session.add(log_entry)
+                        await repo.session.commit()
+            except Exception as e:
+                logger.error(f"Failed to write to SystemUsageEvent: {e}")
         else:
-            await notifier.send_text_message(str(chat_id), combined_text, reply_markup=reply_markup)
-        alerts_sent += 1
+            return 1, errors
+
     except Exception as e:
         logger.error(f"Failed to send combined text alert for chat_id {chat_id} on {platform}: {e}")
         return 0, errors + 1
@@ -652,3 +703,56 @@ async def update_daily_burn_rate_routine():
     except Exception as e:
         logger.error(f"[GCP_BILLING_SYNC] Failed to sync daily burn rate: {e}", exc_info=True)
         raise  # Re-raise so worker endpoint can surface the actual error
+
+
+async def auto_verify_false_alarms_routine():
+    """
+    Auto-Verification Worker (Issue #292):
+    Runs periodically to check alerts sent between 30 and 90 minutes ago
+    that do not yet have an auto_verify_result. Re-predicts rain intensity;
+    if max_rain <= 0.0 mm/hr, marks as 'false_alarm', otherwise 'true_alarm'.
+    """
+    logger.info("Starting auto-verify false alarms routine...")
+    from app.database import AsyncSessionLocal
+    from app.models import SystemUsageEvent
+    from sqlalchemy.future import select
+    from app.services.weather_manager import WeatherManager
+    from app.services.alert_formatter import AlertDecision, TelegramFormatter
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    min_time = now - timedelta(minutes=90)
+    max_time = now - timedelta(minutes=30)
+
+    verified_count = 0
+    wm = WeatherManager()
+
+    try:
+        async with AsyncSessionLocal() as session:
+            stmt = select(SystemUsageEvent).where(
+                SystemUsageEvent.auto_verify_result.is_(None),
+                SystemUsageEvent.alerted_at >= min_time,
+                SystemUsageEvent.alerted_at <= max_time
+            )
+            res = await session.execute(stmt)
+            unverified_logs = res.scalars().all()
+
+            for entry in unverified_logs:
+                try:
+                    result = await wm.predict_rain(entry.latitude, entry.longitude, location_name=entry.location_name)
+                    actual_rain = result.get("max_rain", 0.0)
+                    entry.auto_verified_at = now
+                    if actual_rain <= 0.0:
+                        entry.auto_verify_result = "false_alarm"
+                    else:
+                        entry.auto_verify_result = "true_alarm"
+                    verified_count += 1
+                except Exception as ex:
+                    logger.warning(f"Failed to auto-verify alert log #{entry.id}: {ex}")
+
+            await session.commit()
+            logger.info(f"Auto-verify routine completed: verified {verified_count} alert logs.")
+            return {"status": "ok", "verified_count": verified_count}
+    except Exception as e:
+        logger.error(f"Error in auto_verify_false_alarms_routine: {e}", exc_info=True)
+        return {"status": "error", "error": str(e)}
+

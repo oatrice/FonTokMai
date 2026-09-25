@@ -1,67 +1,32 @@
-# Manual Verification: Pause Google Cloud Scheduler Jobs on Budget Exceed
+# Manual Verification: Architecture Refactor Phase 2
 
-## Feature Scope
-- **Issue:** #286 (`Pause Google Cloud Scheduler jobs upon budget limit exceeded`)
-- **Components Modified:**
-  - `backend/app/routers/budget_webhook.py`: Pauses all managed Cloud Scheduler jobs via GCP API when budget threshold >= 100% (or ratio >= 1.0) along with revoking Cloud Run public access.
-  - `backend/app/routers/webhook_admin.py`: Resumes active Cloud Scheduler jobs when admin executes `/restore_public_access`.
-  - `VERSION`, `backend/VERSION`, `CHANGELOG.md`: Version incremented to `0.73.3`.
+This MR encapsulates the global TMD radar cache from a raw dictionary and tuple representation into the `RadarFrameCache` deep module, exposing `get`, `set`, and `invalidate`.
 
----
+## Verification Steps
 
-## Prerequisites
-1. Ensure the Python environment is set up and required packages are installed (`pytest`, `respx`, etc.).
-2. For real GCP manual verification, ensure `gcloud` is authenticated with permissions on Cloud Scheduler and Cloud Run in project `fonmayang`.
-
----
-
-## Automated Verification
-
-Run all targeted unit and integration tests:
+### 1. Check application boot
+Start the server to ensure cache initialization succeeds.
 ```bash
-pytest backend/tests/test_budget_webhook.py backend/tests/test_developer_commands.py
+cd backend
+python -m uvicorn app.main:app --reload --port 8000
 ```
-**Expected Result:**
-All 18 tests pass without errors.
+**Expected:** The app boots up cleanly without any global state definition errors.
 
-Verify environment sync check:
+### 2. Verify cache inspection via DevMock
+Use the telegram devmock admin command to check the cache state.
 ```bash
-pytest backend/tests/test_deploy_env_sync.py
+curl -X POST "http://localhost:8000/api/webhook/devmock" -H "Content-Type: application/json" -d '{"command": "/devmock status", "chat_id": 123}'
 ```
-**Expected Result:**
-1 passed.
+**Expected:** The response should list `📦 In-Memory (RadarFrameCache)` along with the current cached stations.
 
----
-
-## Manual Verification Steps
-
-### Step 1: Simulate Budget Exceeded (100%) Webhook
-Send a mock GCP Budget Alert Pub/Sub push notification simulating 100% threshold:
+### 3. Verify weather prediction via cache
+Trigger a `/rain` command multiple times. The first time, it should fetch from the external TMD source or firestore. The second time, it should hit the `RadarFrameCache`.
 ```bash
-curl -X POST http://localhost:8000/api/v1/internal/budget-alert \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": {
-      "data": "'$(echo -n '{"budgetDisplayName":"Prod Budget","alertThresholdExceeded":1.0,"costAmount":10.0,"budgetAmount":10.0,"currencyCode":"USD"}' | base64)'",
-      "messageId": "manual-test-100"
-    }
-  }'
+curl -X POST "http://localhost:8000/api/webhook/telegram" -H "Content-Type: application/json" -d '{"message": {"text": "/rain", "chat": {"id": 123}}}'
 ```
-**Expected Behavior:**
-1. Response HTTP 200 `{"status": "shutdown_success", "cost": 10.0, "budget": 10.0}`.
-2. Server log confirms:
-   - `[BudgetAlert] 🚨 Budget 100% exceeded! Initiating Cloud Run shutdown...`
-   - `[BudgetAlert] ⏸️ Paused Cloud Scheduler job: ...` for each managed job in `schedulers.json`.
-   - Telegram notification alert sent with Cloud Scheduler paused summary.
+**Expected:** Both calls should return successfully, and server logs should explicitly show `[LOCAL FIXTURE MODE] Successfully loaded ... frames from local fixture` or `Firestore cache LOADED`.
 
-### Step 2: Service Restoration Workflow
-Send `/restore_public_access` command via developer Telegram bot or admin handler:
-```bash
-# In Telegram chat with developer bot:
-/restore_public_access
-```
-**Expected Behavior:**
-1. `emergency_shutdown` flag resets to `False` in DB.
-2. Server log confirms:
-   - `[restore_public_access] ▶️ Resumed Cloud Scheduler job: ...` for active jobs (`fonmayang-check-rain`, `fonmayang-fetch-radar`, `fonmayang-sync-burn-rate`), skipping permanently paused jobs.
-3. Bot replies confirming public access restoration and scheduler resumption.
+## Scope Checked
+- Replaced `_GLOBAL_TMD_CACHE` dict with `RadarFrameCache`.
+- Replaced tuple access with object property access on `RadarCacheEntry`.
+- Verified that async locking uses `RadarFrameCache.get_lock(station_code)`.

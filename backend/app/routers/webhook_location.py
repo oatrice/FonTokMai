@@ -1,5 +1,6 @@
 import logging
 from app.services import weather_manager
+from app.services.alert_formatter import AlertDecision, TelegramFormatter
 from app.dependencies import get_repo_context
 from app.routers.webhook_utils import (
     LAST_ACTIVE_LOCATION,
@@ -20,7 +21,10 @@ async def process_telegram_location(
     location_name: str = None,
     is_lock_command: bool = False,
     is_saved_location: bool = False,
+    command_name: str = None,
+    show_labels: bool = True,
 ):
+
     """
     ดึงข้อมูลพยากรณ์ฝนผ่าน WeatherManager (รองรับ fallback chain อัตโนมัติ)
     และส่ง/แก้ไขข้อความผลลัพธ์กลับไปยัง Telegram
@@ -56,6 +60,7 @@ async def process_telegram_location(
             force_endpoint=force_endpoint,
             location_name=location_name,
             chat_id=chat_id,
+            show_labels=show_labels,
         )
 
         text, actual_endpoint, eta_minutes = _build_forecast_text(result)
@@ -235,6 +240,25 @@ async def process_telegram_location(
                 await telegram.send_telegram_message(chat_id, adv_text)
             else:
                 await telegram.send_telegram_message(chat_id, "ℹ️ ข้อมูลเตือนภัยขั้นสูง: ไม่พบประกาศเตือนภัย พายุ หรือฟ้าผ่าในระยะใกล้")
+
+        from datetime import datetime, timezone
+        from app.models import SystemUsageEvent
+        async with get_repo_context() as repo:
+            if hasattr(repo, "session") and repo.session:
+                event = SystemUsageEvent(
+                    chat_id=str(chat_id),
+                    location_name=location_name or "default",
+                    latitude=lat,
+                    longitude=lng,
+                    alerted_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                    rain_intensity_mm=result.get("max_rain", 0.0),
+                    alert_type="rain",
+                    event_category="ondemand_query",
+                    command_name=command_name or "/location_share",
+                    is_mock=False
+                )
+                repo.session.add(event)
+                await repo.session.commit()
 
     except Exception as e:
         logger.error(f"Error processing telegram location: {e}")

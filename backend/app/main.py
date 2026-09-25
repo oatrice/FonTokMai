@@ -14,6 +14,37 @@ from datetime import datetime, timezone
 
 import re
 
+from sqlalchemy import inspect, text
+
+
+USER_LOCATION_SCHEMA_COLUMNS = (
+    ("name", "VARCHAR DEFAULT 'default' NOT NULL"),
+    ("last_alert_max_rain", "FLOAT DEFAULT 0.0"),
+    ("tracking_mode", "VARCHAR DEFAULT 'auto' NOT NULL"),
+    ("locked_target_id", "VARCHAR"),
+    ("locked_target_cx", "INTEGER"),
+    ("locked_target_cy", "INTEGER"),
+    ("is_snoozed", "BOOLEAN DEFAULT FALSE NOT NULL"),
+    ("snooze_until", "TIMESTAMP"),
+    ("presence_policy", "VARCHAR DEFAULT 'always_ask' NOT NULL"),
+    ("schedule_active_days", "VARCHAR"),
+    ("schedule_active_start", "VARCHAR"),
+    ("schedule_active_end", "VARCHAR"),
+    ("presence_answer_ttl_minutes", "INTEGER DEFAULT 120 NOT NULL"),
+    ("default_fallback_policy", "VARCHAR DEFAULT 'notify' NOT NULL"),
+)
+
+RADAR_LATEST_CACHE_SCHEMA_COLUMNS = (
+    ("source", "VARCHAR DEFAULT 'api'"),
+)
+
+SYSTEM_USAGE_EVENTS_SCHEMA_COLUMNS = (
+    ("event_category", "VARCHAR DEFAULT 'proactive_alert' NOT NULL"),
+    ("command_name", "VARCHAR"),
+    ("is_mock", "BOOLEAN DEFAULT FALSE NOT NULL"),
+)
+
+
 class SensitiveDataFilter(logging.Filter):
     def __init__(self):
         super().__init__()
@@ -24,13 +55,26 @@ class SensitiveDataFilter(logging.Filter):
             (re.compile(r"(/bot)[^/\s'\"]+", flags=re.IGNORECASE), r"\1***"),
         ]
 
+    def _sanitize(self, value):
+        if isinstance(value, str):
+            for pattern, replacement in self.patterns:
+                value = pattern.sub(replacement, value)
+            return value
+        if isinstance(value, tuple):
+            return tuple(self._sanitize(item) for item in value)
+        if isinstance(value, list):
+            return [self._sanitize(item) for item in value]
+        if isinstance(value, dict):
+            return {
+                key: self._sanitize(item)
+                for key, item in value.items()
+            }
+        return value
+
     def filter(self, record):
         try:
-            msg = record.getMessage()
-            for pattern, replacement in self.patterns:
-                msg = pattern.sub(replacement, msg)
-            record.msg = msg
-            record.args = ()
+            record.msg = self._sanitize(record.msg)
+            record.args = self._sanitize(record.args)
         except Exception:
             pass
         return True
@@ -107,31 +151,53 @@ import os
 
 import asyncio
 
+def ensure_schema_migrations(connection):
+    inspector = inspect(connection)
+    
+    if inspector.has_table("alert_notification_log") and not inspector.has_table("system_usage_events"):
+        connection.execute(text('ALTER TABLE "alert_notification_log" RENAME TO "system_usage_events"'))
+        
+    for table_name, columns in (
+        ("user_locations", USER_LOCATION_SCHEMA_COLUMNS),
+        ("radar_latest_cache", RADAR_LATEST_CACHE_SCHEMA_COLUMNS),
+        ("system_usage_events", SYSTEM_USAGE_EVENTS_SCHEMA_COLUMNS),
+    ):
+        if not inspector.has_table(table_name):
+            continue
+
+        existing_columns = {
+            column["name"]
+            for column in inspector.get_columns(table_name)
+        }
+        for column_name, column_type in columns:
+            if column_name in existing_columns:
+                continue
+            connection.execute(
+                text(
+                    f'ALTER TABLE "{table_name}" '
+                    f'ADD COLUMN "{column_name}" {column_type}'
+                )
+            )
+            existing_columns.add(column_name)
+
+    if inspector.has_table("system_usage_events"):
+        existing_indexes = {idx["name"] for idx in inspector.get_indexes("system_usage_events")}
+        if "ix_usage_events_date_mock_cat" not in existing_indexes:
+            try:
+                connection.execute(
+                    text('CREATE INDEX IF NOT EXISTS "ix_usage_events_date_mock_cat" ON "system_usage_events" ("alerted_at", "is_mock", "event_category")')
+                )
+            except Exception:
+                pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create database tables
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-            
-            # Dynamically add manual tracking columns to user_locations if they do not exist
-            from sqlalchemy import text
-            for col_name, col_type in [
-                ("tracking_mode", "VARCHAR DEFAULT 'auto' NOT NULL"),
-                ("locked_target_id", "VARCHAR"),
-                ("locked_target_cx", "INTEGER"),
-                ("locked_target_cy", "INTEGER"),
-            ]:
-                try:
-                    await conn.execute(text(f"ALTER TABLE user_locations ADD COLUMN {col_name} {col_type}"))
-                except Exception:
-                    pass
-                    
-            # Dynamically add source column to radar_latest_cache if it does not exist
-            try:
-                await conn.execute(text("ALTER TABLE radar_latest_cache ADD COLUMN source VARCHAR DEFAULT 'api'"))
-            except Exception:
-                pass
+            await conn.run_sync(ensure_schema_migrations)
 
         # Automatic Seed Initial system_config settings if not already present
         async with AsyncSessionLocal() as session:
@@ -169,7 +235,7 @@ async def lifespan(app: FastAPI):
         
     from app.services.disaster_manager import process_disaster_event
     from app.dependencies import get_repo_context
-    from app.services.weather_manager import _DEV_CONFIG
+    from app.core.dev_settings import get_dev_settings, update_dev_settings
 
     # Load global dev config from repository
     async with get_repo_context() as repo:
@@ -177,8 +243,8 @@ async def lifespan(app: FastAPI):
             config = await repo.get_global_dev_config()
             if config:
                 for k, v in config.items():
-                    if k in _DEV_CONFIG:
-                        _DEV_CONFIG[k] = v
+                    if hasattr(get_dev_settings(), k):
+                        update_dev_settings({k: v})
         except Exception as e:
             logging.error(f"Failed to load global dev config: {e}")
     
@@ -254,7 +320,7 @@ async def telegram_webhook_audit_middleware(request: Request, call_next):
             
     return await call_next(request)
 
-from app.routers import weather, webhook, scheduler, metrics, worker, budget_webhook, line_webhook, auth, runway, stripe_webhook, milestones, financial, events, donations, radar
+from app.routers import weather, webhook, scheduler, metrics, worker, budget_webhook, line_webhook, auth, runway, stripe_webhook, milestones, financial, events, donations, radar, locations
 
 app.include_router(weather.router)
 app.include_router(radar.router)
@@ -262,6 +328,7 @@ app.include_router(webhook.router)
 app.include_router(scheduler.router)
 app.include_router(metrics.router)
 app.include_router(admin_radar_router, prefix="/api/v1/admin/radar")
+app.include_router(locations.router)
 app.include_router(worker.router)
 app.include_router(budget_webhook.router)
 app.include_router(line_webhook.router)

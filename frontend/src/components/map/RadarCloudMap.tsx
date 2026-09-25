@@ -252,14 +252,14 @@ export function RadarCloudMap({
       <div className="p-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-3 bg-white/[0.02]">
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-            <Radio className="w-5 h-5 animate-pulse" />
+            <Radio className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-white tracking-wide">Interactive Radar Coverage & Cloud Trajectory (Nationwide Zoom-Out)</h3>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border transition-all ${
                 zoomLevel > 1
-                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 animate-pulse"
+                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
                   : "bg-white/5 text-zinc-400 border-white/10"
               }`}>
                 🔍 Zoom: {zoomLevel.toFixed(1)}x
@@ -342,7 +342,7 @@ export function RadarCloudMap({
           </div>
 
           <div className="flex items-center gap-1.5 text-zinc-300">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 " />
             <span>Online</span>
           </div>
           <div className="flex items-center gap-1.5 text-zinc-300">
@@ -702,7 +702,7 @@ export function RadarCloudMap({
                                 strokeWidth="2.5"
                                 strokeDasharray="5 3"
                                 strokeLinecap="round"
-                                className="filter drop-shadow-[0_0_8px_rgba(192,132,252,0.8)]"
+                                className="filter "
                               />
 
                               {/* Historical frame waypoints with Dynamic Orthogonal Offset */}
