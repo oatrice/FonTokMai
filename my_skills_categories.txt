@@ -164,6 +164,16 @@
 [product-manager](slashCommand;product-manager) 
 [track-management](slashCommand;track-management) 
 [antigravity-agent-manager](slashCommand;antigravity-agent-manager) 
+
+[design-md](slashCommand;design-md) 
+[design-ux](slashCommand;design-ux) 
+[design-spells](slashCommand;design-spells) 
+[design-system](slashCommand;design-system) 
+[design-spatial](slashCommand;design-spatial) 
+[design-thinking](slashCommand;design-thinking) 
+[design-philosophy](slashCommand;design-philosophy) 
+[design-orchestration](slashCommand;design-orchestration) 
+[antigravity-design-expert](slashCommand;antigravity-design-expert)
 ---
 #Agent Skill for start new session
 
