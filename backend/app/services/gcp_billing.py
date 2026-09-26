@@ -12,6 +12,8 @@ Service breakdown categories:
   - Other (everything else)
 """
 import os
+import json
+import asyncio
 import logging
 import datetime
 from dataclasses import dataclass, field
@@ -19,9 +21,12 @@ from typing import List, Dict, Any
 from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
-from app.models import SystemConfig
+from app.models import SystemConfig, GcpBillingHistory
 
 logger = logging.getLogger(__name__)
+
+# Invoice is considered finalized after the 5th day of the following month
+INVOICE_FINALIZATION_DAY: int = 6
 
 
 @dataclass
@@ -455,14 +460,11 @@ class GCPBillingService:
 
         1. If requested period is a past month ('YYYY-MM' or 'last_month') and present in DB,
            return directly from PostgreSQL without hitting BigQuery.
-        2. Otherwise, fetch via BigQuery/cache.
-        3. If it's a past month and today > 5th of current month (invoice finalized),
-           persist to DB automatically.
+        2. Otherwise, fetch via BigQuery/cache (offloaded to a thread via asyncio.to_thread
+           to avoid blocking the async event loop during synchronous BigQuery network I/O).
+        3. If it's a past month and today >= INVOICE_FINALIZATION_DAY of current month
+           (invoice finalized), persist to DB automatically.
         """
-        import json
-        from app.models import GcpBillingHistory
-        from sqlalchemy.future import select
-
         if require_real_data is None:
             require_real_data = await self.resolve_force_real_data()
 
@@ -480,7 +482,9 @@ class GCPBillingService:
 
         is_past_month = target_month_str is not None and target_month_str < current_month_str
 
-        # Step 1: Check Database Archive if it's a past month and not forced refresh
+        # Step 1: Check Database Archive if it's a past month and not forced refresh.
+        # We also capture 'history_row' to reuse in the can_freeze upsert (avoids double SELECT).
+        history_row = None
         if is_past_month and not force_refresh:
             try:
                 async with AsyncSessionLocal() as session:
@@ -511,36 +515,43 @@ class GCPBillingService:
             except Exception as e:
                 logger.warning("[GCP_BILLING] Failed to query GcpBillingHistory from DB: %s", e)
 
-        # Step 2: Fetch via BigQuery/cache
-        breakdown = self.get_current_month_costs(
-            period=period,
-            require_real_data=require_real_data,
-            force_refresh=force_refresh,
+        # Step 2: Fetch via BigQuery/cache.
+        # Offload to a thread pool so the blocking BigQuery network call does not stall the event loop.
+        breakdown = await asyncio.to_thread(
+            self.get_current_month_costs,
+            period,
+            require_real_data,
+            force_refresh,
         )
 
-        # Step 3: Auto-Freeze / Persist to DB if past month, real data, and past invoice finalization day (5th)
-        # Note: If past month is earlier than last month, it is definitely past the 5th.
-        # If it is last month, check if now_dt.day >= 6
+        # Step 3: Auto-Freeze / Persist to DB if past month, real data, and past invoice finalization day.
+        # If past month is earlier than last month → always finalized.
+        # If it is last month → finalized once INVOICE_FINALIZATION_DAY has passed.
         can_freeze = False
         if is_past_month and not breakdown.is_mock:
-            # Check if finalized
             first_of_this_month = now_dt.date().replace(day=1)
             last_day_of_last_month = first_of_this_month - datetime.timedelta(days=1)
             last_month_str = last_day_of_last_month.strftime("%Y-%m")
 
             if target_month_str < last_month_str:
                 can_freeze = True
-            elif target_month_str == last_month_str and now_dt.day >= 6:
+            elif target_month_str == last_month_str and now_dt.day >= INVOICE_FINALIZATION_DAY:
                 can_freeze = True
 
         if can_freeze:
             try:
                 async with AsyncSessionLocal() as session:
-                    stmt = select(GcpBillingHistory).where(GcpBillingHistory.month == target_month_str)
-                    res = await session.execute(stmt)
-                    existing = res.scalar_one_or_none()
+                    # history_row from Step 1 tells us whether a record already exists.
+                    # Re-fetch only when force_refresh=True (history_row was not populated above).
+                    existing = history_row
+                    if existing is None and force_refresh:
+                        stmt = select(GcpBillingHistory).where(GcpBillingHistory.month == target_month_str)
+                        res = await session.execute(stmt)
+                        existing = res.scalar_one_or_none()
 
                     details_json = json.dumps(breakdown.service_details) if breakdown.service_details else None
+                    now_naive = now_dt.replace(tzinfo=None)
+
                     if existing:
                         existing.cloud_run_thb = breakdown.cloud_run_thb
                         existing.cloud_storage_thb = breakdown.cloud_storage_thb
@@ -551,7 +562,8 @@ class GCPBillingService:
                         existing.period_start = breakdown.period_start
                         existing.period_end = breakdown.period_end
                         existing.service_details_json = details_json
-                        existing.updated_at = now_dt.replace(tzinfo=None)
+                        existing.updated_at = now_naive
+                        session.add(existing)
                     else:
                         new_record = GcpBillingHistory(
                             month=target_month_str,
@@ -564,8 +576,8 @@ class GCPBillingService:
                             period_start=breakdown.period_start,
                             period_end=breakdown.period_end,
                             service_details_json=details_json,
-                            created_at=now_dt.replace(tzinfo=None),
-                            updated_at=now_dt.replace(tzinfo=None),
+                            created_at=now_naive,
+                            updated_at=now_naive,
                         )
                         session.add(new_record)
                     await session.commit()
@@ -574,4 +586,5 @@ class GCPBillingService:
                 logger.warning("[GCP_BILLING] Failed to auto-freeze billing data to DB: %s", e)
 
         return breakdown
+
 

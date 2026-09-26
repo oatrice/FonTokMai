@@ -711,12 +711,8 @@ async def sync_gcp_billing_history_routine():
     Runs periodically (e.g. on the 6th of each month) to proactively freeze and archive
     the previous month's finalized GCP billing data into the PostgreSQL database.
     """
-    import os
-    import logging
-    from datetime import datetime, timezone, timedelta
     from app.services import gcp_billing
 
-    logger = logging.getLogger(__name__)
     now = datetime.now(timezone.utc)
 
     # Compute last month YYYY-MM

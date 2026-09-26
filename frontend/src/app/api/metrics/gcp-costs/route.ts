@@ -31,8 +31,8 @@ export async function GET(req: NextRequest) {
       const data = await res.json();
       return NextResponse.json(data);
     }
-  } catch {
-
+  } catch (err) {
+    console.error("[gcp-costs proxy] Backend unreachable, falling back to mock data:", err);
     // Backend offline — fall through to mock data
   }
 

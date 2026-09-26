@@ -113,6 +113,7 @@ function GCPCostSkeleton() {
  */
 export function GCPCostBreakdown() {
   const [period, setPeriod] = useState<string>("current_month");
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   const { data, error: swrError, isLoading: loading, mutate } = useSWR<GCPCostData>(
     `/api/metrics/gcp-costs?period=${period}`,
@@ -168,21 +169,30 @@ export function GCPCostBreakdown() {
           <button
             id="gcp-cost-refresh-btn"
             onClick={async () => {
-              const res = await fetch(`/api/metrics/gcp-costs?period=${period}&force_refresh=true`, { cache: "no-store" });
-              if (res.ok) {
-                const refreshed = await res.json();
-                mutate(refreshed, false);
-              } else {
+              setIsRefreshing(true);
+              try {
+                const res = await fetch(`/api/metrics/gcp-costs?period=${period}&force_refresh=true`, { cache: "no-store" });
+                if (res.ok) {
+                  const refreshed = await res.json();
+                  mutate(refreshed, false);
+                } else {
+                  console.error("[GCPCostBreakdown] Force-refresh failed:", res.status, res.statusText);
+                  mutate();
+                }
+              } catch (err) {
+                console.error("[GCPCostBreakdown] Force-refresh network error:", err);
                 mutate();
+              } finally {
+                setIsRefreshing(false);
               }
             }}
-            disabled={loading}
+            disabled={loading || isRefreshing}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
             aria-label="Refresh GCP costs"
           >
 
             <RefreshCw
-              className={`h-4 w-4 transition-transform ${loading ? "animate-spin" : ""}`}
+              className={`h-4 w-4 transition-transform ${(loading || isRefreshing) ? "animate-spin" : ""}`}
             />
           </button>
         </div>

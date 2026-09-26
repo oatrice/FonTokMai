@@ -2,6 +2,8 @@ import os
 import io
 import csv
 import json
+import asyncio
+import logging
 import secrets
 from dataclasses import asdict
 from typing import Optional
@@ -11,6 +13,9 @@ from fastapi.responses import JSONResponse, Response
 from app.dependencies import get_repo_context
 from app.services.metrics_service import MetricsService
 from app.services.gcp_billing import GCPBillingService
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter(
     prefix="/api/v1/metrics",
@@ -461,14 +466,19 @@ async def get_yearly_cost(year: Optional[str] = None):
         for m in range(1, 13)
     }
 
-    # Fetch GCP costs for months up to current month (or all months if past year)
-    for m_key in monthly_costs.keys():
-        if m_key <= now_month:
-            try:
-                gcp_res = await gcp_svc.get_costs_with_archive(period=m_key)
-                monthly_costs[m_key]["gcp_cost_thb"] = float(gcp_res.total_thb)
-            except Exception:
+    # Fetch GCP costs concurrently for all past/current months (avoids N+1 serial BigQuery calls)
+    past_months = [m for m in monthly_costs.keys() if m <= now_month]
+    if past_months:
+        results = await asyncio.gather(
+            *[gcp_svc.get_costs_with_archive(period=m) for m in past_months],
+            return_exceptions=True,
+        )
+        for m_key, result in zip(past_months, results):
+            if isinstance(result, Exception):
+                logger.warning("[YEARLY_COST] Failed to fetch GCP costs for %s: %s", m_key, result)
                 monthly_costs[m_key]["gcp_cost_thb"] = 0.0
+            else:
+                monthly_costs[m_key]["gcp_cost_thb"] = float(result.total_thb)
 
     async with AsyncSessionLocal() as session:
         from sqlalchemy.future import select
