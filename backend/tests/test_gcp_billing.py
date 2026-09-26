@@ -319,14 +319,21 @@ def test_gcp_billing_force_refresh_bypasses_cache():
             assert mock_query.call_count == 2
 
 
-def test_gcp_billing_supports_explicit_month_format():
-    """Period can be an explicit 'YYYY-MM' format."""
+@pytest.mark.parametrize("period,expected_start,expected_end", [
+    ("2026-08", "2026-08-01", "2026-08-31"),
+    ("2024-02", "2024-02-01", "2024-02-29"),  # Leap year
+    ("2025-02", "2025-02-01", "2025-02-28"),  # Common year
+    ("2026-12", "2026-12-01", "2026-12-31"),
+    ("2026-04", "2026-04-01", "2026-04-30"),
+])
+def test_gcp_billing_supports_explicit_month_format(period, expected_start, expected_end):
+    """Period can be an explicit 'YYYY-MM' format with correct leap year handling."""
     from app.services.gcp_billing import GCPBillingService
 
     svc = GCPBillingService()
-    start, end = svc._get_date_range("2026-08")
-    assert start == "2026-08-01"
-    assert end == "2026-08-31"
+    start, end = svc._get_date_range(period)
+    assert start == expected_start
+    assert end == expected_end
 
 
 @pytest.mark.asyncio
@@ -368,5 +375,70 @@ async def test_gcp_billing_returns_from_db_archive_for_past_month():
             assert res.cloud_run_thb == 150.0
             assert res.is_mock is False
             mock_query.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_gcp_billing_auto_freezes_finalized_month_to_db():
+    """Real finalized past month should auto-freeze to PostgreSQL DB when not yet archived."""
+    from unittest.mock import AsyncMock, MagicMock
+    from app.services.gcp_billing import GCPBillingService, GCPCostBreakdown
+
+    GCPBillingService.clear_cache()
+    svc = GCPBillingService()
+
+    # Step 1: history_row = None (cache miss in DB)
+    mock_res_select = MagicMock()
+    mock_res_select.scalar_one_or_none.return_value = None
+
+    mock_session = AsyncMock()
+    mock_session.execute.return_value = mock_res_select
+    session_cm = AsyncMock()
+    session_cm.__aenter__.return_value = mock_session
+    session_cm.__aexit__.return_value = None
+
+    mock_breakdown = GCPCostBreakdown(
+        cloud_run_thb=300.0,
+        cloud_storage_thb=50.0,
+        egress_thb=25.0,
+        other_thb=30.0,
+        total_thb=405.0,
+        period_start="2026-05-01",
+        period_end="2026-05-31",
+        currency="THB",
+        is_mock=False,
+        service_details={"cloud_run_thb": []},
+    )
+
+    with patch("app.services.gcp_billing.AsyncSessionLocal", return_value=session_cm):
+        with patch.object(svc, "get_current_month_costs", return_value=mock_breakdown):
+            res = await svc.get_costs_with_archive(period="2026-05", require_real_data=True)
+            assert res.total_thb == 405.0
+            assert mock_session.add.called
+            assert mock_session.commit.called
+
+
+@pytest.mark.asyncio
+async def test_gcp_billing_does_not_freeze_mock_data():
+    """Mock data must NEVER be persisted/frozen to the database."""
+    from unittest.mock import AsyncMock, MagicMock
+    from app.services.gcp_billing import GCPBillingService
+
+    GCPBillingService.clear_cache()
+    svc = GCPBillingService()
+
+    mock_res = MagicMock()
+    mock_res.scalar_one_or_none.return_value = None
+
+    mock_session = AsyncMock()
+    mock_session.execute.return_value = mock_res
+    session_cm = AsyncMock()
+    session_cm.__aenter__.return_value = mock_session
+    session_cm.__aexit__.return_value = None
+
+    with patch("app.services.gcp_billing.AsyncSessionLocal", return_value=session_cm):
+        res = await svc.get_costs_with_archive(period="2026-05", require_real_data=False)
+        assert res.is_mock is True
+        assert not mock_session.add.called
+        assert not mock_session.commit.called
 
 
