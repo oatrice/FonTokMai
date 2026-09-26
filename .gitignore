@@ -80,3 +80,4 @@ results/
 scratch/
 .neon
 .vercel
+.env*
