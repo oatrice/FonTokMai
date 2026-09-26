@@ -117,13 +117,15 @@ async def get_queue_status(
 @router.get("/gcp-costs")
 async def get_gcp_costs(
     period: str = "current_month",
+    force_refresh: bool = False,
     x_cron_secret: str = Header(None)
 ):
     """
-    Fetch GCP infrastructure costs broken down by service.
+    Fetch GCP infrastructure costs broken down by service with in-memory caching and DB archiving.
 
     Query parameters:
-      period: 'current_month' (default), 'last_month', '30d', '7d'
+      period: 'current_month' (default), 'last_month', '30d', '7d', or 'YYYY-MM'
+      force_refresh: bypass cache and force re-query BigQuery if True
 
     Returns mock data transparently when GCP credentials are not configured.
     Requires x-cron-secret header for authentication.
@@ -139,11 +141,13 @@ async def get_gcp_costs(
     svc = GCPBillingService()
     require_real_data = await svc.resolve_force_real_data()
 
-    if require_real_data:
-        breakdown = svc.get_current_month_costs(period=period, require_real_data=True)
-    else:
-        breakdown = svc.get_current_month_costs(period=period)
+    breakdown = await svc.get_costs_with_archive(
+        period=period,
+        require_real_data=require_real_data,
+        force_refresh=force_refresh,
+    )
     return JSONResponse(content=asdict(breakdown))
+
 
 
 def _get_month_date_range(month: Optional[str] = None):
@@ -346,10 +350,10 @@ async def get_monthly_cost(month: Optional[str] = None):
 
     target_month, start_date, end_date = _get_month_date_range(month)
 
-    # 1. Fetch GCP cost
+    # 1. Fetch GCP cost for the requested target_month
     gcp_svc = GCPBillingService()
     try:
-        gcp_breakdown = gcp_svc.get_current_month_costs(period="current_month")
+        gcp_breakdown = await gcp_svc.get_costs_with_archive(period=target_month)
         gcp_cost_thb = float(gcp_breakdown.total_thb)
     except Exception:
         gcp_cost_thb = 0.0
@@ -440,13 +444,8 @@ async def get_yearly_cost(year: Optional[str] = None):
 
     target_year, start_date, end_date = _get_year_date_range(year)
 
-    # 1. Fetch GCP cost for current month if in the same year
+    # 1. Fetch GCP costs for each month of the year with DB archiving & caching
     gcp_svc = GCPBillingService()
-    try:
-        gcp_breakdown = gcp_svc.get_current_month_costs(period="current_month")
-        current_gcp_cost_thb = float(gcp_breakdown.total_thb)
-    except Exception:
-        current_gcp_cost_thb = 0.0
 
     import datetime
     now_month = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m")
@@ -462,6 +461,15 @@ async def get_yearly_cost(year: Optional[str] = None):
         for m in range(1, 13)
     }
 
+    # Fetch GCP costs for months up to current month (or all months if past year)
+    for m_key in monthly_costs.keys():
+        if m_key <= now_month:
+            try:
+                gcp_res = await gcp_svc.get_costs_with_archive(period=m_key)
+                monthly_costs[m_key]["gcp_cost_thb"] = float(gcp_res.total_thb)
+            except Exception:
+                monthly_costs[m_key]["gcp_cost_thb"] = 0.0
+
     async with AsyncSessionLocal() as session:
         from sqlalchemy.future import select
         # Select all external configs matching target_year-%
@@ -474,10 +482,9 @@ async def get_yearly_cost(year: Optional[str] = None):
                 monthly_costs[c.month]["external_cost_thb"] += float(c.amount_thb)
 
     for m_key, data in monthly_costs.items():
-        if m_key == now_month:
-            data["gcp_cost_thb"] = current_gcp_cost_thb
         data["external_cost_thb"] = round(data["external_cost_thb"], 2)
         data["total_cost_thb"] = round(data["gcp_cost_thb"] + data["external_cost_thb"], 2)
+
 
     breakdown_list = [monthly_costs[k] for k in sorted(monthly_costs.keys())]
     total_year_cost = round(sum(item["total_cost_thb"] for item in breakdown_list), 2)

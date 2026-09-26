@@ -167,11 +167,20 @@ export function GCPCostBreakdown() {
           )}
           <button
             id="gcp-cost-refresh-btn"
-            onClick={() => mutate()}
+            onClick={async () => {
+              const res = await fetch(`/api/metrics/gcp-costs?period=${period}&force_refresh=true`, { cache: "no-store" });
+              if (res.ok) {
+                const refreshed = await res.json();
+                mutate(refreshed, false);
+              } else {
+                mutate();
+              }
+            }}
             disabled={loading}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
             aria-label="Refresh GCP costs"
           >
+
             <RefreshCw
               className={`h-4 w-4 transition-transform ${loading ? "animate-spin" : ""}`}
             />

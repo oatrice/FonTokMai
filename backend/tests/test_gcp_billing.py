@@ -140,7 +140,7 @@ def test_gcp_costs_endpoint_returns_breakdown(mocker):
 
     mocker.patch.dict(os.environ, {"CRON_SECRET": "test_secret_xyz"})
     mocker.patch(
-        "app.routers.metrics.GCPBillingService.get_current_month_costs",
+        "app.routers.metrics.GCPBillingService.get_costs_with_archive",
         return_value=GCPCostBreakdown(
             cloud_run_thb=294.0,
             cloud_storage_thb=42.0,
@@ -191,7 +191,7 @@ def test_gcp_costs_endpoint_supports_period_param(mocker):
 
     mocker.patch.dict(os.environ, {"CRON_SECRET": "test_secret_xyz"})
     mock_service = mocker.patch(
-        "app.routers.metrics.GCPBillingService.get_current_month_costs",
+        "app.routers.metrics.GCPBillingService.get_costs_with_archive",
         return_value=GCPCostBreakdown(
             cloud_run_thb=300.0,
             period_start="2026-07-01",
@@ -207,7 +207,8 @@ def test_gcp_costs_endpoint_supports_period_param(mocker):
         headers={"x-cron-secret": "test_secret_xyz"},
     )
     assert response.status_code == 200
-    mock_service.assert_called_once_with(period="30d")
+    mock_service.assert_called_once_with(period="30d", require_real_data=False, force_refresh=False)
+
 
 
 def test_gcp_billing_passes_thb_values_from_bigquery_directly():
@@ -262,7 +263,110 @@ def test_gcp_billing_requires_real_data_on_api_error():
     }):
         from app.services.gcp_billing import GCPBillingService
 
+        GCPBillingService.clear_cache()
         svc = GCPBillingService()
         with patch.object(svc, "_query_billing_api", side_effect=Exception("API Error")):
             with pytest.raises(RuntimeError, match="Failed to fetch real GCP billing data"):
                 svc.get_current_month_costs(require_real_data=True)
+
+
+# ─── Task: In-Memory Caching & DB Archiving Tests (Issue #249, #339) ─────────
+
+def test_gcp_billing_in_memory_cache_hit_avoids_repeated_query():
+    """Consecutive calls with the same period within TTL should hit cache and avoid BigQuery."""
+    with patch.dict("os.environ", {
+        "GCP_PROJECT_ID": "test-proj",
+        "GCP_BILLING_BIGQUERY_DATASET": "test-dataset",
+    }):
+        from app.services.gcp_billing import GCPBillingService
+
+        GCPBillingService.clear_cache()
+        svc = GCPBillingService()
+        mock_raw = [
+            {
+                "project_id": "test-proj",
+                "service_description": "Cloud Run",
+                "sku_description": "CPU Allocation Time",
+                "cost": 100.0,
+            }
+        ]
+        with patch.object(svc, "_query_billing_api", return_value=mock_raw) as mock_query:
+            res1 = svc.get_current_month_costs(period="current_month", require_real_data=True)
+            res2 = svc.get_current_month_costs(period="current_month", require_real_data=True)
+
+            assert res1.total_thb == 100.0
+            assert res2.total_thb == 100.0
+            assert mock_query.call_count == 1  # Cache hit on second call
+
+
+def test_gcp_billing_force_refresh_bypasses_cache():
+    """force_refresh=True should bypass the cache and query BigQuery again."""
+    with patch.dict("os.environ", {
+        "GCP_PROJECT_ID": "test-proj",
+        "GCP_BILLING_BIGQUERY_DATASET": "test-dataset",
+    }):
+        from app.services.gcp_billing import GCPBillingService
+
+        GCPBillingService.clear_cache()
+        svc = GCPBillingService()
+        mock_raw = [
+            {"project_id": "test-proj", "service_description": "Cloud Run", "sku_description": "CPU", "cost": 100.0}
+        ]
+        with patch.object(svc, "_query_billing_api", return_value=mock_raw) as mock_query:
+            svc.get_current_month_costs(period="current_month", require_real_data=True)
+            svc.get_current_month_costs(period="current_month", require_real_data=True, force_refresh=True)
+
+            assert mock_query.call_count == 2
+
+
+def test_gcp_billing_supports_explicit_month_format():
+    """Period can be an explicit 'YYYY-MM' format."""
+    from app.services.gcp_billing import GCPBillingService
+
+    svc = GCPBillingService()
+    start, end = svc._get_date_range("2026-08")
+    assert start == "2026-08-01"
+    assert end == "2026-08-31"
+
+
+@pytest.mark.asyncio
+async def test_gcp_billing_returns_from_db_archive_for_past_month():
+    """Past month already archived in DB should be returned without hitting BigQuery."""
+    import json
+    from unittest.mock import AsyncMock, MagicMock
+    from app.services.gcp_billing import GCPBillingService
+    from app.models import GcpBillingHistory
+
+    GCPBillingService.clear_cache()
+    svc = GCPBillingService()
+
+    mock_history = GcpBillingHistory(
+        month="2026-07",
+        cloud_run_thb=150.0,
+        cloud_storage_thb=20.0,
+        egress_thb=10.0,
+        other_thb=15.0,
+        total_thb=195.0,
+        currency="THB",
+        period_start="2026-07-01",
+        period_end="2026-07-31",
+        service_details_json=json.dumps({"cloud_run_thb": []}),
+    )
+
+    mock_res = MagicMock()
+    mock_res.scalar_one_or_none.return_value = mock_history
+    mock_session = AsyncMock()
+    mock_session.execute.return_value = mock_res
+    session_cm = AsyncMock()
+    session_cm.__aenter__.return_value = mock_session
+    session_cm.__aexit__.return_value = None
+
+    with patch("app.services.gcp_billing.AsyncSessionLocal", return_value=session_cm):
+        with patch.object(svc, "_query_billing_api") as mock_query:
+            res = await svc.get_costs_with_archive(period="2026-07", require_real_data=True)
+            assert res.total_thb == 195.0
+            assert res.cloud_run_thb == 150.0
+            assert res.is_mock is False
+            mock_query.assert_not_called()
+
+

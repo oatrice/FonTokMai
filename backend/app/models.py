@@ -119,6 +119,28 @@ class ExternalCostConfig(Base):
     amount_thb = Column(Float, default=0.0, nullable=False)
 
 
+class GcpBillingHistory(Base):
+    """
+    Persisted monthly GCP infrastructure costs finalized from BigQuery export (Issue #249, #339).
+    Prevents repetitive BigQuery scans for static historical billing periods.
+    """
+    __tablename__ = "gcp_billing_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    month = Column(String(7), unique=True, index=True, nullable=False)  # 'YYYY-MM'
+    cloud_run_thb = Column(Float, default=0.0, nullable=False)
+    cloud_storage_thb = Column(Float, default=0.0, nullable=False)
+    egress_thb = Column(Float, default=0.0, nullable=False)
+    other_thb = Column(Float, default=0.0, nullable=False)
+    total_thb = Column(Float, default=0.0, nullable=False)
+    currency = Column(String(3), default="THB", nullable=False)
+    period_start = Column(String(10), nullable=True)
+    period_end = Column(String(10), nullable=True)
+    service_details_json = Column(Text, nullable=True)  # JSON-encoded service details
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+
 class DisasterAlertHistory(Base):
     __tablename__ = "disaster_alert_history"
 
