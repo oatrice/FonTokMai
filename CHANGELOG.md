@@ -5,7 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.77.0] - 2026-09-26
+
+### Added
+- **GCP Billing Caching & PostgreSQL Historical Database Archiving (Issues #249, #339)**:
+  - Added `GcpBillingHistory` model (`gcp_billing_history` table) to permanently store finalized monthly GCP billing costs (Cloud Run, Cloud Storage, Egress, Other, Total, currency, and service details JSON).
+  - Implemented smart in-memory TTL caching with configurable TTL (`GCP_BILLING_CACHE_TTL`, default 15 minutes) and explicit manual cache invalidation (`force_refresh=True`).
+  - Added Read-Through Auto-Freeze: past month requests automatically query BigQuery once and persist finalized numbers to PostgreSQL once the invoice is finalized (after the 5th day of the month), avoiding all future BigQuery scan costs.
+  - Added `sync_gcp_billing_history_routine` to Cloud Scheduler tasks to proactively freeze the previous month's bill on the 6th of every month.
+  - Added explicit month format support (`YYYY-MM`) across `GCPBillingService` and metrics routers.
+  - Updated frontend `GCPCostBreakdown` component to trigger `force_refresh=true` upon clicking the manual refresh button.
+
+### Fixed
+- **Historical Monthly & Yearly Cost Calculation Bug**:
+  - Fixed `/api/v1/metrics/cost` and `/api/v1/metrics/cost/yearly` which previously hardcoded `period="current_month"`, distorting historical unit economics and yearly cost breakdowns. Endpoints now query the actual requested month using archived DB records.
+
 ## [0.76.0] - 2026-09-24
+
 
 ### Added
 - **Interactive Radar UI Mockups & SaaS Landing Page**: Added interactive radar mockups with timeline scrubbing, animation playback controls, location labels, and coordinate displays (`/radar-mockups`). Introduced new UI style variants (Styles D, E, and F) and a mobile UI flow version. Added a new landing page for the SaaS product. Added python and JS scripts for UI merge and code generation.

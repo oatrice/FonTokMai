@@ -12,13 +12,14 @@ import { headers } from "next/headers";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const period = searchParams.get("period") || "current_month";
+  const forceRefresh = searchParams.get("force_refresh") || "false";
 
   const backendUrl =
     process.env.BACKEND_URL || "http://localhost:8000";
   const cronSecret = process.env.CRON_SECRET || "";
 
   try {
-    const res = await fetch(`${backendUrl}/api/v1/metrics/gcp-costs?period=${encodeURIComponent(period)}`, {
+    const res = await fetch(`${backendUrl}/api/v1/metrics/gcp-costs?period=${encodeURIComponent(period)}&force_refresh=${encodeURIComponent(forceRefresh)}`, {
       cache: "no-store",
       headers: {
         "x-cron-secret": cronSecret,
@@ -30,7 +31,8 @@ export async function GET(req: NextRequest) {
       const data = await res.json();
       return NextResponse.json(data);
     }
-  } catch {
+  } catch (err) {
+    console.error("[gcp-costs proxy] Backend unreachable, falling back to mock data:", err);
     // Backend offline — fall through to mock data
   }
 

@@ -12,6 +12,8 @@ Service breakdown categories:
   - Other (everything else)
 """
 import os
+import json
+import asyncio
 import logging
 import datetime
 from dataclasses import dataclass, field
@@ -19,9 +21,12 @@ from typing import List, Dict, Any
 from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
-from app.models import SystemConfig
+from app.models import SystemConfig, GcpBillingHistory
 
 logger = logging.getLogger(__name__)
+
+# Invoice is considered finalized after the 5th day of the following month
+INVOICE_FINALIZATION_DAY: int = 6
 
 
 @dataclass
@@ -68,10 +73,21 @@ class GCPBillingService:
     STORAGE_KEYWORDS = ["cloud storage", "gcs"]
     EGRESS_KEYWORDS = ["networking", "egress", "internet egress"]
 
+    # In-memory cache: (period, require_real_data) -> (GCPCostBreakdown, timestamp)
+    _CACHE: Dict[str, tuple[GCPCostBreakdown, float]] = {}
+    DEFAULT_CACHE_TTL_SECONDS: float = 900.0  # 15 minutes default
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clear the in-memory billing cache."""
+        cls._CACHE.clear()
+
     def __init__(self):
         self.project_id = os.getenv("GCP_PROJECT_ID", "")
         self.billing_dataset = os.getenv("GCP_BILLING_BIGQUERY_DATASET", "")
         self.billing_project_filter = os.getenv("GCP_BILLING_PROJECT_FILTER", self.project_id)
+        # Configurable TTL via env
+        self.cache_ttl = float(os.getenv("GCP_BILLING_CACHE_TTL", str(self.DEFAULT_CACHE_TTL_SECONDS)))
 
     def _bool_env(self, key: str, default: bool = False) -> bool:
         value = os.getenv(key)
@@ -174,7 +190,8 @@ class GCPBillingService:
         return default
 
     def _get_date_range(self, period: str) -> tuple[str, str]:
-        """Calculate period_start and period_end YYYY-MM-DD for a given period."""
+        """Calculate period_start and period_end YYYY-MM-DD for a given period or explicit 'YYYY-MM'."""
+        import calendar
         now = datetime.datetime.now(datetime.timezone.utc).date()
         if period == "last_month":
             first_of_this_month = now.replace(day=1)
@@ -187,10 +204,17 @@ class GCPBillingService:
         elif period == "7d":
             start_date = now - datetime.timedelta(days=7)
             return start_date.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")
-        else:
-            # Default: current_month
-            start_date = now.replace(day=1)
-            return start_date.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")
+        elif len(period) == 7 and period[4] == "-":
+            try:
+                y, m = int(period[:4]), int(period[5:7])
+                _, last_day = calendar.monthrange(y, m)
+                return f"{y:04d}-{m:02d}-01", f"{y:04d}-{m:02d}-{last_day:02d}"
+            except Exception:
+                pass
+        # Default: current_month
+        start_date = now.replace(day=1)
+        return start_date.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")
+
 
     # ─── Mock Data ───────────────────────────────────────────────────────────
 
@@ -348,26 +372,46 @@ class GCPBillingService:
 
     # ─── Public Interface ────────────────────────────────────────────────────
 
-    def get_current_month_costs(self, period: str = "current_month", require_real_data: bool | None = None) -> GCPCostBreakdown:
-        """Fetch GCP costs for given period with automatic mock fallback.
+    def get_current_month_costs(
+        self,
+        period: str = "current_month",
+        require_real_data: bool | None = None,
+        force_refresh: bool = False,
+    ) -> GCPCostBreakdown:
+        """Fetch GCP costs for given period with automatic mock fallback and in-memory cache.
 
         Falls back to mock when:
         - GCP_PROJECT_ID or GCP_BILLING_BIGQUERY_DATASET are not set
         - Google Cloud API call fails (auth error, network issue, etc.)
         """
+        import time
+
         if require_real_data is None:
             require_real_data = self.should_force_real_data()
+
+        cache_key = f"{period}:{require_real_data}"
+        now_ts = time.time()
+
+        if not force_refresh and cache_key in self._CACHE:
+            cached_data, cached_ts = self._CACHE[cache_key]
+            if now_ts - cached_ts < self.cache_ttl:
+                logger.info("[GCP_BILLING] Cache hit for %s (age=%.1fs)", cache_key, now_ts - cached_ts)
+                return cached_data
+
         logger.info(
-            "[GCP_BILLING] get_current_month_costs period=%s require_real_data=%s project_id_present=%s dataset_present=%s",
+            "[GCP_BILLING] get_current_month_costs period=%s require_real_data=%s force_refresh=%s project_id_present=%s dataset_present=%s",
             period,
             require_real_data,
+            force_refresh,
             bool(self.project_id),
             bool(self.billing_dataset),
         )
 
         if not require_real_data:
             logger.info("[GCP_BILLING] Mock-only mode enabled; returning mock data without querying BigQuery")
-            return self.get_mock_breakdown(period=period)
+            breakdown = self.get_mock_breakdown(period=period)
+            self._CACHE[cache_key] = (breakdown, now_ts)
+            return breakdown
 
         if not self.project_id or not self.billing_dataset:
             logger.warning("[GCP_BILLING] Missing config and real-data mode enabled; raising instead of mock fallback")
@@ -386,7 +430,7 @@ class GCPBillingService:
             aggregated_thb = self._aggregate_by_service(rows)
             service_details = self._build_service_details(rows)
 
-            return GCPCostBreakdown(
+            breakdown = GCPCostBreakdown(
                 **aggregated_thb,
                 total_thb=round(sum(aggregated_thb.values()), 2),
                 period_start=period_start,
@@ -395,9 +439,152 @@ class GCPBillingService:
                 is_mock=False,
                 service_details=service_details,
             )
+            self._CACHE[cache_key] = (breakdown, now_ts)
+            return breakdown
         except Exception as e:
             if require_real_data:
                 logger.exception("[GCP_BILLING] Real data requested but fetch failed; raising")
                 raise RuntimeError(f"Failed to fetch real GCP billing data: {e}") from e
             logger.error(f"[GCP_BILLING] API error, falling back to mock: {e}")
-            return self.get_mock_breakdown(period=period)
+            breakdown = self.get_mock_breakdown(period=period)
+            self._CACHE[cache_key] = (breakdown, now_ts)
+            return breakdown
+
+    async def get_costs_with_archive(
+        self,
+        period: str = "current_month",
+        require_real_data: bool | None = None,
+        force_refresh: bool = False,
+    ) -> GCPCostBreakdown:
+        """Fetch GCP costs with Database Archiving (Issue #249, #339).
+
+        1. If requested period is a past month ('YYYY-MM' or 'last_month') and present in DB,
+           return directly from PostgreSQL without hitting BigQuery.
+        2. Otherwise, fetch via BigQuery/cache (offloaded to a thread via asyncio.to_thread
+           to avoid blocking the async event loop during synchronous BigQuery network I/O).
+        3. If it's a past month and today >= INVOICE_FINALIZATION_DAY of current month
+           (invoice finalized), persist to DB automatically.
+        """
+        if require_real_data is None:
+            require_real_data = await self.resolve_force_real_data()
+
+        # Resolve explicit month string if possible
+        now_dt = datetime.datetime.now(datetime.timezone.utc)
+        current_month_str = now_dt.strftime("%Y-%m")
+
+        target_month_str = None
+        if len(period) == 7 and period[4] == "-":
+            target_month_str = period
+        elif period == "last_month":
+            first_of_this_month = now_dt.date().replace(day=1)
+            last_day_of_last_month = first_of_this_month - datetime.timedelta(days=1)
+            target_month_str = last_day_of_last_month.strftime("%Y-%m")
+
+        is_past_month = target_month_str is not None and target_month_str < current_month_str
+
+        # Step 1: Check Database Archive if it's a past month and not forced refresh.
+        # We also capture 'history_row' to reuse in the can_freeze upsert (avoids double SELECT).
+        history_row = None
+        if is_past_month and not force_refresh:
+            try:
+                async with AsyncSessionLocal() as session:
+                    stmt = select(GcpBillingHistory).where(GcpBillingHistory.month == target_month_str)
+                    res = await session.execute(stmt)
+                    history_row = res.scalar_one_or_none()
+                    if history_row:
+                        logger.info("[GCP_BILLING] Returning archived cost from DB for month=%s", target_month_str)
+                        service_details = {}
+                        if history_row.service_details_json:
+                            try:
+                                service_details = json.loads(history_row.service_details_json)
+                            except Exception:
+                                pass
+
+                        return GCPCostBreakdown(
+                            cloud_run_thb=float(history_row.cloud_run_thb),
+                            cloud_storage_thb=float(history_row.cloud_storage_thb),
+                            egress_thb=float(history_row.egress_thb),
+                            other_thb=float(history_row.other_thb),
+                            total_thb=float(history_row.total_thb),
+                            period_start=history_row.period_start or f"{target_month_str}-01",
+                            period_end=history_row.period_end or f"{target_month_str}-28",
+                            currency=history_row.currency or "THB",
+                            is_mock=False,
+                            service_details=service_details,
+                        )
+            except Exception as e:
+                logger.warning("[GCP_BILLING] Failed to query GcpBillingHistory from DB: %s", e)
+
+        # Step 2: Fetch via BigQuery/cache.
+        # Offload to a thread pool so the blocking BigQuery network call does not stall the event loop.
+        breakdown = await asyncio.to_thread(
+            self.get_current_month_costs,
+            period,
+            require_real_data,
+            force_refresh,
+        )
+
+        # Step 3: Auto-Freeze / Persist to DB if past month, real data, and past invoice finalization day.
+        # If past month is earlier than last month → always finalized.
+        # If it is last month → finalized once INVOICE_FINALIZATION_DAY has passed.
+        can_freeze = False
+        if is_past_month and not breakdown.is_mock:
+            first_of_this_month = now_dt.date().replace(day=1)
+            last_day_of_last_month = first_of_this_month - datetime.timedelta(days=1)
+            last_month_str = last_day_of_last_month.strftime("%Y-%m")
+
+            if target_month_str < last_month_str:
+                can_freeze = True
+            elif target_month_str == last_month_str and now_dt.day >= INVOICE_FINALIZATION_DAY:
+                can_freeze = True
+
+        if can_freeze:
+            try:
+                async with AsyncSessionLocal() as session:
+                    # history_row from Step 1 tells us whether a record already exists.
+                    # Re-fetch only when force_refresh=True (history_row was not populated above).
+                    existing = history_row
+                    if existing is None and force_refresh:
+                        stmt = select(GcpBillingHistory).where(GcpBillingHistory.month == target_month_str)
+                        res = await session.execute(stmt)
+                        existing = res.scalar_one_or_none()
+
+                    details_json = json.dumps(breakdown.service_details) if breakdown.service_details else None
+                    now_naive = now_dt.replace(tzinfo=None)
+
+                    if existing:
+                        existing.cloud_run_thb = breakdown.cloud_run_thb
+                        existing.cloud_storage_thb = breakdown.cloud_storage_thb
+                        existing.egress_thb = breakdown.egress_thb
+                        existing.other_thb = breakdown.other_thb
+                        existing.total_thb = breakdown.total_thb
+                        existing.currency = breakdown.currency
+                        existing.period_start = breakdown.period_start
+                        existing.period_end = breakdown.period_end
+                        existing.service_details_json = details_json
+                        existing.updated_at = now_naive
+                        session.add(existing)
+                    else:
+                        new_record = GcpBillingHistory(
+                            month=target_month_str,
+                            cloud_run_thb=breakdown.cloud_run_thb,
+                            cloud_storage_thb=breakdown.cloud_storage_thb,
+                            egress_thb=breakdown.egress_thb,
+                            other_thb=breakdown.other_thb,
+                            total_thb=breakdown.total_thb,
+                            currency=breakdown.currency,
+                            period_start=breakdown.period_start,
+                            period_end=breakdown.period_end,
+                            service_details_json=details_json,
+                            created_at=now_naive,
+                            updated_at=now_naive,
+                        )
+                        session.add(new_record)
+                    await session.commit()
+                    logger.info("[GCP_BILLING] Archived finalized billing data to DB for month=%s", target_month_str)
+            except Exception as e:
+                logger.warning("[GCP_BILLING] Failed to auto-freeze billing data to DB: %s", e)
+
+        return breakdown
+
+

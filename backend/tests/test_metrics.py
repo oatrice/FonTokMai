@@ -434,3 +434,79 @@ class TestQueueMetricsEndpoint:
         assert data["queue_name"] == "test-queue"
         assert "query_duration_ms" in data
         assert "timestamp" in data
+
+
+# ===========================
+# Integration Tests: Yearly Cost Endpoint (asyncio.gather)
+# ===========================
+
+class TestYearlyCostEndpoint:
+    """Tests for GET /api/v1/metrics/cost/yearly"""
+
+    @pytest.fixture(autouse=True)
+    def setup_client(self):
+        from app.main import app
+        self.client = TestClient(app)
+
+    @patch("app.database.AsyncSessionLocal")
+    @patch("app.routers.metrics.GCPBillingService")
+    def test_yearly_cost_concurrent_success(self, mock_gcp_service_cls, mock_session_local):
+        """GET /api/v1/metrics/cost/yearly should gather 12 months with GCP costs"""
+        from app.services.gcp_billing import GCPCostBreakdown
+        mock_svc = MagicMock()
+        mock_breakdown = GCPCostBreakdown(
+            cloud_run_thb=100.0,
+            cloud_storage_thb=20.0,
+            egress_thb=10.0,
+            other_thb=10.0,
+            total_thb=140.0,
+            period_start="2026-01-01",
+            period_end="2026-01-31",
+            currency="THB",
+            is_mock=True,
+        )
+        mock_svc.get_costs_with_archive = AsyncMock(return_value=mock_breakdown)
+        mock_gcp_service_cls.return_value = mock_svc
+
+        # Mock DB session for external configs
+        mock_session = AsyncMock()
+        mock_res = MagicMock()
+        mock_res.scalars.return_value.all.return_value = []
+        mock_session.execute.return_value = mock_res
+        session_cm = AsyncMock()
+        session_cm.__aenter__.return_value = mock_session
+        session_cm.__aexit__.return_value = None
+        mock_session_local.return_value = session_cm
+
+        response = self.client.get("/api/v1/metrics/cost/yearly?year=2026")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["year"] == "2026"
+        assert len(data["monthly_cost_breakdown"]) == 12
+        assert "total_cost_thb" in data
+        assert data["total_cost_thb"] >= 0.0
+
+    @patch("app.database.AsyncSessionLocal")
+    @patch("app.routers.metrics.GCPBillingService")
+    def test_yearly_cost_handles_individual_month_failure(self, mock_gcp_service_cls, mock_session_local):
+        """If one month fails during gather, others should still succeed without 500 error"""
+        mock_svc = MagicMock()
+        mock_svc.get_costs_with_archive = AsyncMock(side_effect=RuntimeError("BigQuery error"))
+        mock_gcp_service_cls.return_value = mock_svc
+
+        mock_session = AsyncMock()
+        mock_res = MagicMock()
+        mock_res.scalars.return_value.all.return_value = []
+        mock_session.execute.return_value = mock_res
+        session_cm = AsyncMock()
+        session_cm.__aenter__.return_value = mock_session
+        session_cm.__aexit__.return_value = None
+        mock_session_local.return_value = session_cm
+
+        response = self.client.get("/api/v1/metrics/cost/yearly?year=2026")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["year"] == "2026"
+        assert len(data["monthly_cost_breakdown"]) == 12
+        # All months should fallback to 0.0 without throwing 500
+        assert data["total_cost_thb"] == 0.0
