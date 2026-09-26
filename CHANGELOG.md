@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.77.1] - 2026-09-26
+
+### Added
+- **GitHub Actions & GitLab CI Pipeline Parity (Issue #341)**:
+  - Added `check_docs_updated` job to `.github/workflows/main.yml` running on pull requests targeting `staging` or `main` to enforce Luma documentation and version synchronization (`CHANGELOG.md`, `VERSION`, `backend/VERSION`, `frontend/package.json`).
+  - Added `test_security` job to `.github/workflows/main.yml` executing dedicated radar security, IDOR, SQL injection, and performance polygon test suites.
+  - Added manual `workflow_dispatch` trigger to `.github/workflows/main.yml` for on-demand test and deployment executions.
+  - Added `.github/workflows/cloudrun_config.yml` with `workflow_dispatch` input parameters (`environment: [development, staging, production]`) to mirror GitLab's `cloudrun_config_only` manual job.
+  - Added `auto_git_tag` job to `.github/workflows/main.yml` automatically creating release tag `v${VERSION}` upon code merging into `main`.
+  - Added Playwright HTML test report artifact uploading (`playwright-report`, 7-day retention) in `test_e2e`.
+
+### Changed
+- **Cloud Run Deployment Architecture in GitHub Actions**:
+  - Refactored `deploy_cloud_run` in `.github/workflows/main.yml` from hardcoded `gcloud run deploy` command to invoke canonical script `backend/deploy/deploy_cloudrun.sh`.
+  - Upgraded deployment architecture to use NeonDB PostgreSQL (`STORAGE_BACKEND=neondb`), eliminating legacy Firestore configuration drift.
+  - Synchronized all 14+ missing production environment variables across Stripe, LINE, GCP BigQuery Billing, Admin auth, salts, and environment flags.
+  - Enforced low-latency Cloud Run configuration (`min-instances: 1`, `--no-cpu-throttling`) and post-deploy Artifact Registry cleanup.
+  - Updated `test_frontend` test execution flags (`--watchAll=false --ci --passWithNoTests`) to prevent CI runner hangs.
+
 ## [0.77.0] - 2026-09-26
 
 ### Added
