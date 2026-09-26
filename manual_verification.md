@@ -1,161 +1,127 @@
-# Manual Verification Plan: GCP Billing Cache & PostgreSQL Historical Archiving
+# Manual Verification Plan: GitHub Actions & GitLab CI Pipeline Parity
 
-- **Merged PR / Issue ID**: MR !105 (Closes #249, #339)
-- **Integration Target**: `dev` (Merged), preparing for `staging` & `production`
+- **Issue ID**: #341 (Closes #341)
+- **Target Branch**: `dev`
+- **Release Version**: `0.77.1`
 - **Updated Date**: 2026-09-26
 
 ---
 
-## 🌐 Environment Matrix & Base Configuration
-
-| Parameter / Feature | Local / Dev (`development`) | Staging (`staging`) | Production (`production`) |
-| :--- | :--- | :--- | :--- |
-| **Backend Base URL** | `http://localhost:8000` | `https://fontokmai-api-staging-xxxx-as.a.run.app` | `https://fontokmai-api-xxxx-as.a.run.app` |
-| **Frontend Base URL** | `http://localhost:3000` | `https://staging.fonmayang.com` (or Vercel preview) | `https://fonmayang.com` |
-| **Default Data Mode** | **Mock Data** (`is_mock=true`) | **Real BigQuery** (`is_mock=false`) | **Real BigQuery** (`is_mock=false`) |
-| **Neon Policy Override** | Ignored unless `FORCE_GCP_REAL_DATA=true` | Consults `system_config.gcp_force_real_data` | Consults `system_config.gcp_force_real_data` |
-| **Auto-Freeze to DB** | Disabled for mock data | Enabled for finalized past months | Enabled for finalized past months |
-| **Cache Invalidation** | `force_refresh=true` (TTL: 900s) | `force_refresh=true` (TTL: 900s) | `force_refresh=true` (TTL: 900s) |
+## 🎯 Verification Objectives
+Verify that the GitHub Actions workflows (`.github/workflows/main.yml`, `.github/workflows/cloudrun_config.yml`, and `.github/workflows/cleanup.yml`) provide 100% functional parity with the GitLab CI pipeline (`.gitlab-ci.yml`), including:
+1. Canonical deployment script execution (`backend/deploy/deploy_cloudrun.sh`) with NeonDB backend and all 14+ new environment variables.
+2. Missing verification and test gates (`check_docs_updated`, `test_security`).
+3. Manual pipeline execution triggers (`workflow_dispatch`).
+4. Automated release tagging on `main` (`auto_git_tag`).
+5. E2E Playwright HTML test report archiving and robust frontend test CI flags.
 
 ---
 
-## 📌 Prerequisites & Secrets Setup
+## 🔐 GitHub Repository Secrets & Variables Checklist
 
-Before executing verification, ensure you have the appropriate `CRON_SECRET` for the target environment:
+To ensure GitHub Actions can execute and deploy smoothly, ensure the following Secrets and Variables are configured under **GitHub Repository Settings > Secrets and variables > Actions**:
 
-```bash
-# 1. Local / Development
-export TARGET_ENV="dev"
-export BASE_URL="http://localhost:8000"
-export CRON_SECRET="test_secret_123"
+### 1. Required Secrets (`Repository secrets`)
+| Secret Name | Description / Source |
+|---|---|
+| `GCP_SA_KEY` | Google Cloud Service Account JSON Key (Base64 or Raw JSON with Cloud Run Admin, Artifact Registry Admin, Compute Admin) |
+| `GCP_PROJECT_ID` | Google Cloud Project ID (e.g., `fonmayang`) |
+| `CI_TELEGRAM_BOT_TOKEN` | Telegram Bot Token for CI notifications |
+| `TELEGRAM_CHAT_ID` | Telegram Chat ID for CI notifications |
+| `TELEGRAM_BOT_TOKEN` | Production Telegram Bot Token |
+| `DEV_TELEGRAM_BOT_TOKEN` | Development/Staging Telegram Bot Token |
+| `DATABASE_URL` | NeonDB / PostgreSQL connection string |
+| `DATABASE_URL_DEV` | (Optional) Dedicated Development Database URL |
+| `DATABASE_URL_STAGING` | (Optional) Dedicated Staging Database URL |
+| `DATABASE_URL_PROD` | (Optional) Dedicated Production Database URL |
+| `CRON_SECRET` | Secret token for authorized Cloud Scheduler calls |
+| `RAINBOW_API_KEY` | Rainbow Weather API Key |
+| `TOMORROW_API_KEY` | Tomorrow.io API Key |
+| `XWEATHER_CLIENT_ID` | Xweather Client ID |
+| `XWEATHER_CLIENT_SECRET` | Xweather Client Secret |
+| `GEMINI_API_KEY` | Google Gemini API Key |
+| `OCR_SPACE_API_KEY` | OCR Space API Key |
+| `WORKER_SECRET` | Internal worker shared secret |
+| `INTERNAL_WEBHOOK_SECRET` | Internal EMSC / radar webhook secret |
+| `ADMIN_BYPASS_PASSWORD` | Administrator bypass password |
+| `GCP_BILLING_ACCOUNT_ID` | GCP Billing Account ID |
+| `GCP_BUDGET_DISPLAY_NAME` | GCP Budget display name |
+| `LINE_CHANNEL_ACCESS_TOKEN` | LINE Messaging API Channel Access Token |
+| `LINE_CHANNEL_SECRET` | LINE Messaging API Channel Secret |
+| `STRIPE_SECRET_KEY` | Stripe Secret API Key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook Signing Secret |
+| `HASH_SALT` | Cryptographic salt for sensitive hashing |
+| `FIREBASE_STORAGE_BUCKET` | Cloud Storage bucket name |
 
-# 2. Staging Environment
-# export TARGET_ENV="staging"
-# export BASE_URL="https://fontokmai-api-staging-xxxx-as.a.run.app"
-# export CRON_SECRET="<STAGING_CRON_SECRET_FROM_SECRET_MANAGER>"
-
-# 3. Production Environment
-# export TARGET_ENV="production"
-# export BASE_URL="https://fontokmai-api-xxxx-as.a.run.app"
-# export CRON_SECRET="<PROD_CRON_SECRET_FROM_SECRET_MANAGER>"
-```
-
----
-
-## 🧪 Verification Scenarios by Environment
-
-### Scenario 1: Development / Local Environment Verification
-**Focus:** Mock fallback safety, in-memory cache TTL, manual force refresh, and mock write protection.
-
-1. **Step 1: Current Month Mock & In-Memory Cache**
-   ```bash
-   curl -s -H "x-cron-secret: ${CRON_SECRET}" "${BASE_URL}/api/v1/metrics/gcp-costs?period=current_month"
-   ```
-   - **Expected Outcome:**
-     - HTTP Status: `200 OK`
-     - Response: `{"is_mock": true, "currency": "THB", ...}`
-     - Backend Logs: `[GCP_BILLING] Mock-only mode enabled; returning mock data without querying BigQuery`
-   - **Step 1.1: Immediate consecutive call:**
-     - Backend Logs: `[GCP_BILLING] Cache hit for current_month:False (age=...s)`.
-
-2. **Step 2: Force Refresh Bypass**
-   ```bash
-   curl -s -H "x-cron-secret: ${CRON_SECRET}" "${BASE_URL}/api/v1/metrics/gcp-costs?period=current_month&force_refresh=true"
-   ```
-   - **Expected Outcome:** Cache is bypassed, returning fresh mock breakdown.
-
-3. **Step 3: Verification that Mock Data is NEVER Persisted to DB**
-   ```bash
-   curl -s -H "x-cron-secret: ${CRON_SECRET}" "${BASE_URL}/api/v1/metrics/gcp-costs?period=2026-05"
-   ```
-   - **Expected Outcome:**
-     - HTTP Status: `200 OK` with `is_mock: true`.
-     - DB Check: Table `gcp_billing_history` must **NOT** contain any row for `month = '2026-05'`.
+### 2. Configuration Variables (`Repository variables`)
+| Variable Name | Default Value | Description |
+|---|---|---|
+| `XWEATHER_ENABLED` | `false` | Enable or disable Xweather API queries |
+| `ALERT_COOLDOWN_MINUTES` | `30` | Minimum cooldown between proactive rain alerts |
+| `RAIN_TRIGGER_THRESHOLD_MM` | `0.5` | Rain threshold to trigger alerts |
+| `STORAGE_BACKEND` | `neondb` | Storage backend (ensured as `neondb` in deploy script) |
+| `GRPC_ENABLE_FORK_SUPPORT` | `1` | gRPC multi-threading / fork support |
+| `GCP_BILLING_BIGQUERY_DATASET` | `billing_export` | BigQuery dataset name for billing data |
+| `FORCE_GCP_REAL_DATA` | `false` | Force real BigQuery data on non-prod environments |
+| `USE_LOCAL_FIXTURES` | `false` | Use local radar fixtures |
 
 ---
 
-### Scenario 2: Staging Environment Verification
-**Focus:** Cloud Run connection to BigQuery, Neon DB policy override toggle, and DB auto-freeze validation.
+## 🧪 Step-by-Step Verification Scenarios
 
-1. **Step 1: Verify Real Data Fetching on Staging**
+### Scenario 1: Syntax & Environment Sync Verification (Local)
+1. **Step 1: Validate YAML Workflow Syntax**
    ```bash
-   curl -s -H "x-cron-secret: ${CRON_SECRET}" "${BASE_URL}/api/v1/metrics/gcp-costs?period=current_month"
+   python3 -c "import yaml; yaml.safe_load(open('.github/workflows/main.yml')); yaml.safe_load(open('.github/workflows/cloudrun_config.yml')); yaml.safe_load(open('.github/workflows/cleanup.yml')); print('✅ All YAML files are syntactically valid!')"
    ```
    - **Expected Outcome:**
-     - HTTP Status: `200 OK`
-     - Response: `is_mock: false`, `total_thb > 0`
-     - Cloud Run Logs: `[GCP_BILLING] BigQuery query returned X rows`
+     - Exit Code: `0`
+     - Output: `✅ All YAML files are syntactically valid!`
 
-2. **Step 2: Verify Past Month Auto-Freeze & Read-Through Archive**
-   *Choose a finalized past invoice month (e.g. `2026-07`):*
+2. **Step 2: Run Deployment Environment Synchronization Test**
    ```bash
-   # First request (fetches from BigQuery and archives to Neon PostgreSQL):
-   curl -s -H "x-cron-secret: ${CRON_SECRET}" "${BASE_URL}/api/v1/metrics/gcp-costs?period=2026-07"
+   pytest backend/tests/test_deploy_env_sync.py -v
    ```
-   - Cloud Run Logs: `[GCP_BILLING] Archived finalized billing data to DB for month=2026-07`
+   - **Expected Outcome:**
+     - 1 passed in < 0.1s. Confirms `backend/deploy/deploy_cloudrun.sh` contains all variables required by `.env.example`.
 
+3. **Step 3: Run Security & Radar Regression Test Suite**
    ```bash
-   # Second request (must be served purely from PostgreSQL DB archive):
-   curl -s -H "x-cron-secret: ${CRON_SECRET}" "${BASE_URL}/api/v1/metrics/gcp-costs?period=2026-07"
+   pytest backend/tests/test_radar_security.py backend/tests/test_radar_router_fixes.py backend/tests/test_performance_polygon.py -v --tb=short
    ```
-   - Cloud Run Logs: `[GCP_BILLING] Returning archived cost from DB for month=2026-07` (Zero BigQuery queries).
-
-3. **Step 3: Test Neon SystemConfig Toggle (Kill-switch)**
-   - When key `gcp_force_real_data` in Neon table `system_config` is set to `"false"`, staging immediately falls back to mock mode without redeployment.
+   - **Expected Outcome:**
+     - 31 passed in ~3s. Verifies the exact suite executed by the new `test_security` job.
 
 ---
 
-### Scenario 3: Production Environment Verification
-**Focus:** Unit economics integrity, concurrent yearly aggregation latency, security authorization, and UI responsiveness.
-
-1. **Step 1: Concurrent Yearly Cost Aggregation Latency (`asyncio.gather`)**
-   ```bash
-   time curl -s "${BASE_URL}/api/v1/metrics/cost/yearly?year=2026"
-   ```
+### Scenario 2: Documentation & Version Sync Gate Verification (`check_docs_updated`)
+1. **Step 1: Inspect PR Check Logic**
+   - When a Pull Request is opened targeting `staging` or `main`:
+     - Checks if `CHANGELOG.md` is modified in the PR diff.
+     - Checks if `VERSION` is modified in the PR diff.
+     - Checks if `backend/VERSION` is updated if `backend/` files changed.
+     - Checks if `frontend/package.json` version matches if `frontend/` files changed.
    - **Expected Outcome:**
-     - Latency: **< 1.5 seconds** (previously ~9-10 seconds serial execution).
-     - Response: Contains 12-month array `monthly_cost_breakdown`.
-     - Months prior to current month load directly from PostgreSQL archive.
-
-2. **Step 2: Historical Cost Endpoint Fix (`/cost`)**
-   ```bash
-   curl -s "${BASE_URL}/api/v1/metrics/cost?month=2026-07"
-   ```
-   - **Expected Outcome:**
-     - Field `"month"` is `"2026-07"`.
-     - `gcp_cost_thb` matches the finalized GCP billing total stored in `gcp_billing_history`.
-
-3. **Step 3: Security & Authorization Boundary Checks**
-   ```bash
-   # 1. Missing header must fail
-   curl -s -I "${BASE_URL}/api/v1/metrics/gcp-costs"
-   # HTTP/2 401 Unauthorized
-
-   # 2. Timing attack / invalid secret must fail
-   curl -s -I -H "x-cron-secret: wrong_secret_attacker" "${BASE_URL}/api/v1/metrics/gcp-costs"
-   # HTTP/2 401 Unauthorized
-   ```
-
-4. **Step 4: Web Dashboard UI Verification (Production & Staging)**
-   1. Navigate to `/admin/metrics` on the Web Dashboard.
-   2. Verify the **GCP Infrastructure Cost Card** displays real values with currency `THB`.
-   3. Check that the "Mock Data" badge is **NOT** present on Staging/Production.
-   4. Click the manual refresh button (`#gcp-cost-refresh-btn`):
-      - Button locks (`disabled=true`) immediately with spinning icon.
-      - Network inspector shows single request to `/api/metrics/gcp-costs?period=...&force_refresh=true`.
-      - Values update without full page re-render.
+     - If all files are present: Job passes with `🎉 All required documentation files are updated and synchronized with the latest code changes!`.
+     - If any required file is missing: Job fails with exit code `1` and descriptive error message.
 
 ---
 
-## 📸 Automated Test Proof (Regression Suite)
+### Scenario 3: Cloud Run Deployment Parity Verification (`deploy_cloud_run`)
+1. **Step 1: Validate Deployment Command Invocations**
+   - The job no longer calls `gcloud run deploy fontokmai-api ...` directly with hardcoded inline parameters.
+   - Instead, it delegates to `./deploy/deploy_cloudrun.sh`, which:
+     1. Automatically detects `ENVIRONMENT` (`development`, `staging`, `production`) and `CLOUD_RUN_SERVICE` (`fontokmai-api-dev`, `fontokmai-api-staging`, `fontokmai-api`) from `CI_COMMIT_BRANCH`.
+     2. Sets `min-instances: 1` and `--no-cpu-throttling` to prevent cold starts.
+     3. Copies `VERSION` to `backend/VERSION`.
+     4. Runs `scripts/cleanup_artifact_registry.sh` immediately after deployment to eliminate stale container images.
+     5. Updates the Telegram webhook URL and Cloud Scheduler jobs on `main`.
 
-All 87 automated unit, integration, and security tests pass cleanly:
+---
 
-```text
-backend/tests/test_gcp_billing.py:   22 passed (Cache hit, force_refresh, leap years, auto-freeze)
-backend/tests/test_metrics.py:       20 passed (Yearly asyncio.gather, cron metrics)
-backend/tests/test_scheduler.py:     18 passed (Routine triggers, sync_gcp_billing_history_routine)
-backend/tests/test_api_security.py:  26 passed (SQLi, XSS, constant-time compare, fuzzing)
-backend/tests/test_deploy_env_sync.py: 1 passed (Env variables synchronization)
-======================== 87 passed in 4.07s ========================
-```
+### Scenario 4: Automated Tagging Verification (`auto_git_tag`)
+1. **Step 1: Tagging on `main` Branch Push**
+   - When code is pushed/merged into `main`:
+     - Reads `VERSION` (e.g. `0.77.1`).
+     - Checks if git tag `v0.77.1` exists.
+     - If not, automatically creates `v0.77.1` with message `Release v0.77.1` and pushes it to GitHub.
