@@ -665,3 +665,30 @@ async def test_check_rain_and_alert_does_not_fetch_radar(
     # Assert that fetch_tmd_radar_routine was NOT called
     mock_tmd_radar.assert_not_called()
 
+
+@pytest.mark.asyncio
+@patch("app.services.gcp_billing.GCPBillingService")
+async def test_sync_gcp_billing_history_routine(mock_billing_class):
+    """Test sync_gcp_billing_history_routine calls get_costs_with_archive for last month with force_refresh."""
+    from app.scheduler_tasks import sync_gcp_billing_history_routine
+    from app.services.gcp_billing import GCPCostBreakdown
+
+    mock_svc = mock_billing_class.return_value
+    mock_breakdown = GCPCostBreakdown(
+        cloud_run_thb=120.0,
+        cloud_storage_thb=15.0,
+        total_thb=135.0,
+        currency="THB",
+        is_mock=False,
+    )
+    mock_svc.get_costs_with_archive = AsyncMock(return_value=mock_breakdown)
+
+    res = await sync_gcp_billing_history_routine()
+    assert res["status"] == "success"
+    assert res["total_thb"] == 135.0
+    assert res["is_mock"] is False
+    mock_svc.get_costs_with_archive.assert_called_once()
+    call_kwargs = mock_svc.get_costs_with_archive.call_args[1]
+    assert call_kwargs["force_refresh"] is True
+
+
