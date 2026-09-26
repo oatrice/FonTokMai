@@ -23,6 +23,8 @@ interface RunwayData {
   circuit_breaker_active: boolean;
   emergency_overdrive: boolean;
   budget_jars?: BudgetJarData[];
+  target_exhaustion_time?: number;
+  server_time?: number;
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -61,14 +63,52 @@ export function RunwayCounter() {
     () => "numeric"
   );
 
+  useEffect(() => {
+    // Restore cached target end time if present to immediately resume countdown on refresh
+    const cachedTarget = localStorage.getItem("runwayTargetEndTime");
+    if (cachedTarget) {
+      const parsed = parseInt(cachedTarget, 10);
+      if (!isNaN(parsed) && parsed > Date.now()) {
+        targetEndTimeRef.current = parsed;
+        setSecondsRemaining(Math.max(0, Math.floor((parsed - Date.now()) / 1000)));
+      }
+    }
+  }, []);
+
   const handleViewModeChange = (mode: ViewMode) => {
     setStoredViewMode(mode);
     localStorage.setItem("runwayViewMode", mode);
   };
 
   useEffect(() => {
-    if (data?.seconds_remaining !== undefined) {
-      targetEndTimeRef.current = Date.now() + data.seconds_remaining * 1000;
+    if (!data) return;
+
+    if (data.emergency_overdrive || data.seconds_remaining === -1) {
+      targetEndTimeRef.current = null;
+      setSecondsRemaining(-1);
+      localStorage.removeItem("runwayTargetEndTime");
+      return;
+    }
+
+    let calculatedTargetMs: number;
+    if (data.target_exhaustion_time && data.target_exhaustion_time > 0) {
+      // Offset by client-server clock skew if server_time is provided
+      const clockSkewMs = data.server_time ? Date.now() - data.server_time * 1000 : 0;
+      calculatedTargetMs = data.target_exhaustion_time * 1000 + clockSkewMs;
+    } else if (data.seconds_remaining !== undefined) {
+      calculatedTargetMs = Date.now() + data.seconds_remaining * 1000;
+    } else {
+      return;
+    }
+
+    // Only update if difference from existing target is > 5s (prevents small countdown jumps on SWR revalidations)
+    if (
+      targetEndTimeRef.current === null ||
+      Math.abs(targetEndTimeRef.current - calculatedTargetMs) > 5000
+    ) {
+      targetEndTimeRef.current = calculatedTargetMs;
+      localStorage.setItem("runwayTargetEndTime", calculatedTargetMs.toString());
+      setSecondsRemaining(Math.max(0, Math.floor((calculatedTargetMs - Date.now()) / 1000)));
     }
   }, [data]);
 
@@ -83,12 +123,30 @@ export function RunwayCounter() {
     return () => clearInterval(timer);
   }, []);
 
-  const days = secondsRemaining !== null ? Math.floor(secondsRemaining / (3600 * 24)) : null;
-  const hours = secondsRemaining !== null ? Math.floor((secondsRemaining % (3600 * 24)) / 3600) : null;
-  const minutes = secondsRemaining !== null ? Math.floor((secondsRemaining % 3600) / 60) : null;
-  const seconds = secondsRemaining !== null ? secondsRemaining % 60 : null;
+  const days = secondsRemaining !== null && secondsRemaining >= 0 ? Math.floor(secondsRemaining / (3600 * 24)) : null;
+  const hours = secondsRemaining !== null && secondsRemaining >= 0 ? Math.floor((secondsRemaining % (3600 * 24)) / 3600) : null;
+  const minutes = secondsRemaining !== null && secondsRemaining >= 0 ? Math.floor((secondsRemaining % 3600) / 60) : null;
+  const seconds = secondsRemaining !== null && secondsRemaining >= 0 ? secondsRemaining % 60 : null;
 
   const renderContent = () => {
+    if (runway?.emergency_overdrive || secondsRemaining === -1) {
+      return (
+        <motion.div
+          key="overdrive"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-950/25 border border-amber-500/40 rounded-xl p-6 text-center my-6 backdrop-blur-md "
+        >
+          <span className="text-3xl md:text-5xl font-black text-amber-300 font-mono tracking-wider">
+            &infin; INFINITY
+          </span>
+          <p className="text-xs text-amber-200/90 mt-2">
+            Dynamic circuit breaker engaged — Countdown decay is throttled
+          </p>
+        </motion.div>
+      );
+    }
+
     if (days === null || hours === null || minutes === null || seconds === null) {
       return (
         <div className="h-32 w-full rounded-xl bg-slate-800/80 animate-pulse my-6" />

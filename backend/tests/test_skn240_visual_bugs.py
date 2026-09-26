@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import cv2
 from app.services.tmd_radar.processor import TMDRadarProcessor
-from app.services.weather_manager import _DEV_CONFIG
+from app.core.dev_settings import get_dev_settings, update_dev_settings
 
 def _load_fixture() -> tuple:
     tests_dir = os.path.dirname(__file__)
@@ -79,12 +79,15 @@ async def test_skn240_visual_fixes():
 
     # Spy on _resolve_label_collisions
     captured_labels = []
-    original_resolve = processor._resolve_label_collisions
+    from app.services.tmd_radar.renderer_impl import DefaultRadarRenderer
+    renderer = DefaultRadarRenderer(processor)
+    original_resolve = renderer._resolve_label_collisions
     def spy_resolve(labels, obstacles, img_w, img_h, iterations=60):
         original_resolve(labels, obstacles, img_w, img_h, iterations)
         captured_labels.extend(labels)
     
-    processor._resolve_label_collisions = spy_resolve
+    renderer._resolve_label_collisions = spy_resolve
+    processor.generate_radar_tracking_image = renderer.generate_radar_tracking_image
 
     # 5. Generate tracking image and verify label layout
     from datetime import datetime, timezone

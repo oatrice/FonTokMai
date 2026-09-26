@@ -22,3 +22,15 @@ def test_runway_stream_emergency_overdrive():
         assert payload["emergency_overdrive"] is True
         assert payload["remaining_days"] == "Infinity"
         assert payload["status"] == "INVINCIBLE"
+
+def test_get_runway_public_endpoint():
+    response = client.get("/api/runway")
+    assert response.status_code == 200
+    data = response.json()
+    assert "days_remaining" in data
+    assert "seconds_remaining" in data
+    assert "target_exhaustion_time" in data
+    assert "server_time" in data
+    assert "total_balance_thb" in data
+    assert "burn_rate_per_day" in data
+    assert data["target_exhaustion_time"] > data["server_time"]

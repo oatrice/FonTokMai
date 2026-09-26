@@ -38,6 +38,12 @@ RADAR_LATEST_CACHE_SCHEMA_COLUMNS = (
     ("source", "VARCHAR DEFAULT 'api'"),
 )
 
+SYSTEM_USAGE_EVENTS_SCHEMA_COLUMNS = (
+    ("event_category", "VARCHAR DEFAULT 'proactive_alert' NOT NULL"),
+    ("command_name", "VARCHAR"),
+    ("is_mock", "BOOLEAN DEFAULT FALSE NOT NULL"),
+)
+
 
 class SensitiveDataFilter(logging.Filter):
     def __init__(self):
@@ -147,9 +153,14 @@ import asyncio
 
 def ensure_schema_migrations(connection):
     inspector = inspect(connection)
+    
+    if inspector.has_table("alert_notification_log") and not inspector.has_table("system_usage_events"):
+        connection.execute(text('ALTER TABLE "alert_notification_log" RENAME TO "system_usage_events"'))
+        
     for table_name, columns in (
         ("user_locations", USER_LOCATION_SCHEMA_COLUMNS),
         ("radar_latest_cache", RADAR_LATEST_CACHE_SCHEMA_COLUMNS),
+        ("system_usage_events", SYSTEM_USAGE_EVENTS_SCHEMA_COLUMNS),
     ):
         if not inspector.has_table(table_name):
             continue
@@ -168,6 +179,16 @@ def ensure_schema_migrations(connection):
                 )
             )
             existing_columns.add(column_name)
+
+    if inspector.has_table("system_usage_events"):
+        existing_indexes = {idx["name"] for idx in inspector.get_indexes("system_usage_events")}
+        if "ix_usage_events_date_mock_cat" not in existing_indexes:
+            try:
+                connection.execute(
+                    text('CREATE INDEX IF NOT EXISTS "ix_usage_events_date_mock_cat" ON "system_usage_events" ("alerted_at", "is_mock", "event_category")')
+                )
+            except Exception:
+                pass
 
 
 @asynccontextmanager
@@ -214,7 +235,7 @@ async def lifespan(app: FastAPI):
         
     from app.services.disaster_manager import process_disaster_event
     from app.dependencies import get_repo_context
-    from app.services.weather_manager import _DEV_CONFIG
+    from app.core.dev_settings import get_dev_settings, update_dev_settings
 
     # Load global dev config from repository
     async with get_repo_context() as repo:
@@ -222,8 +243,8 @@ async def lifespan(app: FastAPI):
             config = await repo.get_global_dev_config()
             if config:
                 for k, v in config.items():
-                    if k in _DEV_CONFIG:
-                        _DEV_CONFIG[k] = v
+                    if hasattr(get_dev_settings(), k):
+                        update_dev_settings({k: v})
         except Exception as e:
             logging.error(f"Failed to load global dev config: {e}")
     
@@ -299,7 +320,7 @@ async def telegram_webhook_audit_middleware(request: Request, call_next):
             
     return await call_next(request)
 
-from app.routers import weather, webhook, scheduler, metrics, worker, budget_webhook, line_webhook, auth, runway, stripe_webhook, milestones, financial, events, donations, radar
+from app.routers import weather, webhook, scheduler, metrics, worker, budget_webhook, line_webhook, auth, runway, stripe_webhook, milestones, financial, events, donations, radar, locations
 
 app.include_router(weather.router)
 app.include_router(radar.router)
@@ -307,6 +328,7 @@ app.include_router(webhook.router)
 app.include_router(scheduler.router)
 app.include_router(metrics.router)
 app.include_router(admin_radar_router, prefix="/api/v1/admin/radar")
+app.include_router(locations.router)
 app.include_router(worker.router)
 app.include_router(budget_webhook.router)
 app.include_router(line_webhook.router)

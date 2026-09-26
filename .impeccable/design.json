@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-18T19:27:00.000Z",
+  "title": "Design System: FonMaYang",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Deep Doppler Blue",
+        "canonical": "#2563eb",
+        "tonalRamp": ["#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe"]
+      },
+      "accent-cyan": {
+        "role": "secondary",
+        "displayName": "Lightning Cyan",
+        "canonical": "#06b6d4",
+        "tonalRamp": ["#164e63", "#0e7490", "#06b6d4", "#22d3ee", "#67e8f9", "#a5f3fc", "#cffafe", "#ecfeff"]
+      },
+      "accent-purple": {
+        "role": "tertiary",
+        "displayName": "Arcade Purple",
+        "canonical": "#a855f7",
+        "tonalRamp": ["#581c87", "#7e22ce", "#a855f7", "#c084fc", "#d8b4fe", "#e9d5ff", "#f3e8ff", "#faf5ff"]
+      },
+      "accent-emerald": {
+        "role": "status",
+        "displayName": "Invincible Emerald",
+        "canonical": "#10b981",
+        "tonalRamp": ["#064e3b", "#047857", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0", "#d1fae5", "#ecfdf5"]
+      },
+      "accent-amber": {
+        "role": "status",
+        "displayName": "Storm Warning Amber",
+        "canonical": "#f59e0b",
+        "tonalRamp": ["#78350f", "#b45309", "#f59e0b", "#fbbf24", "#fcd34d", "#fde68a", "#fef3c7", "#fffbeb"]
+      },
+      "accent-rose": {
+        "role": "status",
+        "displayName": "Downpour Rose",
+        "canonical": "#f43f5e",
+        "tonalRamp": ["#881337", "#be123c", "#f43f5e", "#fb7185", "#fda4af", "#fecdd3", "#ffe4e6", "#fff1f2"]
+      }
+    },
+    "shadows": [
+      {
+        "name": "glass-rest",
+        "value": "0 8px 32px 0 rgba(0, 0, 0, 0.37)",
+        "purpose": "Resting elevation for frosted glass cards with 16px blur."
+      },
+      {
+        "name": "glass-lift",
+        "value": "0 12px 40px 0 rgba(0, 0, 0, 0.45)",
+        "purpose": "Hover micro-lift elevation on interactive cards and buttons."
+      },
+      {
+        "name": "glow-cyan",
+        "value": "0 0 25px rgba(6, 182, 212, 0.25)",
+        "purpose": "Real-time telemetry and streaming status glow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-smooth",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "State transitions, card lifts, and hover illuminations."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Glass Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary action button with frosted blur and reactive hover micro-lift.",
+      "html": "<button class=\"ds-btn-primary\">TRACK STORM</button>",
+      "css": ".ds-btn-primary { background: rgba(37, 99, 235, 0.85); color: #f8fafc; padding: 10px 20px; font-family: sans-serif; font-size: 14px; font-weight: 600; border: 1px solid rgba(147, 197, 253, 0.3); border-radius: 12px; backdrop-filter: blur(12px); box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; } .ds-btn-primary:hover { background: rgba(59, 130, 246, 0.95); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(37, 99, 235, 0.45); border-color: rgba(147, 197, 253, 0.5); }"
+    },
+    {
+      "name": "Live Telemetry Badge",
+      "kind": "chip",
+      "refersTo": "badge-cyan",
+      "description": "Pill badge with pulsating live connection status indicator.",
+      "html": "<span class=\"ds-badge-live\"><span class=\"ds-dot\"></span>SSE CONNECTED</span>",
+      "css": ".ds-badge-live { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: rgba(6, 182, 212, 0.15); color: #67e8f9; font-family: monospace; font-size: 11px; font-weight: 600; border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 9999px; backdrop-filter: blur(8px); } .ds-dot { width: 6px; height: 6px; border-radius: 9999px; background: #22d3ee; box-shadow: 0 0 8px #22d3ee; }"
+    },
+    {
+      "name": "Frosted Radar Card",
+      "kind": "card",
+      "refersTo": "card-glass",
+      "description": "Standard container card with 16px blur, subtle border, and specular highlight.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">Radar Cell ETA</div><div class=\"ds-card-body\">42 dBZ Storm Approaching in 24m</div></div>",
+      "css": ".ds-card { background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px; padding: 20px; backdrop-filter: blur(16px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37); transition: all 0.2s; } .ds-card:hover { border-color: rgba(255, 255, 255, 0.25); transform: translateY(-2px); } .ds-card-title { font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; font-family: monospace; } .ds-card-body { margin-top: 8px; font-size: 16px; font-weight: 600; color: #f8fafc; font-family: sans-serif; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Luminous Isan Monsoon",
+    "overview": "FonMaYang’s visual identity evokes the dramatic arrival of tropical monsoon clouds over the Isan plateau at twilight. The environment combines deep night atmospheric tones with multi-layered, frosted glass panels and high-voltage neon conduits.",
+    "keyCharacteristics": [
+      "Atmospheric Depth: Deep-space navy foundation with fixed radial gradients in blue, purple, and cyan.",
+      "Translucent Layering: Frosted glass panels (backdrop-filter: blur(16px)) with crisp hairline borders.",
+      "Storm-Glow Accents: High-saturation status lights and glowing silhouettes.",
+      "Tactile Feedback: Crisp hover micro-lifts (-translate-y-0.5) and expanded border illumination."
+    ],
+    "rules": [
+      {
+        "name": "The Luminescence Rule",
+        "body": "Bright saturated neon colors are reserved strictly for data states, telemetry badges, and live changes—never as vast background fills.",
+        "section": "colors"
+      },
+      {
+        "name": "The Telemetry Monospace Rule",
+        "body": "Any dynamic numerical measurement (time ETA, dBZ intensity, budget percentages, server heartbeat latency) must use monospace figures to prevent layout jitter.",
+        "section": "typography"
+      },
+      {
+        "name": "The Edge-Before-Depth Rule",
+        "body": "Glass depth is primarily defined by the hairline border contrast (border-white/10 to border-white/25), not heavy dark drop shadows.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do wrap all major content groups in frosted GlassCard containers with subtle border contrasts.",
+      "Do provide instant visual feedback on buttons (micro-lift and border illumination) within 200ms.",
+      "Do format all weather readings and countdown ETAs with tabular monospace numerals.",
+      "Do test high contrast against dark mode—ensure text contrast exceeds WCAG AA (4.5:1)."
+    ],
+    "donts": [
+      "Don't use opaque solid white or grey card backgrounds; always maintain the frosted glass aesthetic.",
+      "Don't use neon colors for body text or large background areas.",
+      "Don't hide degraded system states or offline radar feeds; use warning badges prominently.",
+      "Don't introduce sharp 90-degree square corners on interactive controls."
+    ]
+  }
+}

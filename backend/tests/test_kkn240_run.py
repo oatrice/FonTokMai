@@ -11,7 +11,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.services.tmd_radar_processor import TMDRadarProcessor
-from app.services.weather_manager import _DEV_CONFIG
+from app.core.dev_settings import get_dev_settings, update_dev_settings
 from app.repositories.sqlite import SQLiteLocationRepository
 from app.models import Base
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -317,12 +317,12 @@ async def main():
         # 5a. Find approaching clouds - identical to production (weather_manager.py lines 689-726)
         curr_frame = frames[-1].copy()
         prev_frame = frames[-2].copy()
-        _DEV_CONFIG["verbose"] = True
-        _DEV_CONFIG["enable_hsv_mask"] = True
-        _DEV_CONFIG["enable_raster_smooth"] = True
-        _DEV_CONFIG["draw_all_ambient_polygons"] = True
-        _DEV_CONFIG["gaussian_kernel_size"] = 15
-        _DEV_CONFIG["raster_smooth_threshold"] = 50
+        update_dev_settings({"verbose": True})
+        update_dev_settings({"enable_hsv_mask": True})
+        update_dev_settings({"enable_raster_smooth": True})
+        update_dev_settings({"draw_all_ambient_polygons": True})
+        update_dev_settings({"gaussian_kernel_size": 15})
+        update_dev_settings({"raster_smooth_threshold": 50})
         _cfg = _DEV_CONFIG.copy()
         clouds = processor.find_approaching_clouds(
             curr_frame, prev_frame, flow, user_x, user_y,

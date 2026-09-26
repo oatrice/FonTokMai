@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "appRoot": "/Users/oatrice/Software Project/FonMaYang/frontend",
+  "repoRoot": "/Users/oatrice/Software Project/FonMaYang",
+  "contextRoot": "/Users/oatrice/Software Project/FonMaYang",
+  "sessionRoot": "/Users/oatrice/Software Project/FonMaYang/frontend/.impeccable/live",
+  "productPath": "/Users/oatrice/Software Project/FonMaYang/PRODUCT.md",
+  "designPath": "/Users/oatrice/Software Project/FonMaYang/DESIGN.md",
+  "resolvedFrom": "candidate:frontend"
+}

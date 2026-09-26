@@ -196,8 +196,10 @@ async def handle_lock_command(chat_id: int, command: str, message_id_to_edit: in
         frame_h = processor.config.static_crop_height
         
         if cache_data:
-            # Flexible unpacking to support both 7 and 8 return values (fixes unit test mock compatibility)
-            if len(cache_data) >= 8:
+            if hasattr(cache_data, "frames"):
+                frames = cache_data.frames
+                flow = cache_data.flow
+            elif len(cache_data) >= 8:
                 frames, _, _, flow, _, _, _, _ = cache_data[:8]
             else:
                 frames, _, _, flow, _, _, _ = cache_data[:7]
@@ -500,10 +502,12 @@ async def handle_radar_command(chat_id: int):
 @cmd_router.bind("/tracking", task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
 @cmd_router.bind("/nowcast", task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
 @cmd_router.bind("/rain_pro_d", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", show_advanced=True, command_override="/rain_pro d")
+@cmd_router.bind("/rain_minimal", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", show_labels=False)
 @cmd_router.bind("/rain_pro", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", show_advanced=True)
 @cmd_router.bind("/rain", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...")
 @cmd_router.bind("/check", requires_admin=True, task_route="worker/handle-rain", loading_text="⏳ กำลังประมวลผล...", command_override="/rain tmd-radar")
-async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False, message_id_to_edit: int = None):
+async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = False, show_labels: bool = True, message_id_to_edit: int = None):
+
     import re
     coords_match = re.search(r'([+-]?\d+\.\d+)[,\s]+([+-]?\d+\.\d+)', command)
     custom_lat = None
@@ -566,8 +570,8 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
                 await process_telegram_location(
                     chat_id, lat=l.latitude, lng=l.longitude,
                     force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
-                    show_advanced=show_advanced, location_name=loc_display,
-                    is_saved_location=True
+                    show_advanced=show_advanced, show_labels=show_labels, location_name=loc_display,
+                    is_saved_location=True, command_name=parts[0]
                 )
             return
 
@@ -597,8 +601,8 @@ async def handle_rain_command(chat_id: int, command: str, show_advanced: bool = 
     await process_telegram_location(
         chat_id, lat=loc.latitude, lng=loc.longitude,
         force_endpoint=force_provider, message_id_to_edit=loading_msg_id,
-        show_advanced=show_advanced, location_name=loc_display,
-        is_saved_location=True
+        show_advanced=show_advanced, show_labels=show_labels, location_name=loc_display,
+        is_saved_location=True, command_name=parts[0]
     )
 
 @cmd_router.bind("/multiframe", task_route="worker/handle-multiframe", loading_text="⏳ กำลังสร้างภาพวิเคราะห์เรดาร์ 6 เฟรม...")
@@ -658,6 +662,25 @@ async def handle_multiframe_command(chat_id: int, command: str, message_id_to_ed
         await telegram.send_telegram_photo(chat_id, multiframe_bytes, "radar_multiframe.png")
     else:
         await telegram.send_telegram_message(chat_id, "⚠️ ไม่สามารถสร้างภาพวิเคราะห์ 6 เฟรมได้ในขณะนี้")
+
+    from datetime import datetime, timezone
+    from app.models import SystemUsageEvent
+    async with get_repo_context() as repo:
+        if hasattr(repo, "session") and repo.session:
+            event = SystemUsageEvent(
+                chat_id=str(chat_id),
+                location_name=loc.name or "default",
+                latitude=loc.latitude,
+                longitude=loc.longitude,
+                alerted_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                rain_intensity_mm=result.get("max_rain", 0.0),
+                alert_type="rain",
+                event_category="ondemand_query",
+                command_name="/multiframe",
+                is_mock=False
+            )
+            repo.session.add(event)
+            await repo.session.commit()
 
 
 @cmd_router.bind("/calibrate ", requires_admin=True, loading_text="⏳ กำลังวิเคราะห์และ Calibrate เรดาร์...")
@@ -937,8 +960,9 @@ async def handle_cost_command(chat_id: int, command: str, message_id_to_edit: in
         gcp_cost = data["gcp_cost_thb"]
         ext_cost = data["external_cost_thb"]
         total_cost = data["total_cost_thb"]
-        cost_per_alert = data["cost_per_alert"]
-        cost_per_true = data["cost_per_true_alert"]
+        cost_per_proactive = data.get("cost_per_proactive_alert", 0)
+        cost_per_ondemand = data.get("cost_per_ondemand_query", 0)
+        blended_cost_per_user = data.get("blended_cost_per_active_user", 0)
 
         msg = (
             f"💰 <b>สรุปต้นทุนระบบประจำเดือน {month_str}</b>\n\n"
@@ -946,8 +970,9 @@ async def handle_cost_command(chat_id: int, command: str, message_id_to_edit: in
             f"🌐 External (Radar + Proxy): <code>฿{ext_cost:.2f}</code>\n"
             f"💵 รวมต้นทุนทั้งสิ้น: <b>฿{total_cost:.2f}</b>\n"
             f"─────────────────────\n"
-            f"📉 Cost / Alert: <code>฿{cost_per_alert:.2f}</code>\n"
-            f"🎯 Cost / True Alert: <code>฿{cost_per_true:.2f}</code>\n"
+            f"🔔 Cost / Proactive Alert: <code>฿{cost_per_proactive:.2f}</code>\n"
+            f"🔍 Cost / On-Demand Query: <code>฿{cost_per_ondemand:.2f}</code>\n"
+            f"👤 Blended Cost / Active User: <code>฿{blended_cost_per_user:.2f}</code>\n"
         )
         await _reply(chat_id, msg, message_id_to_edit)
     except Exception as e:
@@ -1015,8 +1040,13 @@ async def handle_mock_rain_command(chat_id: int, command: str, message_id_to_edi
             }
         }]
 
-        sent, errors = await _send_combined_alerts(chat_id, simulated_eval_result, datetime.now(timezone.utc))
+        sent, errors = await _send_combined_alerts(chat_id, simulated_eval_result, datetime.now(timezone.utc), is_mock=True)
         reset_notice = " (🔄 รีเซ็ต Cache แล้ว)" if do_reset else ""
         await _reply(chat_id, f"🎯 จำลองแจ้งเตือนฝนพิกัด <b>{loc.name}</b> เรียบร้อยแล้ว{reset_notice} (sent={sent}, errors={errors})", message_id_to_edit)
+
+
+async def handle_rain_minimal_command(chat_id: int, command: str = "/rain_minimal", message_id_to_edit: int = None):
+    """Handle /rain_minimal command: renders clean tracking radar map without text labels."""
+    await handle_rain_command(chat_id, command, show_advanced=False, show_labels=False, message_id_to_edit=message_id_to_edit)
 
 

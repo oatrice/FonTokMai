@@ -161,9 +161,9 @@
 3. **เมื่อเจอปัญหา/บั๊ก**: ใช้ **`systematic-debugging`** เพื่อวิเคราะห์หาสาเหตุที่แท้จริงก่อนลงมือแก้ไข
 ---
 
-/product-manager
-/track-management
-/antigravity-agent-manager
+[product-manager](slashCommand;product-manager) 
+[track-management](slashCommand;track-management) 
+[antigravity-agent-manager](slashCommand;antigravity-agent-manager) 
 ---
 #Agent Skill for start new session
 
@@ -304,12 +304,11 @@ Before create MR
 /doc-version-updater
 
 [git-pr-review](slashCommand;git-pr-review) 
-เช็ค commit ตั้งแต่ staging/main to head ว่ามีการ์ด issues อะไรที่เกี่ยวข้องบ้าง ถ้ายังไม่มีก็สร้างใหม่ได้เลย แล้วแนบเข้าไปใน PR ด้วย
+เช็ค commit ตั้งแต่ staging to head ว่ามีการ์ด issues อะไรที่เกี่ยวข้องบ้าง ถ้ายังไม่มีก็สร้างใหม่ได้เลย แล้วแนบเข้าไปใน PR ด้วย
 
 ใช้ Agent Skills เหล่านี้ให้หมด เพื่อจัดการ docs ที่สำคัญ ก่อนการ update PR/MR ที่มีอยู่แล้ว หรือถ้ายังไม่มีก็สร้างใหม่ได้เลย
 สร้าง MR to staging/main branch ได้เลย
 รวมถึงการ update เอกสารต่างๆด้วย
-ทำ Squad commit ด้วย
 
 changelog ถ้า version ยิบย่อยหลายๆอันใน MR นี้ต้อง merge รวมให้เป็น version เดียว
 

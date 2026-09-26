@@ -42,19 +42,12 @@ async def main():
     print(f"🚀 กำลังจำลองการตรวจพบฝนสำหรับพิกัด [{loc_name}] (Chat ID: {chat_id}, Rain: {rain_mm} mm/hr)...")
 
     async with get_repo_context() as repo:
-        if do_reset and hasattr(repo, "session") and repo.session:
-            from app.models import PresenceAnswerCache
-            from sqlalchemy import delete
-            await repo.session.execute(
-                delete(PresenceAnswerCache).where(
-                    PresenceAnswerCache.chat_id == str(chat_id),
-                    PresenceAnswerCache.location_name == loc_name.lower()
-                )
-            )
-            await repo.session.commit()
-            print(f"🔄 รีเซ็ต Cache สำหรับพิกัด [{loc_name}] เรียบร้อยแล้ว")
+        if do_reset:
+            await repo.reset_presence_cache(chat_id, loc_name)
+            print(f"🔄 รีเซ็ต Cache สำหรับพิกัด [{loc_name}] ผ่าน Repository เรียบร้อยแล้ว")
 
         loc = await repo.get_location(chat_id, loc_name)
+
         if not loc:
             print(f"❌ ไม่พบพิกัด [{loc_name}] ของ chat_id={chat_id}")
             locs = await repo.get_user_locations(chat_id)

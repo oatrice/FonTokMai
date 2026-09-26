@@ -32,8 +32,11 @@ Predicts rainfall 15–90+ minutes in advance using TMD Radar Images + Optical F
 | `/presence [loc]` | Configure Presence Policy (always notify / ask / schedule / silent) and countdown TTL |
 | `/rename <old> <new>` | Rename a saved location |
 | `/rain` | View weather for the most recent location |
+| `/rain_minimal` | View clean tracking radar map without text label overlays |
+| `/rain_pro_d` | Fast development alias for `/rain_pro d` (default location) |
 | `/rain tmd-radar` | Force use of TMD Radar endpoint |
 | `/rain <location_name>` | View weather for a saved location |
+
 | `/radar` | View latest static radar image for the most recent location |
 | `/tracking` | View tracking radar image with storm vectors for the most recent location |
 | `/timeline` | View rain duration timeline graph for the most recent location |

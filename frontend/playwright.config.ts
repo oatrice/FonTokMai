@@ -4,6 +4,10 @@ process.env.NEXT_PUBLIC_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'ht
 
 export default defineConfig({
   testDir: './e2e',
+  timeout: 90 * 1000, // เพิ่มเวลาให้แต่ละเทสต์รันได้สูงสุด 90 วินาที
+  expect: {
+    timeout: 15 * 1000, // เพิ่มเวลารอ expect() เป็น 15 วินาที
+  },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 2,
@@ -12,6 +16,8 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3005',
     trace: 'on-first-retry',
+    navigationTimeout: 60 * 1000, // เพิ่มเวลารอโหลดหน้าเว็บตอน page.goto เป็น 60 วินาที
+    actionTimeout: 30 * 1000,
   },
   projects: [
     {

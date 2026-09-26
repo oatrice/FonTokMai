@@ -3,7 +3,8 @@ import numpy as np
 from unittest.mock import AsyncMock, patch, MagicMock
 from contextlib import asynccontextmanager
 from app.services.tmd_radar_processor import TMDRadarProcessor
-from app.services.weather_manager import WeatherManager, _DEV_CONFIG
+from app.services.weather_manager import WeatherManager
+from app.core.dev_settings import get_dev_settings, update_dev_settings
 
 @pytest.fixture
 def mock_repo():
@@ -39,7 +40,7 @@ async def test_find_approaching_clouds_respects_decay_enabled():
     processor = TMDRadarProcessor("kkn120")
     
     # Enable decay (default)
-    _DEV_CONFIG["decay_enabled"] = True
+    update_dev_settings({"decay_enabled": True})
     clouds_enabled = processor.find_approaching_clouds(
         curr_frame, prev_frame, flow, user_x=250, user_y=250,
         search_radius=20, min_dbz=10.0, cluster_min=1
@@ -53,7 +54,7 @@ async def test_find_approaching_clouds_respects_decay_enabled():
     assert c_enabled["predicted_dbz"] != c_enabled["dbz_now"]
 
     # Disable decay
-    _DEV_CONFIG["decay_enabled"] = False
+    update_dev_settings({"decay_enabled": False})
     clouds_disabled = processor.find_approaching_clouds(
         curr_frame, prev_frame, flow, user_x=250, user_y=250,
         search_radius=20, min_dbz=10.0, cluster_min=1
@@ -84,8 +85,8 @@ async def test_predict_rain_respects_decay_enabled_and_steps(mock_repo_context):
     mock_processor.latlng_to_pixel.return_value = (50, 50)
     mock_processor.get_dbz_at_pixel.side_effect = lambda img, x, y: 20.0 if img[y, x, 1] == 255 else (15.0 if img[y, x, 2] == 255 else 0.0)
     mock_processor.render_rain_summary.return_value = "Mock Summary"
-    mock_processor.get_wind_speed_kmh.return_value = 10.0
-    mock_processor.get_wind_direction_text.return_value = "N"
+    mock_processor.get_wind_speed_kmh_from_vector.return_value = 10.0
+    mock_processor.get_wind_direction_text_from_vector.return_value = "N"
     
     # Mock extrapolate_rain_at_pixel
     # If rate is 0.0, dbz is constant 20.0
@@ -102,13 +103,13 @@ async def test_predict_rain_respects_decay_enabled_and_steps(mock_repo_context):
     import time
     fake_cache = (fake_frames, None, time.time(), fake_flow, "mock_source", 15.0, [time.time() - 900, time.time()])
     
-    with patch("app.services.weather_manager._GLOBAL_TMD_CACHE", {"kkn120": fake_cache}), \
-         patch("app.services.weather_manager.TMDRadarProcessor", return_value=mock_processor), \
+    with patch("app.services.tmd_radar.cache_manager.RadarFrameCache.get", lambda self, st: type("FakeEntry", (), {"frames": fake_cache[0], "last_modified_dt": fake_cache[1], "cache_timestamp": fake_cache[2], "flow": fake_cache[3], "frame_source": "static", "data_gap_minutes": 15.0, "frame_timestamps": [], "frame_urls": []})() if st == "kkn120" else None), \
+         patch("app.services.tmd_radar.adapter.TMDRadarProcessor", return_value=mock_processor), \
          patch("app.services.weather_manager.get_repo_context", mock_repo_context):
         
         # Test Default/Enabled: decay_enabled = True, steps = 7
-        _DEV_CONFIG["decay_enabled"] = True
-        _DEV_CONFIG["prediction_steps"] = 7
+        update_dev_settings({"decay_enabled": True})
+        update_dev_settings({"prediction_steps": 7})
         
         # Mock approaching clouds
         mock_clouds = [{
@@ -127,8 +128,8 @@ async def test_predict_rain_respects_decay_enabled_and_steps(mock_repo_context):
         assert result_decay["predictions"][1]["dbz"] > 20.0
         
         # Test Disabled: decay_enabled = False, steps = 5
-        _DEV_CONFIG["decay_enabled"] = False
-        _DEV_CONFIG["prediction_steps"] = 5
+        update_dev_settings({"decay_enabled": False})
+        update_dev_settings({"prediction_steps": 5})
         
         result_const = await manager.predict_rain(16.43, 102.82, force_endpoint="kkn120")
         assert len(result_const["predictions"]) == 5
@@ -144,3 +145,9 @@ def test_config_regex_parsing_with_spaces():
     assert len(pairs) == 2
     assert pairs[0] == ("prediction_steps", "13")
     assert pairs[1] == ("decay_enabled", "false")
+
+@pytest.fixture(autouse=True)
+def reset_dev_settings():
+    from app.core.dev_settings import update_dev_settings
+    yield
+    update_dev_settings({"decay_enabled": True, "prediction_steps": 13})

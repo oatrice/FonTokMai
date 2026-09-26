@@ -18,7 +18,7 @@ export default function Home() {
         />
       </main>
       <footer className="border-t border-white/10 py-6 text-center text-xs text-slate-500 backdrop-blur-md bg-slate-950/40">
-        FonMaYang System &copy; 2026. Translucent Glassmorphism Design System.
+        FonMaYang System &copy; 2026. Radar Nowcasting System.
       </footer>
     </div>
   );

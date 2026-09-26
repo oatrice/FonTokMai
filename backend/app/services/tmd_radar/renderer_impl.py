@@ -1,0 +1,2125 @@
+import os
+import asyncio
+import time
+import logging
+import math
+import io
+import re
+import cv2
+import httpx
+import numpy as np
+from datetime import datetime, timezone, timedelta
+from PIL import Image, ImageDraw, ImageFont, ImageSequence, ImageFilter
+from zoneinfo import ZoneInfo
+from typing import List, Tuple, Optional
+from app.services.tmd_radar_config import STATIONS, DBZ_COLOR_MAPPING, IGNORED_COLORS
+from app.services.tmd_radar.renderer import RadarRenderer
+
+logger = logging.getLogger(__name__)
+
+class DefaultRadarRenderer(RadarRenderer):
+    def __init__(self, processor=None):
+        self.processor = processor
+
+    def _load_thai_font(self, size: int) -> "ImageFont.FreeTypeFont":
+        """Return the best available font that supports Thai characters.
+
+        Priority order (Thai-capable → Latin fallbacks → PIL default):
+          macOS  : Tahoma, Arial Unicode MS
+          Linux  : Noto Sans Thai, Garuda, LiberationSans, DejaVu Sans
+        """
+        candidates = [
+            # macOS Thai fonts
+            "/System/Library/Fonts/Supplemental/Thonburi.ttc",
+            "/System/Library/Fonts/ThonburiUI.ttc",
+            "/System/Library/Fonts/Supplemental/Ayuthaya.ttf",
+            "/System/Library/Fonts/Supplemental/Sathu.ttf",
+            "/System/Library/Fonts/Supplemental/Tahoma.ttf",
+            "/Library/Fonts/Tahoma.ttf",
+            "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+            "/Library/Fonts/Arial Unicode.ttf",
+            # Linux / Docker Thai fonts (install fonts-thai-tlwg or fonts-noto-core)
+            "/usr/share/fonts/truetype/tlwg/Garuda.ttf",
+            "/usr/share/fonts/truetype/tlwg/Loma.ttf",
+            "/usr/share/fonts/truetype/thai-tlwg/Garuda.ttf",
+            "/usr/share/fonts/truetype/thai-tlwg/Loma.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+            # Generic Latin fallbacks
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                try:
+                    return ImageFont.truetype(path, size)
+                except Exception:
+                    continue
+        return ImageFont.load_default()
+
+
+
+    def _chaikin_smooth(self, points: np.ndarray, iterations: int = 3) -> np.ndarray:
+        """Chaikin's Corner-Cutting algorithm to smooth radar contours."""
+        pts = points.reshape(-1, 2).astype(np.float32)
+        if len(pts) < 3:
+            return points
+        for _ in range(iterations):
+            new_pts = []
+            n = len(pts)
+            for i in range(n):
+                p0 = pts[i]
+                p1 = pts[(i + 1) % n]
+                new_pts.append(0.75 * p0 + 0.25 * p1)
+                new_pts.append(0.25 * p0 + 0.75 * p1)
+            pts = np.array(new_pts, dtype=np.float32)
+        return pts.reshape(-1, 1, 2).astype(np.int32)
+
+
+
+    def _draw_neon_contours(self, img_rgba: Image.Image, contours_list: List[np.ndarray], color_rgb: Tuple[int, int, int], line_width: int = 3, alpha_fill: int = 40) -> Image.Image:
+        """Draw smooth transparent fills and multi-pass neon glowing borders on an RGBA PIL image."""
+        layer = Image.new("RGBA", img_rgba.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(layer)
+        for ctr in contours_list:
+            pts = [tuple(p[0]) for p in ctr]
+            if len(pts) < 3:
+                continue
+            draw.polygon(pts, fill=(*color_rgb, alpha_fill))
+
+        glow = Image.new("RGBA", img_rgba.size, (0, 0, 0, 0))
+        glow_draw = ImageDraw.Draw(glow)
+        for ctr in contours_list:
+            pts = [tuple(p[0]) for p in ctr]
+            if len(pts) < 3:
+                continue
+            # Multi-pass glow effect
+            for width in [line_width * 4, line_width * 2, line_width]:
+                glow_draw.line(pts + [pts[0]], fill=(*color_rgb, 80), width=width)
+        glow = glow.filter(ImageFilter.GaussianBlur(radius=max(1.0, line_width * 1.2)))
+
+        # Draw the sharp inner border
+        for ctr in contours_list:
+            pts = [tuple(p[0]) for p in ctr]
+            if len(pts) < 3:
+                continue
+            draw.line(pts + [pts[0]], fill=(*color_rgb, 255), width=max(1, line_width))
+
+        result = Image.alpha_composite(img_rgba, glow)
+        result = Image.alpha_composite(result, layer)
+        return result
+
+
+
+    def _contour_proximity_km(self, contours_list: List[np.ndarray], ux: int, uy: int, km_per_pixel: float) -> Tuple[bool, float]:
+        """Calculate if the user is inside any storm contour, or get the minimum distance to the closest storm edge in km."""
+        min_dist_px = float('inf')
+        is_inside = False
+        for ctr in contours_list:
+            if len(ctr) < 3:
+                continue
+            # pointPolygonTest returns positive inside, 0 on edge, negative outside
+            dist = cv2.pointPolygonTest(ctr, (float(ux), float(uy)), measureDist=True)
+            if dist >= 0:
+                is_inside = True
+                return True, 0.0
+            abs_dist = abs(dist)
+            if abs_dist < min_dist_px:
+                min_dist_px = abs_dist
+        return is_inside, (min_dist_px * km_per_pixel if min_dist_px != float('inf') else 999.0)
+
+
+
+    def generate_radar_tracking_image(self, 
+        frame: np.ndarray,
+        user_x: int,
+        user_y: int,
+        clouds: list,
+        time_utc: datetime = None,
+        all_rain_clusters: list = None,
+        predictions: list = None,
+        show_clouds: bool = True,
+        show_trajectory: bool = True,
+        show_labels: bool = True,
+        time_offset_min: float = 0.0,
+        locked_target_id: Optional[str] = None,
+        locked_target_cx: Optional[int] = None,
+        locked_target_cy: Optional[int] = None,
+        cluster_dist_approaching: int = 10,
+        cluster_dist_ambient: int = 6,
+        historical_vectors: Optional[list] = None
+    ) -> Optional[bytes]:
+        import math
+
+        lon_diff = self.processor.config.bbox.lng_max - self.processor.config.bbox.lng_min
+        width_km = lon_diff * 111.0
+        frame_w = frame.shape[1] if frame is not None and len(frame.shape) >= 2 else self.processor.config.loop_crop_width
+        km_per_pixel = width_km / max(1, frame_w)
+        
+        min_area_km2 = getattr(self.processor.config, "min_area_km2", 10.0)
+        min_area_px = min_area_km2 / (km_per_pixel ** 2)
+
+
+        def _resolve_locked_cluster(clusters: list) -> Optional[dict]:
+            """Pick the cluster that corresponds to the manually-locked target.
+
+            Prefer position-based matching using the stored lock pixel, because
+            cluster labels are reassigned every forecast round (sorted by
+            distance), so a grid label like "G5" will never match a cluster
+            label "A"/"B"/... . Falls back to label equality if no stored pixel
+            is available (legacy locks).
+            """
+            if not locked_target_id:
+                return None
+            if locked_target_cx is not None and locked_target_cy is not None:
+                best: Optional[dict] = None
+                best_dist = float("inf")
+                
+                is_grid_cell = False
+                cell_center_x, cell_center_y = None, None
+                if locked_target_id:
+                    import re
+                    m = re.match(r"^([a-hA-H])[-_]?([1-8])$", locked_target_id)
+                    if m:
+                        is_grid_cell = True
+                        col_char = m.group(1).upper()
+                        row_char = m.group(2)
+                        grid_col_idx = ord(col_char) - ord('A')
+                        grid_row_idx = int(row_char) - 1
+                        
+                        crop_r = 120
+                        crop_x1 = max(0, user_x - crop_r)
+                        crop_y1 = max(0, user_y - crop_r)
+                        frame_h, frame_w = frame.shape[:2]
+                        crop_x2 = min(frame_w, user_x + crop_r)
+                        crop_y2 = min(frame_h, user_y + crop_r)
+                        cell_w = (crop_x2 - crop_x1) / 8.0
+                        cell_h = (crop_y2 - crop_y1) / 8.0
+                        cell_center_x = int(crop_x1 + (grid_col_idx + 0.5) * cell_w)
+                        cell_center_y = int(crop_y1 + (grid_row_idx + 0.5) * cell_h)
+                        
+                        cell_x_min = crop_x1 + grid_col_idx * cell_w - 5.0
+                        cell_x_max = crop_x1 + (grid_col_idx + 1) * cell_w + 5.0
+                        cell_y_min = crop_y1 + grid_row_idx * cell_h - 5.0
+                        cell_y_max = crop_y1 + (grid_row_idx + 1) * cell_h + 5.0
+
+                for c in clusters:
+                    if "pixels" in c and (locked_target_cx, locked_target_cy) in c.get("pixels", []):
+                        return c
+
+                    dist = math.hypot(c["cx"] - locked_target_cx, c["cy"] - locked_target_cy)
+                    
+                    if is_grid_cell and (cell_x_min <= locked_target_cx <= cell_x_max and cell_y_min <= locked_target_cy <= cell_y_max):
+                        if not (cell_x_min <= c["cx"] <= cell_x_max and cell_y_min <= c["cy"] <= cell_y_max):
+                            continue
+                            
+                    if dist < best_dist:
+                        best_dist = dist
+                        best = c
+                
+                max_match_dist = 25.0 if not is_grid_cell else 60.0
+                if best and best_dist <= max_match_dist:
+                    return best
+                
+                # Fallback: if grid-cell constraint found nothing, check whether any
+                # cluster has at least one pixel physically inside the target grid cell.
+                # This catches large clusters whose centroid sits outside the cell but
+                # whose body overlaps it.
+                if is_grid_cell and (best is None or best_dist > max_match_dist):
+                    best2: Optional[dict] = None
+                    best2_dist = float("inf")
+                    for c in clusters:
+                        pixels = c.get("pixels", [])
+                        for px_coord, py_coord in pixels:
+                            if cell_x_min <= px_coord <= cell_x_max and cell_y_min <= py_coord <= cell_y_max:
+                                dist = math.hypot(c["cx"] - locked_target_cx, c["cy"] - locked_target_cy)
+                                if dist < best2_dist:
+                                    best2_dist = dist
+                                    best2 = c
+                                break
+                    if best2:
+                        return best2
+                
+                return None
+
+            # Legacy fallback for locks that only stored a cluster label.
+            for c in clusters:
+                if c.get("label") == locked_target_id:
+                    return c
+            return None
+
+        display_clouds = clouds or []
+
+        # Pre-compute which clouds will be drawn in the "incoming" contour style (eta <= 180 min).
+        # This must happen BEFORE building ambient_clouds so the dedup is scoped only to
+        # actually-drawn clouds, not the full display_clouds list.
+        # BUG-FIX: previously ambient_clouds deduped against ALL display_clouds, which caused
+        # far-approaching clusters (eta > 180) to be invisible in both incoming AND ambient.
+        _incoming_pre = [
+            c for c in display_clouds
+            if c.get("approaching", False) and -120 <= c.get("eta_min", 9999) <= 180
+        ]
+        _incoming_pre.sort(key=lambda c: c.get("predicted_dbz", 0), reverse=True)
+        # Render up to 10 approaching clouds (so clouds mentioned in text & timeline like 'K' or 'N' are fully drawn)
+        _drawn_clouds = _incoming_pre[:10]
+
+        ambient_clouds = [
+            c for c in (all_rain_clusters or [])
+            if not any(
+                math.hypot(c["cx"] - d["cx"], c["cy"] - d["cy"]) < 30
+                for d in _drawn_clouds  # only exclude clusters already drawn in contour style
+            )
+        ] if all_rain_clusters else []
+
+        from app.core.dev_settings import get_dev_settings, update_dev_settings
+        logger.info(
+            f"[TRACKING_IMG] drawn_incoming={[c.get('label') for c in _drawn_clouds]}, "
+            f"ambient={[c.get('label') for c in ambient_clouds]}"
+        )
+        if get_dev_settings().verbose:
+            logger.info(f"[TRACKING_IMG] display_clouds={len(display_clouds)}, ambient_clouds={len(ambient_clouds)}")
+        
+        if frame is None or (not display_clouds and not ambient_clouds and not locked_target_id and not predictions):
+            return None
+
+        crop_r = 120
+        h, w = frame.shape[:2]
+        user_x = max(0, min(w - 1, user_x))
+        user_y = max(0, min(h - 1, user_y))
+        x1 = max(0, user_x - crop_r)
+        y1 = max(0, user_y - crop_r)
+        x2 = min(w, user_x + crop_r)
+        y2 = min(h, user_y + crop_r)
+        if x2 <= x1 or y2 <= y1:
+            return None
+        
+        crop_img = frame[y1:y2, x1:x2].copy()
+        if crop_img.size == 0 or crop_img.shape[0] == 0 or crop_img.shape[1] == 0:
+            return None
+        scale = 3.0
+        
+        img = cv2.resize(crop_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_LANCZOS4)
+        img_raw_orig = img.copy()
+        ux = int((user_x - x1) * scale)
+        uy = int((user_y - y1) * scale)
+        
+        # 23 levels standard TMD radar color scale (RGB)
+        DBZ_SCALE_ORDERED = [
+            (10.5, (0, 236, 236)),
+            (13.5, (1, 160, 246)),
+            (15.5, (0, 0, 246)),
+            (19.0, (0, 100, 0)),
+            (22.0, (0, 128, 0)),
+            (25.0, (0, 198, 0)),
+            (28.0, (0, 226, 0)),
+            (31.0, (1, 255, 0)),
+            (34.0, (3, 231, 0)),
+            (37.0, (255, 255, 0)),
+            (40.0, (231, 192, 0)),
+            (43.0, (255, 144, 0)),
+            (46.0, (255, 0, 0)),
+            (49.0, (214, 0, 0)),
+            (52.0, (192, 0, 0)),
+            (55.0, (255, 0, 255)),
+            (58.0, (153, 85, 201)),
+            (61.0, (255, 255, 255)),
+            (64.0, (0, 255, 255)),
+            (66.5, (255, 255, 255)),
+        ]
+
+        def _dbz_color(dbz):
+            for threshold, color in reversed(DBZ_SCALE_ORDERED):
+                if dbz >= threshold:
+                    return color
+            return (100, 100, 100)
+
+        obstacles = []
+        labels = []
+        
+        obstacles.append((ux - int(12 * scale), uy - int(12 * scale), int(24 * scale), int(24 * scale)))
+        
+        has_predicted_rain = predictions and any(p.get("dbz", 0) >= 10.0 for p in predictions)
+        # Issue #268: Validate that the predicted cloud is actively present in current frame
+        active_cloud_labels = {c.get("label") for c in (clouds or []) if c.get("label")}
+        if all_rain_clusters:
+            active_cloud_labels.update(c.get("label") for c in all_rain_clusters if c.get("label"))
+        
+        has_active_cloud_source = True
+        if predictions:
+            predicted_clusters = {p.get("cluster") for p in predictions if p.get("cluster")}
+            if predicted_clusters:
+                # If predictions specify clusters, at least one must be in active_cloud_labels (or if no active clouds at all, suppress)
+                has_active_cloud_source = bool(active_cloud_labels.intersection(predicted_clusters))
+            elif clouds is not None and len(clouds) == 0 and (all_rain_clusters is not None and len(all_rain_clusters) == 0):
+                # If no clouds exist in current frame at all, cannot have valid trajectory
+                has_active_cloud_source = False
+        else:
+            has_active_cloud_source = False
+
+        # Trajectory drawing moved to after contour rendering to prevent overwrites
+                    # if eta > 0 and (i == 1 or i == len(pts)-1 or (eta % 45 == 0)):
+                    #     if last_labeled_pt is None:
+                    #         should_label = True
+                    #     else:
+                    #         if math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 30 * scale:
+                    #             should_label = True
+                    # 
+                    # if i == len(pts) - 1 and not should_label:
+                    #     if last_labeled_pt is None or math.hypot(cx - last_labeled_pt[0], cy - last_labeled_pt[1]) > 10 * scale:
+                    #         should_label = True
+                    #         
+                    # if should_label:
+                    #     txt = f"{eta}m"
+                    #     tw, th = int(35 * scale), int(12 * scale)
+                    #     if cx < ux:
+                    #         tx = cx - tw - int(8 * scale)
+                    #     else:
+                    #         tx = cx + int(12 * scale)
+                    #     ty = cy - int(16 * scale)
+                    #     
+                    #     labels.append({
+                    #         'text': txt,
+                    #         'type': 'trajectory',
+                    #         'margin': 12 * scale,
+                    #         'w': tw, 'h': th,
+                    #         'cx': tx + tw/2,
+                    #         'cy': ty - th/2,
+                    #         'ideal_cx': tx + tw/2,
+                    #         'ideal_cy': ty - th/2,
+                    #         'anchor_x': cx,
+                    #         'anchor_y': cy,
+                    #         'scale': 0.35 * scale,
+                    #         'fg': (255, 255, 255),
+                    #         'bg': (0, 0, 0)
+                    #     })
+                    #     last_labeled_pt = (cx, cy)
+        
+        if show_clouds:
+            # Re-use the pre-computed list (avoids redundant sort)
+            incoming = _incoming_pre
+
+            all_cloud_refs = list(incoming[:3]) + list(ambient_clouds)
+            # Include all_rain_clusters in the resolution pool so the pixel-overlap
+            # fallback inside _resolve_locked_cluster can find clusters that were
+            # filtered out of the display list (e.g. a large cluster whose centroid
+            # sits outside the locked grid cell but whose body overlaps it).
+            _extra = [c for c in (all_rain_clusters or []) if c not in all_cloud_refs]
+            locked_cluster = _resolve_locked_cluster(all_cloud_refs + _extra)
+            logger.info(
+                f"[TRACKING_IMG][RESOLVE] locked_target_id={locked_target_id!r} -> "
+                f"locked_cluster={locked_cluster.get('label') if locked_cluster else None!r} "
+                f"(cx={locked_cluster.get('cx') if locked_cluster else 'N/A'}, "
+                f"cy={locked_cluster.get('cy') if locked_cluster else 'N/A'}) "
+                f"in_extra={locked_cluster in _extra if locked_cluster else False}"
+            )
+
+            # If the resolved cluster came from all_rain_clusters (not the normal
+            # display list), inject it into ambient_clouds so the ambient draw loop
+            # can render it with the LOCKED visual style.
+            if locked_cluster is not None and locked_cluster in _extra:
+                ambient_clouds.append(locked_cluster)
+                all_cloud_refs.append(locked_cluster)
+                logger.info(f"[TRACKING_IMG] Injected locked cluster '{locked_cluster.get('label')}' from all_rain_clusters into ambient display list")
+
+
+
+            if locked_cluster is None and locked_target_id and locked_target_cx is not None and locked_target_cy is not None:
+                from app.services.tmd_radar.clustering import TMDClusteringMixin
+                box_r = 30
+                bx1 = max(0, locked_target_cx - box_r)
+                by1 = max(0, locked_target_cy - box_r)
+                bx2 = min(frame.shape[1], locked_target_cx + box_r)
+                by2 = min(frame.shape[0], locked_target_cy + box_r)
+                locked_px = []
+                max_dbz_val = 0.0
+                for py_idx in range(by1, by2):
+                    for px_idx in range(bx1, bx2):
+                        if math.hypot(px_idx - locked_target_cx, py_idx - locked_target_cy) <= box_r:
+                            dbz_val = TMDClusteringMixin._get_dbz_at_pixel_static(frame, px_idx, py_idx)
+                            if dbz_val >= 10.0:
+                                locked_px.append((px_idx, py_idx))
+                                if dbz_val > max_dbz_val:
+                                    max_dbz_val = dbz_val
+                
+                # If no rain pixels >= 10 dBZ exist, create a small 5x5 box of target pixels
+                if not locked_px:
+                    for py_idx in range(max(0, locked_target_cy - 2), min(frame.shape[0], locked_target_cy + 3)):
+                        for px_idx in range(max(0, locked_target_cx - 2), min(frame.shape[1], locked_target_cx + 3)):
+                            locked_px.append((px_idx, py_idx))
+
+                synthetic_cluster = {
+                    "cx": locked_target_cx,
+                    "cy": locked_target_cy,
+                    "vx": 0.0, "vy": 0.0,
+                    "dbz_now": max_dbz_val,
+                    "predicted_dbz": max_dbz_val,
+                    "dist": math.hypot(user_x - locked_target_cx, user_y - locked_target_cy),
+                    "eta_min": 999.0,
+                    "approaching": False,
+                    "label": f"LOCKED[{locked_target_id}]",
+                    "pixels": locked_px,
+                }
+                locked_cluster = synthetic_cluster
+                ambient_clouds.append(synthetic_cluster)
+                all_cloud_refs.append(synthetic_cluster)
+
+
+            for c_orig in incoming:
+                cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
+                cx = int((cx_orig - x1) * scale)
+                cy = int((cy_orig - y1) * scale)
+                dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
+                vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
+
+                color = _dbz_color(dbz)
+                hull_rect = None
+                if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
+                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for px, py in c_orig["pixels"]], dtype=np.int32)
+                    x, y, w, h = cv2.boundingRect(pts)
+                    margin = 2
+                    mask_w, mask_h = w + 2 * margin, h + 2 * margin
+                    mask = np.zeros((mask_h, mask_w), dtype=np.uint8)
+                    
+                    local_pts = pts - np.array([[[x - margin, y - margin]]], dtype=np.int32)
+                    for pt in local_pts:
+                        px, py = pt[0]
+                        if 0 <= px < mask_w and 0 <= py < mask_h:
+                            mask[py, px] = 255
+                            
+                    # Use a scale-aware kernel to remove single-pixel holes and match clustering threshold
+                    ksize = int(cluster_dist_approaching * scale)
+                    if ksize % 2 == 0:
+                        ksize += 1
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize))
+                    
+                    raw_mask = mask.copy()
+                    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+                    dilate_kw = max(7, int(11 * scale))
+                    dilate_kh = max(19, int(23 * scale))
+                    if dilate_kw % 2 == 0:
+                        dilate_kw += 1
+                    if dilate_kh % 2 == 0:
+                        dilate_kh += 1
+                    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dilate_kw, dilate_kh))
+                    mask = cv2.dilate(mask, dilate_kernel)
+                    
+                    from app.core.dev_settings import get_dev_settings, update_dev_settings
+                    enable_smooth = get_dev_settings().enable_raster_smooth
+                    
+                    if enable_smooth:
+                        # Pre-Contour Raster Smoothing (Metaball effect)
+                        ksize_val = get_dev_settings().gaussian_kernel_size
+                        thresh_val = get_dev_settings().raster_smooth_threshold
+                        # Restrict kernel size further for thin rain bands to prevent melting
+                        ksize_val = min(ksize_val, max(3, int(min(mask_w, mask_h) * 0.15)))
+                        # Cap the max kernel at 9 to preserve thin rain details
+                        ksize_val = min(ksize_val, 9)
+                        if ksize_val % 2 == 0:
+                            ksize_val += 1
+                        mask = cv2.GaussianBlur(mask, (ksize_val, ksize_val), 0)
+                        _, mask = cv2.threshold(mask, thresh_val, 255, cv2.THRESH_BINARY)
+                    else:
+                        # Apply a gentle MORPH_OPEN to remove single-pixel noise without eroding valid rain clouds
+                        open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, open_kernel)
+                    
+                    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    
+                    global_contours = []
+                    for ctr in contours:
+                        area = cv2.contourArea(ctr)
+                        if area >= min_area_px:
+                            hull = cv2.convexHull(ctr)
+                            hull_area = cv2.contourArea(hull)
+                            solidity = area / hull_area if hull_area > 0 else 1.0
+                            
+                            # Check connected components in raw mask under this contour
+                            cx_crop, cy_crop, cw_crop, ch_crop = cv2.boundingRect(ctr)
+                            local_raw = raw_mask[cy_crop:cy_crop+ch_crop, cx_crop:cx_crop+cw_crop].copy()
+                            local_ctr_mask = np.zeros_like(local_raw)
+                            local_ctr = ctr - np.array([[[cx_crop, cy_crop]]], dtype=np.int32)
+                            cv2.fillPoly(local_ctr_mask, [local_ctr], 255)
+                            local_raw = cv2.bitwise_and(local_raw, local_ctr_mask)
+                            
+                            small_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                            local_raw_closed = cv2.morphologyEx(local_raw, cv2.MORPH_CLOSE, small_kernel)
+                            num_comp, _ = cv2.connectedComponents(local_raw_closed)
+                            
+                            # 0.70 is more appropriate for natural cloud shapes which are
+                            # commonly concave (squall lines, irregular rain cells).
+                            # The old 0.85 was too strict, forcing raw contours for most clouds.
+                            # hull_area/area ratio relaxed to 1.5 for consistency.
+                            SOLIDITY_THRESHOLD = 0.70
+                            is_convex = (solidity > SOLIDITY_THRESHOLD) and (hull_area / max(1.0, area) <= 1.5)
+                            if num_comp > 2:
+                                is_convex = False
+                                
+                            from app.core.dev_settings import get_dev_settings, update_dev_settings
+                            if get_dev_settings().verbose:
+                                print(
+                                    f"[DEBUG_SOLIDITY] Approaching cloud: area={area}, hull_area={hull_area}, "
+                                    f"solidity={solidity:.4f}, ratio={hull_area/max(1.0, area):.4f}, "
+                                    f"num_comp={num_comp}, is_convex={is_convex}"
+                                )
+                            
+                            if is_convex:
+                                final_contour = hull
+                            else:
+                                final_contour = ctr
+                                
+                            epsilon = 0.006 * cv2.arcLength(final_contour, True)
+                            approx = cv2.approxPolyDP(final_contour, epsilon, True)
+                            
+                            from app.core.dev_settings import get_dev_settings, update_dev_settings
+                            chaikin_iters = get_dev_settings().chaikin_iterations
+                            smoothed = self._chaikin_smooth(approx, chaikin_iters)
+                            
+                            global_ctr = smoothed + np.array([[[x - margin, y - margin]]], dtype=np.int32)
+                            global_contours.append(global_ctr)
+
+                    if len(global_contours) > 1:
+                        areas = [int(cv2.contourArea(ctr)) for ctr in global_contours]
+                        contour_infos = []
+                        for c_idx, ctr in enumerate(global_contours):
+                            cx_val, cy_val, cw_val, ch_val = cv2.boundingRect(ctr)
+                            contour_infos.append(f"#{c_idx}: rect=({cx_val},{cy_val},{cw_val},{ch_val}) area={areas[c_idx]}")
+                        logger.info(
+                            f"[TRACKING_IMG] incoming cloud '{c_orig.get('label', '?')}' rendered as "
+                            f"{len(global_contours)} polygons (sizes={areas} px, total_pixels={len(c_orig['pixels'])}). Details: {'; '.join(contour_infos[:15])}"
+                        )
+
+                    if global_contours:
+                        # Draw transparent neon glow fills and borders on PIL
+                        img_rgba = Image.fromarray(img).convert("RGBA")
+                        img_rgba = self._draw_neon_contours(img_rgba, global_contours, color, line_width=max(1, int(2.0 * scale)))
+                        img = np.array(img_rgba.convert("RGB"))
+                        
+                        # Calculate and store real proximity km from user location
+                        is_inside, dist_km = self._contour_proximity_km(global_contours, ux, uy, km_per_pixel)
+                        c_orig["real_proximity_km"] = dist_km
+                        c_orig["real_is_inside"] = is_inside
+                        
+                    hull_rect = (x, y, w, h)
+                    obstacles.append((x - 5, y - 5, w + 10, h + 10))
+                else:
+                    r = int(12 * scale)
+                    cv2.circle(img, (cx, cy), r, color, int(1.5 * scale))
+                    obs_r = int(14 * scale)
+                    obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
+
+                is_locked = locked_cluster is not None and c_orig is locked_cluster
+                if is_locked:
+                    logger.info(f"[TRACKING_IMG] ✅ Drawn LOCKED target '{locked_target_id}' (approaching cloud '{c_orig.get('label')}') at screen px=({cx},{cy})")
+                    cv2.circle(img, (cx, cy), int(22 * scale), (0, 0, 255), int(2 * scale))
+                    cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(30 * scale), int(2 * scale))
+                    
+                    # Draw a direct green line-of-sight path from locked cloud (cx, cy) to user (ux, uy)
+                    dist_to_user = math.hypot(ux - cx, uy - cy)
+                    if dist_to_user > 10:
+                        num_dots = int(dist_to_user / 8)
+                        for d_idx in range(1, num_dots):
+                            t = d_idx / num_dots
+                            dot_x = int(cx + (ux - cx) * t)
+                            dot_y = int(cy + (uy - cy) * t)
+                            cv2.circle(img, (dot_x, dot_y), int(1 * scale), (0, 255, 0), -1)
+                            
+                    if (vx != 0.0 or vy != 0.0):
+                        proj_pts = []
+                        for step in range(1, 7):
+                            px_proj = cx_orig + vx * step
+                            py_proj = cy_orig + vy * step
+                            c_proj_x = int((px_proj - x1) * scale)
+                            c_proj_y = int((py_proj - y1) * scale)
+                            proj_pts.append((c_proj_x, c_proj_y))
+                        
+                        for i in range(len(proj_pts)):
+                            cv2.circle(img, proj_pts[i], int(2 * scale), (0, 0, 255), -1)
+                            if i > 0:
+                                cv2.line(img, proj_pts[i-1], proj_pts[i], (0, 0, 255), int(1 * scale))
+                            else:
+                                cv2.line(img, (cx, cy), proj_pts[0], (0, 0, 255), int(1 * scale))
+
+                vx_s = int(vx * scale * 3.0)
+                vy_s = int(vy * scale * 3.0)
+                arrow_sx, arrow_sy = cx, cy
+                if hull_rect:
+                    arrow_sx = hull_rect[0] + hull_rect[2] // 2
+                    arrow_sy = hull_rect[1] + hull_rect[3] // 2
+                
+                # Issue #70: Draw historical wind vectors (Ghosting effect 3-5 frames back)
+                if historical_vectors:
+                    num_h = len(historical_vectors)
+                    logger.info(f"[TRACKING_IMG] 💨 Rendering {num_h} historical wind vectors (ghosting effect) for approaching cloud '{c_orig.get('label', '?')}'")
+                    for h_idx, hv in enumerate(historical_vectors):
+                        hcx = int((hv.get("cx", 0) - x1) * scale)
+                        hcy = int((hv.get("cy", 0) - y1) * scale)
+                        hvx = int(hv.get("vx", 0.0) * scale * 3.0)
+                        hvy = int(hv.get("vy", 0.0) * scale * 3.0)
+                        # Fading opacity / grayscale for older frames
+                        alpha_factor = (h_idx + 1) / (num_h + 1)
+                        faded_color = (int(100 * alpha_factor), int(100 * alpha_factor), int(100 * alpha_factor))
+                        cv2.circle(img, (hcx, hcy), int(4 * scale), faded_color, max(1, int(1.0 * scale)))
+                        cv2.arrowedLine(img, (hcx, hcy), (hcx + hvx, hcy + hvy), faded_color, max(1, int(1.0 * scale)), tipLength=0.25)
+                
+                v_mag = math.hypot(vx_s, vy_s)
+                if v_mag > 2:
+                    cv2.arrowedLine(img, (arrow_sx, arrow_sy), (arrow_sx + vx_s, arrow_sy + vy_s), color, max(1, int(scale * 1.0)), tipLength=0.3)
+                    obstacles.append((arrow_sx + vx_s - 5, arrow_sy + vy_s - 5, 10, 10))      
+                if vx_s == 0 and vy_s == 0:
+                    cv2.arrowedLine(img, (arrow_sx, arrow_sy), (ux, uy), (255, 255, 0), int(1.5 * scale), tipLength=0.15)
+                else:
+                    cv2.arrowedLine(img, (arrow_sx, arrow_sy), (arrow_sx + vx_s, arrow_sy + vy_s), (255, 255, 0), int(1.5 * scale), tipLength=0.3)
+                    
+                lbl = c_orig.get("label", "")
+                if is_locked:
+                    lbl = f"LOCKED[{locked_target_id}]"
+                elif dbz < 20.0:
+                    lbl = f"{lbl}?"
+                eta = max(1.0, float(c_orig.get("eta_min", 0)) - time_offset_min)
+                if eta <= 0:
+                    txt = f"{lbl} (Now)"
+                else:
+                    abs_eta = int(abs(eta))
+                    time_str = f"{abs_eta}m" if abs_eta < 60 else f"{abs_eta//60}h{abs_eta%60}m"
+                    txt = f"{lbl}: ~{time_str}"
+                    
+                tw, th = int(65 * scale) if is_locked else int(55 * scale), int(15 * scale)
+                tx = arrow_sx - int(tw / 2)
+                if hull_rect:
+                    ty = hull_rect[1] - int(10 * scale) - th
+                else:
+                    ty = arrow_sy - int(20 * scale) - th
+                
+                labels.append({
+                    'text': txt,
+                    'type': 'approaching',
+                    'margin': 8 * scale,
+                    'w': tw, 'h': th,
+                    'cx': tx + tw/2,
+                    'cy': ty - th/2,
+                    'ideal_cx': tx + tw/2,
+                    'ideal_cy': ty - th/2,
+                    'anchor_x': arrow_sx,
+                    'anchor_y': arrow_sy,
+                    'scale': 0.45 * scale,
+                    'fg': (0, 0, 255) if is_locked else (255, 255, 255),
+                    'bg': (255, 255, 255) if is_locked else (0, 0, 0)
+                })
+
+            # Filter ambient clouds to only those visible on the cropped map and not tiny/weak noise
+            visible_ambient_clouds = []
+            min_amb_dbz = get_dev_settings().min_ambient_dbz
+            min_amb_size = get_dev_settings().min_ambient_size
+            
+            for c in ambient_clouds:
+                cx_orig, cy_orig = c["cx"], c["cy"]
+                is_locked = locked_cluster is not None and c is locked_cluster
+                # Always include the locked cluster regardless of whether its centroid
+                # falls inside the crop window — an elongated cluster can have its
+                # centroid outside the crop while its pixels overlap the locked cell.
+                outside_crop = (
+                    cx_orig < x1 - 15 or cx_orig > x2 + 15
+                    or cy_orig < y1 - 15 or cy_orig > y2 + 15
+                )
+                if is_locked or not outside_crop:
+                    dbz_val = c.get("predicted_dbz", c.get("dbz_now", 20))
+                    pixels_count = len(c.get("pixels", []))
+                    if is_locked or (dbz_val >= min_amb_dbz and pixels_count >= min_amb_size):
+                        visible_ambient_clouds.append(c)
+
+
+            # Sort and build list of ambient clouds to render, prioritizing higher dBZ first, then closer distance
+            visible_ambient_clouds.sort(key=lambda c: (-c.get("predicted_dbz", c.get("dbz_now", 20)), -c.get("size", len(c.get("pixels", []))), c.get("dist", 9999)))
+            rendered_ambient = []
+            if get_dev_settings().draw_all_ambient_polygons:
+                rendered_ambient = visible_ambient_clouds.copy()
+            else:
+                if locked_cluster is not None and locked_cluster in visible_ambient_clouds:
+                    rendered_ambient.append(locked_cluster)
+                max_ambient = 12 if get_dev_settings().verbose else 10
+                for c in visible_ambient_clouds:
+                    if len(rendered_ambient) >= max_ambient:
+                        break
+                    if c not in rendered_ambient:
+                        rendered_ambient.append(c)
+
+            # ── Debug log: show every ambient cloud's centroid vs peak ──────────────
+            for _c in rendered_ambient:
+                _lbl  = _c.get('label', '?')
+                _ccx  = _c.get('cx', -1)
+                _ccy  = _c.get('cy', -1)
+                _pcx  = _c.get('peak_cx', _ccx)
+                _pcy  = _c.get('peak_cy', _ccy)
+                _dist = _c.get('dist', -1)
+                _npx  = len(_c.get('pixels', []))
+                _dbz  = _c.get('dbz_now', -1)
+                _drift = math.hypot(_pcx - _ccx, _pcy - _ccy)
+                logger.info(
+                    f"[AMBIENT_DBG] lbl={_lbl} centroid=({_ccx},{_ccy}) "
+                    f"peak=({_pcx},{_pcy}) drift={_drift:.1f}px "
+                    f"pixels={_npx} dbz={_dbz:.1f} dist_to_user={_dist:.1f}"
+                )
+
+            # Precompute forecast label set for ambient cloud label formatting
+            _forecast_label_set = set(c.get("label") for c in display_clouds) | set(p.get("cluster") for p in (predictions or []) if p.get("cluster"))
+
+            for c_orig in rendered_ambient:
+                cx_orig, cy_orig = c_orig["cx"], c_orig["cy"]
+
+                # Centroid position — used for ETA/arrow/projection (computation-stable)
+                cx = int((cx_orig - x1) * scale)
+                cy = int((cy_orig - y1) * scale)
+
+                # Peak-dBZ position — used for the dashed-circle marker and label anchor
+                # so the circle lands on the convective core, not the weighted centroid.
+                # Falls back to centroid for far_approaching clouds that lack peak_cx.
+                peak_cx_orig = c_orig.get("peak_cx", cx_orig)
+                peak_cy_orig = c_orig.get("peak_cy", cy_orig)
+                pcx = int((peak_cx_orig - x1) * scale)
+                pcy = int((peak_cy_orig - y1) * scale)
+
+                # For a locked ambient cluster whose centroid/peak may lie outside the
+                # crop window (e.g. a large elongated cluster), compute the best anchor:
+                #   - Grid-cell lock: centroid of B's pixels that actually fall inside the
+                #     named cell (e.g. C5).  This puts the pin at "where the rain is in C5",
+                #     which is always on-screen and semantically correct.
+                #   - Other locks: fall back to the stored locked_target_cx/cy.
+                _is_locked_cluster = locked_cluster is not None and c_orig is locked_cluster
+                if _is_locked_cluster and locked_target_cx is not None and locked_target_cy is not None:
+                    anchor_orig_x, anchor_orig_y = locked_target_cx, locked_target_cy  # default fallback
+
+                    # Try to compute cell-constrained centroid for grid-cell locks
+                    if locked_target_id:
+                        _m = re.match(r"^([a-hA-H])[-_]?([1-8])$", locked_target_id)
+                        if _m and "pixels" in c_orig and c_orig["pixels"]:
+                            _col = ord(_m.group(1).upper()) - ord('A')
+                            _row = int(_m.group(2)) - 1
+                            _cell_w = (x2 - x1) / 8.0
+                            _cell_h = (y2 - y1) / 8.0
+                            _cx_min = x1 + _col * _cell_w - 5.0
+                            _cx_max = x1 + (_col + 1) * _cell_w + 5.0
+                            _cy_min = y1 + _row * _cell_h - 5.0
+                            _cy_max = y1 + (_row + 1) * _cell_h + 5.0
+                            _in_cell = [
+                                (px_i, py_i)
+                                for px_i, py_i in c_orig["pixels"]
+                                if _cx_min <= px_i <= _cx_max and _cy_min <= py_i <= _cy_max
+                            ]
+                            if _in_cell:
+                                anchor_orig_x = int(sum(p[0] for p in _in_cell) / len(_in_cell))
+                                anchor_orig_y = int(sum(p[1] for p in _in_cell) / len(_in_cell))
+
+                    locked_screen_cx = int((anchor_orig_x - x1) * scale)
+                    locked_screen_cy = int((anchor_orig_y - y1) * scale)
+                    # Only override if the anchor is actually within the image canvas
+                    if 0 <= locked_screen_cx < img.shape[1] and 0 <= locked_screen_cy < img.shape[0]:
+                        pcx = locked_screen_cx
+                        pcy = locked_screen_cy
+                        cx = locked_screen_cx
+                        cy = locked_screen_cy
+
+
+
+                dbz = c_orig.get("predicted_dbz", c_orig.get("dbz_now", 20))
+                vx, vy = c_orig.get("vx", 0), c_orig.get("vy", 0)
+
+                color = (180, 180, 180) if dbz < 20.0 else _dbz_color(dbz)
+
+                
+                # Draw polygon outline & fill for ambient clouds (similar to approaching clouds)
+                if "pixels" in c_orig and len(c_orig["pixels"]) > 2:
+                    pts = np.array([[(int((px - x1) * scale), int((py - y1) * scale))] for px, py in c_orig["pixels"]], dtype=np.int32)
+                    bx, by, bw, bh = cv2.boundingRect(pts)
+                    margin = 2
+                    mask_w, mask_h = bw + 2 * margin, bh + 2 * margin
+                    mask = np.zeros((mask_h, mask_w), dtype=np.uint8)
+                    
+                    local_pts = pts - np.array([[[bx - margin, by - margin]]], dtype=np.int32)
+                    for pt in local_pts:
+                        px, py = pt[0]
+                        if 0 <= px < mask_w and 0 <= py < mask_h:
+                            mask[py, px] = 255
+                            
+                    # Use a scale-aware kernel to remove single-pixel holes and match clustering threshold
+                    ksize = int(cluster_dist_ambient * scale)
+                    if ksize % 2 == 0:
+                        ksize += 1
+                    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize))
+                    
+                    raw_mask = mask.copy()
+                    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+                    dilate_kw = max(7, int(11 * scale))
+                    dilate_kh = max(19, int(23 * scale))
+                    if dilate_kw % 2 == 0:
+                        dilate_kw += 1
+                    if dilate_kh % 2 == 0:
+                        dilate_kh += 1
+                    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dilate_kw, dilate_kh))
+                    mask = cv2.dilate(mask, dilate_kernel)
+                    
+                    # Trim sea background pixels from mask boundaries
+                    if 'img' in locals() and img is not None:
+                        local_crop = img[max(0, by-margin):min(img.shape[0], by-margin+mask_h), max(0, bx-margin):min(img.shape[1], bx-margin+mask_w)]
+                        if local_crop.shape[:2] == (mask_h, mask_w):
+                            diff_sea = np.abs(local_crop.astype(np.int16) - np.array([128, 192, 254], dtype=np.int16))
+                            is_sea = np.all(diff_sea <= 18, axis=2)
+                            mask[is_sea] = 0
+                    
+                    from app.core.dev_settings import get_dev_settings, update_dev_settings
+                    enable_smooth = get_dev_settings().enable_raster_smooth
+                    
+                    if enable_smooth:
+                        # Pre-Contour Raster Smoothing (Metaball effect)
+                        ksize_val = get_dev_settings().gaussian_kernel_size
+                        thresh_val = get_dev_settings().raster_smooth_threshold
+                        # Restrict kernel size further for thin rain bands to prevent melting
+                        ksize_val = min(ksize_val, max(3, int(min(mask_w, mask_h) * 0.15)))
+                        # Cap the max kernel at 9 to preserve thin rain details
+                        ksize_val = min(ksize_val, 9)
+                        if ksize_val % 2 == 0:
+                            ksize_val += 1
+                        mask = cv2.GaussianBlur(mask, (ksize_val, ksize_val), 0)
+                        _, mask = cv2.threshold(mask, thresh_val, 255, cv2.THRESH_BINARY)
+                    else:
+                        # Apply a gentle MORPH_OPEN to remove single-pixel noise without eroding valid rain clouds
+                        open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, open_kernel)
+                    
+                    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    
+                    global_contours = []
+                    for ctr in contours:
+                        area = cv2.contourArea(ctr)
+                        if area >= min_area_px:
+                            hull = cv2.convexHull(ctr)
+                            hull_area = cv2.contourArea(hull)
+                            solidity = area / hull_area if hull_area > 0 else 1.0
+                            
+                            # Check connected components in raw mask under this contour
+                            cx_crop, cy_crop, cw_crop, ch_crop = cv2.boundingRect(ctr)
+                            local_raw = raw_mask[cy_crop:cy_crop+ch_crop, cx_crop:cx_crop+cw_crop].copy()
+                            local_ctr_mask = np.zeros_like(local_raw)
+                            local_ctr = ctr - np.array([[[cx_crop, cy_crop]]], dtype=np.int32)
+                            cv2.fillPoly(local_ctr_mask, [local_ctr], 255)
+                            local_raw = cv2.bitwise_and(local_raw, local_ctr_mask)
+                            
+                            small_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                            local_raw_closed = cv2.morphologyEx(local_raw, cv2.MORPH_CLOSE, small_kernel)
+                            num_comp, _ = cv2.connectedComponents(local_raw_closed)
+                            
+                            SOLIDITY_THRESHOLD = 0.70
+                            is_convex = (solidity > SOLIDITY_THRESHOLD) and (hull_area / max(1.0, area) <= 1.5)
+                            if num_comp > 2:
+                                is_convex = False
+                                
+                            from app.core.dev_settings import get_dev_settings, update_dev_settings
+                            if get_dev_settings().verbose:
+                                print(
+                                    f"[DEBUG_SOLIDITY] Ambient cloud: area={area}, hull_area={hull_area}, "
+                                    f"solidity={solidity:.4f}, ratio={hull_area/max(1.0, area):.4f}, "
+                                    f"num_comp={num_comp}, is_convex={is_convex}"
+                                )
+                            
+                            if is_convex:
+                                final_contour = hull
+                            else:
+                                final_contour = ctr
+                                
+                            epsilon = 0.006 * cv2.arcLength(final_contour, True)
+                            approx = cv2.approxPolyDP(final_contour, epsilon, True)
+                            
+                            from app.core.dev_settings import get_dev_settings, update_dev_settings
+                            chaikin_iters = get_dev_settings().chaikin_iterations
+                            smoothed = self._chaikin_smooth(approx, chaikin_iters)
+                            
+                            global_ctr = smoothed + np.array([[[bx - margin, by - margin]]], dtype=np.int32)
+                            global_contours.append(global_ctr)
+                            
+                    if global_contours:
+                        img_rgba = Image.fromarray(img).convert("RGBA")
+                        img_rgba = self._draw_neon_contours(img_rgba, global_contours, color, line_width=max(1, int(1.5 * scale)))
+                        img = np.array(img_rgba.convert("RGB"))
+                        
+                        # Calculate and store real proximity km from user location
+                        is_inside, dist_km = self._contour_proximity_km(global_contours, ux, uy, km_per_pixel)
+                        c_orig["real_proximity_km"] = dist_km
+                        c_orig["real_is_inside"] = is_inside
+                        
+                # Draw dashed circle at PEAK (brightest pixel) position
+                for angle_deg in range(0, 360, 30):
+                    a1 = math.radians(angle_deg)
+                    a2 = math.radians(angle_deg + 20)
+                    r = int(10 * scale)
+                    p1 = (int(pcx + r * math.cos(a1)), int(pcy + r * math.sin(a1)))
+                    p2 = (int(pcx + r * math.cos(a2)), int(pcy + r * math.sin(a2)))
+                    cv2.line(img, p1, p2, color, int(scale * 0.8))
+                # Obstacle bounding box at centroid (stable for label collision avoidance)
+                obs_r = int(10 * scale)
+                obstacles.append((cx-obs_r, cy-obs_r, 2*obs_r, 2*obs_r))
+
+                # ── Visual debug overlay (verbose=True) ──────────────────────────
+                if get_dev_settings().verbose:
+                    _lbl_d = c_orig.get('label', '?')
+                    # Yellow dot = weighted centroid
+                    cv2.circle(img, (cx, cy), int(4 * scale), (0, 255, 255), -1)
+                    # Red dot = peak dBZ pixel
+                    cv2.circle(img, (pcx, pcy), int(4 * scale), (0, 0, 255), -1)
+                    # Cyan line: centroid → peak  (shows how far apart they are)
+                    if (pcx, pcy) != (cx, cy):
+                        cv2.line(img, (cx, cy), (pcx, pcy), (255, 255, 0), max(1, int(scale * 0.6)))
+                    # White bounding box around ALL pixels in this cluster
+                    _pixels = c_orig.get('pixels', [])
+                    if _pixels:
+                        _px_screen = [
+                            (int((p[0]-x1)*scale), int((p[1]-y1)*scale))
+                            for p in _pixels
+                            if 0 <= int((p[0]-x1)*scale) < img.shape[1]
+                            and 0 <= int((p[1]-y1)*scale) < img.shape[0]
+                        ]
+                        if _px_screen:
+                            _bx1 = min(p[0] for p in _px_screen)
+                            _by1 = min(p[1] for p in _px_screen)
+                            _bx2 = max(p[0] for p in _px_screen)
+                            _by2 = max(p[1] for p in _px_screen)
+                            cv2.rectangle(img, (_bx1, _by1), (_bx2, _by2), (255, 255, 255), max(1, int(scale * 0.5)))
+                            logger.info(f"[TRACKING_IMG] Debug white box drawn for label '{_lbl_d}' at x1={_bx1}, y1={_by1}, x2={_bx2}, y2={_by2} (w={_bx2-_bx1}, h={_by2-_by1})")
+                    # Small label near centroid: "C cent" and near peak: "C peak"
+                    _fs = max(0.3, 0.32 * scale)
+                    cv2.putText(img, f"{_lbl_d}cent", (cx+int(3*scale), cy-int(5*scale)),
+                                cv2.FONT_HERSHEY_PLAIN, _fs, (0, 255, 255), 1, cv2.LINE_AA)
+                    cv2.putText(img, f"{_lbl_d}peak", (pcx+int(3*scale), pcy-int(5*scale)),
+                                cv2.FONT_HERSHEY_PLAIN, _fs, (0, 0, 255), 1, cv2.LINE_AA)
+
+                is_locked = locked_cluster is not None and c_orig is locked_cluster
+                if is_locked:
+                    logger.info(f"[TRACKING_IMG] ✅ Drawn LOCKED target '{locked_target_id}' (ambient cloud '{c_orig.get('label')}') at peak px=({pcx},{pcy}), centroid px=({cx},{cy})")
+                    cv2.circle(img, (pcx, pcy), int(20 * scale), (0, 0, 255), int(2 * scale))
+                    cv2.drawMarker(img, (pcx, pcy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(25 * scale), int(2 * scale))
+                    
+                    # Line-of-sight path from centroid to user (uses centroid for directional accuracy)
+                    dist_to_user = math.hypot(ux - cx, uy - cy)
+                    if dist_to_user > 10:
+                        num_dots = int(dist_to_user / 8)
+                        for d_idx in range(1, num_dots):
+                            t = d_idx / num_dots
+                            dot_x = int(cx + (ux - cx) * t)
+                            dot_y = int(cy + (uy - cy) * t)
+                            cv2.circle(img, (dot_x, dot_y), int(1 * scale), (0, 255, 0), -1)
+                            
+                    if (vx != 0.0 or vy != 0.0):
+                        proj_pts = []
+                        for step in range(1, 7):
+                            px_proj = cx_orig + vx * step
+                            py_proj = cy_orig + vy * step
+                            c_proj_x = int((px_proj - x1) * scale)
+                            c_proj_y = int((py_proj - y1) * scale)
+                            proj_pts.append((c_proj_x, c_proj_y))
+                        
+                        for i in range(len(proj_pts)):
+                            cv2.circle(img, proj_pts[i], int(2 * scale), (0, 0, 255), -1)
+                            if i > 0:
+                                cv2.line(img, proj_pts[i-1], proj_pts[i], (0, 0, 255), int(1 * scale))
+                            else:
+                                cv2.line(img, (cx, cy), proj_pts[0], (0, 0, 255), int(1 * scale))
+
+                # Velocity arrow from PEAK (so it aligns with the dashed circle)
+                vx_s = int(vx * scale * 2.5)
+                vy_s = int(vy * scale * 2.5)
+                v_mag = math.hypot(vx_s, vy_s)
+                if v_mag > 2:
+                    cv2.arrowedLine(img, (pcx, pcy), (pcx + vx_s, pcy + vy_s), (200, 200, 200), max(1, int(scale * 0.8)), tipLength=0.3)
+
+                # Issue #70: Draw historical wind vectors (Ghosting effect) for primary rain cluster
+                if historical_vectors and c_orig.get("label") == "A":
+                    num_h = len(historical_vectors)
+                    logger.info(f"[TRACKING_IMG] 💨 Rendering {num_h} historical wind vectors (ghosting effect) for rain cluster '{c_orig.get('label')}'")
+                    for h_idx, hv in enumerate(historical_vectors):
+                        hcx = int((hv.get("cx", 0) - x1) * scale)
+                        hcy = int((hv.get("cy", 0) - y1) * scale)
+                        hvx = int(hv.get("vx", 0.0) * scale * 2.5)
+                        hvy = int(hv.get("vy", 0.0) * scale * 2.5)
+                        alpha_factor = (h_idx + 1) / (num_h + 1)
+                        faded_color = (int(100 * alpha_factor), int(100 * alpha_factor), int(100 * alpha_factor))
+                        cv2.circle(img, (hcx, hcy), int(4 * scale), faded_color, max(1, int(1.0 * scale)))
+                        cv2.arrowedLine(img, (hcx, hcy), (hcx + hvx, hcy + hvy), faded_color, max(1, int(1.0 * scale)), tipLength=0.25)
+                    
+                lbl = c_orig.get("label", "")
+                is_forecast_target = lbl in _forecast_label_set
+                
+                if is_locked:
+                    lbl = f"LOCKED[{locked_target_id}]"
+                elif dbz < 20.0 and not is_forecast_target:
+                    lbl = f"{lbl}?"
+                txt = f"{lbl}: {int(dbz)}"
+                tw, th = int(45 * scale) if (is_locked or is_forecast_target) else int(32 * scale), int(10 * scale)
+                # Label positioned above the PEAK marker (so text sits on the bright spot)
+                tx = pcx - int(tw / 2)
+                ty = pcy - int(12 * scale) - th
+                
+                labels.append({
+                    'text': txt,
+                    'type': 'approaching' if (is_locked or is_forecast_target) else 'ambient',
+                    'margin': 0,
+                    'w': tw, 'h': th,
+                    'cx': tx + tw/2,
+                    'cy': ty - th/2,
+                    'ideal_cx': tx + tw/2,
+                    'ideal_cy': ty - th/2,
+                    'anchor_x': pcx,   # anchor line drawn to peak
+                    'anchor_y': pcy,
+                    'scale': 0.4 * scale if is_forecast_target else 0.3 * scale,
+                    'fg': (0, 255, 0) if is_forecast_target else ((0, 0, 255) if is_locked else (200, 200, 200)),
+                    'bg': (0, 0, 0) if is_forecast_target else ((255, 255, 255) if is_locked else (0, 0, 0))
+                })
+
+        # Draw the manual target lock marker at the exact locked coordinates if no cluster was matched
+        if locked_target_id and locked_target_cx is not None and locked_target_cy is not None and locked_cluster is None:
+            cx = int((locked_target_cx - x1) * scale)
+            cy = int((locked_target_cy - y1) * scale)
+            if 0 <= cx < img.shape[1] and 0 <= cy < img.shape[0]:
+                logger.info(f"[TRACKING_IMG] ✅ Drawn fallback LOCKED marker '{locked_target_id}' at screen px=({cx},{cy})")
+                cv2.circle(img, (cx, cy), int(20 * scale), (0, 0, 255), int(2 * scale))
+                cv2.drawMarker(img, (cx, cy), (0, 0, 255), cv2.MARKER_TILTED_CROSS, int(25 * scale), int(2 * scale))
+
+                # Draw green dashed line-of-sight path from locked point (cx, cy) to user (ux, uy)
+                dist_to_user = math.hypot(ux - cx, uy - cy)
+                if dist_to_user > 10:
+                    num_dots = int(dist_to_user / 8)
+                    for d_idx in range(1, num_dots):
+                        t = d_idx / num_dots
+                        dot_x = int(cx + (ux - cx) * t)
+                        dot_y = int(cy + (uy - cy) * t)
+                        cv2.circle(img, (dot_x, dot_y), max(1, int(1.5 * scale)), (0, 255, 0), -1)
+                
+                txt = f"LOCKED[{locked_target_id}]"
+                tw, th = int(65 * scale), int(15 * scale)
+                tx = cx - int(tw / 2)
+                ty = cy - int(20 * scale) - th
+                labels.append({
+                    'text': txt,
+                    'type': 'approaching',
+                    'margin': 8 * scale,
+                    'w': tw, 'h': th,
+                    'cx': tx + tw/2,
+                    'cy': ty - th/2,
+                    'ideal_cx': tx + tw/2,
+                    'ideal_cy': ty - th/2,
+                    'anchor_x': cx,
+                    'anchor_y': cy,
+                    'scale': 0.45 * scale,
+                    'fg': (0, 0, 255),
+                    'bg': (255, 255, 255)
+                })
+
+        hit_r = int(get_dev_settings().hit_radius * scale)
+        for angle_deg in range(0, 360, 15):
+            a1 = math.radians(angle_deg)
+            a2 = math.radians(angle_deg + 8)
+            p1 = (int(ux + hit_r * math.cos(a1)), int(uy + hit_r * math.sin(a1)))
+            p2 = (int(ux + hit_r * math.cos(a2)), int(uy + hit_r * math.sin(a2)))
+            cv2.line(img, p1, p2, (0, 165, 255), int(1.2 * scale))
+            
+        # Trajectory rendering (rendered on top of cloud contours so it stays visible)
+        if show_trajectory and predictions and has_predicted_rain and has_active_cloud_source:
+            from app.core.dev_settings import get_dev_settings, update_dev_settings
+            show_backward = get_dev_settings().show_backward_trajectory
+            pts = []
+            for p in predictions:
+                if not show_backward and p.get("time_offset", 0) > time_offset_min:
+                    continue
+                px_pred = p["src_x"]
+                py_pred = p["src_y"]
+                cx = int((px_pred - x1) * scale)
+                cy = int((py_pred - y1) * scale)
+                pts.append((cx, cy, p))
+            
+            if len(pts) > 1:
+                for i, (cx, cy, p) in enumerate(pts):
+                    dbz_val = p.get("dbz", 0.0)
+                    dot_color = _dbz_color(dbz_val) if dbz_val >= 10.0 else (200, 200, 200)
+                    cv2.circle(img, (cx, cy), int(3.5 * scale), (0, 0, 0), -1)
+                    cv2.circle(img, (cx, cy), int(2.2 * scale), dot_color, -1)
+                    obstacles.append((cx - int(2 * scale), cy - int(2 * scale), int(4 * scale), int(4 * scale)))
+                    
+                    if i > 0:
+                        prev_cx, prev_cy, _ = pts[i-1]
+                        cv2.line(img, (prev_cx, prev_cy), (cx, cy), (255, 255, 0), int(1.2 * scale))
+
+        # Draw subtle 8x8 grid overlay for manual coordinate locking
+        gh, gw = img.shape[0], img.shape[1]
+        cell_w, cell_h = gw / 8, gh / 8
+        grid_color = (80, 80, 80)
+        grid_thickness = max(1, int(0.5 * scale))
+        
+        for c_idx in range(1, 8):
+            x = int(c_idx * cell_w)
+            cv2.line(img, (x, 0), (x, gh), grid_color, grid_thickness)
+            
+        for r_idx in range(1, 8):
+            y = int(r_idx * cell_h)
+            cv2.line(img, (0, y), (gw, y), grid_color, grid_thickness)
+            
+        font_scale = 0.4 * scale
+        text_color = (200, 200, 200)
+        bg_color = (0, 0, 0)
+        
+        for c_idx in range(8):
+            label_x = chr(ord('A') + c_idx)
+            tx = int((c_idx + 0.5) * cell_w - 6 * scale)
+            
+            # Draw at top only if it doesn't overlap with the estimated timestamp area (E, F, G, H area)
+            skip_top = False
+            if time_utc:
+                ts_w = int(120 * scale)
+                ts_x = img.shape[1] - ts_w - int(8 * scale)
+                if tx >= ts_x - int(10 * scale):
+                    skip_top = True
+            
+            if not skip_top:
+                cv2.putText(img, label_x, (tx, int(15 * scale)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, bg_color, max(1, int(font_scale * 4)))
+                cv2.putText(img, label_x, (tx, int(15 * scale)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, max(1, int(font_scale * 1.5)))
+                
+            # Draw at bottom so it's always readable
+            ty_bottom = img.shape[0] - int(8 * scale)
+            cv2.putText(img, label_x, (tx, ty_bottom), cv2.FONT_HERSHEY_SIMPLEX, font_scale, bg_color, max(1, int(font_scale * 4)))
+            cv2.putText(img, label_x, (tx, ty_bottom), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, max(1, int(font_scale * 1.5)))
+            
+        for r_idx in range(8):
+            label_y = str(r_idx + 1)
+            ty = int((r_idx + 0.5) * cell_h + 5 * scale)
+            cv2.putText(img, label_y, (int(5 * scale), ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, bg_color, max(1, int(font_scale * 4)))
+            cv2.putText(img, label_y, (int(5 * scale), ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, max(1, int(font_scale * 1.5)))
+
+        # Add top grid labels A-H as obstacles
+        for c_idx in range(8):
+            tx_obs = int((c_idx + 0.5) * cell_w - 15 * scale)
+            obstacles.append((tx_obs, 0, int(30 * scale), int(25 * scale)))
+            
+        # Add left grid labels 1-8 as obstacles
+        for r_idx in range(8):
+            ty_obs = int((r_idx + 0.5) * cell_h - 15 * scale)
+            obstacles.append((0, ty_obs, int(25 * scale), int(30 * scale)))
+
+        if time_utc:
+            # Estimate timestamp area to avoid labels overlapping it
+            ts_w = int(120 * scale)
+            ts_h = int(30 * scale)
+            ts_x = img.shape[1] - ts_w - int(8 * scale)
+            ts_y = int(8 * scale)
+            obstacles.append((ts_x, ts_y, ts_w, ts_h))
+
+        from app.services.tmd_radar.processor import TMDRadarProcessor
+        self._resolve_label_collisions(labels, obstacles, img.shape[1], img.shape[0])
+
+        for t_lbl in labels:
+            if t_lbl.get('type') == 'trajectory':
+                for a_lbl in labels:
+                    if a_lbl.get('type') == 'approaching':
+                        dx = abs(t_lbl['cx'] - a_lbl['cx'])
+                        dy = abs(t_lbl['cy'] - a_lbl['cy'])
+                        if dx < (t_lbl['w'] + a_lbl['w']) / 2 + 4 * scale and dy < (t_lbl['h'] + a_lbl['h']) / 2 + 4 * scale:
+                            t_lbl['hidden'] = True
+                            break
+
+        if show_labels:
+            for lbl in labels:
+                if lbl.get('hidden'):
+                    continue
+                tx = int(lbl['cx'] - lbl['w']/2)
+                ty = int(lbl['cy'] + lbl['h']/2)
+                
+                logger.info(f"[TRACKING_IMG] Label '{lbl['text']}' ({lbl['type']}) drawn at x={tx}, y={ty} (w={lbl['w']}, h={lbl['h']})")
+                
+                dist_to_anchor = math.hypot(lbl['cx'] - lbl['anchor_x'], lbl['cy'] - lbl['anchor_y'])
+                if dist_to_anchor > 12 * scale:
+                    cv2.line(img, (lbl['anchor_x'], lbl['anchor_y']), (int(lbl['cx']), int(lbl['cy'])), (150, 150, 150), max(2, int(scale * 1.0)))
+                    
+                cv2.putText(img, lbl['text'], (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, lbl['scale'], lbl['bg'], max(1, int(lbl['scale'] * 5.0)))
+                cv2.putText(img, lbl['text'], (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, lbl['scale'], lbl['fg'], max(1, int(lbl['scale'] * 1.8)))
+
+        if time_utc and show_labels:
+            try:
+                img_pil = Image.fromarray(img).convert("RGBA")
+                time_str_idc = time_utc.astimezone(ZoneInfo('Asia/Bangkok')).strftime('%d %b %H:%M')
+                try:
+                    fnt = self._load_thai_font(int(14 * scale))
+                except:
+                    fnt = self._load_thai_font(int(14 * scale))
+
+                draw = ImageDraw.Draw(img_pil, "RGBA")
+                if hasattr(draw, 'textbbox'):
+                    left, top, right, bottom = draw.textbbox((0, 0), time_str_idc, font=fnt)
+                    text_w, text_h = right - left, bottom - top
+                else:
+                    text_w, text_h = draw.textsize(time_str_idc, font=fnt)
+
+                pad = int(4 * scale)
+                x_pos = img_pil.width - text_w - int(8 * scale)
+                y_pos = int(8 * scale)
+
+                draw.rectangle([x_pos-pad, y_pos-pad, x_pos+text_w+pad, y_pos+text_h+pad], fill=(0, 0, 0, 200))
+                draw.text((x_pos, y_pos), time_str_idc, fill=(255, 255, 255, 255), font=fnt)
+                logger.info(f"[TRACKING_IMG] Timestamp '{time_str_idc}' drawn at x={x_pos}, y={y_pos} (w={text_w}, h={text_h})")
+                img = np.array(img_pil.convert("RGB"))
+            except Exception as e:
+                print("PIL ERROR:", e)
+
+        from app.core.dev_settings import get_dev_settings, update_dev_settings
+        if get_dev_settings().draw_debug_grid:
+            # Issue #263: 2 sub-images layout:
+            # Sub-image 1: Raw image with grid overlay (no user pin)
+            # Sub-image 2: Final prediction overlay (Cropped radar with grid, user pin, motion vectors, clouds)
+            fs = max(0.6, 0.5 * scale)
+            th = max(2, int(1.5 * scale))
+            cv2.putText(img_raw_orig, "1. Raw Context", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), th * 2, cv2.LINE_AA)
+            cv2.putText(img_raw_orig, "1. Raw Context", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 255, 255), th, cv2.LINE_AA)
+            
+            img_final = img.copy()
+            cv2.putText(img_final, "2. Final Prediction", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), th * 2, cv2.LINE_AA)
+            cv2.putText(img_final, "2. Final Prediction", (int(15 * scale), int(30 * scale)), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 0, 255), th, cv2.LINE_AA)
+            
+            # Side-by-side 1x2 Grid Layout
+            img = np.hstack([img_raw_orig, img_final])
+
+        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        is_success, buffer = cv2.imencode(".png", img_bgr)
+        return buffer.tobytes() if is_success else None
+
+
+    def generate_timeline_image(self, predictions: list, location_name: str = None) -> Optional[bytes]:
+        if not predictions:
+            return None
+        import io
+            
+        width, height = 800, 430
+        img = Image.new("RGBA", (width, height), (30, 30, 30, 255))
+        draw = ImageDraw.Draw(img, "RGBA")
+        
+        font       = self._load_thai_font(16)
+        font_small = self._load_thai_font(14)
+            
+        baseline_y = 350
+        draw.line([(0, baseline_y), (width, baseline_y)], fill=(100, 100, 100, 255), width=2)
+        
+        def time_to_x(t):
+            return int(50 + (t - (-60)) * (700 / 210.0))
+            
+        x_90 = time_to_x(90)
+        draw.line([(x_90, 50), (x_90, height - 20)], fill=(74, 144, 226, 128), width=2)
+        draw.text((x_90 + 5, 60), "Confidence\nBoundary", fill=(74, 144, 226, 200), font=font_small)
+        
+        base_x = time_to_x(0)
+        draw.line([(base_x, 40), (base_x, height - 20)], fill=(255, 255, 255, 200), width=2)
+        draw.text((base_x - 15, 25), "NOW", font=font, fill=(255, 255, 255, 255))
+
+        last_x = -999
+        y_offsets = {}
+
+        for i, p in enumerate(predictions):
+            eta = p["time_offset"]
+            dbz = p["dbz"]
+            
+            # Estimate growth relative to previous step
+            if i > 0 and predictions[i-1]["dbz"] > 0:
+                growth = (dbz - predictions[i-1]["dbz"]) / predictions[i-1]["dbz"]
+            elif i > 0 and dbz > 0 and predictions[i-1]["dbz"] == 0:
+                growth = 1.0 # 100% growth (new rain)
+            else:
+                growth = 0.0
+
+            x = time_to_x(eta)
+            x = max(20, min(780, x))
+
+            h = int(dbz * 4)
+
+            if dbz >= 60: color = (155, 89, 182, 230)   # Purple
+            elif dbz >= 50: color = (231, 76, 60, 230)  # Red
+            elif dbz >= 40: color = (243, 156, 18, 230) # Orange
+            elif dbz >= 30: color = (241, 196, 15, 230) # Yellow
+            elif dbz > 0: color = (46, 204, 113, 230)   # Green
+            else: color = (100, 100, 100, 100)          # Grey/Clear for 0 dBz
+
+            if eta > 90:
+                color = (color[0], color[1], color[2], 100)
+
+            if dbz > 0:
+                draw.rectangle([(x-10, baseline_y-h), (x+10, baseline_y)], fill=color)
+            
+            cluster_label = p.get("cluster")
+            if cluster_label:
+                draw.text((x-12, baseline_y-h-35), f"[{cluster_label}]", fill=(150, 200, 255, 255), font=font_small)
+            
+            if dbz > 0:
+                draw.text((x-12, baseline_y-h-20), f"{int(dbz)}", fill=(255, 255, 255, 255), font=font)
+
+            # ── Growth / decay trend arrow ─────────────────────────────────
+            arrow_y_base = baseline_y - h - 35 if cluster_label else baseline_y - h - 22
+            growth_pct = growth * 100.0
+            
+            if dbz > 0:
+                if growth_pct > 5.0:
+                    # Growing: green upward triangle above bar
+                    arr_color = (46, 213, 115, 230)   # Bright green
+                    pts = [(x, arrow_y_base - 14), (x - 7, arrow_y_base), (x + 7, arrow_y_base)]
+                    draw.polygon(pts, fill=arr_color)
+                    draw.text((x - 18, arrow_y_base - 30), f"+{growth_pct:.0f}%", fill=arr_color, font=font_small)
+                elif growth_pct < -5.0:
+                    # Decaying: red downward triangle above bar
+                    arr_color = (255, 71, 87, 230)    # Bright red
+                    pts = [(x, arrow_y_base), (x - 7, arrow_y_base - 14), (x + 7, arrow_y_base - 14)]
+                    draw.polygon(pts, fill=arr_color)
+                    draw.text((x - 20, arrow_y_base - 30), f"{growth_pct:.0f}%", fill=arr_color, font=font_small)
+                else:
+                    # Stable: small grey dash
+                    draw.rectangle([(x - 6, arrow_y_base - 10), (x + 6, arrow_y_base - 7)],
+                                    fill=(160, 160, 160, 180))
+            else:
+                # 0 dBz: Clear sky indicator instead of arrows
+                draw.text((x-15, arrow_y_base - 12), "Clear", fill=(120, 120, 120, 180), font=font_small)
+
+            # Smart text offset to avoid overlapping ETA labels
+            y_off = 20
+            if x - last_x < 40:
+                prev_off = y_offsets.get(last_x, 50)
+                y_off = 35 if prev_off == 20 else (50 if prev_off == 35 else 20)
+            y_offsets[x] = y_off
+            last_x = x
+
+            m = int(round(abs(eta)))
+            t_str = f"~{m}m" if m < 60 else f"~{m//60}h{m%60}m"
+            sign = "-" if eta < 0 else ""
+            draw.text((x-15, baseline_y+y_off), f"{sign}{t_str}", fill=(200, 200, 200, 255), font=font_small)
+
+        # ── Legend ─────────────────────────────────────────────────────────
+        leg_y = height - 20
+        # Growing: draw upward triangle + label
+        draw.polygon([(18, leg_y + 2), (12, leg_y + 12), (24, leg_y + 12)], fill=(46, 213, 115, 200))
+        draw.text((28, leg_y), "กำลังแรงขึ้น", fill=(46, 213, 115, 200), font=font_small)
+        # Decaying: draw downward triangle + label (wide at top → narrow at bottom)
+        draw.polygon([(162, leg_y + 2), (174, leg_y + 2), (168, leg_y + 12)], fill=(255, 71, 87, 200))
+        draw.text((178, leg_y), "อ่อนกำลังลง", fill=(255, 71, 87, 200), font=font_small)
+        # Stable: draw dash + label
+        draw.rectangle([(313, leg_y + 5), (327, leg_y + 8)], fill=(160, 160, 160, 200))
+        draw.text((332, leg_y), "คงที่", fill=(160, 160, 160, 200), font=font_small)
+
+        if location_name:
+            loc_text = f"พิกัด: {location_name}"
+            # text length roughly
+            text_bbox = draw.textbbox((0, 0), loc_text, font=font)
+            text_w = text_bbox[2] - text_bbox[0]
+            draw.text((width - text_w - 20, 20), loc_text, fill=(200, 200, 200, 255), font=font)
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+
+
+    def render_rain_summary(self, predictions: list, confidence_cutoff_min: int = 90, time_offset_min: float = 0.0, confidence_score: float = 1.0, approaching_clouds: list = None, locked_target_id: str = None, all_rain_clusters: list = None, v_close_kmh: float = None, v_actual_kmh: float = None, v_avg_kmh: float = None, anchor_time: datetime = None) -> str:
+        """
+        Generates a smart, non-redundant rain summary line for Telegram based on the pixel's time-series predictions.
+        """
+        warning = "\n⚠️ ข้อมูลขาดช่วง (ความแม่นยำต่ำ)" if confidence_score < 1.0 else ""
+        
+        # Calculate real proximity from smoothed contours to closest storm edge
+        min_prox = float('inf')
+        search_sources = (all_rain_clusters or []) + (approaching_clouds or [])
+        for c in search_sources:
+            if "real_proximity_km" in c:
+                min_prox = min(min_prox, c["real_proximity_km"])
+
+        prox_msg = ""
+        if min_prox != float('inf'):
+            if min_prox == 0.0:
+                prox_msg = "\n🌧️ ขณะนี้คุณอยู่ในพื้นที่กลุ่มฝน"
+            else:
+                prox_msg = f"\n📏 กลุ่มฝน/พายุที่ใกล้ที่สุดอยู่ห่างออกไปประมาณ {min_prox:.1f} กม."
+
+        def fmt_eta(minutes: float) -> str:
+            m = int(round(minutes - time_offset_min))
+            if m < 0:
+                m = 0
+            if m < 60:
+                return f"~{m} นาที"
+            h = m // 60
+            r = m % 60
+            return f"~{h} ชม. {r} นาที" if r else f"~{h} ชม."
+
+        def dbz_label(dbz: float) -> str:
+            if dbz >= 55: return "ฝนหนักมาก"
+            if dbz >= 35: return "ฝนหนัก"
+            if dbz >= 20: return "ฝนปานกลาง"
+            return "ฝนเบา"
+
+        def fmt_clock_time(minutes_offset: float) -> str:
+            m = int(round(minutes_offset - time_offset_min))
+            if m < 0:
+                m = 0
+            base_time = anchor_time if anchor_time is not None else datetime.now(timezone(timedelta(hours=7)))
+            if base_time.tzinfo is None:
+                base_time = base_time.replace(tzinfo=timezone(timedelta(hours=7)))
+            else:
+                base_time = base_time.astimezone(ZoneInfo('Asia/Bangkok'))
+            target = base_time + timedelta(minutes=m)
+            return target.strftime('%H:%M น.')
+
+        if not predictions:
+            return f"ℹ️ ไม่สามารถพยากรณ์ล่วงหน้าได้{prox_msg}{warning}"
+
+        # Issue #268: Filter active rain events to suppress alerts when source cloud is missing from current frame
+        active_cloud_labels = {c.get("label") for c in (approaching_clouds or []) if c.get("label")}
+        if all_rain_clusters:
+            active_cloud_labels.update(c.get("label") for c in all_rain_clusters if c.get("label"))
+
+        rain_events = []
+        in_rain = False
+        start_idx = -1
+        max_dbz = 0.0
+        max_idx = -1
+        
+        for i, p in enumerate(predictions):
+            dbz = p["dbz"]
+            cluster = p.get("cluster")
+            # If a cluster is labeled in prediction but missing from active_cloud_labels (and cloud lists were provided), treat dbz as 0
+            is_orphaned_cloud = (cluster is not None and active_cloud_labels and cluster not in active_cloud_labels) or \
+                                (cluster is not None and approaching_clouds is not None and len(approaching_clouds) == 0 and all_rain_clusters is not None and len(all_rain_clusters) == 0)
+            
+            effective_dbz = 0.0 if is_orphaned_cloud else dbz
+            if effective_dbz >= 15.0:
+                if not in_rain:
+                    in_rain = True
+                    start_idx = i
+                    max_dbz = effective_dbz
+                    max_idx = i
+                else:
+                    if effective_dbz > max_dbz:
+                        max_dbz = effective_dbz
+                        max_idx = i
+            else:
+                if in_rain:
+                    in_rain = False
+                    rain_events.append({
+                        "start_idx": start_idx,
+                        "stop_idx": i,
+                        "max_dbz": max_dbz,
+                        "max_idx": max_idx
+                    })
+        
+        if in_rain:
+            rain_events.append({
+                "start_idx": start_idx,
+                "stop_idx": -1,
+                "max_dbz": max_dbz,
+                "max_idx": max_idx
+            })
+
+        active_event = None
+        for event in rain_events:
+            stop_idx = event["stop_idx"]
+            if stop_idx == -1:
+                active_event = event
+                break
+            
+            stop_time = predictions[stop_idx]["time_offset"]
+            if stop_time - time_offset_min > 0:
+                active_event = event
+                break
+
+        if not active_event:
+            max_time = predictions[-1]["time_offset"]
+            text = f"☀️ ยังไม่มีแนวโน้มฝนตกในบริเวณของคุณภายใน {fmt_eta(max_time)}นี้"
+            locked_cloud_detail_shown = False  # True once locked cloud ETA is written to text
+            if locked_target_id:
+                import re
+                if re.match(r'^([a-hA-H])([1-8])$', locked_target_id):
+                    target_desc = f"ช่องตาราง [{locked_target_id.upper()}]"
+                elif re.match(r'^[a-zA-Z]{1,2}$', locked_target_id):
+                    target_desc = f"กลุ่มฝน [{locked_target_id.upper()}]"
+                else:
+                    target_desc = "พิกัดแมนนวล"
+                
+                locked_cloud = None
+                # Check all_rain_clusters (which contains all clouds) rather than just approaching_clouds (which only contains approaching ones)
+                search_list = all_rain_clusters if all_rain_clusters else approaching_clouds
+                if search_list:
+                    for c in search_list:
+                        if c.get("label") == locked_target_id:
+                            locked_cloud = c
+                            break
+                if locked_cloud:
+                    is_approaching = locked_cloud.get("approaching", False)
+                    eta_val = locked_cloud.get("eta_min")
+                    
+                    speed_text = ""
+                    if v_actual_kmh is not None and v_close_kmh is not None:
+                        avg_str = f"\n- ความเร็วลมเฉลี่ยกลุ่มเมฆ: {v_avg_kmh:.1f} กม./ชม." if v_avg_kmh is not None else ""
+                        speed_text = (
+                            f"{avg_str}"
+                            f"\n- ความเร็วลมสูงสุด: {v_actual_kmh:.1f} กม./ชม."
+                            f"\n- ความเร็วลมสูงสุดที่โปรเจกต์บนเส้นสีเขียว: {v_close_kmh:.1f} กม./ชม."
+                        )
+                        
+                    if eta_val is not None and eta_val < 9999.0 and v_close_kmh is not None and v_close_kmh > 0.05:
+                        eta_val_adjusted = max(1.0, float(eta_val) - time_offset_min)
+                        eta_h = int(eta_val_adjusted // 60)
+                        eta_m = int(eta_val_adjusted % 60)
+                        time_str = f"~{eta_h} ชม. {eta_m} นาที" if eta_h > 0 else f"~{eta_m} นาที"
+                        if eta_h > 0 and eta_m == 0:
+                            time_str = f"~{eta_h} ชม."
+                        clock_time_str = fmt_clock_time(float(eta_val))
+                        
+                        if float(eta_val) > max_time:
+                            context_str = "ซึ่งอยู่นอกช่วงเวลาพยากรณ์หลัก"
+                        else:
+                            context_str = "แต่คาดว่าแนวฝนจะเบี่ยงทิศทาง/สลายตัว หรือเคลื่อนผ่านใกล้เคียงโดยไม่ตกตรงตำแหน่งคุณ"
+                            
+                        text += f" (เนื่องจาก{target_desc} เคลื่อนที่เข้าหาตำแหน่งคุณ (ตามเส้นสีเขียว คาดว่าจะถึงในอีก {time_str} (เวลาประมาณ {clock_time_str})) {context_str}:{speed_text})"
+                        locked_cloud_detail_shown = True  # ETA shown — suppress duplicate ☁️ note
+                    else:
+                        text += f" (เนื่องจาก{target_desc} มีแนวโน้มเคลื่อนที่ขนานหรือออกห่างจากตำแหน่งคุณ:{speed_text})"
+                        locked_cloud_detail_shown = True  # cloud described — note would be redundant
+                else:
+                    text += f" (เนื่องจาก{target_desc} ไม่มีกลุ่มฝนในตำแหน่งล็อกหรือสลายตัวไปแล้ว)"
+            if approaching_clouds:
+                far_clouds = [c for c in approaching_clouds if c.get("eta_min", 0) > max_time]
+                if locked_target_id:
+                    far_clouds = [c for c in far_clouds if c.get("label") == locked_target_id]
+                # Suppress the ☁️ note when the locked cloud was already fully described in the
+                # main text above. The note uses eta_min from approaching_clouds
+                # (find_approaching_clouds), while the main text uses eta_min from all_rain_clusters
+                # (get_all_rain_clusters). These systems cluster pixels differently, so their ETAs
+                # diverge — showing both creates a contradictory message.
+                if far_clouds and not locked_cloud_detail_shown:
+                    soonest = min(far_clouds, key=lambda c: c.get("eta_min", 999))
+                    eta_val = max(1.0, float(soonest["eta_min"]) - time_offset_min)
+                    eta_h = int(eta_val // 60)
+                    eta_m = int(eta_val % 60)
+                    time_str = f"~{eta_h} ชม. {eta_m} นาที" if eta_h > 0 else f"~{eta_m} นาที"
+                    if eta_h > 0 and eta_m == 0:
+                        time_str = f"~{eta_h} ชม."
+                    soonest_lbl = soonest.get("label")
+                    lbl_suffix = f"กลุ่มฝน [{soonest_lbl}] " if soonest_lbl else "กลุ่มฝน "
+                    text += f"\n☁️ หมายเหตุ: ตรวจพบ{lbl_suffix}({int(soonest.get('dbz_now', 0))} dBZ) กำลังเคลื่อนมา อาจจะถึงในอีก {time_str} (เวลาประมาณ {fmt_clock_time(float(soonest['eta_min']))})"
+            
+            return text + prox_msg + warning
+
+        start_idx = active_event["start_idx"]
+        stop_idx = active_event["stop_idx"]
+        max_dbz = active_event["max_dbz"]
+        max_idx = active_event["max_idx"]
+        
+        start_time = predictions[start_idx]["time_offset"]
+        start_dbz = predictions[start_idx]["dbz"]
+        lbl_start = dbz_label(start_dbz)
+        cluster_suffix = ""
+        if locked_target_id:
+            import re
+            if re.match(r'^([a-hA-H])([1-8])$', locked_target_id):
+                cluster_suffix = f" (ช่องตาราง [{locked_target_id.upper()}])"
+            elif re.match(r'^[a-zA-Z]{1,2}$', locked_target_id):
+                cluster_suffix = f" (กลุ่มฝน [{locked_target_id.upper()}])"
+            else:
+                cluster_suffix = " (พิกัดแมนนวล)"
+        else:
+            cluster_lbl = predictions[start_idx].get("cluster")
+            cluster_suffix = f" (กลุ่มฝน [{cluster_lbl}])" if cluster_lbl else ""
+        
+        adj_start = start_time - time_offset_min
+        
+        if adj_start <= 0:
+            msg_start = f"🌧️ ฝนกำลังตกอยู่ ({int(start_dbz)} dBZ — {lbl_start}){cluster_suffix}"
+            if stop_idx == -1:
+                max_time = predictions[-1]["time_offset"]
+                msg_duration = f"และคาดว่าจะตกต่อเนื่องถึงอย่างน้อย {fmt_eta(max_time)} (เวลา {fmt_clock_time(max_time)})"
+            else:
+                stop_time = predictions[stop_idx]["time_offset"]
+                msg_duration = f"และคาดว่าจะหยุดตกในอีก {fmt_eta(stop_time)} (เวลาประมาณ {fmt_clock_time(stop_time)})"
+        else:
+            msg_start = f"⏱ ฝนกำลังจะมาใน {fmt_eta(start_time)} (เวลาประมาณ {fmt_clock_time(start_time)}) ({int(start_dbz)} dBZ — {lbl_start}){cluster_suffix}"
+            if stop_idx == -1:
+                max_time = predictions[-1]["time_offset"]
+                duration = int(max_time - start_time)
+                msg_duration = f"และคาดว่าจะตกต่อเนื่องอย่างน้อย {duration} นาที (ถึงอย่างน้อย {fmt_clock_time(max_time)})"
+            else:
+                stop_time = predictions[stop_idx]["time_offset"]
+                duration = int(stop_time - start_time)
+                msg_duration = f"และคาดว่าจะตกต่อเนื่องประมาณ {duration} นาที (ถึงเวลาประมาณ {fmt_clock_time(stop_time)})"
+        
+        if max_idx > start_idx and max_dbz >= start_dbz + 15.0:
+            max_time = predictions[max_idx]["time_offset"]
+            lbl_max = dbz_label(max_dbz)
+            return (
+                f"{msg_start}\n"
+                f"⚡ และจะตกหนักขึ้นใน {fmt_eta(max_time)} ({int(max_dbz)} dBZ — {lbl_max})\n"
+                f"{msg_duration}{prox_msg}{warning}"
+            )
+        else:
+            return f"{msg_start}\n{msg_duration}{prox_msg}{warning}"
+
+
+
+    def draw_pin_on_frame(self, img: np.ndarray, x: int, y: int, scale: float = 1.0) -> None:
+        """
+        Draws the user location pin on the image:
+        - Transparent hit-radius target overlay with high contrast dark/light stroke
+        - No solid center dot (hollow center with crosshair / concentric rings) for clear radar viewing
+        - Sharp outer contrast for long-distance visibility
+        """
+        if x < 0 or x >= img.shape[1] or y < 0 or y >= img.shape[0]:
+            return
+
+        import math
+        from app.core.dev_settings import get_dev_settings, update_dev_settings
+
+        hit_r = int(get_dev_settings().hit_radius * scale)
+        
+        # 1. Semi-transparent orange fill inside the hit-radius
+        overlay = img.copy()
+        cv2.circle(overlay, (int(x), int(y)), hit_r, (0, 165, 255), -1)
+        cv2.addWeighted(overlay, 0.18, img, 0.82, 0, img)
+
+        # 2. High-contrast double stroke (Outer Dark Border + Bright Orange Dashes)
+        # Black outline under the dashed arc for strong contrast against bright rain
+        for angle_deg in range(0, 360, 15):
+            a1 = math.radians(angle_deg)
+            a2 = math.radians(angle_deg + 9)
+            p1 = (int(x + hit_r * math.cos(a1)), int(y + hit_r * math.sin(a1)))
+            p2 = (int(x + hit_r * math.cos(a2)), int(y + hit_r * math.sin(a2)))
+            cv2.line(img, p1, p2, (0, 0, 0), max(2, int(2.5 * scale)))
+            cv2.line(img, p1, p2, (0, 165, 255), max(1, int(1.2 * scale)))
+
+        # 3. Inner fine target ring (hollow center, no solid core)
+        inner_r = max(3, int(3.5 * scale))
+        cv2.circle(img, (int(x), int(y)), inner_r, (0, 0, 0), max(2, int(2.0 * scale)))
+        cv2.circle(img, (int(x), int(y)), inner_r, (255, 255, 255), max(1, int(1.0 * scale)))
+
+        # 4. Subtle Crosshair tick marks for precise pin targeting
+        tick_len = max(2, int(3.0 * scale))
+        # Top, Bottom, Left, Right ticks with dark outline
+        ticks = [
+            ((int(x), int(y - inner_r - tick_len)), (int(x), int(y - inner_r))),
+            ((int(x), int(y + inner_r)), (int(x), int(y + inner_r + tick_len))),
+            ((int(x - inner_r - tick_len), int(y)), (int(x - inner_r), int(y))),
+            ((int(x + inner_r), int(y)), (int(x + inner_r + tick_len), int(y)))
+        ]
+        for pt1, pt2 in ticks:
+            cv2.line(img, pt1, pt2, (0, 0, 0), max(2, int(2.0 * scale)))
+            cv2.line(img, pt1, pt2, (0, 165, 255), max(1, int(1.0 * scale)))
+
+
+    def _resolve_label_collisions(self, labels, obstacles, img_w, img_h, iterations=60):
+        import math
+        
+        def get_overlap(c1x, c1y, w1, h1, c2x, c2y, w2, h2):
+            dx = c1x - c2x
+            dy = c1y - c2y
+            ox = (w1 + w2) / 2 - abs(dx)
+            oy = (h1 + h2) / 2 - abs(dy)
+            if ox > 0 and oy > 0:
+                return ox, oy, dx, dy
+            return 0, 0, dx, dy
+
+        for _ in range(iterations):
+            for i, lbl in enumerate(labels):
+                fx, fy = 0.0, 0.0
+                
+                dx_ideal = lbl['ideal_cx'] - lbl['cx']
+                dy_ideal = lbl['ideal_cy'] - lbl['cy']
+                fx += dx_ideal * 0.1
+                fy += dy_ideal * 0.1
+                
+                margin = lbl.get('margin', 4)
+                for obs in obstacles:
+                    ox, oy, w, h = obs[0], obs[1], obs[2], obs[3]
+                    obs_cx = ox + w / 2
+                    obs_cy = oy + h / 2
+                    
+                    ovx, ovy, dx, dy = get_overlap(
+                        lbl['cx'], lbl['cy'], lbl['w'] + margin, lbl['h'] + margin,
+                        obs_cx, obs_cy, w, h
+                    )
+                    
+                    if ovx > 0 and ovy > 0:
+                        # Specific override for top-right timestamp box to push labels DOWN or LEFT
+                        if oy == 24:
+                            fy += ovy * 1.5
+                            fx -= ovx * 0.5
+                            continue
+                        dist = math.hypot(dx, dy)
+                        if dist == 0:
+                            dx, dy, dist = 1.0, 1.0, 1.414
+                        fx += (dx / dist) * (ovx + ovy) * 1.0
+                        fy += (dy / dist) * (ovx + ovy) * 1.0
+                
+                for j, other in enumerate(labels):
+                    if i == j: continue
+                    margin_other = other.get('margin', 4)
+                    ovx, ovy, dx, dy = get_overlap(
+                        lbl['cx'], lbl['cy'], lbl['w'] + margin, lbl['h'] + margin,
+                        other['cx'], other['cy'], other['w'] + margin_other, other['h'] + margin_other
+                    )
+                    if ovx > 0 and ovy > 0:
+                        dist = math.hypot(dx, dy)
+                        if dist == 0:
+                            dx, dy, dist = 1.0, 1.0, 1.414
+                        fx += (dx / dist) * (ovx + ovy) * 0.8
+                        fy += (dy / dist) * (ovx + ovy) * 0.8
+                
+                lbl['cx'] += fx
+                lbl['cy'] += fy
+                
+                lbl['cx'] = max(lbl['w']/2 + 5, min(img_w - lbl['w']/2 - 5, lbl['cx']))
+                lbl['cy'] = max(lbl['h']/2 + 5, min(img_h - lbl['h']/2 - 5, lbl['cy']))
+
+        # Post-process: If any labels still overlap, hide the lower priority one.
+        def get_priority(lbl_item):
+            p_val = 0
+            if "LOCKED" in lbl_item.get('text', ''):
+                p_val += 10000
+            
+            l_type = lbl_item.get('type', '')
+            if l_type == 'approaching':
+                p_val += 5000
+            elif l_type == 'trajectory':
+                p_val += 3000
+            elif l_type == 'ambient':
+                p_val += 1000
+            
+            try:
+                parts = lbl_item['text'].split(':')
+                if len(parts) > 1:
+                    dbz_val = int(parts[1].replace('?', '').strip())
+                    p_val += dbz_val
+            except Exception:
+                pass
+            return p_val
+
+        sorted_indices = sorted(range(len(labels)), key=lambda idx: get_priority(labels[idx]), reverse=True)
+        for idx_i in range(len(sorted_indices)):
+            i = sorted_indices[idx_i]
+            lbl_i = labels[i]
+            if lbl_i.get('hidden'):
+                continue
+            for idx_j in range(idx_i + 1, len(sorted_indices)):
+                j = sorted_indices[idx_j]
+                lbl_j = labels[j]
+                if lbl_j.get('hidden'):
+                    continue
+                margin = 4
+                ovx, ovy, _, _ = get_overlap(
+                    lbl_i['cx'], lbl_i['cy'], lbl_i['w'] + margin, lbl_i['h'] + margin,
+                    lbl_j['cx'], lbl_j['cy'], lbl_j['w'] + margin, lbl_j['h'] + margin
+                )
+                if ovx > 0 and ovy > 0:
+                    lbl_j['hidden'] = True
+
+
+    def generate_multiframe_analysis_image(self, 
+        frames: "List[np.ndarray]",
+        flow: "np.ndarray",
+        user_x: int,
+        user_y: int,
+        clouds: list,
+        processor: "TMDRadarProcessor",
+        time_utc: "Optional[datetime]" = None,
+        gap_minutes: float = 15.0,
+        frame_timestamps: "Optional[List[int]]" = None,
+    ) -> "Optional[bytes]":
+        """
+        Produces a horizontal strip of radar frame thumbnails with cloud-cluster
+        trajectory overlays and per-frame growth/decay measurements.
+
+        Layout (one column per frame, oldest → newest left to right):
+
+            ┌──────────┬──────────┬──────────┬──────────┐
+            │ t-45m    │ t-30m    │ t-15m    │ NOW      │  ← timestamp row
+            │[radar]   │[radar]   │[radar]   │[radar]   │  ← cropped thumbnail
+            │ ●──→     │  ●──→   │   ●──→  │    ●     │  ← cluster dot+arrow
+            │ 32 dBZ   │ 38 dBZ  │ 42 dBZ  │ 45 dBZ  │  ← dBZ per frame
+            │  +14%    │  +19%   │  +11%   │    --   │  ← growth/decay Δ
+            └──────────┴──────────┴──────────┴──────────┘
+
+        Parameters
+        ----------
+        frames      : RGB numpy frames (oldest first), at most 6 are used.
+        flow        : Dense optical flow computed from the last 2 frames.
+        user_x/y    : Pixel coordinate of the user's location in each frame.
+        clouds      : Cloud cluster list from find_approaching_clouds().
+        processor   : TMDRadarProcessor instance (for dbz/wind helpers).
+        time_utc    : Timestamp of the LATEST frame (for labelling).
+        gap_minutes : Average minutes between consecutive frames (default 15).
+        frame_timestamps: List of UTC epoch ints, one per frame (oldest first).
+                      When provided, each panel label uses the exact scan time
+                      instead of time_utc - steps×gap_minutes estimate.
+        """
+        try:
+            from PIL import Image as PILImage, ImageDraw as PILDraw, ImageFont as PILFont
+        except ImportError:
+            return None
+
+        if not frames or len(frames) < 2:
+            return None
+
+        # ── Layout constants ────────────────────────────────────────────────
+        MAX_FRAMES = 6
+        use_frames = frames[-MAX_FRAMES:]          # up to 6, oldest first
+        n = len(use_frames)
+
+        THUMB_W, THUMB_H = 200, 200                # thumbnail size (px)
+        TITLE_H  = 20                              # top title bar
+        HEADER_H = 28                              # timestamp row height (below title)
+        DBZ_ROW_H = 22                             # dBZ label row
+        GROWTH_ROW_H = 20                          # growth/decay row
+        PANEL_H = THUMB_H + TITLE_H + HEADER_H + DBZ_ROW_H + GROWTH_ROW_H
+        TOTAL_W = THUMB_W * n
+        TOTAL_H = PANEL_H
+
+        BG_COLOR   = (18, 18, 30, 255)            # near-black bg
+        GRID_COLOR = (50, 50, 70, 255)
+        TEXT_WHITE = (230, 230, 230, 255)
+        TEXT_DIM   = (140, 140, 160, 255)
+        NOW_BORDER = (74, 144, 226, 255)           # blue highlight for NOW panel
+
+        canvas = PILImage.new("RGBA", (TOTAL_W, TOTAL_H), BG_COLOR)
+        draw   = PILDraw.Draw(canvas, "RGBA")
+
+        # ── Font loading ─────────────────────────────────────────────────────
+        font_sm  = self._load_thai_font(11)
+        font_med = self._load_thai_font(13)
+
+        # ── Title bar (full-width, above all panels) ─────────────────────────
+        draw.rectangle([0, 0, TOTAL_W - 1, TITLE_H - 1], fill=(28, 28, 50, 255))
+        title = f"Radar Analysis  ({n} frames × {int(gap_minutes)}m)"
+        draw.text((8, 3), title, font=font_sm, fill=(180, 180, 220, 220))
+
+
+        # ── Helper: dBZ → colour (RGB) ───────────────────────────────────────
+        def _dbz_color(dbz: float):
+            if dbz >= 60: return (155, 89, 182)   # Purple
+            if dbz >= 50: return (231, 76,  60)   # Red
+            if dbz >= 40: return (243, 156, 18)   # Orange
+            if dbz >= 30: return (241, 196, 15)   # Yellow
+            if dbz >= 15: return (46,  204, 113)  # Green
+            return (100, 100, 100)                # Gray (trace)
+
+        # ── Identify top clouds to trace (max 2 strongest) ──────────────────
+        incoming = sorted(
+            [c for c in clouds if c.get("eta_min", 0) >= -30],
+            key=lambda c: c.get("predicted_dbz", 0),
+            reverse=True,
+        )[:2]
+
+        # ── Per-frame cluster positions & dBZ ───────────────────────────────
+        # For cloud c in the CURRENT frame (index = n-1),
+        # its position in frame[i] is back-traced by (n-1-i) steps.
+        # cluster_data[cloud_idx][frame_idx] = {"px": int, "py": int, "dbz": float}
+        cluster_data: list = []
+        for c in incoming:
+            vx, vy = c.get("vx", 0.0), c.get("vy", 0.0)
+            cx_now, cy_now = int(c["cx"]), int(c["cy"])
+            pts = []
+            for fi in range(n):
+                steps_back = (n - 1 - fi)          # 0 for latest frame
+                px = int(round(cx_now - vx * steps_back))
+                py = int(round(cy_now - vy * steps_back))
+                dbz = processor._get_max_dbz_in_radius(use_frames[fi], px, py, radius=12)
+                pts.append({"px": px, "py": py, "dbz": dbz})
+            cluster_data.append(pts)
+
+        # ── Build each panel ─────────────────────────────────────────────────
+        crop_r = THUMB_W // 2
+
+        for fi in range(n):
+            frame = use_frames[fi]
+            is_now = (fi == n - 1)
+            panel_x = fi * THUMB_W
+
+            # Frame timestamp label — prefer per-frame OCR timestamp over estimate
+            # frame_timestamps is aligned to ALL frames; use_frames is the last MAX_FRAMES
+            ts_offset = len(frames) - n  # oldest used frame index in original list
+            frame_ts_idx = ts_offset + fi  # index in original frame_timestamps list
+
+            if (frame_timestamps and
+                    frame_ts_idx < len(frame_timestamps) and
+                    frame_timestamps[frame_ts_idx]):
+                frame_dt = datetime.fromtimestamp(
+                    frame_timestamps[frame_ts_idx], tz=ZoneInfo("Asia/Bangkok")
+                )
+                hm = frame_dt.strftime("%H:%M")
+                ts_label = f"NOW  {hm}" if is_now else hm
+            elif time_utc is not None:
+                delta_back = (n - 1 - fi) * gap_minutes
+                frame_dt = time_utc - timedelta(minutes=delta_back)
+                hm = frame_dt.astimezone(ZoneInfo("Asia/Bangkok")).strftime("%H:%M")
+                ts_label = f"NOW  {hm}" if is_now else f"-{int(delta_back)}m  {hm}"
+            else:
+                ts_label = "NOW" if is_now else f"-{(n-1-fi)*int(gap_minutes)}m"
+
+            # Header background  (sits below TITLE_H)
+            hdr_color = (30, 60, 100, 255) if is_now else (28, 28, 45, 255)
+            draw.rectangle([panel_x, TITLE_H, panel_x + THUMB_W - 1, TITLE_H + HEADER_H - 1],
+                           fill=hdr_color)
+            draw.text((panel_x + 6, TITLE_H + 6), ts_label, font=font_med,
+                      fill=(255, 255, 255, 255) if is_now else TEXT_DIM)
+
+            # "NOW" border highlight
+            if is_now:
+                draw.rectangle(
+                    [panel_x, TITLE_H, panel_x + THUMB_W - 1, PANEL_H - 1],
+                    outline=NOW_BORDER, width=2,
+                )
+
+            # ── Crop thumbnail from frame ─────────────────────────────────
+            fh, fw = frame.shape[:2]
+            x1 = max(0, user_x - crop_r)
+            y1 = max(0, user_y - crop_r)
+            x2 = min(fw, user_x + crop_r)
+            y2 = min(fh, user_y + crop_r)
+            crop = frame[y1:y2, x1:x2].copy()
+
+            if crop.shape[0] == 0 or crop.shape[1] == 0:
+                continue
+
+            thumb_top = TITLE_H + HEADER_H
+
+            # Resize to fixed THUMB_W × THUMB_H
+            crop_resized = cv2.resize(crop, (THUMB_W, THUMB_H), interpolation=cv2.INTER_LANCZOS4)
+            thumb_pil = PILImage.fromarray(crop_resized, mode="RGB").convert("RGBA")
+            thumb_draw = PILDraw.Draw(thumb_pil, "RGBA")
+
+            # Scale factors for mapping original coords into thumbnail
+            sx = THUMB_W / max(1, x2 - x1)
+            sy = THUMB_H / max(1, y2 - y1)
+            # User pin position in thumbnail
+            ux_t = int((user_x - x1) * sx)
+            uy_t = int((user_y - y1) * sy)
+            # Clamp
+            ux_t = max(4, min(THUMB_W - 4, ux_t))
+            uy_t = max(4, min(THUMB_H - 4, uy_t))
+
+            # Draw user pin (white ring + blue cross)
+            thumb_draw.ellipse([ux_t - 6, uy_t - 6, ux_t + 6, uy_t + 6],
+                               outline=(255, 255, 255, 220), width=2)
+            thumb_draw.line([(ux_t - 5, uy_t), (ux_t + 5, uy_t)], fill=(0, 120, 255, 255), width=2)
+            thumb_draw.line([(ux_t, uy_t - 5), (ux_t, uy_t + 5)], fill=(0, 120, 255, 255), width=2)
+
+            # ── Draw each tracked cluster in this frame ───────────────────
+            for ci, pts in enumerate(cluster_data):
+                pt = pts[fi]
+                dbz = pt["dbz"]
+                if dbz == 0 and not any(pts[j]["dbz"] > 0 for j in range(fi + 1, n)):
+                    continue  # Nothing to show
+
+                # Cluster pixel in thumbnail coords
+                cpx = int((pt["px"] - x1) * sx)
+                cpy = int((pt["py"] - y1) * sy)
+                cpx = max(4, min(THUMB_W - 4, cpx))
+                cpy = max(4, min(THUMB_H - 4, cpy))
+
+                c_rgb = _dbz_color(dbz) if dbz > 0 else (80, 80, 80)
+                c_rgba = c_rgb + (200,)
+
+                # Cluster circle
+                r = 8
+                thumb_draw.ellipse([cpx - r, cpy - r, cpx + r, cpy + r],
+                                   outline=c_rgba, width=2)
+
+                # Arrow pointing toward user (or next position)
+                vx_ci = incoming[ci].get("vx", 0.0)
+                vy_ci = incoming[ci].get("vy", 0.0)
+                arrow_len = 18
+                mag = math.sqrt(vx_ci**2 + vy_ci**2) or 1
+                ax = int(cpx + (vx_ci / mag) * arrow_len)
+                ay = int(cpy + (vy_ci / mag) * arrow_len)
+                if abs(ax - cpx) > 2 or abs(ay - cpy) > 2:
+                    thumb_draw.line([(cpx, cpy), (ax, ay)],
+                                    fill=(255, 255, 0, 200), width=2)
+                    # Arrowhead (simple triangle)
+                    dx, dy = ax - cpx, ay - cpy
+                    perp_x, perp_y = -dy, dx
+                    pmag = math.sqrt(perp_x**2 + perp_y**2) or 1
+                    tip1 = (ax - int((dx - perp_x / pmag * 4) * 0.4),
+                            ay - int((dy - perp_y / pmag * 4) * 0.4))
+                    tip2 = (ax - int((dx + perp_x / pmag * 4) * 0.4),
+                            ay - int((dy + perp_y / pmag * 4) * 0.4))
+                    thumb_draw.polygon([ax, ay, tip1[0], tip1[1], tip2[0], tip2[1]],
+                                       fill=(255, 255, 0, 200))
+
+                # Trajectory line connecting cluster across frames
+                if fi > 0:
+                    prev_pt = pts[fi - 1]
+                    ppx = int((prev_pt["px"] - x1) * sx)
+                    ppy = int((prev_pt["py"] - y1) * sy)
+                    ppx = max(0, min(THUMB_W - 1, ppx))
+                    ppy = max(0, min(THUMB_H - 1, ppy))
+                    thumb_draw.line([(ppx, ppy), (cpx, cpy)],
+                                    fill=(255, 200, 0, 80), width=1)
+
+            # Paste thumbnail onto canvas
+            canvas.paste(thumb_pil, (panel_x, thumb_top))
+
+            # ── dBZ row ───────────────────────────────────────────────────
+            dbz_y = thumb_top + THUMB_H
+            draw.rectangle([panel_x, dbz_y, panel_x + THUMB_W - 1, dbz_y + DBZ_ROW_H - 1],
+                           fill=(22, 22, 38, 255))
+
+            # Report max dBZ across tracked clusters in this frame
+            max_dbz_frame = max(
+                (pts[fi]["dbz"] for pts in cluster_data), default=0.0
+            )
+            # For mock scenario: if no real radar dBZ, use cloud's dbz_now
+            if max_dbz_frame == 0 and incoming:
+                c0 = incoming[0]
+                steps_back = (n - 1 - fi)
+                gr = c0.get("growth_rate", 0.0)
+                max_dbz_frame = max(0.0, min(75.0, c0.get("dbz_now", 0.0) * ((1 + gr) ** (-steps_back))))
+
+            if max_dbz_frame > 0:
+                dbz_col = _dbz_color(max_dbz_frame) + (230,)
+                dbz_lbl = f"{int(max_dbz_frame)} dBZ"
+            else:
+                dbz_col = TEXT_DIM
+                dbz_lbl = "-- dBZ"
+            draw.text((panel_x + 6, dbz_y + 4), dbz_lbl, font=font_sm, fill=dbz_col)
+
+            # ── Growth/decay row ──────────────────────────────────────────
+            gd_y = dbz_y + DBZ_ROW_H
+            draw.rectangle([panel_x, gd_y, panel_x + THUMB_W - 1, gd_y + GROWTH_ROW_H - 1],
+                           fill=(16, 16, 30, 255))
+
+            if fi == 0:
+                gd_lbl = "  --"
+                gd_col = TEXT_DIM
+            elif max_dbz_frame == 0:
+                gd_lbl = "  --"
+                gd_col = TEXT_DIM
+            else:
+                prev_max = max(
+                    (pts[fi - 1]["dbz"] for pts in cluster_data), default=0.0
+                )
+                # Fallback for mock (no real radar dBZ in past frame)
+                if prev_max == 0 and incoming:
+                    c0 = incoming[0]
+                    gr = c0.get("growth_rate", 0.0)
+                    prev_max = max(0.0, min(75.0, c0.get("dbz_now", 0.0) * ((1 + gr) ** (-(n - fi)))))
+                if prev_max == 0:
+                    gd_lbl = " new"
+                    gd_col = (46, 204, 113, 230)
+                else:
+                    delta_pct = ((max_dbz_frame - prev_max) / prev_max) * 100.0
+                    sign = "+" if delta_pct >= 0 else ""
+                    gd_lbl = f"{sign}{delta_pct:.0f}%"
+                    gd_col = (46, 204, 113, 230) if delta_pct >= 0 else (231, 76, 60, 230)
+
+            draw.text((panel_x + 6, gd_y + 3), gd_lbl, font=font_sm, fill=gd_col)
+
+        # ── Draw separators on top ────────────────────────────────────────────
+        for fi in range(1, n):
+            panel_x = fi * THUMB_W
+            draw.line([(panel_x, TITLE_H), (panel_x, PANEL_H)], fill=(80, 80, 100, 220), width=2)
+
+        buf = io.BytesIO()
+        canvas.convert("RGB").save(buf, format="PNG")
+        return buf.getvalue()
+

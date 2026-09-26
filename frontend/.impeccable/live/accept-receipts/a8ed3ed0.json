@@ -1,0 +1,11 @@
+{
+  "id": "a8ed3ed0",
+  "operation": "discard",
+  "variantId": null,
+  "result": {
+    "handled": true,
+    "file": "src/components/GlassNavbar.tsx",
+    "carbonize": false
+  },
+  "completedAt": "2026-09-19T00:50:01.318Z"
+}

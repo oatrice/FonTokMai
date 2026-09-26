@@ -34,6 +34,17 @@ async def _update_balance_in_db(amount_total):
             else:
                 config = SystemConfig(key='total_balance_thb', value_json=json.dumps(new_bal))
                 db.add(config)
+
+            # Also update total_balance_updated_at timestamp
+            stmt_time = select(SystemConfig).where(SystemConfig.key == 'total_balance_updated_at')
+            res_time = await db.execute(stmt_time)
+            cfg_time = res_time.scalar_one_or_none()
+            import time
+            current_time_str = json.dumps(time.time())
+            if cfg_time:
+                cfg_time.value_json = current_time_str
+            else:
+                db.add(SystemConfig(key='total_balance_updated_at', value_json=current_time_str))
             
             await db.commit()
             logging.info(f"[STRIPE] Updated total_balance_thb: {curr} + {add_amt} = {new_bal}")

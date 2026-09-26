@@ -1,5 +1,5 @@
 import React from "react";
-import { Header } from "@/components/ui/Header";
+import { GlassNavbar } from "@/components/GlassNavbar";
 import { RunwayCounter } from "@/components/dashboard/RunwayCounter";
 import { BudgetJars } from "@/components/dashboard/BudgetJars";
 import { MilestonesSection } from "@/components/dashboard/MilestonesSection";
@@ -12,8 +12,8 @@ export const metadata = {
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
-      <Header />
+    <div className="min-h-screen flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
+      <GlassNavbar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 space-y-8">
         {/* Top Hero Heading */}
@@ -40,7 +40,7 @@ export default function DashboardPage() {
       </main>
 
       <footer className="border-t border-white/10 py-6 text-center text-xs text-zinc-600">
-        FonMaYang Transparent Open Financial Engine © 2026. Built with Next.js 14 & Dark Glassmorphism.
+        FonMaYang Transparent Open Financial Engine © 2026.
       </footer>
     </div>
   );

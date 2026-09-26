@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime, Text, Boolean
+from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime, Text, Boolean, Index
 from app.database import Base
 
 class UserLocation(Base):
@@ -78,11 +78,12 @@ class UserFeedback(Base):
     feedback_type = Column(String, nullable=False) # e.g. 'false_alarm'
     prediction_context = Column(String, nullable=True) # e.g. "max_rain: 1.5 mm/hr"
 
-class AlertNotificationLog(Base):
+class SystemUsageEvent(Base):
     """
-    Tracks rain alert dispatches and their actual accuracy verification (Issue #291, #292).
+    Unified Event Log: Tracks proactive rain alerts, on-demand queries, and mock tests.
+    Used for accuracy verification and multi-tier unit economics (Issue #298).
     """
-    __tablename__ = "alert_notification_log"
+    __tablename__ = "system_usage_events"
 
     id = Column(Integer, primary_key=True, index=True)
     chat_id = Column(String, index=True, nullable=False)
@@ -95,6 +96,14 @@ class AlertNotificationLog(Base):
     user_feedback_result = Column(String, nullable=True) # 'false_alarm' | 'true_alarm' | None
     auto_verify_result = Column(String, nullable=True)   # 'false_alarm' | 'true_alarm' | None
     auto_verified_at = Column(DateTime, nullable=True)
+    
+    event_category = Column(String, default="proactive_alert", index=True, nullable=False)
+    command_name = Column(String, nullable=True)
+    is_mock = Column(Boolean, default=False, index=True, nullable=False)
+
+    __table_args__ = (
+        Index("ix_usage_events_date_mock_cat", "alerted_at", "is_mock", "event_category"),
+    )
 
 
 class ExternalCostConfig(Base):
