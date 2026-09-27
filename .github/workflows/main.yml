@@ -515,7 +515,7 @@ jobs:
   # ------------------------------------------------------------------
   auto_git_tag:
     name: Auto Git Tag Release
-    needs: [unit_tests, test_frontend, test_security]
+    needs: [deploy_cloud_run]
     if: github.ref_name == 'main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
@@ -548,7 +548,7 @@ jobs:
         if: always()
         run: |
           if [ "${{ job.status }}" = "success" ]; then ICON="✅"; STATUS="Passed"; else ICON="❌"; STATUS="Failed"; fi
-          TEXT=$(printf "<b>${ICON} FonMaYang CI — ${STATUS}</b>\n\n<b>Job:</b> <code>auto_git_tag</code>\n<b>Branch:</b> <code>main</code>\n<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>")
+          TEXT=$(printf "<b>${ICON} FonMaYang CI — ${STATUS}</b>\n\n<b>Job:</b> <code>auto_git_tag</code>\n<b>Branch:</b> <code>${{ github.ref_name }}</code>\n<b>Pipeline:</b> <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">View Pipeline</a>")
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.CI_TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d parse_mode="HTML" \
