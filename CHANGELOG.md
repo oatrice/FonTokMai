@@ -5,7 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.77.1] - 2026-09-26
+
+### Added
+- **GitHub Actions & GitLab CI Pipeline Parity (Issue #341)**:
+  - Added `check_docs_updated` job to `.github/workflows/main.yml` running on pull requests targeting `staging` or `main` to enforce Luma documentation and version synchronization (`CHANGELOG.md`, `VERSION`, `backend/VERSION`, `frontend/package.json`).
+  - Added `test_security` job to `.github/workflows/main.yml` executing dedicated radar security, IDOR, SQL injection, and performance polygon test suites.
+  - Added manual `workflow_dispatch` trigger to `.github/workflows/main.yml` for on-demand test and deployment executions.
+  - Added `.github/workflows/cloudrun_config.yml` with `workflow_dispatch` input parameters (`environment: [development, staging, production]`) to mirror GitLab's `cloudrun_config_only` manual job.
+  - Added `auto_git_tag` job to `.github/workflows/main.yml` automatically creating release tag `v${VERSION}` upon code merging into `main`.
+  - Added Playwright HTML test report artifact uploading (`playwright-report`, 7-day retention) in `test_e2e`.
+
+### Changed
+- **Cloud Run Deployment Architecture in GitHub Actions**:
+  - Refactored `deploy_cloud_run` in `.github/workflows/main.yml` from hardcoded `gcloud run deploy` command to invoke canonical script `backend/deploy/deploy_cloudrun.sh`.
+  - Upgraded deployment architecture to use NeonDB PostgreSQL (`STORAGE_BACKEND=neondb`), eliminating legacy Firestore configuration drift.
+  - Synchronized all 14+ missing production environment variables across Stripe, LINE, GCP BigQuery Billing, Admin auth, salts, and environment flags.
+  - Enforced low-latency Cloud Run configuration (`min-instances: 1`, `--no-cpu-throttling`) and post-deploy Artifact Registry cleanup.
+  - Updated `test_frontend` test execution flags (`--watchAll=false --ci --passWithNoTests`) to prevent CI runner hangs.
+
+## [0.77.0] - 2026-09-26
+
+### Added
+- **GCP Billing Caching & PostgreSQL Historical Database Archiving (Issues #249, #339)**:
+  - Added `GcpBillingHistory` model (`gcp_billing_history` table) to permanently store finalized monthly GCP billing costs (Cloud Run, Cloud Storage, Egress, Other, Total, currency, and service details JSON).
+  - Implemented smart in-memory TTL caching with configurable TTL (`GCP_BILLING_CACHE_TTL`, default 15 minutes) and explicit manual cache invalidation (`force_refresh=True`).
+  - Added Read-Through Auto-Freeze: past month requests automatically query BigQuery once and persist finalized numbers to PostgreSQL once the invoice is finalized (after the 5th day of the month), avoiding all future BigQuery scan costs.
+  - Added `sync_gcp_billing_history_routine` to Cloud Scheduler tasks to proactively freeze the previous month's bill on the 6th of every month.
+  - Added explicit month format support (`YYYY-MM`) across `GCPBillingService` and metrics routers.
+  - Updated frontend `GCPCostBreakdown` component to trigger `force_refresh=true` upon clicking the manual refresh button.
+
+### Fixed
+- **Historical Monthly & Yearly Cost Calculation Bug**:
+  - Fixed `/api/v1/metrics/cost` and `/api/v1/metrics/cost/yearly` which previously hardcoded `period="current_month"`, distorting historical unit economics and yearly cost breakdowns. Endpoints now query the actual requested month using archived DB records.
+
 ## [0.76.0] - 2026-09-24
+
 
 ### Added
 - **Interactive Radar UI Mockups & SaaS Landing Page**: Added interactive radar mockups with timeline scrubbing, animation playback controls, location labels, and coordinate displays (`/radar-mockups`). Introduced new UI style variants (Styles D, E, and F) and a mobile UI flow version. Added a new landing page for the SaaS product. Added python and JS scripts for UI merge and code generation.

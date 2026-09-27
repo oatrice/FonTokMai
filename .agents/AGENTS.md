@@ -31,15 +31,18 @@ Whenever you introduce a new Telegram command handler or inline button callback 
 3. Provide immediate visual feedback to the user (e.g., `send_telegram_message_return_id` with "กำลังประมวลผล...") before enqueuing, and pass `message_id_to_edit` to the worker so it can edit that loading message when done.
 4. **DO NOT** use `background_tasks.add_task` directly for heavy operations unless as a strict fallback when `enqueue_task` fails.
 
-# 🌿 Git Branching Strategy Rule
-When creating a new branch or submitting a Merge Request (MR) in a multi-agent or team environment, you MUST follow this strict structure:
-1. **Fresh Base Branch (Mandatory Pull)**: Before creating ANY new branch for a feature (`feat/*`), bugfix (`fix/*`), or subtask (`subtask/*`), you **MUST** first switch to the base target branch (e.g., `main`), pull the latest changes (`git checkout main && git pull origin main`), and then create your new branch off of it.
-2. **Feature Branch Naming & Base**: Feature branches must be named `feat/<issue-id>-<short-desc>` (or `fix/<issue-id>-<short-desc>`).
-3. **No Direct Sub-task MR to `main`**: You are strictly **FORBIDDEN** from creating an MR/PR from `subtask/*` or individual task branches directly targeting `main`.
-4. **Sub-task Integration Workflow**: You **MUST** switch to the parent feature branch (`git checkout feat/<parent-feature>`), merge the sub-task branch (`git merge subtask/<task-id>`), and run automated tests (`pytest`) until all pass before integrating into the main integration branch.
-5. **Target Integration Branch**: All MRs MUST target the active integration branch (e.g., `develop` or epic branch). DO NOT target `main` directly unless explicitly instructed.
-6. **MR Command Strictness**: When using `glab mr create`, always specify `--target-branch <branch_name>` explicitly.
-7. **Skill Compliance**: Use `.agents/skills/subtask-branch-integrator/SKILL.md` for sub-task merges and `epic-branch-workflow` for integration branch rebasing prior to pushing.
+# 🌿 Git Branching Strategy & Direct Push Prohibition Rule
+1. **🚫 STRICT PROHIBITION ON DIRECT PUSHES TO PROTECTED BRANCHES**:
+   - You are **STRICTLY FORBIDDEN** from executing `git push` directly to `dev`, `staging`, or `main` under any circumstances (including docs, chore, fixes, or manual verification updates).
+   - Any updates or code changes **MUST ALWAYS** be committed to a dedicated feature, fix, chore, or task branch (`feat/*`, `fix/*`, `chore/*`, `subtask/*`).
+   - Updates to `dev`, `staging`, or `main` **CAN ONLY BE INTEGRATED VIA MERGE REQUESTS (MR/PR)** after code review and CI verification.
+2. **Fresh Base Branch (Mandatory Pull)**: Before creating ANY new branch for a feature (`feat/*`), bugfix (`fix/*`), or subtask (`subtask/*`), you **MUST** first switch to the base target branch (e.g., `dev` or `main`), pull the latest changes (`git checkout <target> && git pull origin <target>`), and then create your new branch off of it.
+3. **Feature Branch Naming & Base**: Feature branches must be named `feat/<issue-id>-<short-desc>`, `fix/<issue-id>-<short-desc>`, or `chore/<short-desc>`.
+4. **No Direct Sub-task MR to `main`**: You are strictly **FORBIDDEN** from creating an MR/PR from `subtask/*` or individual task branches directly targeting `main`.
+5. **Sub-task Integration Workflow**: You **MUST** switch to the parent feature branch (`git checkout feat/<parent-feature>`), merge the sub-task branch (`git merge subtask/<task-id>`), and run automated tests (`pytest`) until all pass before integrating into the main integration branch.
+6. **Target Integration Branch**: All work MRs MUST target the active integration branch (`staging` or `dev`). DO NOT target `main` directly unless preparing an authorized production release from staging.
+7. **MR Command Strictness**: When using `glab mr create`, always specify `--target-branch <branch_name>` explicitly.
+8. **Skill Compliance**: Use `.agents/skills/subtask-branch-integrator/SKILL.md` for sub-task merges and `epic-branch-workflow` for integration branch rebasing prior to pushing.
 
 # 📋 Manual Verification Artifact Rule
 Whenever an Agent Squad or Subagent finishes implementing a feature or completing an MR (Merge Request), you **MUST ALWAYS** generate a `manual_verification.md` file in the worktree/project directory following `.agents/skills/create-manual-verification/SKILL.md`.

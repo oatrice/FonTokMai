@@ -705,6 +705,45 @@ async def update_daily_burn_rate_routine():
         raise  # Re-raise so worker endpoint can surface the actual error
 
 
+async def sync_gcp_billing_history_routine():
+    """
+    Monthly GCP Billing History Archiver (Issue #249, #339):
+    Runs periodically (e.g. on the 6th of each month) to proactively freeze and archive
+    the previous month's finalized GCP billing data into the PostgreSQL database.
+    """
+    from app.services import gcp_billing
+
+    now = datetime.now(timezone.utc)
+
+    # Compute last month YYYY-MM
+    first_of_this_month = now.date().replace(day=1)
+    last_day_of_last_month = first_of_this_month - timedelta(days=1)
+    last_month_str = last_day_of_last_month.strftime("%Y-%m")
+
+    logger.info("[GCP_BILLING_ARCHIVE] Checking archive for last_month=%s (current_day=%d)", last_month_str, now.day)
+
+    billing_svc = gcp_billing.GCPBillingService()
+    # Force refresh ensures we fetch the finalized numbers from BigQuery and persist to DB
+    breakdown = await billing_svc.get_costs_with_archive(
+        period=last_month_str,
+        force_refresh=True,
+    )
+
+    logger.info(
+        "[GCP_BILLING_ARCHIVE] Synced historical billing for %s: total_thb=%.2f is_mock=%s",
+        last_month_str,
+        breakdown.total_thb,
+        breakdown.is_mock,
+    )
+    return {
+        "status": "success",
+        "month": last_month_str,
+        "total_thb": breakdown.total_thb,
+        "is_mock": breakdown.is_mock,
+    }
+
+
+
 async def auto_verify_false_alarms_routine():
     """
     Auto-Verification Worker (Issue #292):

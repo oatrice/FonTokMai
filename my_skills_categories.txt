@@ -164,6 +164,23 @@
 [product-manager](slashCommand;product-manager) 
 [track-management](slashCommand;track-management) 
 [antigravity-agent-manager](slashCommand;antigravity-agent-manager) 
+
+[design-md](slashCommand;design-md) 
+[design-ux](slashCommand;design-ux) 
+[design-spells](slashCommand;design-spells) 
+[design-system](slashCommand;design-system) 
+[design-spatial](slashCommand;design-spatial) 
+[design-thinking](slashCommand;design-thinking) 
+[design-philosophy](slashCommand;design-philosophy) 
+[design-orchestration](slashCommand;design-orchestration) 
+[antigravity-design-expert](slashCommand;antigravity-design-expert)
+
+[executing-plans](slashCommand;executing-plans) 
+[/plan](slashCommand;plan) 
+[content-marketer](slashCommand;content-marketer) 
+[marketing-plan](slashCommand;marketing-plan) 
+[marketing-ideas](slashCommand;marketing-ideas) 
+[marketing-psychology](slashCommand;marketing-psychology) 
 ---
 #Agent Skill for start new session
 
@@ -189,25 +206,26 @@
 ---
 
 #Implement
-/grill-with-docs #ลอง Grill ก่อน implement ด้วย
-/senior-architect
-/architect-review
-/c4-container
-/domain-driven-design
-/writing-plans
-/executing-plans
-/jobs-to-be-done-analyst
-/vibe-code-auditor
-/tdd-workflows-tdd-cycle
-/using-git-worktree เพื่อให้ sub-agent ทำงานแบบ parallel ได้
+[$grill-with-docs](/Users/oatrice/.agents/skills/grill-with-docs/SKILL.md) #ลอง Grill ก่อน implement ด้วย
+[wayfinder](slashCommand;wayfinder)
+[$senior-architect](/Users/oatrice/.agents/skills/senior-architect/SKILL.md)
+[$architect-review](/Users/oatrice/.agents/skills/architect-review/SKILL.md)
+[$architect-review](/Users/oatrice/.agents/skills/architect-review/SKILL.md)
+[$c4-container](/Users/oatrice/.agents/skills/c4-container/SKILL.md)
+[$domain-driven-design](/Users/oatrice/.agents/skills/domain-driven-design/SKILL.md)
+[$writing-plans](/Users/oatrice/.agents/skills/writing-plans/SKILL.md)
+[$executing-plans](/Users/oatrice/.agents/skills/executing-plans/SKILL.md)
+[$jobs-to-be-done-analyst](/Users/oatrice/.agents/skills/jobs-to-be-done-analyst/SKILL.md)
+[$vibe-code-auditor](/Users/oatrice/.agents/skills/vibe-code-auditor/SKILL.md)
+[$tdd-workflows-tdd-cycle](/Users/oatrice/.agents/skills/tdd-workflows-tdd-cycle/SKILL.md)
+[$using-git-worktrees](/Users/oatrice/.agents/skills/using-git-worktrees/SKILL.md) เพื่อให้ sub-agent ทำงานแบบ parallel ได้
 /doc-version-updater
-
-/agent-orchestration-improve-agent
-/agent-orchestration-multi-agent-optimize
-/agent-orchestrator
-/agent-squad
-/subagent-driven-development
-/subagent-orchestrator
+[$agent-orchestration-improve-agent](/Users/oatrice/.agents/skills/agent-orchestration-improve-agent/SKILL.md)
+[$agent-orchestration-multi-agent-optimize](/Users/oatrice/.agents/skills/agent-orchestration-multi-agent-optimize/SKILL.md)
+[$tdd-orchestrator](/Users/oatrice/.agents/skills/tdd-orchestrator/SKILL.md)
+[$agent-squad](/Users/oatrice/.agents/skills/agent-squad/SKILL.md)
+[$subagent-driven-development](/Users/oatrice/.agents/skills/subagent-driven-development/SKILL.md)
+[$subagent-orchestrator](/Users/oatrice/.agents/skills/subagent-orchestrator/SKILL.md) 
 
 *ใช้ model: gemini
 

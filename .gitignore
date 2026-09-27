@@ -79,3 +79,5 @@ docs/features/
 results/
 scratch/
 .neon
+.vercel
+.env*
